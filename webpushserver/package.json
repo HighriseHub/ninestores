@@ -1,0 +1,28 @@
+{
+  "name": "webpushserver",
+  "version": "1.0.0",
+  "description": "WebPush Server for HighriseHub",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pawandeshpande/dairyondemand.git"
+  },
+  "keywords": [
+    "WebPush",
+    "HighriseHub"
+  ],
+  "author": "Pawan Deshpande",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pawandeshpande/dairyondemand/issues"
+  },
+  "homepage": "https://github.com/pawandeshpande/dairyondemand#readme",
+  "dependencies": {
+    "atob": "^2.1.2",
+    "express": "^4.17.1",
+    "web-push": "^3.3.5"
+  }
+}
