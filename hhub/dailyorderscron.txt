@@ -1,0 +1,2 @@
+This is a cron job that runs every sunday night at 00:05 IST under user hunchentoot. 
+5 0 * * sun curl http://www.highrisehub.com/hhub/rundailyordersbatch
