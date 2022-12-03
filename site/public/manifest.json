@@ -1,0 +1,22 @@
+{
+  "short_name": "HighriseHub",
+  "name": "HighriseHub",
+  "icons": [
+    {
+      "src": "/img/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/img/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/index.html",
+  "background_color": "#cce6ff",
+  "display": "standalone",
+  "orientation": "portrait", 
+    "scope":"/hhub/",
+    "theme_color": "#ff9900"
+}

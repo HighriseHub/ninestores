@@ -1,0 +1,3 @@
+This is the cron job under user hunchentoot
+5 0 * * sun curl https://www.highrisehub.com/hhub/rundailyordersbatch  >> ~hunchentoot/hhublogs/cronjob.log 2>&1
+
