@@ -1,0 +1,8 @@
+#!/bin/bash
+
+detachtty --dribble-file /home/hunchentoot/log/hunchentoot.dribble \
+          --log-file /home/hunchentoot/log/hunchentoot.detachtty \
+          --pid-file /home/hunchentoot/run/hunchentoot.pid \
+          /home/hunchentoot/run/hunchentoot.sock \
+          /usr/local/bin/sbcl --load /home/hunchentoot/init.lisp --userinit /home/hunchentoot/.sbclrc
+

@@ -1,0 +1,84 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          hunchentoot
+# Required-Start:    $all
+# Required-Stop:     $
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Launch Hunchentoot
+# Description:       Launch Hunchentoot with start-stop-daemon
+### END INIT INFO
+NAME=hunchentoot
+
+. /lib/lsb/init-functions
+
+hunchentoot_start()
+{
+    echo -n "Starting Lisp Hunchentoot Server process..."
+    echo ""
+    su - hunchentoot -c ~hunchentoot/start-hunchentoot
+}
+
+hunchentoot_stop ()
+{
+    echo -n "Stopping Lisp Hunchentoot Server process..."
+    echo ""
+
+    # 6200 is the port to signal end of lisp process
+    (telnet 127.0.0.1 6200 &) > /dev/null
+    (sleep 7)
+}
+
+hunchentoot_usage()
+{
+    echo "Usage: /etc/init.d/hunchentoot {start|stop|restart|status}"
+    exit 1
+}
+
+hunchentoot_status()
+{
+    status_of_proc -p "/home/hunchentoot/run/$NAME.pid" "$NAME" $NAME
+}
+
+hunchentoot_clear()
+{
+        echo -n "Clearing all the files of previous run"
+        echo ""
+        sudo tail /home/hunchentoot/run/hunchentoot.pid
+        sudo kill -9
+        sudo rm /home/hunchentoot/log/hunchentoot.dribble
+        sudo rm /home/hunchentoot/run/*
+
+}
+
+
+case "$1" in
+    start)
+        hunchentoot_start
+        ;;
+
+    clear)
+        hunchentoot_clear
+        ;;
+
+
+    stop)
+        hunchentoot_stop
+        ;;
+
+    restart)
+        hunchentoot_stop
+        hunchentoot_start
+        ;;
+
+    status)
+        hunchentoot_status
+        ;;
+
+    *)
+        hunchentoot_usage
+        ;;
+
+esac
+
+exit 0

@@ -1,0 +1,203 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="E-Commerce Stores, E-Grocery stores, Farmers marketplace, community marketplace app.">
+    <meta name="author" content="HighriseHub">
+    <meta name="theme-color" content="#317EFB"/>
+    <title>HighriseHub - Welcome</title>
+
+    <!-- Startup configuration -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="css/landing-page.css" rel="stylesheet">
+
+    <!-- Custom Fonts -->
+    <link href="font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700,300italic,400italic,700italic" rel="stylesheet" type="text/css">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+</head>
+
+<body>
+
+  
+
+    <!-- Header -->
+    <a name="about"></a>
+    <div class="intro-header">
+        <div class="container">
+
+	  <div class="row">
+                <div class="col-lg-12">
+                    <div class="intro-message">
+                        <h1>HighriseHub</h1>
+                        <h3>E-Commerce Stores. Digital Marketplaces. Community Stores. </h3>
+  			<hr class="intro-divider">
+                        <ul class="list-inline intro-social-buttons">
+
+			  <li>
+			    <div id="demo_link">
+			      <a href="https://www.highrisehub.com/hhub/dascustloginasguest?tenant-id=2" class="btn btn-default btn-lg"> <span class="network-name">Demo Login</span></a>
+			    </div>
+			  </li>
+			 
+			  <li>
+                            <div id="community_store" >
+			      </div>
+			      <!--<a href="javascript:getCookie('community-url');" onclick="getCookie('community-url');"  class="btn btn-default btn-lg"> <span class="network-name">My Community Store</span></a>-->
+                          </li>
+			 			  
+			  <li>
+                               <a href="http://www.highrisehub.com/hhub/custsignup1.html" class="btn btn-default btn-lg"> <span class="network-name">Stores</span></a>
+                          </li>
+			  <hr>
+			  <li>
+                                <a href="http://www.highrisehub.com/hhub/customer-login.html" class="btn btn-default btn-lg"> <span class="network-name">Customer Login</span></a>
+                            </li>
+                            <li>
+                                <a href="http://www.highrisehub.com/hhub/vendor-login.html" class="btn btn-default btn-lg"> <span class="network-name">Vendor Login</span></a>
+                            </li>
+			  
+
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <!-- /.container -->
+	
+	<div id="like_button_container" ></div>
+	
+    </div>
+    <!-- /.intro-header -->
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12">
+                    <ul class="list-inline">
+                        <li>
+                            <a href="#">Home</a>
+                        </li>
+                        <li class="footer-menu-divider">&sdot;</li>
+                        <li>
+                            <a href="aboutuspage">About</a>
+                        </li>
+                        <li class="footer-menu-divider">&sdot;</li>
+                        <li>
+                            <a href="contactuspage">Contact Us</a>
+                        </li>
+			<li class="footer-menu-divider">&sdot;</li>
+			<li>
+                            <a href="tnc">Terms and Conditions</a>
+                        </li>
+			<li class="footer-menu-divider">&sdot;</li>
+			<li>
+                            <a href="privacy">Privacy Policy</a>
+                        </li>
+			<li class="footer-menu-divider">&sdot;</li>
+			<!-- <li>
+                            <a href="pricing">Pricing</a>
+                        </li>
+			<li class="footer-menu-divider">&sdot;</li> -->
+			<li>
+			  <a href="https://twitter.com/HighriseHub?ref_src=twsrc%5Etfw" class="twitter-follow-button" data-show-count="false">Follow @HighriseHub</a>
+			</li>
+			
+                    </ul>
+                    <p class="copyright text-muted small">Copyright &copy; HighriseHub 2022. All Rights Reserved</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- jQuery -->
+    <script src="js/jquery.js"></script>
+
+    <script>
+
+      function create_community_store_link()
+      {
+	  var community_store = getCookie('community-url');
+	  var community_name = getCookie('community-name');   
+	if(null != community_store &&  null != community_name )
+	  {
+	      var mydiv = document.getElementById("community_store");
+	      var aTag = document.createElement("a");            
+	      aTag.setAttribute('href',community_store);
+	      aTag.setAttribute('class',"btn btn-default btn-lg");
+	      aTag.innerText = community_name + " Store"; 
+	      mydiv.appendChild(aTag);
+	      var demo_link = document.getElementById("demo_link");
+	      demo_link.setAttribute('style', "display: none;"); 
+
+	  }
+	
+      }
+
+      function show_cookie_policy (){
+	  var cookiePolicyAccepted = getCookie('hhubcookiepolicyaccepted');
+	  if (null == cookiePolicyAccepted){
+	      // Show the Accept cookies dialog. Clicking on this button, the user will be redirected to the cookies page. 
+	      
+	  }
+	      
+      }
+      
+
+      
+      function getCookie(k)
+      {
+	  var v=document.cookie.match('(^|;) ?'+k+'=([^;]*)(;|$)');
+	  return v?v[2]:null
+      }
+
+      $(document).ready(function(){
+	  create_community_store_link();
+
+      }); 
+      </script>
+    
+    <!-- Bootstrap Core JavaScript -->
+    <script src="js/bootstrap.min.js"></script>
+<!-- Load React. -->
+  <!-- Note: when deploying, replace "development.js" with "production.min.js". -->
+  <script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Load our React component. -->
+  <script src="like_button.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/serviceworker.js')
+        .then((reg) => {
+          console.log('Service worker registered.', reg);
+        });
+  });
+}
+</script>
+ <script src='/js/bootstrap.min.js'></script>
+      <script src='/js/dod.js'></script>
+<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</body>
+
+</html>
