@@ -1,0 +1,9 @@
+*.fasl
+*.log
+*.*~
+*#*#
+*.#*.lisp
+hhub/resources/*.*
+hhub/core/extkeys.lisp
+
+
