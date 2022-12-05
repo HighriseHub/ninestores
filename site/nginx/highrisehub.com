@@ -2,13 +2,19 @@
 # this can later be extend for load-balancing
 # if we had more instances of hunchentoot. In this
 # case i only have one instance running.
-upstream hunchentoot {
-    server 127.0.0.1:4244;
+	      upstream hunchentoot {
+	      hash $remote_addr;
+	      server 127.0.0.1:4244;
+	      server 127.0.0.1:3333;
 	      }
 
 	      upstream webpushserver {
 	      server 127.0.0.1:4345;
 	      }
+
+	      upstream awssnssmsserver {
+	      server 127.0.0.1:4300;
+	      } 
 
 server {
     listen 443 ssl;
@@ -77,6 +83,11 @@ server {
 	      location /push/ {
 	      # proxy to webpush node server
 	      proxy_pass http://webpushserver;
+	      }
+
+	      location /sms/ {
+	      # proxy to AWS SNS SMS Server
+	      proxy_pass http://awssnssmsserver; 
 	      }
 	      
  
