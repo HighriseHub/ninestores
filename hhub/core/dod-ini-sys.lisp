@@ -21,10 +21,10 @@
 (defvar *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* NIL)
 (defvar *HHUB-DEMO-TENANT-ID* 2)
 
-(defvar *HHUB-COMPILE-FILES-LOCATION* "~/dairyondemand/bin/hhubcompilelog.txt") 
+(defvar *HHUB-COMPILE-FILES-LOCATION* "~/hhubplatform/bin/hhubcompilelog.txt") 
 (defvar *HHUB-EMAIL-CSS-FILE* "/data/www/highrisehub.com/public/css")
 (defvar *HHUB-EMAIL-CSS-CONTENTS* NIL)
-(defvar *HHUB-EMAIL-TEMPLATES-FOLDER* "~/dairyondemand/hhub/email/templates")
+(defvar *HHUB-EMAIL-TEMPLATES-FOLDER* "~/hhubplatform/hhub/email/templates")
 (defvar *HHUB-CUST-REG-TEMPLATE-FILE* "cust-reg.html")
 (defvar *HHUB-CUST-PASSWORD-RESET-FILE* "cust-pass-reset.html")
 (defvar *HHUB-CUST-TEMP-PASSWORD-FILE* "temppass.html")
@@ -33,7 +33,7 @@
 (defvar *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE* "guestcustorder.html")
 (defvar *HHUB-TERMSANDCONDITIONS-FILE* "tnc.html")
 (defvar *HHUB-PRIVACY-FILE* "privacy.html")
-(defvar *HHUB-STATIC-FILES* "dairyondemand/site/public")
+(defvar *HHUB-STATIC-FILES* "hhubplatform/site/public")
 
 (defvar *dod-db-instance*)
 (defvar *sitepass* (encrypt "P@ssword1" "highrisehub.com"))
@@ -126,22 +126,22 @@ Database type: Supported type is ':odbc'"
 (defvar *dod-database-caching* nil)
 
 
-(defun init-dairyondemand ()
+(defun init-hhubplatform ()
   (cond  ((null *dod-debug-mode*) (setf *dod-database-caching* T))
 	 (*dod-debug-mode* (setf *dod-database-caching* nil))
 	 (T (setf *dod-database-caching* NIL))))
 
 
 (defun start-das(&optional (withssl nil) (debug-mode T)  )
-:documentation "Start dairyondemand server with or without ssl. If withssl is T, then start 
+:documentation "Start hhubplatform server with or without ssl. If withssl is T, then start 
 the hunchentoot server with ssl settings"
  
 (setf *dod-debug-mode* debug-mode)
-(setf *http-server* (make-instance 'hunchentoot:easy-acceptor :port 4244 :document-root #p"~/dairyondemand/"))
+(setf *http-server* (make-instance 'hunchentoot:easy-acceptor :port 4244 :document-root #p"~/hhubplatform/"))
 (setf (hunchentoot:acceptor-access-log-destination *http-server*)   #p"~/hhublogs/highrisehub-access.log")
 (setf (hunchentoot:acceptor-message-log-destination *http-server*) #p"~/hhublogs/highrisehub-messages.log")
 
-(progn (init-dairyondemand)
+(progn (init-hhubplatform)
        (if withssl  (init-httpserver-withssl))
        (if withssl  (hunchentoot:start *ssl-http-server*) (hunchentoot:start *http-server*) )
        (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql)
@@ -163,9 +163,9 @@ the hunchentoot server with ssl settings"
 
 (progn 
   (setf *ssl-http-server* (make-instance 'hunchentoot:easy-ssl-acceptor :port 9443 
-							  :document-root #p"~/dairyondemand/hhub/"
-							  :ssl-privatekey-file #p"~/dairyondemand/privatekey.key"
-							  :ssl-certificate-file #p"~/dairyondemand/certificate.crt" ))
+							  :document-root #p"~/hhubplatform/hhub/"
+							  :ssl-privatekey-file #p"~/hhubplatform/privatekey.key"
+							  :ssl-certificate-file #p"~/hhubplatform/certificate.crt" ))
   (setf (hunchentoot:acceptor-access-log-destination *ssl-http-server* )  #p"~/hhublogs/highrisehub-ssl-access.log")
        (setf  (hunchentoot:acceptor-message-log-destination *ssl-http-server*)   #p"~/hhublogs/highrisehub-ssl-messages.log")))
 

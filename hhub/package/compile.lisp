@@ -112,7 +112,7 @@
 		     ;; "core/unit-tests.lisp"
 		     ))
 	  
-	  (path "/home/ubuntu/dairyondemand/hhub/"))
+	  (path "/home/ubuntu/hhubplatform/hhub/"))
       
       (mapcar (lambda (file)
 		(format t "_____________________________________________________________~C~C" #\return #\linefeed)
