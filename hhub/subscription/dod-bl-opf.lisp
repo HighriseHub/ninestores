@@ -18,13 +18,13 @@
 		[=[:row-id] id]]    :caching *dod-database-caching* :flatp t ))))
 
 (defun get-opreflist-for-customer (customer &optional (pdbcaching nil))
-(let ((tenant-id (slot-value customer 'tenant-id))
+  (let ((tenant-id (slot-value customer 'tenant-id))
 	(cust-id (slot-value customer 'row-id)))
-(clsql:select 'dod-ord-pref  :where
-		[and [= [:deleted-state] "N"]
-		[= [:tenant-id] tenant-id]
-		[=[:cust-id] cust-id ]]
-		:caching pdbcaching :flatp t )))
+    (clsql:select 'dod-ord-pref  :where
+		  [and [= [:deleted-state] "N"]
+		  [= [:tenant-id] tenant-id]
+		  [=[:cust-id] cust-id ]]
+				 :caching pdbcaching :flatp t )))
     
 
 
