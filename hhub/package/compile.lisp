@@ -25,7 +25,7 @@
 		     "core/hhublazy.lisp"
 		     "core/memoize.lisp"
 		     "core/dtrace.lisp"
-		     "core/secretkeys.lisp"
+		     "core/extkeys.lisp"
 		     ;;"core/xref.lisp"
 		     
 		     ;; Core UI Layer
@@ -117,10 +117,7 @@
       (mapcar (lambda (file)
 		(format t "_____________________________________________________________~C~C" #\return #\linefeed)
 		(format t "~A~C~C" (concatenate 'string path file) #\return #\linefeed)
-		(format t "~A" (time (load (compile-file 
-					       (concatenate 'string path file)
-		  :verbose *compile-verbose*
-		  :print *compile-print*))))
+		(format t "~A" (time (load (concatenate 'string path file) :verbose *load-verbose*  :print T)))
 		(format t "_____________________________________________________________~C~C" #\return #\linefeed))
 		filelist))))
   

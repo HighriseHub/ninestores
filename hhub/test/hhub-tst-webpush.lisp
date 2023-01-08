@@ -16,7 +16,7 @@
 					  :browser-name browser-name 
 					  :perm-granted "Y"
 					  :expired "N"))
-	 (webpushDBservice (make-instance 'WebPushNotifyDBService)))
+	 (webpushdbservice (make-instance 'WebPushNotifyDBService)))
     
     ;; Initialize the DB Service
     (init webpushdbservice webpushnotifyobj)
@@ -29,9 +29,7 @@
 			       :if-exists :supersede
 			       :if-does-not-exist :create)
 	 (format stream "~A" exceptionstr))
-       (setexception webpushdbservice c)
-       ;; return the exception.
-       c))))
+         c))))
 
 (defun test-vendor-push-notification-fetch ()
   (let* ((vendor (select-vendor-by-id 1))
