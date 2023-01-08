@@ -547,9 +547,12 @@
 
 (defun dod-login (&key company-name username password)
   (let* ((login-user (car (clsql:select 'dod-users :where [and
-				       [= [slot-value 'dod-users 'username] username]
-				       [= [slot-value 'dod-users 'password] password]]
-				      :caching nil :flatp t)))
+					[= [slot-value 'dod-users 'username] username]
+					[= [:deleted-state] "N"]]
+					:caching nil :flatp t)))
+	 (pwd (if login-user (slot-value login-user 'password)))
+	 (salt (if login-user (slot-value login-user 'salt)))
+	 (password-verified (if login-user  (check-password password salt pwd)))
 	 (login-userid (if login-user (slot-value login-user 'row-id)))
 	 (login-attribute-cart '())
 	 (login-tenant-id (if login-user (slot-value  (users-company login-user) 'row-id)))
@@ -557,6 +560,7 @@
 	 (login-company-name (if login-user (slot-value (users-company login-user) 'name))))
 
     (when (and   
+	   password-verified 
 	   (equal  login-company-name company-name)
 	   login-user 
 	   (null (hunchentoot:session-value :login-username))) ;; User should not be logged-in in the first place.
