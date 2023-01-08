@@ -40,3 +40,12 @@
 				    :role-id role-id 
 				    :tenant-id tenant-id)))
 
+
+(defun create-role (name description)
+ (clsql:update-records-from-instance (make-instance 'dod-roles
+				    :name name 
+				    :description description
+				    :active-flg "Y"
+				    :deleted-state "N")))
+
+  

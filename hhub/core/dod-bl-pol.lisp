@@ -77,12 +77,13 @@
 
 
 (defun create-auth-attr-lookup (name description attr-func  attr-type company-instance)
-  (let ((tenant-id (slot-value company-instance 'row-id))) 
+  (let ((tenant-id (slot-value company-instance 'row-id))
+	(filename "~/hhubplatform/hhub/core/dod-ui-attr.lisp"))
     (persist-auth-attr-lookup name description attr-func attr-type tenant-id)
-     (with-open-file (stream "~/hhubplatform/hhub/dod-ui-attr.lisp" :if-exists :append :direction :output)
-      (print (format stream "(defun ~A ())" attr-func))
-       (terpri stream))
-        (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))))
+     (with-open-file (stream filename :if-exists :append :direction :output)
+       (unless (symbolp attr-func) (print (format stream "(defun ~A ())" attr-func)))
+       (terpri stream))))
+
 
 
 
@@ -179,10 +180,16 @@
 
 (defun create-auth-policy (name description policy-func  company-instance)
   (let ((tenant-id (slot-value company-instance 'row-id))) 
-    (persist-auth-policy name description policy-func tenant-id)
-        (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))))
+    (persist-auth-policy name description policy-func tenant-id)))
 
 
+(defun seed-auth-policies (policylist)
+   (let ((company  (select-company-by-id 1)))
+    (mapcar (lambda (policy)
+	      (let ((name (nth 0 policy))
+		    (description (nth 1 policy))
+		    (policy-func (nth 2 policy)))
+		(create-auth-policy name description policy-func company))) policylist))) 
 
 
 ;;;;;;;;;;;;;;;;;;;;; business logic for dod-auth-policy-attr ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
