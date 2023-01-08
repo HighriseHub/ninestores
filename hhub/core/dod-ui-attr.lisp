@@ -93,5 +93,3 @@
 (defun com-hhub-attribute-company-subscription-plan (company)
   (slot-value company 'subscription-plan))
 
-
-    

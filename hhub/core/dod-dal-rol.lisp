@@ -34,18 +34,8 @@
     :DB-INFO (:JOIN-CLASS dod-users
                           :HOME-KEY updated-by
                           :FOREIGN-KEY row-id
-                          :SET NIL))
-  
-   (tenant-id
-    :type integer
-    :initarg :tenant-id)
-   (COMPANY
-    :ACCESSOR roles-company
-    :DB-KIND :JOIN
-    :DB-INFO (:JOIN-CLASS dod-company
-	                  :HOME-KEY tenant-id
-                          :FOREIGN-KEY row-id
                           :SET NIL)))
+  
 
    (:base-table dod_roles))
 

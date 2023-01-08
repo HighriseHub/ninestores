@@ -7,13 +7,13 @@
 (defvar *crm-database-type* :odbc
   "Possible values are :postgresql :postgresql-socket, :mysql,
 :oracle, :odbc, :aodbc or :sqlite")
-(defvar *crm-database-name* "DAIRYONDEMAND"
+(defvar *crm-database-name* "hhubdb"
   "The name of the database we will work in.")
-(defvar *crm-database-user* "TESTCRMCORE"
+(defvar *crm-database-user* "hhubuser"
   "The name of the database user we will work as.")
 (defvar *crm-database-server* "localhost"
   "The name of the database server if required")
-(defvar *crm-database-password* "TESTCRMCORE"
+(defvar *crm-database-password* "Welcome$123"
   "The password if required")
 (defvar *dod-dbconn-spec* (list *crm-database-server* *crm-database-name* *crm-database-user* *crm-database-password*))
 
@@ -166,7 +166,7 @@ the hunchentoot server with ssl settings"
 							  :document-root #p"~/hhubplatform/hhub/"
 							  :ssl-privatekey-file #p"~/hhubplatform/privatekey.key"
 							  :ssl-certificate-file #p"~/hhubplatform/certificate.crt" ))
-  (setf (hunchentoot:acceptor-access-log-destination *ssl-http-server* )  #p"~/hhublogs/highrisehub-ssl-access.log")
+(setf (hunchentoot:acceptor-access-log-destination *ssl-http-server* )  #p"~/hhublogs/highrisehub-ssl-access.log")
        (setf  (hunchentoot:acceptor-message-log-destination *ssl-http-server*)   #p"~/hhublogs/highrisehub-ssl-messages.log")))
 
 

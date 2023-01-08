@@ -22,18 +22,19 @@
 		:caching *dod-database-caching* :flatp t )))
 
   
-(defun persist-bus-object(name tenant-id )
+(defun persist-bus-object(name hhub-type tenant-id )
  (clsql:update-records-from-instance (make-instance 'dod-bus-object
 						    :name name
 						    :active-flg "Y" 
 						    :tenant-id tenant-id
+						    :hhub-type hhub-type
 						    :deleted-state "N")))
  
 
 
-(defun create-bus-object (name company-instance)
+(defun create-bus-object (name hhub-type company-instance)
   (let ((tenant-id (slot-value company-instance 'row-id))) 
-	      (persist-bus-object (string-upcase name) tenant-id)))
+	      (persist-bus-object (string-upcase name) hhub-type tenant-id)))
 
 
 
@@ -57,18 +58,19 @@
 		:caching *dod-database-caching* :flatp t )))
 
   
-(defun persist-abac-subject(name tenant-id )
+(defun persist-abac-subject(name hhub-type tenant-id )
  (clsql:update-records-from-instance (make-instance 'dod-abac-subject
 						    :name name
 						    :active-flg "Y" 
 						    :tenant-id tenant-id
-						    :deleted-state "N")))
+						    :deleted-state "N"
+						    :hhub-type hhub-type)))
  
 
 
-(defun create-abac-subject (name company-instance)
-  (let ((tenant-id (slot-value company-instance 'row-id))) 
-	      (persist-abac-subject (string-upcase name) tenant-id)))
+(defun create-abac-subject (name hhub-type)
+  (let ((tenant-id (slot-value (select-company-by-id 1) 'row-id))) 
+	      (persist-abac-subject (string-upcase name) hhub-type tenant-id)))
 
 
 
@@ -154,8 +156,8 @@
 
 (defun create-bus-transaction (name  uri trans-type trans-func company-instance)
   (let ((tenant-id (slot-value company-instance 'row-id)))
-    (persist-bus-transaction name  uri trans-type trans-func  tenant-id)
-        (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))))
+    (persist-bus-transaction name  uri trans-type trans-func  tenant-id)))
+
 
 
 ; POLICY ENFORCEMENT POINT 
