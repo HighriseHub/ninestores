@@ -87,7 +87,7 @@
     :type (string 1)
     :void-value "N"
     :initarg :deleted-state))
-  (:base-table dod_ord_pref))
+  (:base-table dod_order_subscription))
 
 
 
