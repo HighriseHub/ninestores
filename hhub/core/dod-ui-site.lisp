@@ -28,7 +28,7 @@
 		    (:hr))
 	      (:div :class "row"
 		  (:div :class "col-lg-12" 
-			 (:p :class "copyright text-muted small" "Copyright &copy; HighriseHub 2022. All Rights Reserved")))))))
+			 (:p :class "copyright text-muted small" "Copyright &copy; HighriseHub 2023. All Rights Reserved")))))))
       ;;  (modal-dialog (format nil "hhubcookiepolicy-modal") "Accept Cookies" (modal.hhub-cookie-policy))))
 
 
@@ -82,7 +82,7 @@
     (:div :class "row"
 	    (:div :class "col-sm-12"
 		  (:p "HighriseHub is a e-commerce platform offered by Nine Technologies. A platform where you can create your own E-Commerce Stores, Multi Vendor Digital Marketplaces and Community Stores. From Product Catalogs, Basic Inventory Management, Order and Subscription Management, Digital Payments you can take your business to new heights with support from our enthusiastic team.")
-		  (:p (:strong "Community Edition:") " In this journey, we do not want the Community based stores to feel left behind. If you live in an apartment/community and need a store for buying/selling Products and Services, we provide a platform for you FREE! Not only that, we provide this platform FREE to Indian Farmers Community.")
+		  (:p (:strong "Community Edition:") " In this journey, we do not want the Community based stores to feel left behind. If you live in an apartment/community and need a store for buying/selling Products and Services, we provide a platform for you FREE! Not only that, we provide this platform FREE to Indian Farmer Community.")
 		  (:p "We are a team of enthusiastic professionals keen to make your Digital Journey smooth and enable you to provide that Customer Delight! HighriseHub is a SAAS application which provides you E-Commerce Services, Web Hosting of your Site, Redirection from Your Site to www.highrisehub.com, where your customers can experience a great online shopping/services.")
 		  (:div  :class "hhub-footer" (hhub-html-page-footer))))))
   
