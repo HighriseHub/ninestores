@@ -67,6 +67,16 @@ corresponding universal time."
         (year (parse-integer datestr :start 6 :end 10)))
     (encode-universal-time 0 0 0 date month year)))
 
+(defun parse-date-string-yyyymmdd (datestr)
+  "Read a date string of the form \"YYYY-MM-DD\" and return the 
+corresponding universal time."
+  (let ((year (parse-integer datestr :start 0 :end 4))
+        (month (parse-integer datestr :start 5 :end 7))
+        (date (parse-integer datestr :start 8 :end 10)))
+    (encode-universal-time 0 0 0 date month year)))
+
+
+
 (defun parse-time-string (timestr)
   :documentation "Read a time string of the form \"HH:MM:SS\" and return the corresponding universal time"
  (let ((hour (parse-integer timestr :start 0 :end 2))
@@ -90,12 +100,29 @@ corresponding universal time."
         (year (parse-integer datestr :start 6 :end 10)))
     (clsql-sys:make-date :year year :month month :day date :hour 0 :minute 0 :second 0 ))))
 
+
+(defun get-dateobj-from-string-yyyymmdd (datestr)
+    :documentation  "Read a date string of the form \"YYYY-MM-DD\" and return the corresponding date object."
+(if (not (equal datestr ""))
+    (let ((year (parse-integer datestr :start 0 :end 4))
+          (month (parse-integer datestr :start 5 :end 7))
+          (date (parse-integer datestr :start 8 :end 10)))
+      (clsql-sys:make-date :year year :month month :day date :hour 0 :minute 0 :second 0 ))))
+
+
 (defun current-date-string ()
   "Returns current date as a string in YYYY/MM/DD format"
   (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
                        (get-decoded-time)
     (declare (ignore sec min hr dow dst-p tz))
       (format nil "~4,'0d/~2,'0d/~2,'0d" yr mon day)))
+
+(defun current-date-string-yyyymmdd ()
+  "Returns current date as a string in YYYY-MM-DD format"
+  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+                       (get-decoded-time)
+    (declare (ignore sec min hr dow dst-p tz))
+      (format nil "~4,'0d-~2,'0d-~2,'0d" yr mon day)))
 
 (defun current-date-string-ddmmyyyy ()
   "Returns current date as a string in DD-MM-YYYY format"
@@ -105,13 +132,17 @@ corresponding universal time."
     (format nil "~2,'0d-~2,'0d-~4,'0d" day mon yr )))
 
 
-
-
-
 (defun get-date-string (dateobj)
   "Returns current date as a string in DD/MM/YYYY format."
   (multiple-value-bind (yr mon day)
-                       (clsql-sys:date-ymd dateobj)  (format nil "~2,'0d/~2,'0d/~4,'0d" day mon yr)))
+      (clsql-sys:date-ymd dateobj)  (format nil "~2,'0d/~2,'0d/~4,'0d" day mon yr)))
+
+
+(defun get-datestr-from-obj-yyyymmdd (dateobj)
+  "Returns current date as a string in YYYY-MM-DD format."
+  (multiple-value-bind (yr mon day)
+      (clsql-sys:date-ymd dateobj)   (format nil "~4,'0d-~2,'0d-~2,'0d" yr mon day))) 
+
 
 (defun mysql-now ()
   (multiple-value-bind
