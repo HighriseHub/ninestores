@@ -229,16 +229,6 @@
 			  (:h5 (cl-who:str (format nil "Wallet Balance: ~A" (+ amount (slot-value wallet 'balance))))))))))))))
 	
 
- 
-
-
-(defun update-cust-wallet-balance (amount wallet-id)
-  (let* ((wallet (get-cust-wallet-by-id wallet-id (get-login-customer-company)))
-	 (current-balance (slot-value wallet 'balance))
-	 (latest-balance (+ current-balance amount)))
-    (set-wallet-balance latest-balance wallet)))
-
-
 (defun dod-controller-customer-payment-failure-page ()
   (if (is-dod-cust-session-valid?)
       (with-standard-customer-page (:title "Payment Failure! " ) 
