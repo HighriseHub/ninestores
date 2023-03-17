@@ -2,11 +2,14 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
-(defun ui-list-prod-catg-dropdown (name catglist)
+(defun ui-list-prod-catg-dropdown (catglist selectedvalue)
   (cl-who:with-html-output (*standard-output* nil)
-    (cl-who:htm (:select :class "form-control"  :name name  
+    (cl-who:htm (:select :class "form-control" :name "prodcatg" 
       (loop for catg in catglist
-	 do   (cl-who:htm  (:option :value  (slot-value catg 'row-id) (cl-who:str (slot-value catg 'catg-name)))))))))
+	    do (if (equal catg selectedvalue)
+		   (cl-who:htm  (:option :selected "true"  :value  (slot-value catg 'row-id) (cl-who:str (slot-value catg 'catg-name))))
+		   ;;else
+		   (cl-who:htm  (:option :value  (slot-value catg 'row-id) (cl-who:str (slot-value catg 'catg-name))))))))))
 
 (defun ui-list-yes-no-dropdown (value) 
 (cl-who:with-html-output (*standard-output* nil) 
@@ -18,10 +21,12 @@
 	   
 (defun ui-list-prod-catg (catglist)
   (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
-    (:div :class "row-fluid"	  (mapcar (lambda (prdcatg)
-					    (cl-who:htm (:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-4" 
-						       (:div :class "prdcatg-box"   (prdcatg-card prdcatg )))))
-					  catglist))))
+    (with-html-div-row
+      (mapcar (lambda (prdcatg)
+		(cl-who:htm
+		 (:div :class "col-xs-6 col-sm-6 col-md-3 col-lg-2"
+		       (:div :class "order-box" (prdcatg-card prdcatg )))))
+	      catglist))))
 
 
   
@@ -29,10 +34,11 @@
 (defun ui-list-customer-products (data lstshopcart)
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
     (:div :id "searchresult"  :class "container" 
-	  (:div :class "row-fluid"
+	  (with-html-div-row-fluid 
 		(mapcar (lambda (product)
-			  (cl-who:htm (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4" 
-					    (:div :class "product-box"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart))))))
+			  (cl-who:htm
+			   (with-html-div-col
+			     (:div :class "product-box"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart))))))
 			data)))))
 
 
@@ -110,7 +116,7 @@
 	  (row-id (slot-value prdcatg-instance 'row-id)))
 	(cl-who:with-html-output (*standard-output* nil)
 		(with-html-div-row
-		(:div :class "col-sm-12" (:a :href (format nil "dodproducts?id=~A" row-id) (cl-who:str catg-name)))))))
+		(:div :class "col-sm-12" (:a :href (format nil "dodproductsbycatg?id=~A" row-id) (cl-who:str catg-name)))))))
 		
 
 (defun modal.vendor-product-edit-html (product mode) 
@@ -121,7 +127,10 @@
 	 (qty-per-unit (slot-value product 'qty-per-unit))
 	 (units-in-stock (slot-value product 'units-in-stock))
 	 (prd-id (slot-value product 'row-id))
-	 (prd-name (slot-value product 'prd-name)))
+	 (catg-id (slot-value product 'catg-id))
+	 (prd-name (slot-value product 'prd-name))
+	 (catglist (hhub-get-cached-product-categories))
+	 (prdcategory (search-prdcatg-in-list catg-id catglist)))
 
  (cl-who:with-html-output (*standard-output* nil)
    (with-html-div-row 
@@ -143,8 +152,8 @@
 		      		      
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "qtyperunit" :value qty-per-unit :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
-					;(:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
-					;(ui-list-prod-catg-dropdown "prodcatg" catglist))
+		      (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
+			     (ui-list-prod-catg-dropdown catglist prdcategory))
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :value units-in-stock  :type "number" :min "1" :max "10000" :step "1"  ))
 

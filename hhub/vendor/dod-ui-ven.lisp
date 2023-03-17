@@ -323,7 +323,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (let* ((wallets (get-cust-wallets-for-vendor (get-login-vendor) (get-login-vendor-company)))
 	   (customers (mapcar (lambda (wallet) 
 			   (get-customer wallet)) wallets)))
-      (with-standard-vendor-page (:title "Customers list for vendor") 
+      (with-standard-vendor-page  "Customers list for vendor" 
 	(cl-who:str (display-as-table (list "Name" "Mobile" "Email" "Actions") customers 'vendor-customers-card))))))
  
 
@@ -445,36 +445,36 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-add-product-page ()
 (with-vend-session-check 
-      ;(let ((catglist (get-prod-cat (get-login-vendor-tenant-id))))
-  (with-standard-vendor-page (:title "Welcome to DAS Platform- Your Demand And Supply destination.")
-		    (:div :class "row" 
-			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-				(:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-toggle "validator" :enctype "multipart/form-data" 
-				       (:div :class "account-wall"
-					     (:img :class "profile-img" :src "/img/logo.png" :alt "")
-					     (:h1 :class "text-center login-title"  "Add new product")
-					     (:div :class "form-group"
-						   (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
-					    
-					     (:div :class "form-group"
-						  (:label :for "description")
-						  (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup "countChar(this, 1000)"  ))
-					      (:div :class "form-group" :id "charcount")
-					     (:div :class "form-group"
-						   (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
-					    (:div :class "form-group"
+  (let ((catglist (hhub-get-cached-product-categories)))
+    (with-standard-vendor-page (:title "Welcome to DAS Platform- Your Demand And Supply destination.")
+      (:div :class "row" 
+	    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
+		  (:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-toggle "validator" :enctype "multipart/form-data" 
+			 (:div :class "account-wall"
+			       (:img :class "profile-img" :src "/img/logo.png" :alt "")
+			       (:h1 :class "text-center login-title"  "Add new product")
+			       (:div :class "form-group"
+				     (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
+			       
+			       (:div :class "form-group"
+				     (:label :for "description")
+				     (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup "countChar(this, 1000)"  ))
+			       (:div :class "form-group" :id "charcount")
+			       (:div :class "form-group"
+				     (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
+			       (:div :class "form-group"
 						   (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :type "number" :min "1" :max "10000" :step "1" ))
-					     (:div :class "form-group"
-						   (:input :class "form-control" :name "qtyperunit" :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
-					     ;(:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
-					     ;(ui-list-prod-catg-dropdown "prodcatg" catglist))
-					     (:br) 
-					     (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
-						   (ui-list-yes-no-dropdown "N"))
-					     (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
-						   (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
-					      (:div :class "form-group"
-						   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
+			       (:div :class "form-group"
+				     (:input :class "form-control" :name "qtyperunit" :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
+			       (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
+				      (ui-list-prod-catg-dropdown catglist nil))
+			       (:br) 
+			       (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
+				     (ui-list-yes-no-dropdown "N"))
+			       (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
+				     (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
+			       (:div :class "form-group"
+				     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))))
 
 
 
@@ -509,6 +509,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (progn 
 		(setf (slot-value product 'description) description)
 		(setf (slot-value product 'unit-price) prodprice)
+		(setf (slot-value product 'category) catg-id)
 		(setf (slot-value product 'qty-per-unit) qtyperunit)
 		(setf (slot-value product 'units-in-stock) units-in-stock)
 		(setf (slot-value product 'subscribe-flag) subscriptionflag)
@@ -728,22 +729,17 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun dod-controller-update-wallet-balance ()
-  (if (is-dod-vend-session-valid?)
-  (let* ((amount (parse-integer (hunchentoot:parameter "balance")))
-	 (phone (hunchentoot:parameter "phone"))
-	(wallet (get-cust-wallet-by-id (hunchentoot:parameter "wallet-id") (get-login-vendor-company)))
-	(current-balance (slot-value wallet 'balance))
-	(latest-balance (+ current-balance amount)))
-    (set-wallet-balance latest-balance wallet)
-					; We need to clear this memoized function and again memoize it.
-   ; (memoize 'get-cust-wallet-by-vendor)
-    (hunchentoot:redirect (format nil "/hhub/dodsearchcustwalletaction?phone=~A" phone)))
-  ;else 
-  (hunchentoot:redirect "/hhub/vendor-login.html")))
+  (with-vend-session-check
+    (let* ((amount (parse-integer (hunchentoot:parameter "balance")))
+	   (phone (hunchentoot:parameter "phone"))
+	   (wallet (get-cust-wallet-by-id (hunchentoot:parameter "wallet-id") (get-login-vendor-company)))
+	   (current-balance (slot-value wallet 'balance))
+	   (latest-balance (+ current-balance amount)))
+      (set-wallet-balance latest-balance wallet)
+      ;; We need to clear this memoized function and again memoize it.
+      ;; (memoize 'get-cust-wallet-by-vendor)
+      (hunchentoot:redirect (format nil "/hhub/dodsearchcustwalletaction?phone=~A" phone)))))
     
-	
-	
-   
    
 (defun dod-controller-vend-profile ()
   (with-vend-session-check 
@@ -763,7 +759,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendsettings-modal")  :href "#"  "Payment Gateway")
 		    (modal-dialog (format nil "dodvendsettings-modal") "Payment Gateway Settings" (modal.vendor-update-payment-gateway-settings-page))
 		    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupisettings-modal") :href "#" "UPI Settings")
-		    (modal-dialog (format nil "dodvendupisettings-modal") "UPI Payment Settings" (modal.vendor-update-UPI-payment-settings-page))))))
+		    (modal-dialog (format nil "dodvendupisettings-modal") "UPI Payment Settings" (modal.vendor-update-UPI-payment-settings-page))
+		    (:a :class "list-group-item" :href "hhubvendorupitransactions" "UPI Transactions")))))
 
 
 
@@ -917,8 +914,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun dod-controller-vendor-products ()
   (with-vend-session-check 
     (let* ((vendor-products (hhub-get-cached-vendor-products))
-	  (vendor-company (get-login-vendor-company))
-	  (subscription-plan (slot-value vendor-company 'subscription-plan)))
+	   (vendor-company (get-login-vendor-company))
+	   (subscription-plan (slot-value vendor-company 'subscription-plan)))
 	
       (with-standard-vendor-page "Welcome to HighriseHub  - Vendor"
 				 (:div :class "row" 
@@ -935,15 +932,16 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun dod-gen-vendor-products-functions (vendor company)
-  (let ((vendor-products (select-products-by-vendor vendor company)))
-    (list (function (lambda () vendor-products)))))
+  (let ((vendor-products (select-products-by-vendor vendor company))
+	(product-categories (select-prdcatg-by-company company)))
+    (list (function (lambda () vendor-products))
+	  (function (lambda () product-categories)))))
 
 (defun dod-gen-order-functions (vendor company)
 (let ((pending-orders (get-orders-for-vendor vendor 500 company ))
       (completed-orders (get-orders-for-vendor vendor 500 company  "Y" ))
       (order-items (get-order-items-for-vendor  vendor  company)) ; Get order items for last 30 days and next 30 days. 
       (completed-orders-today (get-orders-for-vendor-by-shipped-date vendor (get-date-string-mysql (clsql-sys:get-date)) company "Y"))) 
-
 
   (list (function (lambda () pending-orders ))
 	(function (lambda () completed-orders))
@@ -964,6 +962,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun hhub-get-cached-vendor-products ()
   (let ((vendor-products-func (first (hunchentoot:session-value :login-vendor-products-functions))))
+    (funcall vendor-products-func)))
+
+(defun hhub-get-cached-product-categories ()
+  (let ((vendor-products-func (second (hunchentoot:session-value :login-vendor-products-functions))))
     (funcall vendor-products-func)))
 
 (defun dod-get-cached-pending-orders()

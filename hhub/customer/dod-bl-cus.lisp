@@ -17,6 +17,17 @@
 ;    (getpincodedetails pincode)))
 
 
+ 
+
+
+(defun update-cust-wallet-balance (amount wallet-id)
+  (let* ((wallet (get-cust-wallet-by-id wallet-id (get-login-customer-company)))
+	 (current-balance (slot-value wallet 'balance))
+	 (latest-balance (+ current-balance amount)))
+    (set-wallet-balance latest-balance wallet)))
+
+
+
 (defmethod ProcessResponse ((service Address-Adapter)  params)
   (let* ((address (cdr (assoc "address" params :test 'equal)))
 	 (responsemodel (make-instance 'ResponseAddress)))

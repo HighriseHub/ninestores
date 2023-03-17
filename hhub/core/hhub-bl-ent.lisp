@@ -43,7 +43,7 @@
 
 
 ;; Level 3
-;; A business session comes after the business context. 
+;; A business session comes after the business context. Sessions are on an organization level or company level.  
 (defclass BusinessSession ()
   ((id :accessor id
        :initform (format nil "~A" (uuid:make-v1-uuid))
@@ -53,7 +53,11 @@
     :initform (get-universal-time))
    (end-time)
    (active-flag)
-   (company)))
+   (company)
+   (BusinessObjectRepos 
+    :accessor businessobjectrepos-ht 
+    :initform (make-hash-table :test 'equal)
+    :initarg :businessobjectrepos-ht)))
 
 
 
@@ -144,6 +148,7 @@
 (defclass JSONView (View)
    ((jsondata 
      :accessor jsondata)))
+
 (defclass HTMLView (View)
    ((htmldata 
      :accessor htmldata)))
@@ -168,13 +173,21 @@
   (:documentation "This function is responsible for initializaing the BusinessService and calling its doService method. It then creates an instance of outboundwebservice"))
 (defgeneric ProcessResponse (AdapterService params)
   (:documentation "This function is responsible for converting the repository into the out parameters"))
+(defgeneric ProcessResponse (AdapterService BusinessObject)
+  (:documentation "This function is responsible for converting the business object into a responsemodel "))
+(defgeneric ProcessResponseList (AdapterService list)
+  (:documentation "This function is responsible for converting the business objects into a responsemodel list "))
 
+(defgeneric CreateResponseModel (AdapterService BusinessObject ResponseModel)
+  (:documentation "Creates a responsemodel from businessobject"))
 
 (defgeneric ProcessCreateRequest (AdapterService RequestModel)
   (:documentation "Adapter Service method to call the BusinessService Create method"))
 (defgeneric ProcessReadRequest (AdapterService RequestModel)
   (:documentation "Adapter Service method to call the BusinessService Read method"))
-(defgeneric ProcessUpdateReqeust (AdapterService RequestModel) 
+(defgeneric ProcessReadAllRequest (AdapterService RequestModel)
+  (:documentation "Adapter Service method to call the BusinessService Read method"))
+(defgeneric ProcessUpdateRequest (AdapterService RequestModel) 
   (:documentation "Adapter Service method to call the BusinessService Update method"))
 (defgeneric ProcessDeleteRequest (AdapterService RequestModel) 
   (:documentation "Adapter Service method to call the BusinessService Delete method"))
@@ -187,15 +200,22 @@
 ;;;;;; Generic functions for PresenterService
 (defgeneric CreateViewModel (PresenterService ResponseModel)
   (:documentation "Converts the ResponseModel to ViewModel"))
+(defgeneric CreateAllViewModel (PresenterService list)
+  (:documentation "Converts the ResponseModel to ViewModel"))
 (defgeneric Render (View ViewModel)
   (:documentation "Renders the viewmodel as View"))
-
+(defgeneric RenderListViewHTML (HTMLView list)
+  (:documentation "Renders a list view"))
+(defgeneric RenderTileViewHTML (HTMLView list)
+  (:documentation "Renders a list as tiles"))
+(defgeneric RenderJSONAll (JSONView list)
+  (:documentation "Renders a list as JSON"))
 
 
 ;;;; Generic functions for the View
-(defgeneric RenderJSON (View Viewmodel)
+(defgeneric RenderJSON (JSONView Viewmodel)
   (:documentation "Takes the viewmodel and converts into JSON"))
-(defgeneric RenderHTML (View Viewmodel)
+(defgeneric RenderHTML (HTMLView Viewmodel)
   (:documentation "Takes the viewmodel and converts into HTML"))
 
 
@@ -254,6 +274,9 @@
 ;;; Generic functions for DBAdapterService
 (defgeneric init (DBAdapterService BusinessObject)
   (:documentation "Set the domain object of the DBAdapterService"))
+(defgeneric init (ResponseModel BusinessObject)
+  (:documentation "Set the domain object of the ResponseModel "))
+
 (defgeneric setCompany (DBAdapterService company)
   (:documentation "Set the Company"))
 (defgeneric setException (DBAdapterService Exception)
@@ -334,18 +357,18 @@
 ;;; Method implementations for Business Session
 (defmethod addBusinessObjectRepository ((bs BusinessSession) repository)
   :description "Creates a new BusinessObjectRepository and returns the instance"
-  (let ((repos-ht (borepositories-ht bs)))
+  (let ((repos-ht (businessobjectrepos-ht bs)))
     (setf (gethash (id repository) repos-ht) repository)))
  
   
 (defmethod  deleteBusinessObjectRepository ((bs BusinessSession) key)
   :description "Delete the business object repository"
-  (let ((bs-ht (borepositories-ht bs)))
+  (let ((bs-ht (businessobjectrepos-ht bs)))
     (remhash key bs-ht)))
   
 (defmethod getBusinessObjectRepository ((bs BusinessSession) key)
   :description "Get the Business object repository"
-  (let ((repos-ht (borepositories-ht bs)))
+  (let ((repos-ht (businessobjectrepos-ht bs)))
     (gethash key repos-ht)))
 
 
@@ -366,7 +389,7 @@
   :description "Get all the Businessobjects"
   (let ((hash-table (slot-value bor 'BusinessObjects)))
     (maphash (lambda (key value)
-	       value) hash-table)))
+	       (if key value)) hash-table)))
 
    
 (defmethod deleteBO ((bor BusinessObjectRepository) key)
@@ -392,6 +415,7 @@
   :description "Set the domain object"
   (setf (businessobject dbas) bo))
 
+
 (defmethod setcompany ((dbas DBAdapterService) company)
   (let ((dbobj (slot-value dbas 'dbobject))
 	(row-id (slot-value company 'row-id)))
@@ -408,14 +432,16 @@
   :description "Save the dbobject to the database"
   ;; if the company is set for Database Adapter, only then we Save. 
   (handler-case 
-      (if (company dbas) 
-	  (clsql:update-records-from-instance (dbobject dbas)))
+      (when (company dbas) 
+	(hunchentoot:log-message* :info (format nil "Company is ~A" (slot-value (slot-value dbas 'company) 'name)))
+	(hunchentoot:log-message* :info (format nil "DB obj amount is ~A" (slot-value (slot-value dbas 'dbobject) 'amount)))
+	(clsql:update-records-from-instance (dbobject dbas)))
     
     (error (c)
       (let ((exceptionstr (format nil  "HHUB General Business Function Error: ~a~%"  c)))
 	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
 				:direction :output
-				:if-exists :supersede
+				:if-exists :append
 				:if-does-not-exist :create)
 	  (format stream "~A" exceptionstr))
 	(setexception dbas c)
@@ -442,7 +468,7 @@
       (let ((exceptionstr (format nil  "HHUB General Business Function Error: ~a~%"  c)))
 	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
 				:direction :output
-				:if-exists :supersede
+				:if-exists :append
 				:if-does-not-exist :create)
 	  (format stream "~A" exceptionstr))
 	(setexception dbas c)
@@ -478,6 +504,15 @@
     ;; Call the doread method on the BusinessService.
     (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
 
+(defmethod ProcessReadAllRequest ((service AdapterService) (requestmodel RequestModel))
+  :description "This method acts as a gateway for all incoming READ requests to HighriseHub Business layer"
+  (let* ((bservicename (getbusinessservice service))
+	 (bserviceinstance (make-instance bservicename))
+	 (method "doreadall")) 
+    ;; Call the doread method on the BusinessService.
+    (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
+
+
 (defmethod ProcessCreateRequest ((service AdapterService) (requestmodel RequestModel)) 
   :description "This method acts as a gateway for all incoming CREATE requests to HighriseHub Business layer"
   (let*  ((bservicename (getbusinessservice service))
@@ -493,5 +528,14 @@
 	 (bserviceinstance (make-instance bservicename))
 	 (method "dodelete"))
     ;; Call the docreate method on the BusinessService.
+    (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
+  
+
+(defmethod ProcessUpdateRequest ((service AdapterService) (requestmodel RequestModel))
+  :description "This method acts as a gateway for all the incoming UPDATE requests to HighriseHub Business Layer."
+  (let* ((bservicename (getbusinessservice service))
+	 (bserviceinstance (make-instance bservicename))
+	 (method "doupdate"))
+    ;; Call the doupdate method on the BusinessService.
     (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
   

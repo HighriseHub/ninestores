@@ -101,37 +101,37 @@
 
 
 
-  (defun select-products-by-category (catg-id company-instance )
-      (let ((tenant-id (slot-value company-instance 'row-id)))
-   (clsql:select 'dod-prd-master :where [and
-		[= [:deleted-state] "N"]
+(defun select-products-by-category (catg-id company-instance )
+    (let ((tenant-id (slot-value company-instance 'row-id)))
+	(clsql:select 'dod-prd-master :where [and
+		 [= [:deleted-state] "N"]
 		[= [:active-flag] "Y"] 
 		[= [:approved-flag] "Y"]
 		[= [:tenant-id] tenant-id]
-		[like  [:catg-id] catg-id]]
-		:caching *dod-database-caching* :flatp t)))
+		[= [:catg-id] catg-id]]
+				      :caching *dod-database-caching* :flatp t)))
 
 
-  (defun select-product-by-name (name-like-clause company-instance )
-      (let ((tenant-id (slot-value company-instance 'row-id)))
-  (car (clsql:select 'dod-prd-master :where [and
-		[= [:deleted-state] "N"]
-		[= [:active-flag] "Y"] 
-		[= [:approved-flag] "Y"]
-		[= [:tenant-id] tenant-id]
-		[like  [:prd-name] name-like-clause]]
-		:caching *dod-database-caching* :flatp t))))
+(defun select-product-by-name (name-like-clause company-instance )
+  (let ((tenant-id (slot-value company-instance 'row-id)))
+    (car (clsql:select 'dod-prd-master :where [and
+		       [= [:deleted-state] "N"]
+		       [= [:active-flag] "Y"] 
+		       [= [:approved-flag] "Y"]
+		       [= [:tenant-id] tenant-id]
+		       [like  [:prd-name] name-like-clause]]
+				       :caching *dod-database-caching* :flatp t))))
 
 
 (defun search-products ( search-string company-instance)
   (let ((tenant-id (slot-value company-instance 'row-id)))
-	(clsql:select 'dod-prd-master :where [and
-		      [= [:deleted-state] "N"]
-		      [= [:active-flag] "Y"]
-		      [= [:approved-flag] "Y"]
-		      [= [:tenant-id] tenant-id] 
-		      [like [:prd-name] (format NIL "%~a%" search-string)]]
-		      :caching *dod-database-caching* :flatp t)))
+    (clsql:select 'dod-prd-master :where [and
+		  [= [:deleted-state] "N"]
+		  [= [:active-flag] "Y"]
+		  [= [:approved-flag] "Y"]
+		  [= [:tenant-id] tenant-id] 
+		  [like [:prd-name] (format NIL "%~a%" search-string)]]
+		  :caching *dod-database-caching* :flatp t)))
 
 
 
@@ -231,7 +231,8 @@
  (clsql:select 'dod-prd-catg  :where
 		[and 
 		[= [:deleted-state] "N"]
-		[= [:active-flag] "Y"] 
+		[= [:active-flag] "Y"]
+		[<> [:catg-name] "root"]
 		[= [:tenant-id] tenant-id]]
      :caching nil :flatp t )))
 

@@ -70,7 +70,8 @@
 					;(:div :class "account-wall"
 		  (:h1 :class "text-center login-title"  "Your password reset time window has expired. Please try again." )
 		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:span :class "glyphicon glyphicon-home")))))))
-		  
+
+
 
 
 
@@ -373,17 +374,17 @@
 
 (defun display-as-table (header listdata rowdisplayfunc) 
 :documentation "This is a generic function which will display items in list as a html table. You need to pass the html table header and  list data, and a display function which will display data. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizing refer to style.css. " 
-(let ((incr (let ((count 0)) (lambda () (incf count)))))
-(cl-who:with-html-output-to-string (*standard-output* nil)
-    ; searchresult div will be used to store the search result. 
-    (:div :id "searchresult"  :class "container" 
-	  (:table :class "table  table-striped  table-hover"
-		  (:thead (:tr
-			   (:th "No")
-			   (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
-		  (:tbody
-		   (mapcar (lambda (item)
-			     (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall rowdisplayfunc item))))  listdata)))))))
+  (let ((incr (let ((count 0)) (lambda () (incf count)))))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      ;; searchresult div will be used to store the search result. 
+      (:div :id "searchresult"  :class "container" 
+	    (:table :class "table  table-striped  table-hover"
+		    (:thead (:tr
+			     (:th "No")
+			     (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
+		    (:tbody
+		     (mapcar (lambda (item)
+			       (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall rowdisplayfunc item))))  listdata)))))))
 
 
 ;; Can this function be converted into a macro?
