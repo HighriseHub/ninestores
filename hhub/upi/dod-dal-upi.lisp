@@ -14,9 +14,62 @@
 
 (defclass UpiPaymentsService (BusinessService)
   ())
+(defclass UpiPaymentsHTMLView (HTMLView)
+  ())
 
 (defclass UpiPaymentsViewModel (ViewModel)
-  ())
+  ((vendor
+    :initarg :vendor
+    :accessor vendor)
+   (customer
+    :initarg :customer
+    :accessor customer)
+   (amount
+    :initarg :amount
+    :accessor amount)
+   (utrnum
+    :initarg :utrnum
+    :accessor utrnum)
+   (transaction-id
+    :initarg :transaction-id
+    :accessor transaction-id)
+   (status
+    :initarg :status
+    :accessor status)
+   (vendorconfirm
+    :initarg :vendorconfirm
+    :accessor vendorconfirm)
+   (company
+    :initarg :company
+    :accessor company)))
+  
+(defclass UpiPaymentsResponseModel (ResponseModel)
+  ((vendor
+    :initarg :vendor
+    :accessor vendor)
+   (customer
+    :initarg :customer
+    :accessor customer)
+   (amount
+    :initarg :amount
+    :accessor amount)
+   (utrnum
+    :initarg :utrnum
+    :accessor utrnum)
+   (transaction-id
+    :initarg :transaction-id
+    :accessor transaction-id)
+   (status
+    :initarg :status
+    :accessor status)
+   (vendorconfirm
+    :initarg :vendorconfirm
+    :accessor vendorconfirm)
+   (company
+    :initarg :company
+    :accessor company)))
+
+
 (defclass UpiPaymentsRequestModel (RequestModel)
   ((vendor
     :initarg :vendor
@@ -30,21 +83,24 @@
    (utrnum
     :initarg :utrnum
     :accessor utrnum)
-   (tenant
-    :initarg :tenant
-    :accessor tenant)))
+   (transaction-id
+    :initarg :transaction-id
+    :accessor transaction-id)
+   (status
+    :initarg :status
+    :accessor status)
+    (vendorconfirm
+    :initarg :vendorconfirm
+    :accessor vendorconfirm)
+   (company
+    :initarg :company
+    :accessor company)))
 
 (defclass UpiPayment (BusinessObject)
   ((row-id)
    (transaction-id
     :initarg :transaction-id
     :accessor transaction-id)
-   (vendor
-    :accessor vendor 
-    :initarg :vendor ) 
-   (customer
-    :accessor customer
-    :initarg :customer)
    (amount
     :accessor amount 
     :initarg :amount)
@@ -54,13 +110,25 @@
    (utrnum
     :initarg :utrnum
     :accessor utrnum)
+   (customer
+    :accessor customer
+    :initarg :customer)
+   (vendor
+   :accessor vendor 
+   :initarg :vendor)
    (vendorconfirm
     :initarg :vendorconfirm
     :accessor vendorconfirm)
    (company
     :accessor company
-    :initarg :company)))
-   
+    :initarg :company)
+   (deleted-state
+    :accessor deleted-state
+    :initarg :deleted-state)))
+
+
+
+
 (clsql:def-view-class dod-upi-payments ()
   ((row-id
     :db-kind :key
@@ -70,7 +138,7 @@
    (transaction-id
     :accessor transaction-id
     :DB-CONSTRAINTS :NOT-NULL
-    :TYPE integer
+    :TYPE (string 20)
     :INITARG :transaction-id)
    (vendor-id
     :ACCESSOR vendor-id
@@ -108,11 +176,8 @@
     :type (string 20))
    (vendorconfirm
     :type (string 1))
-   
-   (deleted-state
-    :type (string 1)
-    :void-value "N")
-   
+
+   (deleted-state                                                                                                                                                                                                       :type (string 1)                                                                                                                                                                                                   :void-value "N"                                                                                                                                                                                                    :initarg :deleted-state) 
 
    (tenant-id
     :type integer

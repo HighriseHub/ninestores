@@ -802,7 +802,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendordetails" 'dod-controller-vendor-details)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodprddetailsforcust" 'dod-controller-prd-details-for-customer)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodprodsubscribe" 'dod-controller-cust-add-orderpref-page)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodproducts" 'dod-controller-customer-products)
+	(hunchentoot:create-regex-dispatcher "^/hhub/dodproductsbycatg" 'dod-controller-customer-products-by-category)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodsearchproducts" 'dod-controller-search-products)
 	(hunchentoot:create-regex-dispatcher "^/hhub/doddelcustorditem" 'dod-controller-del-cust-ord-item)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustlowbalanceshopcart" 'dod-controller-low-wallet-balance-for-shopcart)
@@ -838,8 +838,11 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustremovepushsubscription"   'hhub-remove-vendor-push-subscription)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustonlinepayment"   'hhub-cust-online-payment)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubpincodecheck"   'hhub-controller-pincode-check)
-	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustupipage"   'hhub-controller-upipayment-page)
-	
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustupipage"   'hhub-controller-upi-customer-order-payment-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendorupinotfound"   'dod-controller-vendor-upi-notfound)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustpaymentmethodspage"   'dod-controller-customer-payment-methods-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustwalletrechargepage"   'hhub-controller-upi-recharge-wallet-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustwalletrechargeaction"   'hhub-controller-upi-recharge-wallet-action)
 
 
 
@@ -894,6 +897,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendremovepushsubscription"   'hhub-remove-vendor-push-subscription )
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendgetpushsubscription"   'hhub-controller-get-vendor-push-subscription )
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdateupisettings"   'hhub-controller-save-vendor-upi-settings)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendorupitransactions"   'hhub-controller-show-vendor-upi-transactions)
 		
 ))
 

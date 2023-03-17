@@ -11,8 +11,9 @@
 					 :vendor vendor
 					 :customer customer
 					 :amount amount
+					 :transaction-id "PW93993"
 					 :utrnum "383838448432"
-					 :tenant democompany))
+					 :company democompany))
 	    (upipaymentsadapter (make-instance 'UpiPaymentsAdapter)))
 	 
        (ProcessCreateRequest upipaymentsadapter requestmodel)))
