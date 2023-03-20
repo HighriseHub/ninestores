@@ -129,11 +129,18 @@
 	(when wallet
 	  ;; We are creating the UPI domain model object. It also saves the UPI payment transaction to DB.
 	  (ProcessCreateRequest upipaymentsadapter requestmodel)
-	  ;; Update the wallet balance.
-	  (set-wallet-balance latest-balance  wallet)
+	  ;; Update the wallet balance in future.
+	  (hhub-add-pending-upi-task utrnum (function (lambda () (set-wallet-balance latest-balance wallet))))
 	  (hunchentoot:redirect (format nil "/hhub/dodcustwallet"))))))
   
-  
+
+(defun hhub-add-pending-upi-task (utrnum pendingfunction)
+  (setf (gethash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*) pendingfunction))
+
+(defun hhub-execute-pending-upi-task (utrnum)
+  (let ((func (gethash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*)))
+    (funcall func)
+    (remhash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*)))
 
 (defun save-upi-transaction (amount utrnum transaction-id customer vendor company)
   :description "Save the UPI transaction to the DB and return the domain object."
@@ -151,14 +158,11 @@
 	(ProcessCreateRequest upipaymentsadapter requestmodel))))
 
 
-(defun vendor-upi-confirm (amount utrnum transaction-id customer vendor company)
+(defun vendor-upi-payment-confirm (utrnum vendor company)
   :description "Update the UPI transaction with vendorconfirm and status fields set"
-  (with-cust-session-check
+  (with-vend-session-check
     (let* ((requestmodel (make-instance 'UpiPaymentsRequestModel
 					:vendor vendor
-					:customer customer
-					:amount amount
-					:transaction-id transaction-id
 					:utrnum utrnum
 					:company company))
 	   (upipaymentsadapter (make-instance 'UpiPaymentsAdapter)))
@@ -166,6 +170,15 @@
       ;; We are creating the UPI domain model object. It also saves the UPI payment transaction to DB.
 	(ProcessUpdateRequest upipaymentsadapter requestmodel))))
     
+
+(defun hhub-controller-vendor-upi-confirm ()
+  (with-vend-session-check
+    (let* ((utrnum (hunchentoot:parameter "utrnum"))
+	   (vendor (get-login-vendor))
+	   (company (get-login-vendor-company)))
+      (vendor-upi-payment-confirm utrnum vendor company)
+      (hhub-execute-pending-upi-task utrnum)
+      (hunchentoot:redirect "/hhub/hhubvendorupitransactions"))))
 
 
 (defun hhub-controller-show-vendor-upi-transactions ()
@@ -183,22 +196,42 @@
 	   (htmlview (make-instance 'UPIPaymentsHTMLView)))
       (with-standard-vendor-page "Vendor UPI Transactions"
 	  (cl-who:str (RenderListViewHTML htmlview viewallmodel))))))
-     
-
 
 (defmethod RenderListViewHTML ((htmlview UPIPaymentsHTMLView) viewmodellist)
   (unless (= (length viewmodellist) 0)
-    (hunchentoot:log-message* :info (format nil "number of upi payments is  ~d" (length viewmodellist)))
-    (display-as-table (list "Customer" "Phone" "Amount" "UTR Number" "Status" "Vendor Confirm") viewmodellist 'display-upi-transaction-row)))
-	   
+    (display-as-table (list "Date" "Customer" "Phone" "Amount" "UTR Number" "Status" "Action") viewmodellist 'display-upi-transaction-row)))
 
-(defun display-upi-transaction-row (upitransaction)
-  (with-slots (amount vendor customer utrnum status vendorconfirm) upitransaction
+
+(defun display-upi-transaction-row (upiviewmodel)
+  (with-slots (amount vendor customer utrnum status vendorconfirm created) upiviewmodel
     (cl-who:with-html-output (*standard-output* nil)
+      (:td  :height "10px" (cl-who:str (get-date-string created)))
       (:td  :height "10px" (cl-who:str (slot-value customer  'name)))
       (:td  :height "10px" (cl-who:str (slot-value customer  'phone)))
       (:td  :height "10px" (cl-who:str amount))
       (:td  :height "10px" (cl-who:str utrnum))
       (:td  :height "10px" (cl-who:str status))
-      (:td  :height "10px" (cl-who:str vendorconfirm)))))
+      (when (equal vendorconfirm "N")
+	(cl-who:htm
+	 (:td  :height "10px" 
+	       (:a :data-toggle "modal" :data-target (format nil "#vendorupipaymentconfirm~A" utrnum)  :href "#"  (:span :class "glyphicon glyphicon-copy"))
+	       (modal-dialog (format nil "vendorupipaymentconfirm~A" utrnum) "Confirm UPI Payment" (modal.vendor-upi-payment-confirm upiviewmodel)))))
+      (when (equal vendorconfirm "Y")
+	(cl-who:htm
+	 (:td :height "10px" "Payment Received"))))))
+
+
+(defun modal.vendor-upi-payment-confirm (upiviewmodel)
+  (with-slots (utrnum status) upiviewmodel
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-div-row 
+	(:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+	      (:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipayconfirm" :enctype "multipart/form-data"
+		     (:div :class "form-group"
+			   (:h3 (cl-who:str (format nil "UTR Number - ~A." utrnum))))
+		     (:div :class "form-group" :style "display: none"
+			    (:input :class "form-control" :name "utrnum" :value utrnum :placeholder "UTR Number" :type "text" :readonly T ))
+		     (:div :class "form-group"
+			   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Payment Received"))))))))
+
 

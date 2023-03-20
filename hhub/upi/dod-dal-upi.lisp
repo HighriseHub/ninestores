@@ -39,6 +39,10 @@
    (vendorconfirm
     :initarg :vendorconfirm
     :accessor vendorconfirm)
+   (created
+    :initarg :created
+    :accessor created)
+   
    (company
     :initarg :company
     :accessor company)))
@@ -65,6 +69,9 @@
    (vendorconfirm
     :initarg :vendorconfirm
     :accessor vendorconfirm)
+   (created
+    :accessor :created
+    :initarg :created)
    (company
     :initarg :company
     :accessor company)))
@@ -122,6 +129,8 @@
    (company
     :accessor company
     :initarg :company)
+   (created
+    :accessor created)
    (deleted-state
     :accessor deleted-state
     :initarg :deleted-state)))
@@ -177,8 +186,12 @@
    (vendorconfirm
     :type (string 1))
 
-   (deleted-state                                                                                                                                                                                                       :type (string 1)                                                                                                                                                                                                   :void-value "N"                                                                                                                                                                                                    :initarg :deleted-state) 
+   (deleted-state                                                                                                                                                                                :type (string 1)                                                                                                                                                                             :void-value "N"                                                                                                                                                                              :initarg :deleted-state) 
 
+   (created
+    :accessor created
+    :TYPE clsql:date)
+   
    (tenant-id
     :type integer
     :initarg :tenant-id)

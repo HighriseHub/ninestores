@@ -18,7 +18,7 @@
 (defvar *dod-dbconn-spec* (list *crm-database-server* *crm-database-name* *crm-database-user* *crm-database-password*))
 
 
-(defvar *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* NIL)
+(defvar *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "23:00:00")
 (defvar *HHUB-DEMO-TENANT-ID* 2)
 
 (defvar *HHUB-COMPILE-FILES-LOCATION* "~/hhubplatform/bin/hhubcompilelog.txt") 
@@ -51,7 +51,7 @@
 (defvar *PAYGATEWAYRETURNURL* "https://www.highrisehub.com/hhub/custpaymentsuccess")
 (defvar *PAYGATEWAYCANCELURL* "https://www.highrisehub.com/hhub/custpaymentcancel")
 (defvar *PAYGATEWAYFAILUREURL* "https://www.highrisehub.com/hhub/custpaymentfailure")
-(defvar *HHUBRESOURCESDIR* "/data/www/highrisehub.com/public/img")
+(defvar *HHUBRESOURCESDIR* "/data/www/public/img")
 (defvar *HHUBDEFAULTPRDIMG* "HHubDefaultPrdImg.png")
 (defvar *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* NIL)
 (defvar *HHUBGLOBALBUSINESSFUNCTIONS-HT* NIL)
@@ -76,6 +76,8 @@
 (defvar *HHUBGUESTCUSTOMERPHONE* "9999999999")
 (defvar *HHUBSUPERADMINEMAIL* "pawan.deshpande@gmail.com")
 (defvar *HHUBSUPPORTEMAIL* "support@highrisehub.com")
+(defvar *HHUBPENDINGUPIFUNCTIONS-HT* nil)
+
 
 
 (defun set-customer-page-title (name)
@@ -148,6 +150,7 @@ the hunchentoot server with ssl settings"
        (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))
        (setf *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "23:00:00")
        (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
+       (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
        ;(setf *HHUBENTITYINSTANCES-HT* (make-hash-table))
        ;(setf *HHUBENTITY-WEBPUSHNOTIFYVENDOR-HT* (make-hash-table))
        (setf *HHUBBUSINESSSESSIONS-HT* (make-hash-table)) 

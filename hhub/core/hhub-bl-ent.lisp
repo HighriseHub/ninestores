@@ -433,8 +433,8 @@
   ;; if the company is set for Database Adapter, only then we Save. 
   (handler-case 
       (when (company dbas) 
-	(hunchentoot:log-message* :info (format nil "Company is ~A" (slot-value (slot-value dbas 'company) 'name)))
-	(hunchentoot:log-message* :info (format nil "DB obj amount is ~A" (slot-value (slot-value dbas 'dbobject) 'amount)))
+	;;(hunchentoot:log-message* :info (format nil "Company is ~A" (slot-value (slot-value dbas 'company) 'name)))
+	;;(hunchentoot:log-message* :info (format nil "DB obj amount is ~A" (slot-value (slot-value dbas 'dbobject) 'amount)))
 	(clsql:update-records-from-instance (dbobject dbas)))
     
     (error (c)
