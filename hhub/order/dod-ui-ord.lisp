@@ -15,19 +15,25 @@
   (cl-who:with-html-output (*standard-output* nil)
       (:a :class "btn btn-primary" :role "button" :href (format nil "/dodcustindex") "Shop Now")
     (:h3 "Orders")
-      (:table :class "table table-striped"  (:thead (:tr
- (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) (:tbody
-								  (mapcar (lambda (order)
-									    (let ((ord-customer  (get-customer order)))
-									      (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value order 'row-id)))
-											(:td  :height "12px" (cl-who:str (slot-value order 'ord-date)))
-											(:td  :height "12px" (cl-who:str (slot-value ord-customer 'name)))
-											(:td  :height "12px" (cl-who:str (slot-value order 'req-date)))
-											(:td  :height "12px" (cl-who:str (slot-value order 'shipped-date)))
-											(:td  :height "12px" (cl-who:str (slot-value order 'ship-address)))
-											(:td :height "12px" (:a :class "btn btn-primary" :role "button" :href  (format nil  "delorder?id=~A" (slot-value order 'row-id)) "Cancel Order")
-											     (:a  :class "btn btn-primary" :role "button" :href  (format nil  "orderdetails?id=~A" (slot-value order 'row-id)) "Details"))
-											)))) (if (not (typep data 'list)) (list data) data))))))
+    (:table :class "table table-striped"
+     (:thead
+      (:tr
+       (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header)))
+     (:tbody
+      (mapcar
+       (lambda (order)
+	 (let ((ord-customer  (get-customer order)))
+	   (cl-who:htm
+	    (:tr
+	     (:td  :height "12px" (cl-who:str (slot-value order 'row-id)))
+	     (:td  :height "12px" (cl-who:str (slot-value order 'ord-date)))
+	     (:td  :height "12px" (cl-who:str (slot-value ord-customer 'name)))
+	     (:td  :height "12px" (cl-who:str (slot-value order 'req-date)))
+	     (:td  :height "12px" (cl-who:str (slot-value order 'shipped-date)))
+	     (:td  :height "12px" (cl-who:str (slot-value order 'ship-address)))
+	     (:td :height "12px" (:a :class "btn btn-primary" :role "button" :href  (format nil  "delorder?id=~A" (slot-value order 'row-id)) "Cancel Order")
+		  (:a  :class "btn btn-primary" :role "button" :href  (format nil  "orderdetails?id=~A" (slot-value order 'row-id)) "Details"))
+	     )))) (if (not (typep data 'list)) (list data) data))))))
 
 
 
