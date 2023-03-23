@@ -214,7 +214,7 @@
       (when (equal vendorconfirm "N")
 	(cl-who:htm
 	 (:td  :height "10px" 
-	       (:a :data-toggle "modal" :data-target (format nil "#vendorupipaymentconfirm~A" utrnum)  :href "#"  (:span :class "glyphicon glyphicon-copy"))
+	       (:a :data-toggle "modal" :data-target (format nil "#vendorupipaymentconfirm~A" utrnum)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
 	       (modal-dialog (format nil "vendorupipaymentconfirm~A" utrnum) "Confirm UPI Payment" (modal.vendor-upi-payment-confirm upiviewmodel)))))
       (when (equal vendorconfirm "Y")
 	(cl-who:htm
