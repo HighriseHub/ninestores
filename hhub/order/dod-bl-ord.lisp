@@ -393,6 +393,7 @@
     (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
 	   (order-id (slot-value order 'row-id))
 	   (cust-id (get-login-customer-id))
+	   (cust-type (get-login-customer-type))
 	   (vendors (get-shopcart-vendorlist order-items))
 	   (tenant-id (slot-value company-instance 'row-id)))
 
@@ -416,36 +417,27 @@
 					  (search-prd-in-list prd-id products ))) vitems))
 		       (total (get-order-items-total-for-vendor vendor vitems))
 		       (vendor-email (slot-value vendor 'email))
-		       (g-pincode (if guest-customer (slot-value guest-customer 'zipcode)))
-		       (g-address (if guest-customer (slot-value guest-customer 'address)))
-		       (g-phone (if guest-customer (slot-value guest-customer 'phone)))
-		       (g-email (if guest-customer (slot-value guest-customer 'email)))
-		       (g-city (if guest-customer (slot-value guest-customer 'city)))
-		       (g-state (if guest-customer (slot-value guest-customer 'state)))
-		       (g-name (if guest-customer (slot-value guest-customer 'name)))
-		       (order-disp-str (cl-who:with-html-output-to-string (*standard-output* nil)
-					  (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Customer name - ~A" g-name)))))
-					  (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Address - ~A, ~A, ~A, ~A" g-address g-city g-pincode g-state)))))
-					  (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Phone - ~A" g-phone)))))
-					  (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Email - ~A" g-email)))))
-					  
-					  (cl-who:str (ui-list-shopcart-for-email products vitems))
-					  (:hr)
-					  (:tr (:td
-						(:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total)))))))))
+		       (custinst (if (equal cust-type "GUEST") guest-customer customer-instance)))
 		  
-			    
-			    (persist-vendor-orders (slot-value order 'row-id) cust-id (slot-value vendor 'row-id) tenant-id order-date request-date ship-date ship-address payment-mode total )
+		       (with-slots (zipcode address phone email city state name) custinst
+			 (let ((order-disp-str
+				 (cl-who:with-html-output-to-string (*standard-output* nil)
+				   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Customer name - ~A" name)))))
+				   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Address - ~A, ~A, ~A, ~A" address city zipcode state)))))
+				   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Phone - ~A" phone)))))
+				   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Email - ~A" email)))))
+				   (cl-who:str (ui-list-shopcart-for-email products vitems))
+				   (:hr)
+				   (:tr (:td
+					 (:h2 (:span :align "right" :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total)))))))))
+      			   
+			   (persist-vendor-orders (slot-value order 'row-id) cust-id (slot-value vendor 'row-id) tenant-id order-date request-date ship-date ship-address payment-mode total )
 					;Send a mail to the vendor
-			    
-			    (if vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  order-disp-str))
+			   (if vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  order-disp-str))
 					; Send a push notification on the vendor's browser
-			    (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)
-	
-		
+			   (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))))  vendors)
 					; Return the order id
-      order-id
-      )))
+      order-id)))
 
 
 
