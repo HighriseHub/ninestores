@@ -6,10 +6,10 @@
   (cl-who:with-html-output (*standard-output* nil)
     (cl-who:htm (:select :class "form-control" :name "prodcatg" 
       (loop for catg in catglist
-	    do (if (equal catg selectedvalue)
-		   (cl-who:htm  (:option :selected "true"  :value  (slot-value catg 'row-id) (cl-who:str (slot-value catg 'catg-name))))
-		   ;;else
-		   (cl-who:htm  (:option :value  (slot-value catg 'row-id) (cl-who:str (slot-value catg 'catg-name))))))))))
+	    do (if (and selectedvalue (equal (slot-value catg 'row-id) (slot-value selectedvalue 'row-id)))
+		    (cl-who:htm  (:option :selected "true"  :value  (slot-value catg 'row-id) (cl-who:str (slot-value catg 'catg-name))))
+		    ;;else
+		    (cl-who:htm  (:option :value  (slot-value catg 'row-id) (cl-who:str (slot-value catg 'catg-name))))))))))
 
 (defun ui-list-yes-no-dropdown (value) 
 (cl-who:with-html-output (*standard-output* nil) 
@@ -77,15 +77,17 @@
 	 (prd-image-path (slot-value product-instance 'prd-image-path))
 	 (subtotal (* prdqty unit-price))
 	 (prd-vendor (product-vendor product-instance)))
-    (cl-who:with-html-output-to-string (*standard-output* nil)
+    (cl-who:with-html-output (*standard-output* nil)
       (:tr 
-       (:td (:img :src (format nil "https://www.highrisehub.com~A" prd-image-path) :height "83" :width "100" :alt prd-name prd-name))
+       (:td (:img :src (format nil "https://www.highrisehub.com~A" prd-image-path) :height "50" :width "50" :alt prd-name prd-name))
 					;Product name and other details
        (:td
 	(:h5 :class "product-name"  (cl-who:str prd-name))
 	(:p   (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor)))))
        (:td
-	(:h3 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$ X ~A = Rs. ~$"  unit-price prdqty subtotal)))))))))
+	(:h5 :class "product-name" (cl-who:str prdqty)))
+       (:td
+	(:h3 (:span :class "label label-default" (cl-who:str (format nil "~$" subtotal)))))))))
 
 
 
@@ -130,7 +132,7 @@
 	 (catg-id (slot-value product 'catg-id))
 	 (prd-name (slot-value product 'prd-name))
 	 (catglist (hhub-get-cached-product-categories))
-	 (prdcategory (search-prdcatg-in-list catg-id catglist)))
+	 (prdcategory (when catg-id (search-prdcatg-in-list catg-id catglist))))
 
  (cl-who:with-html-output (*standard-output* nil)
    (with-html-div-row 
@@ -148,7 +150,7 @@
 			    (:textarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup "countChar(this, 1000)" (cl-who:str (format nil "~A" description))))
 		      (:div :class "form-group" :id "charcount")
 		      (:div :class "form-group"
-			    (:input :class "form-control" :name "prdprice"  :value (format nil "~$" unit-price)  :type "number" :min "0.00" :max "10000.00" :step "0.10"  ))
+			    (:input :class "form-control" :name "prdprice"  :value (format nil "~$" unit-price)  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
 		      		      
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "qtyperunit" :value qty-per-unit :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
@@ -226,7 +228,7 @@
 
 (defun product-card-for-vendor (product-instance)
     (let ((prd-name (slot-value product-instance 'prd-name))
-	  ;(qty-per-unit (slot-value product-instance 'qty-per-unit))
+	  (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	  (unit-price (slot-value product-instance 'unit-price))
 	  (units-in-stock (slot-value product-instance 'units-in-stock))
 	  (description (slot-value product-instance 'description))
@@ -264,7 +266,7 @@
 	  (with-html-div-row
 		(:div :class "col-xs-5" 
 		      (:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id)  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
-		(:div :class "col-xs-3" (:h3 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$"  unit-price))))))
+		(:div :class "col-xs-3" (:h4 (:span :class "label label-primary" (cl-who:str (format nil "Rs. ~$/~A"  unit-price qty-per-unit))))))
 	
 	  (with-html-div-row
 		(:div :class "col-xs-6"
@@ -296,32 +298,29 @@
 	  (subscribe-flag (slot-value product-instance 'subscribe-flag)))
 	    
 	(cl-who:with-html-output (*standard-output* nil)
-	  (:div :class "product-box" 
-		(:div :style "background-color:#E2DBCD; border-bottom: solid 1px; margin-bottom: 3px;" :class "row"
-		      (:div :class "col-xs-12" (:h5 (cl-who:str (format nil "~A" company-name)))))
-		 
-
+	  (:div :style "background-color:#E2DBCD; border-bottom: solid 1px; margin-bottom: 3px;" :class "row"
+		(:div :class "col-xs-12" (:h5 (cl-who:str (format nil "~A" company-name)))))
 	  (with-html-div-row
-		(:div :class "col-xs-5" 
-		      (:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id)  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
-		(:div :class "col-xs-3" (:h3 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$"  unit-price))))))
-		
-		(with-html-div-row
-		      (:div :class "col-xs-6"
-			    (:h5 :class "product-name" (cl-who:str (if (> (length prd-name) 30)  (subseq prd-name  0 30) prd-name))))
-		(:div :class "col-xs-6"
-		      (if (equal subscribe-flag "Y") (cl-who:htm (:div :class "col-xs-6"  (:h5 (:span :class "label label-default" "Can be Subscribed")))))))
-			(if (equal approved-flag "N")
-		    (cl-who:htm (:div :class "stampbox rotated" (cl-who:str (format nil "~A" approval-status)))))
-			
-		(with-html-div-row
-		      (:div :class "col-xs-6"
-			    (:button :data-toggle "modal" :data-target (format nil "#dodvendrejectprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-remove") "Reject")
-			    (modal-dialog (format nil "dodvendrejectprod-modal~A" prd-id) "Reject Product" (modal.vendor-product-reject-html  prd-id tenant-id)))
-		      (:div :class "col-xs-6"
-			    (:button :data-toggle "modal" :data-target (format nil "#dodvendacceptprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-ok") "Accept")
-			    (modal-dialog (format nil "dodvendacceptprod-modal~A" prd-id) "Accept Product" (modal.vendor-product-accept-html  prd-id tenant-id))))
-			))))
+	    (:div :class "col-xs-5" 
+		  (:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id)  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
+	    (:div :class "col-xs-3" (:h3 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$"  unit-price))))))
+	  
+	  (with-html-div-row
+	    (:div :class "col-xs-6"
+		  (:h5 :class "product-name" (cl-who:str (if (> (length prd-name) 30)  (subseq prd-name  0 30) prd-name))))
+	    (:div :class "col-xs-6"
+		  (if (equal subscribe-flag "Y") (cl-who:htm (:div :class "col-xs-6"  (:h5 (:span :class "label label-default" "Can be Subscribed")))))))
+	  (if (equal approved-flag "N")
+	      (cl-who:htm (:div :class "stampbox rotated" (cl-who:str (format nil "~A" approval-status)))))
+	  
+	  (with-html-div-row
+	    (:div :class "col-xs-6"
+		  (:button :data-toggle "modal" :data-target (format nil "#dodvendrejectprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-remove") "Reject")
+		  (modal-dialog (format nil "dodvendrejectprod-modal~A" prd-id) "Reject Product" (modal.vendor-product-reject-html  prd-id tenant-id)))
+	    (:div :class "col-xs-6"
+		  (:button :data-toggle "modal" :data-target (format nil "#dodvendacceptprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-ok") "Accept")
+		  (modal-dialog (format nil "dodvendacceptprod-modal~A" prd-id) "Accept Product" (modal.vendor-product-accept-html  prd-id tenant-id))))
+	  )))
 
 
 
