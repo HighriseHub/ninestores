@@ -385,15 +385,38 @@
 	(if (member day lst) t nil)))
 
 
+(defun create-order-email-content (vproducts vitems customer order-id total)
+  (with-slots (zipcode address phone email city state name) customer
+    (let* ((headerstr (with-html-table "" (list "Particulars" "Details") "1"
+			(:tr (:td (cl-who:str (format nil "Order No")))
+			     (:td (cl-who:str (format nil "~A" order-id))))
+			(:tr (:td (cl-who:str (format nil "Name")))
+			     (:td (cl-who:str (format nil "~A" name)))
+			     (:tr (:td (cl-who:str (format nil "Address")))
+				  (:td (cl-who:str (format nil "~A, ~A, ~A, ~A" address city zipcode state))))
+			     (:tr (:td (cl-who:str (format nil "Phone")))
+				  (:td (cl-who:str (format nil "~A" phone))))
+			     (:tr (:td (cl-who:str (format nil "Email")))
+				  (:td (cl-who:str (format nil "~A" email)))))))
+	   (datastr (ui-list-shopcart-for-email vproducts vitems))
+	   (footer (cl-who:with-html-output-to-string (*standard-output* nil)
+		      (:tr (:td :align "right"
+				(:h2  (:span  :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total)))))))))
+      (hhub-log-message  (format nil "~A~A~A" headerstr datastr footer))
+      (format nil "~A~A~A" headerstr datastr footer))))
+  
 
-(defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt payment-mode  comments customer-instance company-instance guest-customer)
+
+
+
+(defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt payment-mode  comments customer-instance company-instance guest-customer utrnum)
   (let ((uuid (uuid:make-v1-uuid )))
     ;Create an order in the database. 
     (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt payment-mode comments  company-instance)
     (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
 	   (order-id (slot-value order 'row-id))
-	   (cust-id (get-login-customer-id))
-	   (cust-type (get-login-customer-type))
+	   (cust-id (slot-value customer-instance 'row-id))
+	   (cust-type (slot-value customer-instance 'cust-type))
 	   (vendors (get-shopcart-vendorlist order-items))
 	   (tenant-id (slot-value company-instance 'row-id)))
 
@@ -407,37 +430,27 @@
 		  (create-order-items order prd  prd-qty unit-price company-instance)
 		  (setf (slot-value prd 'units-in-stock) updated-units-in-stock)
 		  (update-prd-details prd))) order-items)
-      
-      
-	         ; Create one row per vendor in the vendor_orders table. Send an order received email to each vendor. 
+      	         ; Create one row per vendor in the vendor_orders table. Send an order received email to each vendor. 
       (mapcar (lambda (vendor) 
-		(let* ((vitems (filter-order-items-by-vendor vendor order-items))
-		       (products (mapcar (lambda (odt)
-						    (let ((prd-id (slot-value odt 'prd-id)))
-					  (search-prd-in-list prd-id products ))) vitems))
+		(let* ((vendor-email (slot-value vendor 'email))
+		       (vitems (filter-order-items-by-vendor vendor order-items))
+		       (vproducts (mapcar (lambda (odt)
+					    (let ((prd-id (slot-value odt 'prd-id)))
+					      (search-prd-in-list prd-id products))) vitems))
 		       (total (get-order-items-total-for-vendor vendor vitems))
-		       (vendor-email (slot-value vendor 'email))
-		       (custinst (if (equal cust-type "GUEST") guest-customer customer-instance)))
-		  
-		       (with-slots (zipcode address phone email city state name) custinst
-			 (let ((order-disp-str
-				 (cl-who:with-html-output-to-string (*standard-output* nil)
-				   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Customer name - ~A" name)))))
-				   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Address - ~A, ~A, ~A, ~A" address city zipcode state)))))
-				   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Phone - ~A" phone)))))
-				   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Email - ~A" email)))))
-				   (cl-who:str (ui-list-shopcart-for-email products vitems))
-				   (:hr)
-				   (:tr (:td
-					 (:h2 (:span :align "right" :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total)))))))))
-      			   
-			   (persist-vendor-orders (slot-value order 'row-id) cust-id (slot-value vendor 'row-id) tenant-id order-date request-date ship-date ship-address payment-mode total )
-					;Send a mail to the vendor
-			   (if vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  order-disp-str))
-					; Send a push notification on the vendor's browser
-			   (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))))  vendors)
-					; Return the order id
-      order-id)))
+		       (vendor-id (slot-value vendor 'row-id))
+		       (custinst (if (equal cust-type "GUEST") guest-customer customer-instance))
+		       (order-disp-str (create-order-email-content vproducts vitems custinst order-id total))) 
+      		  
+		  (persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total )
+		  ;; Save the UPI Transaction 
+		  (when utrnum (save-upi-transaction total utrnum (format nil "#ORD:~A" order-id) custinst vendor company-instance (slot-value custinst 'phone)))
+		  ;;Send a mail to the vendor
+		  (when vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  order-disp-str))
+		  ;; Send a push notification on the vendor's browser
+		  (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)
+      ;; Return the order id
+  order-id)))
 
 
 
