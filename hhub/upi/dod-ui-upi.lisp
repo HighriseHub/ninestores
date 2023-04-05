@@ -85,7 +85,7 @@
 	   (custcomp (get-login-customer-company))
 	   (wallet (get-cust-wallet-by-id wallet-id custcomp))
 	   (vendor (get-vendor wallet))
-	   (transaction-id (format nil "#W:UPI~A" (get-universal-time)))
+	   (transaction-id (format nil "#WAL:~A" (get-universal-time)))
 	   (upiurls (generateupiurlsforvendor vendor "ABC" transaction-id amount))
 	   (qrcodepath (generateqrcodeforvendor vendor "ABC" transaction-id amount)))
 	 	   
@@ -115,12 +115,14 @@
 	     (wallet (get-cust-wallet-by-id wallet-id custcomp))
 	     (vendor (get-vendor wallet))
 	     (customer (get-customer wallet))
+	     (phone (slot-value customer 'phone))
 	     (current-balance (slot-value wallet 'balance))
 	     (latest-balance (+ current-balance amount))
 	     (requestmodel (make-instance 'UpiPaymentsRequestModel
 					  :vendor vendor
 					  :customer customer
 					  :amount amount
+					  :phone phone
 					  :transaction-id transaction-id
 					  :utrnum utrnum
 					  :company custcomp))
@@ -139,23 +141,30 @@
 
 (defun hhub-execute-pending-upi-task (utrnum)
   (let ((func (gethash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*)))
-    (funcall func)
-    (remhash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*)))
+    (when func
+      (funcall func)
+      (remhash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*))))
 
-(defun save-upi-transaction (amount utrnum transaction-id customer vendor company)
+(defun save-upi-transaction (amount utrnum transaction-id customer vendor company phone)
   :description "Save the UPI transaction to the DB and return the domain object."
   (with-cust-session-check
-    (let* ((requestmodel (make-instance 'UpiPaymentsRequestModel
+      (as:start-event-loop
+       (lambda ()
+	 (let* ((requestmodel (make-instance 'UpiPaymentsRequestModel
 					  :vendor vendor
 					  :customer customer
 					  :amount amount
 					  :transaction-id transaction-id
 					  :utrnum utrnum
+					  :phone phone
 					  :company company))
 	     (upipaymentsadapter (make-instance 'UpiPaymentsAdapter)))
 	
       ;; We are creating the UPI domain model object. It also saves the UPI payment transaction to DB.
-	(ProcessCreateRequest upipaymentsadapter requestmodel))))
+      (ProcessCreateRequest upipaymentsadapter requestmodel)
+      ;; currently we do not have any pending task. 
+      (hhub-add-pending-upi-task utrnum (function (lambda () ()))))))))
+
 
 
 (defun vendor-upi-payment-confirm (utrnum vendor company)
@@ -203,22 +212,30 @@
 
 
 (defun display-upi-transaction-row (upiviewmodel)
-  (with-slots (amount vendor customer utrnum status vendorconfirm created) upiviewmodel
-    (cl-who:with-html-output (*standard-output* nil)
-      (:td  :height "10px" (cl-who:str (get-date-string created)))
-      (:td  :height "10px" (cl-who:str (slot-value customer  'name)))
-      (:td  :height "10px" (cl-who:str (slot-value customer  'phone)))
-      (:td  :height "10px" (cl-who:str amount))
-      (:td  :height "10px" (cl-who:str utrnum))
-      (:td  :height "10px" (cl-who:str status))
-      (when (equal vendorconfirm "N")
+  (let* ((vendor (slot-value upiviewmodel 'vendor))
+	 (company (slot-value upiviewmodel 'company))
+	 (order-id (subseq (slot-value upiviewmodel 'transaction-id) 5))
+	 (vorder (if order-id (get-vendor-order-instance order-id vendor))))
+	    
+    (with-slots (amount vendor customer utrnum status vendorconfirm created phone) upiviewmodel
+      (cl-who:with-html-output (*standard-output* nil)
+	(:td  :height "10px" (cl-who:str (get-date-string created)))
+	(:td  :height "10px" (cl-who:str (slot-value customer  'name)))
+	(:td  :height "10px" (cl-who:str (if phone phone)))
+	(:td  :height "10px" (cl-who:str amount))
+	(:td  :height "10px" (cl-who:str utrnum))
+	(:td  :height "10px" (cl-who:str status))
+	(:td :height "10px"
+	     (:a :data-toggle "modal" :data-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
+	     (modal-dialog (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (if vorder (modal.vendor-order-details vorder company))))
+    	(when (equal vendorconfirm "N")
+	  (cl-who:htm
+	   (:td  :height "10px" 
+		 (:a :data-toggle "modal" :data-target (format nil "#vendorupipaymentconfirm~A" utrnum)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
+		 (modal-dialog (format nil "vendorupipaymentconfirm~A" utrnum) "Confirm UPI Payment" (modal.vendor-upi-payment-confirm upiviewmodel)))))
+	(when (equal vendorconfirm "Y")
 	(cl-who:htm
-	 (:td  :height "10px" 
-	       (:a :data-toggle "modal" :data-target (format nil "#vendorupipaymentconfirm~A" utrnum)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
-	       (modal-dialog (format nil "vendorupipaymentconfirm~A" utrnum) "Confirm UPI Payment" (modal.vendor-upi-payment-confirm upiviewmodel)))))
-      (when (equal vendorconfirm "Y")
-	(cl-who:htm
-	 (:td :height "10px" "Payment Received"))))))
+	 (:td :height "10px" (:i :class "fa fa-inr" :aria-hidden "true") " Received")))))))
 
 
 (defun modal.vendor-upi-payment-confirm (upiviewmodel)
