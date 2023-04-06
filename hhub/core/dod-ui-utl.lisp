@@ -376,6 +376,7 @@
 :documentation "This is a generic function which will display items in list as a html table. You need to pass the html table header and  list data, and a display function which will display data. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizing refer to style.css. " 
   (let ((incr (let ((count 0)) (lambda () (incf count)))))
     (cl-who:with-html-output-to-string (*standard-output* nil)
+
       ;; searchresult div will be used to store the search result. 
       (:div :id "searchresult"  :class "container" 
 	    (:table :class "table  table-striped  table-hover"
@@ -402,16 +403,18 @@ individual tiles. It also supports search functionality by including the searchr
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro with-html-search-form (search-form-action search-placeholder &body body) 
+  (defmacro  with-html-search-form (search-form-action search-placeholder &body body) 
     :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"  
     `(cl-who:with-html-output (*standard-output* nil ) 
-       (:form :id "theForm" :name "theForm" :method "POST" :action ,search-form-action :onSubmit "return false"
-	      (:div :class "row" 
-		    (:div :class "col-lg-12 col-md-12 col-sm-12 col-xs-12" 
-			  (:div :class "input-group"
-				(:input :type "text" :name "livesearch" :id "livesearch"  :class "form-control search-query" :placeholder ,search-placeholder)
-				,@body
-				(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:span :class " glyphicon glyphicon-search") " Go!" )))))))))
+       	 (:form :id "theForm" :name "theForm" :method "POST" :action ,search-form-action :onSubmit "return false"
+		(with-html-div-row
+		  (:div :class "col-xs-8 col-sm-8 col-md-8 col-lg-8 form-group" 
+			(:input :type "text" :name "livesearch" :id "livesearch"  :class "form-control search-query" :placeholder ,search-placeholder))
+		  (:div :class "col-xs-4 col-sm-4 col-md-4 col-lg-4 form-group" 
+			(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:span :class " glyphicon glyphicon-search") " Go!" )))))
+       ,@body)))
+
+
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form ( form-name form-action  &body body) 
@@ -492,7 +495,14 @@ individual tiles. It also supports search functionality by including the searchr
 	     (:div :class "panel-heading" ,panel-header-text)
 	     (:div :class "panel-body" ,@body)))))
 
-
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-table (table-class headercolumns border &body body)
+    `(cl-who:with-html-output-to-string (*standard-output* nil)
+		   (:table :class ,table-class :width "100%" :border ,border :align "center" :cellpadding "0" :cellspacing "0" :style "padding: 0; margin: 0;"
+			   (:tr
+			    (mapcar (lambda (headercolumn)
+				      (cl-who:htm (:th (cl-who:str headercolumn)))) ,headercolumns)) ,@body))))
+  
 
 (defun copy-hash-table (hash-table)
   (let ((ht (make-hash-table 

@@ -4,7 +4,8 @@
 
 
 (defun save-temp-guest-customer (name address city state zip phone email)
-  (let ((temp-customer (make-instance 'DOD-CUST-PROFILE)))
+  (let ((temp-customer (make-instance 'DOD-CUST-PROFILE
+				      :row-id (get-login-customer-id))))
     (setf (slot-value temp-customer 'name) name)
     (setf (slot-value temp-customer 'address) address)
     (setf (slot-value temp-customer 'city) city)
@@ -59,7 +60,8 @@
       					; Save the customer order parameters. 
       (save-cust-order-params (list odts shopcart-products odate reqdate nil  shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total payment-mode comments customer custcomp order-cxt phone email custname))
       ;; Save the Guest customer details so that we can use them within the session if required. 
-      (save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email)
+      (when (equal cust-type "GUEST")
+	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email))
 
       (with-standard-customer-page "Payment Methods Page"
 	(:div :class "row" 
@@ -977,8 +979,8 @@
 		      (:h2 "Store Search.")
 		      (:div :id "custom-search-input"
 			    (:div :class "input-group col-xs-12 col-sm-12 col-md-12 col-lg-12"
-				  (with-html-search-form "companysearchaction" "Store name starts with...")
-				  (:div :id "searchresult"))))
+				  (with-html-search-form "companysearchaction" "Store name starts with...")))
+		(:div :id "searchresult"))
 		(:hr)
 		(:div :class "row"
 		      (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6"
@@ -1595,22 +1597,7 @@
   
 (defun send-order-email-guest-customer(order-id email temp-customer products shopcart) 
   (let* ((shopcart-total (get-shop-cart-total shopcart))
-	 (name (slot-value temp-customer 'name))
-	 (address (slot-value temp-customer 'address))
-	 (phone (slot-value temp-customer 'phone))
-	 (city (slot-value temp-customer 'city))
-	 (state (slot-value temp-customer 'state))
-	 (pincode (slot-value temp-customer 'zipcode))
-	(order-disp-str
-	 (cl-who:with-html-output-to-string (*standard-output* nil)
-	   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Customer name - ~A" name)))))
-	   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Address - ~A, ~A, ~A, ~A " address city state pincode)))))
-	   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Phone - ~A" phone)))))
-	   (:tr (:td (:span :class "label label-default" (cl-who:str (format nil "Email - ~A" email)))))
-	   (cl-who:str (ui-list-shopcart-for-email products shopcart))
-	   (:hr)
-	   (:tr (:td
-		 (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" shopcart-total)))))))))
+       	 (order-disp-str (create-order-email-content products shopcart temp-customer order-id shopcart-total)))
     (send-order-mail email (format nil "HighriseHub order ~A" order-id) order-disp-str)))
 
 (defun send-order-sms-guest-customer (order-id phone)
@@ -1640,7 +1627,7 @@
       (setf params (acons "company" (get-login-customer-company)  params))
       
       (with-hhub-transaction "com-hhub-transaction-create-order" params
-	(multiple-value-bind (odts products odate reqdate ship-date shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total payment-mode comments cust custcomp order-cxt phone email custname)
+	(multiple-value-bind (odts products odate reqdate ship-date shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total payment-mode comments cust custcomp order-cxt phone email custname utrnum)
 	    (values-list (get-cust-order-params)) 
 	 (let* ((temp-ht (make-hash-table :test 'equal))
 		(vendor-list (get-shopcart-vendorlist odts))
@@ -1657,7 +1644,7 @@
 	   (let ((func (gethash payment-mode temp-ht)))
 	     (if func (if (funcall (gethash payment-mode temp-ht) vendor-list wallet-list odts)	 (hunchentoot:redirect "/hhub/dodcustlowbalanceshopcarts"))))
 	   ;; If everything gets through, create order. 
-	   (let ((order-id (create-order-from-shopcart  odts products odate reqdate ship-date  shipaddress shopcart-total payment-mode comments cust custcomp temp-customer)))
+	   (let ((order-id (create-order-from-shopcart  odts products odate reqdate ship-date  shipaddress shopcart-total payment-mode comments cust custcomp temp-customer utrnum)))
 	     (setf (gethash "GUEST-EMAIL" temp-ht) (symbol-function 'send-order-email-guest-customer))
 	     (setf (gethash "GUEST-SMS" temp-ht) (symbol-function 'send-order-sms-guest-customer))
 	     (setf (gethash "STANDARD-EMAIL" temp-ht) (symbol-function 'send-order-email-standard-customer))
@@ -1724,6 +1711,7 @@
 	   (gstorgname (nth 16 orderparams))
 	   (shopcart-total (nth 17 orderparams))
 	   (payment-mode (hunchentoot:parameter "paymentmode"))
+	   (utrnum (hunchentoot:parameter "utrnum"))
 	   ;;(comments (nth 20 orderparams))
 	   (phone  (nth 23 orderparams))
 	   (email (nth 24 orderparams))
@@ -1735,7 +1723,12 @@
 	   (company-type (slot-value custcomp 'cmp-type))
 	   (vendor-list (get-shopcart-vendorlist odts))
 	   (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
-	   
+
+      ;; if payment is made using UPI, then add the utrnum to the order parameters
+      (when utrnum
+	(setf orderparams (append orderparams (list utrnum)))
+	(save-cust-order-params orderparams))
+      
       (with-standard-customer-page "Shopping cart finalize"
 	(:div :class "row"
 	      (:div :class "col-xs-12"
@@ -1864,7 +1857,8 @@
   :documentation "If the customer wallet is not defined, then define it now"
   (let ((vendor (select-vendor-by-id (hunchentoot:parameter "vendor-id"))))
     (if vendor (create-wallet (get-login-customer) vendor (get-login-customer-company)))
-    (if vendor (hunchentoot:log-message* :info "Created wallet for vendor ~A" (slot-value vendor 'name)))))
+    (if vendor (hunchentoot:log-message* :info "Created wallet for vendor ~A" (slot-value vendor 'name)))
+    (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
 
 (defun dod-controller-cust-add-to-cart ()
     :documentation "This function is responsible for adding the product and product quantity to the shopping cart."
@@ -1921,17 +1915,17 @@
 (defun dod-controller-customer-products-by-category ()
   :documentation "This function lists the customer products by category"
   (with-cust-session-check
-    (let* ((catg-id (hunchentoot:parameter "id"))
-	   (company (hunchentoot:session-value :login-customer-company))
+    (let* ((catg-id (parse-integer (hunchentoot:parameter "id")))
 	   (lstshopcart (hunchentoot:session-value :login-shopping-cart))
-	   (lstproducts (select-products-by-category catg-id company)))
+	   (lstproducts (hunchentoot:session-value :login-prd-cache))
+	   (lstprodbycatg (if lstproducts (filter-products-by-category catg-id lstproducts))))
       (with-standard-customer-page "Products By Category."
 	(cl-who:htm
 	 (:div :class "row"
 	       (:div :class "col-md-12" :align "right"
 		     (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart" (:span :class "glyphicon glyphicon-shopping-cart") " My Cart  " (:span :class "badge" (cl-who:str (format nil " ~A " (length lstshopcart)))))))
 	 (:hr))		       
-	(cl-who:str (ui-list-customer-products lstproducts lstshopcart))))))
+	(cl-who:str (ui-list-customer-products lstprodbycatg lstshopcart))))))
 
 
 (defun dod-controller-cust-show-shopcart ()

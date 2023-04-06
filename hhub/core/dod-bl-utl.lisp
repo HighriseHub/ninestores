@@ -33,7 +33,13 @@
       (read-sequence contents stream)
       contents)))
 
-
+(defun hhub-log-message (str)
+  (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
+			      :direction :output
+			      :if-exists :append
+			      :if-does-not-exist :create)
+	(format stream "~A" str)))
+      
 (defun hhub-write-file-for-css-inlining (contents) 
   (with-open-file (stream "/data/www/highrisehub.com/public/emailtemplate.html"
                      :direction :output

@@ -111,16 +111,18 @@
     (unless password-verified (hunchentoot:log-message* :info "Password not verified for ~A" phone))
 
     (when (and   
-	   login-user password-verified
-	   (null (hunchentoot:session-value :login-username)) ;; User should not be logged-in in the first place.
-	   )  (progn 				      (setf *current-user-session* (hunchentoot:start-session))
-				      (setf (hunchentoot:session-value :login-username) username)
-				      (setf (hunchentoot:session-value :login-userid) login-userid)
-				      (setf (hunchentoot:session-value :login-attribute-cart) login-attribute-cart)
-				      (setf (hunchentoot:session-value :login-tenant-id) login-tenant-id)
-				      (setf (hunchentoot:session-value :login-company-name) company-name)
-				      (setf (hunchentoot:session-value :login-company) login-company)
-				      T))))
+	   login-user
+	   password-verified
+	   (null (hunchentoot:session-value :login-username))) ;; User should not be logged-in in the first place.
+      (progn
+	(hunchentoot:start-session)
+	(setf (hunchentoot:session-value :login-username) username)
+	(setf (hunchentoot:session-value :login-userid) login-userid)
+	(setf (hunchentoot:session-value :login-attribute-cart) login-attribute-cart)
+	(setf (hunchentoot:session-value :login-tenant-id) login-tenant-id)
+	(setf (hunchentoot:session-value :login-company-name) company-name)
+	(setf (hunchentoot:session-value :login-company) login-company)
+	T))))
 
 
   
@@ -130,7 +132,7 @@
     (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
     (with-hhub-transaction "com-hhub-transaction-cad-logout" params 
       (progn (dod-logout (get-login-user-name))
-	     (hunchentoot:remove-session *current-user-session*)
+	     (hunchentoot:remove-session hunchentoot:*session*)
 	     (hunchentoot:redirect "/hhub/cad-login.html")))))
 
 

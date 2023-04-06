@@ -74,20 +74,28 @@
 		[and 
 		[= [:deleted-state] "N"]
 		[= [:tenant-id] tenant-id]
-		[=[:vendor-id] vendor-id]]
+		[=[:vendor-id] vendor-id]]  :limit 200 :order-by '( ([row-id] :desc)) 
 		:caching *dod-database-caching* :flatp t )))
 
 
 
 
 (defun search-prd-in-list (row-id list)
+  ;;(car (member row-id (mapcar (lambda (item)
+;;				(slot-value item 'row-id)) list))))
+
     (if (not (equal row-id (slot-value (car list) 'row-id))) (search-prd-in-list row-id (cdr list))
     (car list)))
 
 
+(defun filter-products-by-category (category-id list)
+ (remove nil (mapcar (lambda (item)
+	    (if (equal category-id (slot-value item 'catg-id)) item)) list)))
+
+
 (defun prdinlist-p  (prd-id list)
-(member prd-id  (mapcar (lambda (item)
-		(slot-value item 'prd-id)) list)))
+  (if (member prd-id  (mapcar (lambda (item)
+				(slot-value item 'prd-id)) list)) T))
 
 
 (defun select-product-by-id (id company-instance ) 
@@ -267,23 +275,43 @@
 
 (defun add-new-node-prdcatg (name company-instance) 
   (let* ((tenant-id (slot-value company-instance 'row-id))
-	 (query (format nil 
-		       "LOCK TABLE DOD_PRD_CATG  WRITE;SELECT @myRight := rgt FROM DOD_PRD_CATG  WHERE catg_name = 'root';UPDATE DOD_PRD_CATG  SET rgt = rgt + 2 WHERE rgt > @myRight;UPDATE DOD_PRD_CATG SET lft = lft + 2 WHERE lft > @myRight;INSERT INTO DOD_PRD_CATG (catg_name, lft, rgt, tenant_id, active_flag, deleted_state ) VALUES('~A', @myRight + 1, @myRight + 2, ~A, 'Y', 'N');UNLOCK TABLES;" name tenant-id)))
-    (print query) 
-    (clsql:query query :field-names nil :flatp t)))
+	 (query1 (format nil "SELECT @myRight := rgt FROM DOD_PRD_CATG  WHERE catg_name = 'root' and tenant_id=~A; " tenant-id))
+	 (command1 (format nil "UPDATE DOD_PRD_CATG  SET rgt = rgt + 2 WHERE rgt > @myRight;" ))
+	 (command2 (format nil "UPDATE DOD_PRD_CATG SET lft = lft + 2 WHERE lft > @myRight; "))
+	 (command3 (format nil "INSERT INTO DOD_PRD_CATG (catg_name, lft, rgt, tenant_id, active_flag, deleted_state ) VALUES('~A', @myRight + 1, @myRight + 2, ~A, 'Y', 'N');" name tenant-id)))
+    
+    (print query1)
+    (clsql:query query1 :field-names nil :flatp t)
+    (clsql:execute-command command1 )
+    (clsql:execute-command command2 )
+    (clsql:execute-command command3 )))
+    
 
 
 (defun add-new-prdcatg-node-as-child (parentname childname  company-instance) 
   (let* ((tenant-id (slot-value company-instance 'row-id))
-	 (query (format nil 
-		       "LOCK TABLE DOD_PRD_CATG  WRITE;
-SELECT @myLeft := lft FROM DOD_PRD_CATG WHERE catg_name = '~A'; 
-UPDATE DOD_PRD_CATG  SET rgt = rgt + 2 WHERE rgt > @myLeft;
-UPDATE DOD_PRD_CATG  SET lft = lft + 2 WHERE lft > @myLeft;
-INSERT INTO DOD_PRD_CATG (catg_name, lft, rgt, tenant_id, active_flag, deleted_state) VALUES('~A', @myLeft + 1, @myLeft + 2, ~A, 'Y', 'N');
-UNLOCK TABLES;" parentname childname tenant-id)))
-    (clsql:query query :field-names nil :flatp t)))
+	 (query (format nil "SELECT @myLeft := lft FROM DOD_PRD_CATG WHERE catg_name = '~A' and tenant_id=~A;" parentname tenant-id))
+	 (command2 (format nil "UPDATE DOD_PRD_CATG  SET rgt = rgt + 2 WHERE rgt > @myLeft;"))
+	 (command3 (format nil "UPDATE DOD_PRD_CATG  SET lft = lft + 2 WHERE lft > @myLeft;"))
+	 (command4 (format nil "INSERT INTO DOD_PRD_CATG (catg_name, lft, rgt, tenant_id, active_flag, deleted_state) VALUES('~A', @myLeft + 1, @myLeft + 2, ~A, 'Y', 'N');" childname tenant-id)))
 
+  (clsql:query query :field-names nil :flatp t)
+    (clsql:execute-command command2 )
+    (clsql:execute-command command3 )
+    (clsql:execute-command command4 )))
+
+
+(defun delete-prd-catg (name company)
+  (let* ((tenant-id (slot-value company 'row-id))
+	 (query (format nil "SELECT @myLeft := lft, @myRight := rgt, @myWidth := rgt - lft + 1 FROM DOD_PRD_CATG  WHERE catg_name = '~A' and tenant_id=~A" name tenant-id))
+	 (command1 (format nil "DELETE FROM DOD_PRD_CATG WHERE lft BETWEEN @myLeft AND @myRight;"))
+	 (command2 (format nil "UPDATE DOD_PRD_CATG  SET rgt = rgt - @myWidth WHERE rgt > @myRight;"))
+	 (command3 (format nil "UPDATE DOD_PRD_CATG  SET lft = lft - @myWidth WHERE lft > @myRight;")))
+    
+    (clsql:query query :field-names nil :flatp t)
+    (clsql:execute-command command1 )
+    (clsql:execute-command command2 )
+    (clsql:execute-command command3 )))
 
 
 (defun update-prdcatg (prdcatg-inst); This function has side effect of modifying the database record.

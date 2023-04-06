@@ -10,29 +10,29 @@
     :type integer
     :initarg :row-id)
    
-(ord-date
+   (ord-date
     :accessor order-date
     :DB-CONSTRAINTS :NOT-NULL
     :TYPE clsql:date
     :initarg :ord-date)
-
-(req-date
+   
+   (req-date
     :accessor get-requested-date
     :DB-CONSTRAINTS :NOT-NULL
     :TYPE clsql:date
     :initarg :req-date)
-
-(shipped-date
+   
+   (shipped-date
     :accessor get-shipped-date
     :TYPE clsql:date
     :INITARG :shipped-date)   
+   
 
-
- (ship-address
+   (ship-address
     :ACCESSOR get-ship-address 
     :type (string 200)
     :initarg :ship-address)
-
+   
    (shipzipcode
     :accessor get-shipzipcode
     :type (string 10)
@@ -91,22 +91,27 @@
     :type float
     :initarg :order-amt)
 
-(payment-mode
+   (total-discount
+    :type float
+    :initarg :total-discount)
+   
+   (total-tax
+    :type float
+    :initarg :total-tax)
+
+   (payment-mode
     :type (string 3)
     :initarg :payment-mode)
 
-
-
-(comments
+   (comments
     :accessor comments
     :type (string 250)
     :initarg :comments)
 
- (context-id
+   (context-id
     :ACCESSOR get-context-id 
     :type (string 100)
     :initarg :context-id)
-
 
     (cust-id
     :type integer
@@ -119,7 +124,7 @@
                           :FOREIGN-KEY row-id
                           :SET nil))
 
-(status
+   (status
     :type (string 3)
     :initarg :status)
 
@@ -128,21 +133,21 @@
     :void-value "N"
     :initarg :deleted-state)
 
-(order-type 
- :type (string 4)
- :initarg :order-type
- :void-value "SALE")
+   (order-type 
+    :type (string 4)
+    :initarg :order-type
+    :void-value "SALE")
 
-(tenant-id
+   (tenant-id
     :type integer
     :initarg :tenant-id)
-(COMPANY
- :ACCESSOR get-company
- :DB-KIND :JOIN
- :DB-INFO (:JOIN-CLASS dod-company
-	   :HOME-KEY tenant-id
-	   :FOREIGN-KEY row-id
-	   :SET nil)))
+   (COMPANY
+    :ACCESSOR get-company
+    :DB-KIND :JOIN
+    :DB-INFO (:JOIN-CLASS dod-company
+	      :HOME-KEY tenant-id
+	      :FOREIGN-KEY row-id
+	      :SET nil)))
   (:BASE-TABLE dod_order))
 
 
