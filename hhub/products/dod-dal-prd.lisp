@@ -60,11 +60,34 @@
     :type integer
     :initarg :units-in-stock)
 
+   (hsn-code
+    :type (string 8)
+    :initarg :hsn-code)
+
+   (sku
+    :type (string 20)
+    :initarg :sku)
+
+   (upc
+    :type (string 20)
+    :initarg :upc)
+   (ean
+    :type (string 20)
+    :initarg :ean)
+   (jan
+    :type (string 20)
+    :initarg :jan)
+   (isbn
+    :type (string 20)
+    :initarg :isbn)
+   (serial-no
+    :type (string 20)
+    :initarg :serial-no)
 
    (active-flag
     :type (string 1)
     :void-value "N"
-       :initarg :active-flag)
+    :initarg :active-flag)
 
 
    (deleted-state

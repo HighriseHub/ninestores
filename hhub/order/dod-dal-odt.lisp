@@ -9,78 +9,107 @@
     :type integer
     :initarg :row-id)
    
-(order-id
+   (order-id
     :accessor odt-order-id
     :TYPE integer
     :initarg :order-id)
-(orderobject 
- :accessor odt-orderobject 
- :db-kind :join
- :db-info (:join-class dod-order
-		       :home-key order-id 
-		       :foreign-key row-id
+   (orderobject 
+    :accessor odt-orderobject 
+    :db-kind :join
+    :db-info (:join-class dod-order
+	      :home-key order-id 
+	      :foreign-key row-id
 		       :set nil))
-
-(prd-id
+   
+   (prd-id
     :accessor odt-prd-id
     :DB-CONSTRAINTS :NOT-NULL
     :TYPE integer
     :initarg :prd-id)
-
+   
    (productobject
     :ACCESSOR get-odt-product
     :db-kind :join
     :db-info (:join-class dod-prd-master
-			  :home-key prd-id
-			  :foreign-key row-id
-			  :set nil))
+	      :home-key prd-id
+	      :foreign-key row-id
+	      :set nil))
 
-
-
-(vendor-id
+   
+   
+   (vendor-id
     :accessor odt-vendor-id
     :db-constraints :NOT-NULL
     :type integer
     :initarg :vendor-id)
+   
+   (vendorobject
+    :accessor odt-vendorobject
+    :db-kind :join
+    :db-info (:join-class dod-vend-profile
+	      :home-key vendor-id
+	      :foreign-key row-id
+	      :set nil))
+   
 
-(vendorobject
-	:accessor odt-vendorobject
-	:db-kind :join
-	:db-info (:join-class dod-vend-profile
-		     :home-key vendor-id
-		     :foreign-key row-id
-		     :set nil))
-
-
-
-(prd-qty
+   
+   (prd-qty
     :accessor odt-product-qty
     :DB-CONSTRAINTS :NOT-NULL
     :TYPE integer
     :initarg :prd-qty)
 
+   
+   (unit-price
+    :accessor get-unit-price
+    :db-constraints :not-null
+    :type float
+    :initarg :unit-price)
 
-(unit-price
- :accessor get-unit-price
- :db-constraints :not-null
- :type float
- :initarg :unit-price)
+   (cgst
+    :accessor cgst
+    :type float
+    :initarg :cgst)
 
+   (sgst
+    :accessor sgst
+    :type float
+    :initarg :sgst)
 
-(fulfilled
+   (igst
+    :accessor igst
+    :type float
+    :initarg :igst)
+
+   (disc-rate
+    :accessor disc-rate
+    :type float
+    :initarg :disc-rate)
+
+   (addl-tax1-rate
+    :accessor addl-tax1-rate
+    :type float
+    :initarg :addl-tax1-rate)
+
+   (comments
+    :accessor comments
+    :type (string 250)
+    :initarg :comments)
+   
+   (fulfilled
     :type (string 1)
     :void-value "N"
     :initarg :fulfilled)
+   
 
-
-(status 
+   (status 
     :accessor odt-status
     :DB-CONSTRAINTS :NOT-NULL
     :TYPE (string 3)
     :initarg :status)
-
-
-(deleted-state
+   
+   
+   (deleted-state
     :type (string 1)
     :void-value "N"
     :initarg :deleted-state)
@@ -92,7 +121,7 @@
     :ACCESSOR customer-company
     :DB-KIND :JOIN
     :DB-INFO (:JOIN-CLASS dod-company
-	                  :HOME-KEY tenant-id
+	      :HOME-KEY tenant-id
                           :FOREIGN-KEY row-id
                           :SET nil)))
 

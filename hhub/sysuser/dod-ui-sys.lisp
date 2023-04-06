@@ -843,6 +843,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustpaymentmethodspage"   'dod-controller-customer-payment-methods-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustwalletrechargepage"   'hhub-controller-upi-recharge-wallet-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustwalletrechargeaction"   'hhub-controller-upi-recharge-wallet-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubsearchmycustomer"   'hhub-controller-search-my-customer-action)
 
 
 
@@ -875,6 +876,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodprddetailsforvendor" 'dod-controller-prd-details-for-vendor)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenordfulfilled" 'com-hhub-transaction-vendor-order-setfulfilled)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendprofile" 'dod-controller-vend-profile)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendmycustomers" 'dod-controller-vendor-my-customers-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodsearchcustwalletpage" 'dod-controller-vendor-search-cust-wallet-page )
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodsearchcustwalletaction" 'dod-controller-vendor-search-cust-wallet-action )
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodupdatewalletbalance" 'dod-controller-update-wallet-balance)
@@ -899,6 +901,8 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdateupisettings"   'hhub-controller-save-vendor-upi-settings)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendorupitransactions"   'hhub-controller-show-vendor-upi-transactions)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupipayconfirm"   'hhub-controller-vendor-upi-confirm)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendsearchproduct"   'dod-controller-vendor-search-products)
+	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendprodcategories"   'dod-controller-vendor-product-categories-page)
 		
 ))
 

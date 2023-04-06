@@ -158,8 +158,8 @@
  ;This is a clean function with no side effect.
 (defun create-order-items (order product  product-qty unit-price company-instance)
   (let ((order-id (slot-value order 'row-id))
-	   (product-id (slot-value product 'row-id))
-	   (vendor-id (slot-value (product-vendor product) 'row-id))
+	(product-id (slot-value product 'row-id))
+	(vendor-id (slot-value (product-vendor product) 'row-id))
 	(tenant-id (slot-value company-instance 'row-id)))
     (persist-order-items order-id product-id vendor-id unit-price product-qty tenant-id)))
 

@@ -52,7 +52,7 @@
 			       (format nil "/img/~A" filename))) images))
 	 (image-path-hashes (mapcar (lambda (filepath)
 				 (string-upcase (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :MD5 (ironclad:ascii-string-to-byte-array filepath))))) filepaths)))
-	 (with-open-file (stream (format nil "/data/www/highrisehub.com/public/img/temp/products-ven-~a.csv" vendor-id)  
+	 (with-open-file (stream (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id)  
 			 :direction :output
 			 :if-exists :supersede
 			 :if-does-not-exist :create)
@@ -130,7 +130,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	  (:div :class "list-group col-xs-12 col-sm-6 col-md-6 col-lg-6" 
 		(:a :class "list-group-item list-group-item-action" :data-toggle "modal" :data-target (format nil "#hhubvendprodimagesupload-modal")  :href "#" " Upload Product Images")
 		;; This download will be enabled when the file is ready for download. 
-		(if (probe-file (format nil "/data/www/highrisehub.com/public/img/temp/products-ven-~a.csv" vendor-id))
+		(if (probe-file (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id))
 		    (cl-who:htm (:a :href (format nil "/img/temp/products-ven-~a.csv" vendor-id) :class "list-group-item list-group-item-action" "click here to download Products.csv"))) 
 		(:a :class "list-group-item list-group-item-action"  :data-toggle "modal" :data-target (format nil "#hhubvendprodcsvupload-modal")  :href "#"  " Upload CSV File"))
 	  ;; Modal dialog for Uploading  product images
@@ -484,11 +484,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (id (hunchentoot:parameter "id"))
 	   (product (if id (select-product-by-id id (get-login-vendor-company))))
 	   (description (hunchentoot:parameter "description"))
-	   (prodprice (with-input-from-string (in (hunchentoot:parameter "prdprice"))
-			(read in)))
+	   (prodprice (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
+			(read in))))
 	   (qtyperunit (hunchentoot:parameter "qtyperunit"))
 	   (units-in-stock (parse-integer (hunchentoot:parameter "unitsinstock")))
-	   (catg-id (hunchentoot:parameter "prodcatg"))
+	   (catg-id (parse-integer (hunchentoot:parameter "prodcatg")))
 	   (subscriptionflag (hunchentoot:parameter "yesno"))
 	   (prodimageparams (hunchentoot:post-parameter "prodimage"))
 					;(destructuring-bind (path file-name content-type) prodimageparams))
@@ -506,10 +506,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		(probe-file tempfilewithpath)
 		(rename-file tempfilewithpath (make-pathname :directory *HHUBRESOURCESDIR*  :name file-name))))
 	  (if product 
-	      (progn 
+	      (progn
+		(setf (slot-value product 'prd-name) prodname)
 		(setf (slot-value product 'description) description)
 		(setf (slot-value product 'unit-price) prodprice)
-		(setf (slot-value product 'category) catg-id)
+		(setf (slot-value product 'catg-id) catg-id)
 		(setf (slot-value product 'qty-per-unit) qtyperunit)
 		(setf (slot-value product 'units-in-stock) units-in-stock)
 		(setf (slot-value product 'subscribe-flag) subscriptionflag)
@@ -660,7 +661,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    (:div :class "row" 
 			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 				(:div :class "account-wall"
-					     (:form :class "form-vendorsignin" :role "form" :method "POST" :action "dodvendlogin"
+				      (:form :class "form-vendorsignin" :role "form" :method "POST" :action "dodvendlogin"
 					     (:a :href "https://www.highrisehub.com" (:img :class "profile-img" :src "/img/logo.png" :alt ""))
 					     (:h1 :class "text-center login-title"  "Vendor - Login to DAS")
 					     (:div :class "form-group"
@@ -669,76 +670,139 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 						   (:input :class "form-control" :name "password" :placeholder "password=demo" :type "password" ))
 					     (:div :class "form-group"
 						   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))
-					     (:div :class "form-group"
-					     (:a :data-toggle "modal" :data-target (format nil "#dasvendforgotpass-modal") :href "#" "Forgot Password" )))))
-					     (modal-dialog (format nil "dasvendforgotpass-modal") "Forgot Password?" (modal.vendor-forgot-password)))))
+				      (:div :class "form-group"
+					    (:a :data-toggle "modal" :data-target (format nil "#dasvendforgotpass-modal") :href "#" "Forgot Password" )))))
+		    (modal-dialog (format nil "dasvendforgotpass-modal") "Forgot Password?" (modal.vendor-forgot-password)))))
     (clsql:sql-database-data-error (condition)
-					     (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-												      (stop-das) 
-												      (start-das)
-												      (hunchentoot:redirect "/hhub/vendor-login.html"))))))
+      (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
+							       (stop-das) 
+							       (start-das)
+							       (hunchentoot:redirect "/hhub/vendor-login.html"))))))
 
 
+(defun dod-controller-vendor-my-customers-page ()
+  (with-vend-session-check
+    (let* ((vendor (get-login-vendor))
+	   (company (get-login-vendor-company))
+	   (wallets (get-cust-wallets-for-vendor vendor company))
+	   (mycustomers (remove nil (mapcar (lambda (wallet)
+				  (let* ((customer (slot-value wallet 'customer))
+					 (cust-type (slot-value customer 'cust-type)))
+				    (when (equal cust-type "STANDARD") customer))) wallets))))
+      (with-standard-vendor-page "My Customers"
+	(with-html-search-form "hhubsearchmycustomer" "Customer Name")
+	(:div :id "searchresult"  :class "container"
+	      (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") mycustomers 'display-my-customers-row)))))))
+
+
+(defun hhub-controller-search-my-customer-action ()
+  (with-vend-session-check
+    (let* ((company (get-login-vendor-company))
+	   (vendor (get-login-vendor))
+	   (name (hunchentoot:parameter "livesearch"))
+	   (totalcustomers (select-customer-list-by-name (format nil "%~A%" name) company))
+	   (customers (remove nil (mapcar (lambda (customer)
+					    (if (get-cust-wallet-by-vendor customer vendor company) customer)) totalcustomers))))
+      
+      (if (> (length customers) 0)
+	(cl-who:with-html-output (*standard-output* nil) 
+	  (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") customers 'display-my-customers-row)))
+	;; else
+	(cl-who:with-html-output (*standard-output* nil)
+	  (:h3 (cl-who:str "No Records Found")))))))
+	
+       
+
+(defun display-my-customers-row (customer)
+  (let* ((vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (cust-id (slot-value customer 'row-id))
+	 (wallet (get-cust-wallet-by-vendor customer  vendor company)))
+    (with-slots (name phone address) customer
+      (cl-who:with-html-output (*standard-output* nil)
+	(:td  :height "10px" (cl-who:str name))
+	(:td  :height "10px" (cl-who:str phone))
+	(:td  :height "10px" (cl-who:str address))
+	(:td  :height "10px" (cl-who:str (slot-value wallet 'balance)))
+	(:td  :height "10px"
+	      (:a :data-toggle "modal" :data-target (format nil "#vendormycustomerwallet~A" cust-id)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
+		 (modal-dialog (format nil "vendormycustomerwallet~A" cust-id) "Recharge Wallet" (modal.vendor-my-customer-wallet-recharge wallet phone)))))))
+ 
+(defun modal.vendor-my-customer-wallet-recharge (wallet phone)
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-html-div-row
+      (with-html-div-col
+	(:form :class "form-vendor-update-balance" :role "form" :method "POST" :action "dodupdatewalletbalance"
+	       (:div :class "form-group"
+		     (:input :class "form-control" :name "balance" :placeholder "recharge amount" :type "text" ))
+	       (:input :class "form-control" :name "wallet-id" :value (slot-value wallet 'row-id) :type "hidden")
+	       (:input :class "form-control" :name "phone" :value phone :type "hidden")
+	       (:div :class "form-group"
+		     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))
+      
+;; Deprecated. 
 (defun dod-controller-vendor-search-cust-wallet-page ()
-    (if (is-dod-vend-session-valid?)
-    (with-standard-vendor-page (:title "Welcome to DAS Platform- Your Demand And Supply destination.")
-	(:div :class "row" 
+  :Description "Deprecated function"
+  (with-vend-session-check 
+    (with-standard-vendor-page "Welcome to DAS Platform- Your Demand And Supply destination."
+      (:div :class "row" 
 	    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-		(:form :class "form-cust-wallet-search" :role "form" :method "POST" :action "dodsearchcustwalletaction"
-		    (:div :class "account-wall"
-			  (:div :class "form-group"
-			    (:input :class "form-control" :name "phone" :placeholder "Enter Customer Phone Number" :type "number" :size "10" ))
-					
-			(:div :class "form-group"
-			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))
-    (hunchentoot:redirect "/hhub/vendor-login.html")
-))
+		  (:form :class "form-cust-wallet-search" :role "form" :method "POST" :action "dodsearchcustwalletaction"
+			 (:div :class "account-wall"
+			       (:div :class "form-group"
+				     (:input :class "form-control" :name "phone" :placeholder "Enter Customer Phone Number" :type "number" :size "10" ))
+			       
+			       (:div :class "form-group"
+				     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
+  
 
+
+;; Deprecated
 (defun dod-controller-vendor-search-cust-wallet-action ()
-(if (is-dod-vend-session-valid?)
+  :description "Deprecated function" 
+  (if (is-dod-vend-session-valid?)
   (let* ((phone (hunchentoot:parameter "phone"))
 	 (customer (select-customer-by-phone phone (get-login-vendor-company)))
-	(wallet (if customer (get-cust-wallet-by-vendor customer (get-login-vendor) (get-login-vendor-company)))))
+	 (wallet (if customer (get-cust-wallet-by-vendor customer (get-login-vendor) (get-login-vendor-company)))))
  
-(if (null wallet) 
-(with-standard-vendor-page (:title "Welcome to DAS Platform")
- (:div :class "row" 
-	(:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 "Wallet does not exist"))))
-;else
-(with-standard-vendor-page (:title "Welcome to DAS Platform")
-  (:div :class "row" 
-	(:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 (cl-who:str (format nil "Name: ~A" (if customer (slot-value customer 'name)))))))
-  (:div :class "row" 
-	(:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 (cl-who:str (format nil "Phone: ~A" (if customer (slot-value customer 'phone)))))))
-   (:div :class "row" 
-	(:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 (cl-who:str (format nil "Address: ~A" (if customer (slot-value customer 'address)))))))
-
-  (:div :class "row" 
-	    (:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 (cl-who:str (format nil "Balance = Rs.~$" (slot-value wallet 'balance))))))
-	(:div :class "row" 
-	    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-		  (:form :class "form-vendor-update-balance" :role "form" :method "POST" :action "dodupdatewalletbalance"
-		    (:div :class "account-wall"
-			  (:div :class "form-group"
-			    (:input :class "form-control" :name "balance" :placeholder "recharge amount" :type "text" ))
-			  (:input :class "form-control" :name "wallet-id" :value (slot-value wallet 'row-id) :type "hidden")
-			   (:input :class "form-control" :name "phone" :value phone :type "hidden")
-			  (:div :class "form-group"
+    (if (null wallet) 
+	(with-standard-vendor-page (:title "Welcome to DAS Platform")
+	  (:div :class "row" 
+		(:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 "Wallet does not exist"))))
+					;else
+	(with-standard-vendor-page (:title "Welcome to DAS Platform")
+	  (:div :class "row" 
+		(:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 (cl-who:str (format nil "Name: ~A" (if customer (slot-value customer 'name)))))))
+	  (:div :class "row" 
+		(:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 (cl-who:str (format nil "Phone: ~A" (if customer (slot-value customer 'phone)))))))
+	  (:div :class "row" 
+		(:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 (cl-who:str (format nil "Address: ~A" (if customer (slot-value customer 'address)))))))
+	  
+	  (:div :class "row" 
+		(:div :class "col-sm-6 col-md-4 col-md-offset-4" (:h3 (cl-who:str (format nil "Balance = Rs.~$" (slot-value wallet 'balance))))))
+	  (:div :class "row" 
+		(:div :class "col-sm-6 col-md-4 col-md-offset-4"
+		      (:form :class "form-vendor-update-balance" :role "form" :method "POST" :action "dodupdatewalletbalance"
+			     (:div :class "account-wall"
+				   (:div :class "form-group"
+					 (:input :class "form-control" :name "balance" :placeholder "recharge amount" :type "text" ))
+				   (:input :class "form-control" :name "wallet-id" :value (slot-value wallet 'row-id) :type "hidden")
+				   (:input :class "form-control" :name "phone" :value phone :type "hidden")
+				   (:div :class "form-group"
 			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
-(hunchentoot:redirect "/hhub/vendor-login.html")))
+  (hunchentoot:redirect "/hhub/vendor-login.html")))
 
 
 (defun dod-controller-update-wallet-balance ()
   (with-vend-session-check
     (let* ((amount (parse-integer (hunchentoot:parameter "balance")))
-	   (phone (hunchentoot:parameter "phone"))
 	   (wallet (get-cust-wallet-by-id (hunchentoot:parameter "wallet-id") (get-login-vendor-company)))
 	   (current-balance (slot-value wallet 'balance))
 	   (latest-balance (+ current-balance amount)))
       (set-wallet-balance latest-balance wallet)
       ;; We need to clear this memoized function and again memoize it.
       ;; (memoize 'get-cust-wallet-by-vendor)
-      (hunchentoot:redirect (format nil "/hhub/dodsearchcustwalletaction?phone=~A" phone)))))
+      (hunchentoot:redirect (format nil "/hhub/hhubvendmycustomers")))))
     
    
 (defun dod-controller-vend-profile ()
@@ -747,7 +811,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
        (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-vendor-name))))
        (:hr)
        (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
-		    (:a :class "list-group-item" :href "dodsearchcustwalletpage" "My Customers")
+		    (:a :class "list-group-item" :href "hhubvendmycustomers" "My Customers")
 		    (:a :class "list-group-item" :href "dodvendortenants" "My Groups")
 		    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupdate-modal")  :href "#"  "Contact Information")
 		    (modal-dialog (format nil "dodvendupdate-modal") "Update Vendor" (modal.vendor-update-details)) 
@@ -911,6 +975,69 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 ) 
 
 
+(defun dod-controller-vendor-search-products ()
+  (let* ((search-clause (hunchentoot:parameter "livesearch"))
+	 (products (if (not (equal "" search-clause)) (search-products search-clause (get-login-vendor-company)))))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      (:div :id "searchresult" 
+	    (cl-who:str (display-as-tiles products  'product-card-for-vendor "vendor-product-box"))))))
+
+(defun dod-controller-vendor-product-categories-page ()
+  (with-vend-session-check
+    (let* ((company (get-login-vendor-company))
+	   (categories (select-prdcatg-by-company company))
+	   (catgcount (length categories)))
+      (with-standard-vendor-page "Product Categories"
+	(with-html-div-row
+	  (with-html-div-col
+	     (:a :data-toggle "modal" :data-target (format nil "#dodvenaddprodcatg-modal")  :href "#"  (:span :class "glyphicon glyphicon-plus") "Add New Category" )
+		     (modal-dialog (format nil "dodvenaddprodcatg-modal") "Add New Category" (modal.vendor-product-category-add)))
+	  (with-html-div-col :align "right"
+	    (:span :class "badge" (cl-who:str (format nil " ~d " catgcount)))))
+	(:hr)
+	(cl-who:str (display-as-table (list "Name" "Action") categories 'vendor-product-category-row))))))
+	
+(defun modal.vendor-product-category-add ()
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-html-div-row 
+      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+	    (:form :id (format nil "form-vendorprod~A" mode) :data-toggle "validator"  :role "form" :method "POST" :action "dodvenaddproductaction" :enctype "multipart/form-data" 
+		   (if (and product (equal mode "EDIT")) (cl-who:htm (:input :class "form-control" :type "hidden" :value prd-id :name "id")))
+		 (:div :align "center"  :class "form-group" 
+		       (:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
+		 (:h1 :class "text-center login-title"  "Edit/Copy Product")
+		      (:div :class "form-group"
+			    (:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
+		      (:div :class "form-group"
+			    (:label :for "description")
+			    (:textarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup "countChar(this, 1000)" (cl-who:str (format nil "~A" description))))
+		      (:div :class "form-group" :id "charcount")
+		      (:div :class "form-group"
+			    (:input :class "form-control" :name "prdprice"  :value (format nil "~$" unit-price)  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
+		      		      
+		      (:div :class "form-group"
+			    (:input :class "form-control" :name "qtyperunit" :value qty-per-unit :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
+		      (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
+			     (ui-list-prod-catg-dropdown catglist prdcategory))
+		      (:div :class "form-group"
+			    (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :value units-in-stock  :type "number" :min "1" :max "10000" :step "1"  ))
+
+
+
+(defun vendor-product-category-row (category)
+  (with-slots (row-id catg-name active-flag) category 
+      (cl-who:with-html-output (*standard-output* nil)
+	(:td  :height "10px" (cl-who:str catg-name))
+	(:td :height "10px"
+	     (if (equal active-flag "Y")
+		    (cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Turn Off" 
+		      (:a :href (format nil "dodvenddeactivateprodcatg?id=~A" row-id) (:span :class "glyphicon glyphicon-off"))))
+		    ;else
+		    (cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Turn On" 
+		      (:a :href (format nil "dodvenddeactivateprodcatg?id=~A" row-id) (:span :class "glyphicon glyphicon-off")))))))))
+	
+	
+
 (defun dod-controller-vendor-products ()
   (with-vend-session-check 
     (let* ((vendor-products (hhub-get-cached-vendor-products))
@@ -918,17 +1045,22 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (subscription-plan (slot-value vendor-company 'subscription-plan)))
 	
       (with-standard-vendor-page "Welcome to HighriseHub  - Vendor"
-				 (:div :class "row" 
-				       (:div :class "col-xs-4 col-sm-4 col-md-4 col-lg-4" 
-					     (:a :class "btn btn-primary" :role "button" :href "dodvenaddprodpage" (:span :class "glyphicon glyphicon-shopping-cart") " Add New Product  "))
-				       (when (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan)
-					   (cl-who:htm   (:div :class "col-xs-4 col-sm-4 col-md-4 col-lg-4" 
-					     (:a :class "btn btn-primary" :role "button" :href "dodvenbulkaddprodpage" (:span :class "glyphicon glyphicon-shopping-cart") " Bulk Add Products "))))
-				       (:div :class "col-xs-4 col-sm-4 col-md-4 col-lg-4" :align "right" 
-					     (:span :class "badge" (cl-who:str (format nil " ~d " (length vendor-products)))))) 
-				   (:hr)
-				   (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-box"))))))
-   
+	(with-html-search-form "hhubvendsearchproduct" "Product Name")
+	  
+	(:div :class "row" 
+	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
+		    (:a :class "btn btn-primary" :role "button" :href "dodvenaddprodpage" (:span :class "glyphicon glyphicon-shopping-cart") " Add New Product  "))
+	      (when (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan)
+		(cl-who:htm   (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
+				    (:a :class "btn btn-primary" :role "button" :href "dodvenbulkaddprodpage" (:span :class "glyphicon glyphicon-shopping-cart") " Bulk Add Products "))))
+	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" :align "right"
+		        (:a :class "btn btn-primary" :role "button" :href "dodvendprodcategories" (:span :class "glyphicon glyphicon-shopping-cart") " Product Categories "))
+	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" :align "right" 
+		    (:span :class "badge" (cl-who:str (format nil " ~d " (length vendor-products)))))) 
+	(:hr)
+	(:div :id "searchresult" 
+	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-box")))))))
+
 
 
 (defun dod-gen-vendor-products-functions (vendor company)
@@ -1003,7 +1135,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vend-index () 
   (with-vend-session-check 
-    (let (( dodorders (dod-get-cached-pending-orders ))
+    (let ((dodorders (dod-get-cached-pending-orders ))
 	  (reqdate (hunchentoot:parameter "reqdate"))
 	  (btnexpexl (hunchentoot:parameter "btnexpexl"))
 	  (context (hunchentoot:parameter "context")))

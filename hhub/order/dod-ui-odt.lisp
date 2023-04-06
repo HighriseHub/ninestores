@@ -115,9 +115,9 @@
 
 (defun ui-list-shopcart-for-email (products shopcart)
     :documentation "A function used for rendering the shopping cart data in HTML EMAIL format."
-    (cl-who:with-html-output (*standard-output* nil)
-      (mapcar (lambda (product odt)
-		(product-card-for-email product odt))  products shopcart )))
+  (with-html-table "" (list "Product" "Description" "Qty" "Subtotal") "1"  
+    (mapcar (lambda (product odt)
+	      (product-card-for-email product odt))  products shopcart )))
     
 
 (defun ui-list-cust-orderdetails  (header data)

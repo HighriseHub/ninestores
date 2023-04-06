@@ -21,10 +21,10 @@
 (defvar *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "23:00:00")
 (defvar *HHUB-DEMO-TENANT-ID* 2)
 
-(defvar *HHUB-COMPILE-FILES-LOCATION* "~/hhubplatform/bin/hhubcompilelog.txt") 
+(defvar *HHUB-COMPILE-FILES-LOCATION* "/home/ubuntu/hhubplatform/bin/hhubcompilelog.txt") 
 (defvar *HHUB-EMAIL-CSS-FILE* "/data/www/highrisehub.com/public/css")
 (defvar *HHUB-EMAIL-CSS-CONTENTS* NIL)
-(defvar *HHUB-EMAIL-TEMPLATES-FOLDER* "~/hhubplatform/hhub/email/templates")
+(defvar *HHUB-EMAIL-TEMPLATES-FOLDER* "/home/ubuntu/hhubplatform/hhub/email/templates")
 (defvar *HHUB-CUST-REG-TEMPLATE-FILE* "cust-reg.html")
 (defvar *HHUB-CUST-PASSWORD-RESET-FILE* "cust-pass-reset.html")
 (defvar *HHUB-CUST-TEMP-PASSWORD-FILE* "temppass.html")
@@ -33,7 +33,7 @@
 (defvar *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE* "guestcustorder.html")
 (defvar *HHUB-TERMSANDCONDITIONS-FILE* "tnc.html")
 (defvar *HHUB-PRIVACY-FILE* "privacy.html")
-(defvar *HHUB-STATIC-FILES* "hhubplatform/site/public")
+(defvar *HHUB-STATIC-FILES* "/home/hhubplatform/site/public")
 
 (defvar *dod-db-instance*)
 (defvar *sitepass* (encrypt "P@ssword1" "highrisehub.com"))

@@ -77,6 +77,12 @@
     (copyupipayment-dbtodomain upidbobj upiobj)))
  
 
+(defun get-vendor-orders-from-upi-transactions ()
+  (let* ((upitrans (select-upi-transactions-by-vendor (get-login-vendor) (get-login-vendor-company)))
+	 (orders (mapcar (lambda (tran)
+			   (subseq (slot-value tran 'transaction-id) 5)) upitrans)))
+    orders))
+
 (defun select-upi-transaction-by-utrnum (utrnum vend company)
   (let ((tenant-id (slot-value company 'row-id))
 	(vendor-id (slot-value vend 'row-id)))
@@ -116,10 +122,11 @@
 	 (upipaymentsdbservice (make-instance 'UpiPaymentsDBService))
 	 (cust (customer requestmodel))
 	 (amt (amount requestmodel))
+	 (phone (phone requestmodel))
 	 (utrnum (utrnum requestmodel))
 	 (transaction-id (transaction-id requestmodel))
 	 (comp (company requestmodel))
-	 (upiobj (createupipaymentobject cust vend amt transaction-id utrnum comp)))
+	 (upiobj (createupipaymentobject cust vend amt transaction-id utrnum comp phone)))
 
     (setf (slot-value upiobj 'status) "PEN")
     (setf (slot-value upiobj 'vendorconfirm) "N")
@@ -156,7 +163,7 @@
 	 (vend (select-vendor-by-id (slot-value source 'vendor-id)))
 	 (cust (select-customer-by-id (slot-value source 'cust-id) comp)))
 
-    (with-slots (amount transaction-id customer vendor status utrnum vendorconfirm deleted-state company created) destination
+    (with-slots (amount transaction-id customer vendor status utrnum vendorconfirm deleted-state company created phone) destination
       (setf vendor vend)
       (setf customer cust)
       (setf amount (slot-value source 'amount))
@@ -167,6 +174,7 @@
       (setf status (slot-value source 'status))
       (setf deleted-state (slot-value source 'deleted-state))
       (setf created (slot-value source 'created))
+      (setf phone (slot-value source 'phone))
       destination)))
 
 
@@ -175,9 +183,10 @@
 	(customer (slot-value source 'customer))
 	(company (slot-value source 'company)))
     
-  (with-slots (transaction-id cust-id vendor-id amount status utrnum vendorconfirm deleted-state tenant-id) destination
+  (with-slots (transaction-id cust-id vendor-id amount status utrnum vendorconfirm deleted-state tenant-id phone) destination
     (setf vendor-id (slot-value vendor 'row-id))
     (setf cust-id  (slot-value customer 'row-id))
+    (setf phone (slot-value customer 'phone))
     (setf amount (slot-value source 'amount))
     (setf tenant-id (slot-value company 'row-id))
     (setf transaction-id  (slot-value source 'transaction-id))
@@ -190,7 +199,7 @@
 
 (defmethod CreateResponseModel ((adapter UpiPaymentsAdapter) (source UpiPayment) (destination UpiPaymentsResponseModel))
   :description "source = upipayment destination = upipaymentresponsemodel"
-  (with-slots (transaction-id customer vendor amount status utrnum vendorconfirm deleted-state company created) destination
+  (with-slots (transaction-id customer vendor amount status utrnum vendorconfirm deleted-state company created phone) destination
     (setf vendor (slot-value source 'vendor))
     (setf customer  (slot-value source 'customer))
     (setf amount (slot-value source 'amount))
@@ -200,10 +209,11 @@
     (setf vendorconfirm (slot-value source 'vendorconfirm))
     (setf status (slot-value source 'status))
     (setf created (slot-value source 'created))
+    (setf phone (slot-value source 'phone))
     destination))
 
   
-(defun createupipaymentobject (customer vendor amount transaction-id utrnum  company)
+(defun createupipaymentobject (customer vendor amount transaction-id utrnum  company phone)
   (let* ((upipaymentobj (make-instance 'UpiPayment
 				       :customer customer
 				       :vendor vendor
@@ -211,6 +221,7 @@
 				       :transaction-id transaction-id
 				       :utrnum utrnum
 				       :company company
+				       :phone phone
 				       :deleted-state "N")))
     upipaymentobj))
 				       

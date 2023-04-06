@@ -127,13 +127,27 @@
 
 
 (defun select-customer-by-name (name-like-clause company)
-(let ((tenant-id (slot-value company 'row-id)))
-  (car (clsql:select 'dod-cust-profile :where [and
-		[= [:deleted-state] "N"]
-		[= [:tenant-id] tenant-id]
-		[= [:active-flag] "Y"]
-		[like  [:name] name-like-clause]]
-		:caching *dod-database-caching* :flatp t))))
+  (let ((tenant-id (slot-value company 'row-id)))
+    (car (clsql:select 'dod-cust-profile :where [and
+		  [= [:deleted-state] "N"]
+		  [= [:tenant-id] tenant-id]
+		  [= [:cust-type] "STANDARD"]
+		  [= [:active-flag] "Y"]
+		  [like  [:name] name-like-clause]]
+					 :caching *dod-database-caching* :flatp t))))
+
+
+(defun select-customer-list-by-name (name-like-clause company)
+  (let ((tenant-id (slot-value company 'row-id)))
+    (clsql:select 'dod-cust-profile :where [and
+		  [= [:deleted-state] "N"]
+		  [= [:cust-type] "STANDARD"]
+		  [= [:tenant-id] tenant-id]
+		  [= [:active-flag] "Y"]
+		  [like  [:name] name-like-clause]]
+					 :caching *dod-database-caching* :flatp t)))
+
+
 
 (defun select-customer-by-phone (phone company)
 (let ((tenant-id (slot-value company 'row-id)))
@@ -190,7 +204,7 @@
 (defun select-customer-by-email (email)
   (car (clsql:select 'dod-cust-profile :where [and
 		[= [:deleted-state] "N"]
-		;[= [:active-flag] "Y"]
+		[= [:active-flag] "Y"]
 		[=  [:email] email]]
 		:caching *dod-database-caching* :flatp t)))
 

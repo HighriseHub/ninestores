@@ -42,7 +42,9 @@
    (created
     :initarg :created
     :accessor created)
-   
+   (phone
+    :initarg :phone
+    :accessor phone)
    (company
     :initarg :company
     :accessor company)))
@@ -72,6 +74,10 @@
    (created
     :accessor :created
     :initarg :created)
+   (phone
+    :initarg :phone
+    :accessor phone)
+  
    (company
     :initarg :company
     :accessor company)))
@@ -99,6 +105,10 @@
     (vendorconfirm
     :initarg :vendorconfirm
     :accessor vendorconfirm)
+   (phone
+    :initarg :phone
+    :accessor phone)
+  
    (company
     :initarg :company
     :accessor company)))
@@ -129,6 +139,10 @@
    (company
     :accessor company
     :initarg :company)
+   (phone
+    :initarg :phone
+    :accessor phone)
+  
    (created
     :accessor created)
    (deleted-state
@@ -186,8 +200,16 @@
    (vendorconfirm
     :type (string 1))
 
-   (deleted-state                                                                                                                                                                                :type (string 1)                                                                                                                                                                             :void-value "N"                                                                                                                                                                              :initarg :deleted-state) 
+   (deleted-state
+    :type (string 1)
+    :void-value "N"
+    :initarg :deleted-state) 
 
+   (phone
+    :type (string 20)
+    :initarg :phone
+    :accessor phone)
+  
    (created
     :accessor created
     :TYPE clsql:date)
