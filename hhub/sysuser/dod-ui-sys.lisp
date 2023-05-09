@@ -903,6 +903,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupipayconfirm"   'hhub-controller-vendor-upi-confirm)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendsearchproduct"   'dod-controller-vendor-search-products)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendprodcategories"   'dod-controller-vendor-product-categories-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubprodcatgaddaction"   'com-hhub-transaction-vendor-prodcatg-add)
 		
 ))
 
