@@ -93,3 +93,10 @@
 (defun com-hhub-attribute-company-subscription-plan (company)
   (slot-value company 'subscription-plan))
 
+(defun com-hhub-attribute-company-maxprodcatgcount  (subscription-plan)
+  (cond ((equal subscription-plan "BASIC") 20)
+	((equal subscription-plan "PROFESSIONAL") 30)
+	((equal subscription-plan "TRIAL") 10)))
+
+(defun com-hhub-attribute-vendor-currentprodcatgcount (company)
+  (select-prdcatg-by-company company))

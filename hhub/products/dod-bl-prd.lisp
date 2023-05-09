@@ -236,12 +236,12 @@
 
 (defun select-prdcatg-by-company (company-instance)
   (let ((tenant-id (slot-value company-instance 'row-id)))
- (clsql:select 'dod-prd-catg  :where
-		[and 
-		[= [:deleted-state] "N"]
-		[= [:active-flag] "Y"]
-		[<> [:catg-name] "root"]
-		[= [:tenant-id] tenant-id]]
+    (clsql:select 'dod-prd-catg  :where
+		  [and 
+		  [= [:deleted-state] "N"]
+		  [= [:active-flag] "Y"]
+		  [<> [:catg-name] "root"]
+		  [= [:tenant-id] tenant-id]]
      :caching nil :flatp t )))
 
 (defun search-prdcatg-in-list (row-id list)
