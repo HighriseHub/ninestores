@@ -121,7 +121,8 @@ corresponding universal time."
   (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
                        (get-decoded-time)
     (declare (ignore sec min hr dow dst-p tz))
-      (format nil "~4,'0d/~2,'0d/~2,'0d" yr mon day)))
+    (format nil "~4,'0d/~2,'0d/~2,'0d" yr mon day))
+  (sb-debug:list-backtrace))
 
 (defun current-date-string-yyyymmdd ()
   "Returns current date as a string in YYYY-MM-DD format"

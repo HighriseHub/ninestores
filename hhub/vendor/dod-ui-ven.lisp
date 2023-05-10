@@ -1000,28 +1000,27 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun modal.vendor-product-category-add ()
   (cl-who:with-html-output (*standard-output* nil)
     (with-html-div-row 
-      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-	    (:form :id (format nil "form-vendorprod~A" mode) :data-toggle "validator"  :role "form" :method "POST" :action "dodvenaddproductaction" :enctype "multipart/form-data" 
-		   (if (and product (equal mode "EDIT")) (cl-who:htm (:input :class "form-control" :type "hidden" :value prd-id :name "id")))
-		 (:div :align "center"  :class "form-group" 
-		       (:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
-		 (:h1 :class "text-center login-title"  "Edit/Copy Product")
-		      (:div :class "form-group"
-			    (:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
-		      (:div :class "form-group"
-			    (:label :for "description")
-			    (:textarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup "countChar(this, 1000)" (cl-who:str (format nil "~A" description))))
-		      (:div :class "form-group" :id "charcount")
-		      (:div :class "form-group"
-			    (:input :class "form-control" :name "prdprice"  :value (format nil "~$" unit-price)  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
-		      		      
-		      (:div :class "form-group"
-			    (:input :class "form-control" :name "qtyperunit" :value qty-per-unit :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
-		      (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
-			     (ui-list-prod-catg-dropdown catglist prdcategory))
-		      (:div :class "form-group"
-			    (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :value units-in-stock  :type "number" :min "1" :max "10000" :step "1"  ))
+      (with-html-div-col
+	(with-html-form "form-productcategories" "hhubprodcatgaddaction"
+	  (:div :class "form-group"
+		(:input :class "form-control" :name "catg-name" :value "" :placeholder "Category Name" :type "text" ))
+	  (:div :class "form-group" 
+		(:input :type "submit"  :class "btn btn-primary" :value "Add Category")))))))
 
+
+(defun com-hhub-transaction-vendor-prodcatg-add ()
+  (with-vend-session-check
+    (let* ((catg-name (hunchentoot:parameter "catg-name"))
+	   (company (get-login-vendor-company))
+	   (params nil))
+      
+      (setf params (acons "company" company params))
+      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+      
+      (with-hhub-transaction "com-hhub-transaction-vendor-prodcatg-add" params
+	(when catg-name (add-new-node-prdcatg catg-name company)))
+      (hunchentoot:redirect "/hhub/dodvendprodcategories"))))
+  
 
 
 (defun vendor-product-category-row (category)

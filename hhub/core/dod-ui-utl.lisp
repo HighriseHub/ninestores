@@ -411,8 +411,8 @@ individual tiles. It also supports search functionality by including the searchr
 		  (:div :class "col-xs-8 col-sm-8 col-md-8 col-lg-8 form-group" 
 			(:input :type "text" :name "livesearch" :id "livesearch"  :class "form-control search-query" :placeholder ,search-placeholder))
 		  (:div :class "col-xs-4 col-sm-4 col-md-4 col-lg-4 form-group" 
-			(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:span :class " glyphicon glyphicon-search") " Go!" )))))
-       ,@body)))
+			(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:span :class " glyphicon glyphicon-search") " Go!" ))))
+       ,@body))))
 
 
 
