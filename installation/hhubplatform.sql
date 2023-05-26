@@ -279,7 +279,7 @@ CREATE TABLE `DOD_PRD_MASTER` (
   `jan` varchar(20) character set utf8 collate utf8_general_ci null default null,
   `isbn` varchar(20) character set utf8 collate utf8_general_ci null default null,
   `serial_no` varchar(20) character set utf8 collate utf8_general_ci null default null,
- 
+  `external_url` varchar(255) character set utf8 collate utf8_general_ci null default null,
   PRIMARY KEY (`ROW_ID`),
   KEY `TENANT_ID` (`TENANT_ID`),
   KEY `VENDOR_ID` (`VENDOR_ID`),
