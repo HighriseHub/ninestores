@@ -119,7 +119,7 @@
 	(cl-who:with-html-output (*standard-output* nil)
 		(with-html-div-row
 		(:div :class "col-sm-12" (:a :href (format nil "dodproductsbycatg?id=~A" row-id) (cl-who:str catg-name)))))))
-		
+
 
 (defun modal.vendor-product-edit-html (product mode) 
   (let* ((prd-image-path (slot-value product 'prd-image-path))
@@ -237,7 +237,9 @@
 	  (active-flag (slot-value product-instance 'active-flag))
 	  (approved-flag (slot-value product-instance 'approved-flag))
 	  (approval-status (slot-value product-instance 'approval-status))
-	  (subscribe-flag (slot-value product-instance 'subscribe-flag)))
+	  (subscribe-flag (slot-value product-instance 'subscribe-flag))
+	  (external-url (slot-value product-instance 'external-url)))
+	 
 	    
 	(cl-who:with-html-output (*standard-output* nil)
 	  (:div :style "background-color:#e6f0ff; border-bottom: solid 1px; margin-bottom: 3px;" :class "row"
@@ -247,15 +249,24 @@
 		    ;else
 		    (cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Turn On" 
 		      (:a :href (format nil "dodvendactivateprod?id=~A" prd-id) (:span :class "glyphicon glyphicon-off")))))
-		(:div :class "col-xs-2" 
+		(:div :class "col-xs-2" :data-toggle "tooltip" :title "Copy" 
 		      (:a :data-toggle "modal" :data-target (format nil "#dodvendcopyprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-copy"))
 		      (modal-dialog (format nil "dodvendcopyprod-modal~A" prd-id) "Copy Product" (modal.vendor-product-edit-html  product-instance "COPY")))
-		(:div :class "col-xs-2" :align "right" 
+		(:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Edit" 
 		     (:a :data-toggle "modal" :data-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
 		     (modal-dialog (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
-		    
-		(:div :class "col-xs-4" :align "right" "")
-		(:div :class "col-xs-2" :align "right"
+
+		(unless external-url
+		  (cl-who:htm 
+		   (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Information: Edit & Save to enable sharing" 
+			 (:a :href "#" (:span :class  "glyphicon glyphicon-share")))))
+		(when external-url
+		  (cl-who:htm
+		   (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Copy External URL" 
+			 (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:span :class  "glyphicon glyphicon-share")))))
+		     		
+		(:div :class "col-xs-2" :align "right" "")
+		(:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Delete" 
 		      (:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:span :class "glyphicon glyphicon-remove"))))
 	  (with-html-div-row
 		(if (<= units-in-stock 0) 
