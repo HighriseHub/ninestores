@@ -494,6 +494,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					;(destructuring-bind (path file-name content-type) prodimageparams))
 	   (tempfilewithpath (first prodimageparams))
 	   (file-name (format nil "~A-~A" (get-universal-time) (second prodimageparams)))
+	   (external-url (generate-product-ext-url product)) 
 	   (params nil))
 
       (setf params (acons "company" (get-login-vendor-company) params))
@@ -514,6 +515,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		(setf (slot-value product 'qty-per-unit) qtyperunit)
 		(setf (slot-value product 'units-in-stock) units-in-stock)
 		(setf (slot-value product 'subscribe-flag) subscriptionflag)
+		(setf (slot-value product 'external-url) external-url)
 		(if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name)))
 		(update-prd-details product))
 					;else
