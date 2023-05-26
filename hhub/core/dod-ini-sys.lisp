@@ -36,6 +36,7 @@
 (defvar *HHUB-STATIC-FILES* "/home/hhubplatform/site/public")
 
 (defvar *dod-db-instance*)
+(defvar *siteurl* "https://www.highrisehub.com")
 (defvar *sitepass* (encrypt "P@ssword1" "highrisehub.com"))
 (defvar *current-customer-session* nil) 
 (defvar *customer-page-title* nil) 
@@ -135,14 +136,18 @@ Database type: Supported type is ':odbc'"
 
 
 (defun start-das(&optional (withssl nil) (debug-mode T)  )
-:documentation "Start hhubplatform server with or without ssl. If withssl is T, then start 
+  :documentation "Start hhubplatform server with or without ssl. If withssl is T, then start 
 the hunchentoot server with ssl settings"
- 
-(setf *dod-debug-mode* debug-mode)
-(setf *http-server* (make-instance 'hunchentoot:easy-acceptor :port 4244 :document-root #p"~/hhubplatform/"))
-(setf (hunchentoot:acceptor-access-log-destination *http-server*)   #p"~/hhublogs/highrisehub-access.log")
-(setf (hunchentoot:acceptor-message-log-destination *http-server*) #p"~/hhublogs/highrisehub-messages.log")
-
+  
+  (setf *dod-debug-mode* debug-mode)
+  (setf *http-server* (make-instance 'hunchentoot:easy-acceptor :port 4244 :document-root #p"~/hhubplatform/"))
+  (setf (hunchentoot:acceptor-access-log-destination *http-server*)   #p"~/hhublogs/highrisehub-access.log")
+  (setf (hunchentoot:acceptor-message-log-destination *http-server*) #p"~/hhublogs/highrisehub-messages.log")
+  ;;Support double quotes for parenscript. 
+  ;;CL-WHO leaves it up to you to escape HTML attributes.
+  ;;One way to make sure that quoted strings in inline JavaScript
+  ;;work inside HTML attributes is to use double quotes for HTML attributes and single quotes for JavaScript strings. 
+  (setq cl-who:*attribute-quote-char* #\")
 (progn (init-hhubplatform)
        (if withssl  (init-httpserver-withssl))
        (if withssl  (hunchentoot:start *ssl-http-server*) (hunchentoot:start *http-server*) )

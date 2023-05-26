@@ -801,6 +801,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/list-companies" 'dod-controller-list-companies)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendordetails" 'dod-controller-vendor-details)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodprddetailsforcust" 'dod-controller-prd-details-for-customer)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubprddetailsforguestcust" 'dod-controller-prd-details-for-guest-customer)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodprodsubscribe" 'dod-controller-cust-add-orderpref-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodproductsbycatg" 'dod-controller-customer-products-by-category)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodsearchproducts" 'dod-controller-search-products)

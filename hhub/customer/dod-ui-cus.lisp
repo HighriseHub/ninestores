@@ -1880,13 +1880,36 @@
 	))
 
 
+
+(defun dod-controller-prd-details-for-guest-customer ()
+  (let* ((parambase64 (hunchentoot:parameter "key"))
+	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
+	 (paramslist (first (cl-csv:read-csv param-csv
+				  :skip-first-p T
+				  :map-fn #'(lambda (row)
+					      row))))
+	 (tenant-id (nth 0 paramslist))
+	 (prd-id (nth 1 paramslist)))
+    
+    ;; login as guest customer. 
+    (dod-cust-login-as-guest :tenant-id tenant-id :session-time-limit 300)
+    (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
+	   (company (hunchentoot:session-value :login-customer-company)))
+      (with-cust-session-check
+	(with-standard-customer-page "Product Details"
+	  (product-card-with-details-for-customer (select-product-by-id prd-id company) (prdinlist-p prd-id lstshopcart)))))))
+
+    
+      
+	   
+
 (defun dod-controller-prd-details-for-customer ()
    (with-cust-session-check 
 	(with-standard-customer-page "Product Details"
 	    (let* ((company (hunchentoot:session-value :login-customer-company))
-		      (lstshopcart (hunchentoot:session-value :login-shopping-cart))
-		      (product (select-product-by-id (parse-integer (hunchentoot:parameter "id")) company)))
-		(product-card-with-details-for-customer product (prdinlist-p (slot-value product 'row-id)  lstshopcart))))))
+		   (lstshopcart (hunchentoot:session-value :login-shopping-cart))
+		   (product (select-product-by-id (parse-integer (hunchentoot:parameter "id")) company)))
+	      (product-card-with-details-for-customer product (prdinlist-p (slot-value product 'row-id)  lstshopcart))))))
 
 (defun dod-controller-cust-index () 
  (with-cust-session-check
@@ -1985,7 +2008,7 @@
 	       (hunchentoot:redirect  "/hhub/dodcustshopcart")))))
 
 
-(defun dod-cust-login-as-guest (&key tenant-id)
+(defun dod-cust-login-as-guest (&key tenant-id (session-time-limit 600))
    (handler-case 
 	;expression
        (let* ((customer (car (clsql:select 'dod-cust-profile :where [and
@@ -2005,40 +2028,39 @@
 
 	 (when (and customer
 		    (null (hunchentoot:session-value :login-customer-name))) ;; customer should not be logged-in in the first place.
-	(progn
-	  (hunchentoot:log-message* :info "Login successful for customer  ~A" customer-name)
-	  (hunchentoot:start-session)
-	  (setf hunchentoot:*session-max-time* (* 3600 8))
-	  (setf (hunchentoot:session-value :login-customer ) customer)
-	  (setf (hunchentoot:session-value :login-customer-name) customer-name)
-	  (setf (hunchentoot:session-value :login-customer-id) customer-id)
-	  (setf (hunchentoot:session-value :login-customer-type) customer-type)
-	  (setf (hunchentoot:session-value :login-customer-tenant-id) customer-tenant-id)
-	  (setf (hunchentoot:session-value :login-customer-company-name) customer-company-name)
-	  (setf (hunchentoot:session-value :login-customer-company-website) customer-company-website)
-	  (setf (hunchentoot:session-value :login-customer-company) customer-company)
-	  (setf (hunchentoot:session-value :login-shopping-cart) login-shopping-cart)
-					; There is no need for daily order preference, orders since this is a guest user. 
-					;(setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer  customer)) 
-	  (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer))
-	  (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company customer-company))
-	  (setf (hunchentoot:session-value :login-prdcatg-cache) (select-prdcatg-by-company customer-company))
-	  (unless (equal customer-tenant-id *HHUB-DEMO-TENANT-ID*)
-	    (progn
-	      (hunchentoot:set-cookie "community-url" :value (format nil "https://www.highrisehub.com/hhub/dascustloginasguest?tenant-id=~A" (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
-	      (hunchentoot:set-cookie "community-name" :value customer-company-name :path "/" :expires (+ (get-universal-time) 10000000)))) 
-	  ))
-      )
-
-        ; Handle this condition
-   
-      (clsql:sql-database-data-error (condition)
-	  (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-								   (stop-das) 
-								   (start-das)
-;								   (clsql:reconnect :database *dod-db-instance*)
-								   (hunchentoot:redirect "/hhub/customer-login.html"))))))
- 
+	   (progn
+	     (hunchentoot:log-message* :info "Login successful for customer  ~A" customer-name)
+	     (hunchentoot:start-session)
+	     (setf hunchentoot:*session-max-time* session-time-limit)
+	     (setf (hunchentoot:session-value :login-customer ) customer)
+	     (setf (hunchentoot:session-value :login-customer-name) customer-name)
+	     (setf (hunchentoot:session-value :login-customer-id) customer-id)
+	     (setf (hunchentoot:session-value :login-customer-type) customer-type)
+	     (setf (hunchentoot:session-value :login-customer-tenant-id) customer-tenant-id)
+	     (setf (hunchentoot:session-value :login-customer-company-name) customer-company-name)
+	     (setf (hunchentoot:session-value :login-customer-company-website) customer-company-website)
+	     (setf (hunchentoot:session-value :login-customer-company) customer-company)
+	     (setf (hunchentoot:session-value :login-shopping-cart) login-shopping-cart)
+	     ;; There is no need for daily order preference, orders since this is a guest user. 
+	     ;; (setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer  customer)) 
+	     ;; There is no need to set the orders for customer as it is a guest customer. 
+	     ;;(setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer))
+	     (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company customer-company))
+	     (setf (hunchentoot:session-value :login-prdcatg-cache) (select-prdcatg-by-company customer-company))
+	     (unless (equal customer-tenant-id *HHUB-DEMO-TENANT-ID*)
+	       (progn
+		 (hunchentoot:set-cookie "community-url" :value (format nil "https://www.highrisehub.com/hhub/dascustloginasguest?tenant-id=~A" (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
+		 (hunchentoot:set-cookie "community-name" :value customer-company-name :path "/" :expires (+ (get-universal-time) 10000000)))))))
+     
+     ;; Handle this condition
+     (clsql:sql-database-data-error (condition)
+       (if (equal (clsql:sql-error-error-id condition) 2013 )
+	   (progn
+	     (stop-das) 
+	     (start-das)
+	     ;; (clsql:reconnect :database *dod-db-instance*)
+	     (hunchentoot:redirect "/hhub/customer-login.html"))))))
+    
 
 (defun dod-cust-login (&key phone password)
   (handler-case 
