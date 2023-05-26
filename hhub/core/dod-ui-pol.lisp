@@ -273,22 +273,22 @@
 	 (attr-func (slot-value attribute-instance 'attr-func))
 	 (row-id (slot-value attribute-instance 'row-id))
 	 (attr-type (slot-value attribute-instance 'attr-type))
-	 (copystr (parenscript:ps (copy-To-Clipboard (parenscript:lisp  attr-func)))))
-   
-  (cl-who:with-html-output (*standard-output* nil)
-    (:td :height "10px" 
-	 (:h6 :class "attribute-name"  (cl-who:str name) ))
-    (:td :height "10px" 
+	 (copystr (parenscript:ps (copy-to-clipboard (parenscript:lisp attr-func)))))
+    
+    (cl-who:with-html-output (*standard-output* nil)
+      (:td :height "10px" 
+	   (:h6 :class "attribute-name"  (cl-who:str name) ))
+      (:td :height "10px" 
 	 (:h6 :class "attribute-desc"  (cl-who:str description) ))
-    (:td :height "10px" 
-	 (:h6 :class "attribute-name"  (cl-who:str attr-func))
-	 (:a :class ""  :onclick copystr :href "#" (:span :class "glyphicon glyphicon-copy")))
-    (:td :height "10px" 
+      (:td :height "10px" 
+	   (:h6 :class "attribute-name"  (cl-who:str attr-func))
+	   (:a :class "attribute-func"  :onclick copystr  :href "#" (:span :class "glyphicon glyphicon-copy")))
+      (:td :height "10px" 
 	 (:h6 :class "attribute-type" (cl-who:str  (format nil "~A"  attr-type))))
-    (:td :height "10px" 
-	 (:a  :data-toggle "modal" :data-target (format nil "#editattribute-modal~A" row-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
-	 
-	 (modal-dialog (format nil "editattribute-modal~a" row-id) "Add/Edit Attribute" (com-hhub-transaction-create-attribute-dialog attribute-instance))))))
+      (:td :height "10px" 
+	   (:a  :data-toggle "modal" :data-target (format nil "#editattribute-modal~A" row-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
+	   (modal-dialog (format nil "editattribute-modal~a" row-id) "Add/Edit Attribute" (com-hhub-transaction-create-attribute-dialog attribute-instance))))))
+
 
 (defun policy-row (policy-instance)
   (let ((name (slot-value policy-instance 'name))

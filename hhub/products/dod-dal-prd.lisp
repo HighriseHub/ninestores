@@ -83,7 +83,12 @@
    (serial-no
     :type (string 20)
     :initarg :serial-no)
+   
+   (external-url
+    :type (string 255)
+    :initarg :prd-url)
 
+   
    (active-flag
     :type (string 1)
     :void-value "N"

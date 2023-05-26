@@ -99,4 +99,4 @@
 	((equal subscription-plan "TRIAL") 10)))
 
 (defun com-hhub-attribute-vendor-currentprodcatgcount (company)
-  (select-prdcatg-by-company company))
+  (length (select-prdcatg-by-company company)))
