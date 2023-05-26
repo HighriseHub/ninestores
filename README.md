@@ -13,7 +13,8 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 * Progressive Web Application. 
 * Browser Push Notification for Vendors. 
 * SMS One Time Password - OTP for 2 Factor Authorization. 
-* UPI Payments links (coming up...)
+* UPI Payments with UPI app links and QR code.  
+* Support for Tag based or Attribute Based Access Control (ABAC). 
 * For a detailed list of features please visit https://www.highrisehub.com/pricing
 
 ** How to setup the repository. **
