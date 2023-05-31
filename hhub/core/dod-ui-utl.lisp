@@ -19,6 +19,7 @@
 
 
 
+    
 (defun dod-controller-new-company-registration-email-sent ()
   (with-standard-customer-page  "New Company Registration Request"
     (:div :class "row" 
@@ -318,7 +319,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-opr-session-check (&body body)
-    `(if hunchentoot:*session* ,@body 
+    `(if (and (verify-superadmin)  hunchentoot:*session*) ,@body 
 					;else 
 	 (hunchentoot:redirect *HHUBOPRLOGINPAGEURL*))))
 
