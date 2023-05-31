@@ -78,7 +78,7 @@
 (defvar *HHUBSUPERADMINEMAIL* "pawan.deshpande@gmail.com")
 (defvar *HHUBSUPPORTEMAIL* "support@highrisehub.com")
 (defvar *HHUBPENDINGUPIFUNCTIONS-HT* nil)
-
+(defvar *HHUBTRIALCOMPANYEXPIRYDAYS* 90)
 
 
 (defun set-customer-page-title (name)
