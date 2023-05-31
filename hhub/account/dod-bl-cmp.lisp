@@ -49,12 +49,29 @@
 ;      (or (gethash company previous)
 ;	  (setf (gethash company previous) (funcall old-func company))))))
 
+(defun account-created-days-ago (account)
+  (let ((created (slot-value account 'created)))
+    (clsql-sys:duration-reduce (clsql-sys:time-difference (clsql-sys:get-time) created) :day)))
+  
+
+(defun trial-account-days-to-expiry (account)
+  (let ((created (slot-value account 'created))
+	(subsplan (slot-value account 'subscription-plan)))
+    (when (equal subsplan "TRIAL")
+      (- (clsql-sys:duration-reduce (clsql-sys:make-duration :day *HHUBTRIALCOMPANYEXPIRYDAYS*) :day) (clsql-sys:duration-reduce (clsql-sys:time-difference (clsql-sys:get-time) created) :day)))))
+  
+
+(defun trial-account-expired-p (account)
+  (let ((created (slot-value account 'created))
+	(subsplan (slot-value account 'subscription-plan)))
+    (when (equal subsplan "TRIAL")
+      (clsql-sys:duration> (clsql-sys:time-difference (clsql-sys:get-time) created)  (clsql-sys:make-duration :day *HHUBTRIALCOMPANYEXPIRYDAYS*))))) 
+    
 (defun count-company-customers (company) 
  (let ((tenant-id (slot-value company 'row-id))) 
     (first (clsql:select [count [*]] :from 'dod-cust-profile  :where 
 		[and [= [:deleted-state] "N"]
 		[= [:tenant-id] tenant-id]]   :caching nil :flatp t ))))
-
 
 (defun count-company-vendors (company) 
  (let ((tenant-id (slot-value company 'row-id))) 
@@ -92,9 +109,11 @@
 
 
 (defun get-system-companies ()
-  (clsql:select 'dod-company  :where [and [= [:deleted-state] "N"]
-		[<> [:name] "super"] ; Avoid super company in any list. 
-		]   :caching *dod-database-caching* :flatp t ))
+  (clsql:select 'dod-company  :where
+		[and
+		[= [:deleted-state] "N"]
+		[<> [:name] "super"]] ; Avoid super company in any list. 
+			      :caching *dod-database-caching* :flatp t ))
 
 (defun delete-dod-company ( id )
   (let ((company (car (clsql:select 'dod-company :where [= [:row-id] id] :flatp t :caching *dod-database-caching*))))

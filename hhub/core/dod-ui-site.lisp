@@ -1,4 +1,4 @@
-;; -*- mode: common%-lisp; coding: utf-8 -*-
+;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 
 
@@ -161,17 +161,19 @@
 
 (defun hhub-controller-pricing ()
   (let ((names (list  "Trial" "Basic" "Professional"))
-	(prices (list "00" "2999" "6999"))
+	(prices (list "00" "19,999" "29,999"))
 	(pricing-features 
-	  (list  "No of Vendors" "No of Customers" "Revenue/Month" "Inventory Control" "Product Images & Zoom" "Guest Login/Phone Order" "Products" "Shipping Integration" "Payment Gateway Integration" 
-			 "Domain Registration" "Sub Domains" "Email/SMS (Transactional)" "Browser Notifications"  "Email Support" "Products Bulk Upload (CSV)" "Product Subscriptions" "Wallets"  "COD Orders"
-			  "Customer Loyalty Points" "API Access" "Blocked IPs" "Save Cart" "Customer Groups" "SEO Tools" "Facebook Store"))
-	(features-active (list T T NIL T NIL T T T T NIL NIL T T T T T T T NIL NIL NIL NIL nil nil nil))
+	  (list  "No of Vendors" "No of Customers" "Revenue/Month" "Basic Inventory Control (Stock)" "Product Images & Zoom" "Guest Login/Phone Order"
+		 "Products" "Shipping Integration" "Payment Gateway Integration" 
+		 "FREE UPI Payments"  "Sub Domains" "Email/SMS (Transactional)" "Browser Notifications"
+		 "Email Support" "Domain Registrations" "Products Bulk Upload (CSV)" "Product Subscriptions" "Wallets"  "COD Orders"
+		 "Customer Loyalty Points" "API Access" "Blocked IPs" "Save Cart" "Customer Groups" "SEO Tools" "Facebook Store"))
+	(features-active (list T T NIL T NIL T T T T T NIL NIL T T T T T T T NIL NIL NIL NIL nil nil nil))
 	(pricing-table
 	  (list	   
-	   (list "1"  "50"   "Upto &#8377; 1 Lac"   "Y" "1"  "Y" "100"  "Y" "Y" "Y" "N" "Y" "Y" "Y" "N" "N" "N" "N" "N")
-	   (list "5"  "500"  "Upto &#8377; 5 Lacs"  "Y" "5"  "Y" "1000" "Y" "Y" "Y" "2" "Y" "Y" "Y" "N" "N" "N" "N" "N")
-	   (list "10" "1000" "Upto &#8377; 10 Lacs" "Y" "10" "Y" "3000" "Y" "Y" "Y" "5" "Y" "Y" "Y" "Y" "Y" "Y" "Y" "Y" ))))
+	   (list "1"  "50"   "Upto &#8377; 1 Lac"   "Y" "1"  "Y" "100"  "Y" "Y" "Y" "N" "Y" "Y" "Y" "N" "N" "N" "N" "N" "N")
+	   (list "5"  "500"  "Upto &#8377; 5 Lacs"  "Y" "5"  "Y" "1000" "Y" "Y" "Y" "2" "Y" "Y" "Y" "N" "N" "N" "N" "N" "N")
+	   (list "10" "1000" "Upto &#8377; 10 Lacs" "Y" "10" "Y" "3000" "Y" "Y" "Y" "5" "Y" "Y" "Y" "Y" "Y" "Y" "Y" "Y" "Y" ))))
     (with-standard-admin-page "HighriseHub Pricing" 
       (:link :href "/css/pricing.css" :rel "stylesheet")
 	   (:div :id "hhub_pt"  
@@ -179,8 +181,8 @@
 		  (:div :class "container"
 			(:div :class "row"
 			      (:div :class "col-md-12"
-			     (:div  :class "price-heading clearfix"
-				    (:h1 "HighriseHub Pricing")))))
+				    (:div  :class "price-heading clearfix"
+					   (:h1 "HighriseHub Pricing")))))
 		  (:div  :class  "container"  
 			 (:div  :class  "row"
 				;; Print All the Features on LHS Header
@@ -189,8 +191,8 @@
 				(mapcar  (lambda (name price items)
 					   (cl-who:with-html-output (*standard-output* nil)
 					     (format-pricing-plans name price items pricing-features features-active))) names prices pricing-table)))))
-		  
-		  (:div  :class "hhub-footer" (hhub-html-page-footer)))))
+      
+      (:div  :class "hhub-footer" (hhub-html-page-footer)))))
 
 (defun format-pricing-features (features features-active)
   (cl-who:with-html-output (*standard-output* nil)
@@ -241,7 +243,7 @@
 			   ((and active (equal obj "N")) (cl-who:htm (:li (:span :style "color: lightgray;" (cl-who:str (format nil "~a  &#10005;" feature))))))
 			   (active (cl-who:htm (:li (:span (cl-who:str (format nil "~A - ~A" feature obj))))))))   plans pricing-features features-active)))
        (:div  :class  "generic_price_btn clearfix"  
-	      (if (equal name "Trial") (cl-who:htm (:a :class ""  :href (format nil "hhubnewcompanyreqpage?cmp-type=~A" name)  "Sign Up - 30 Days Free!"))
+	      (if (equal name "Trial") (cl-who:htm (:a :class ""  :href (format nil "hhubnewcompanyreqpage?cmp-type=~A" name)  "Sign Up - 90 Days Free!"))
 		  ;else
 		  (cl-who:htm (:a :class "" :href (format nil "hhubnewcompanyreqpage?cmp-type=~A" name) "Sign Up"))))))))
 

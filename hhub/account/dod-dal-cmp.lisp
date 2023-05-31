@@ -35,8 +35,10 @@
    (website 
     :type (string 256)
     :initarg :website)
-      
- (created-by
+
+   (created                                                                                                                                                                                                             :accessor created                                                                                                                                                                                                  :type clsql:wall-time                                                                                                                                                                                              :initarg :created)     
+ 
+   (created-by
     :TYPE INTEGER
     :INITARG :created-by)
    (user-created-by
