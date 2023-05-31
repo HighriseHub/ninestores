@@ -2,13 +2,10 @@
 (in-package :hhub)
 
 (defun dod-controller-delete-company ()
-(if (is-dod-session-valid?)
+  (with-opr-session-check 
     (let ((id (hunchentoot:parameter "id")) )
       (delete-dod-company id)
-      (hunchentoot:redirect "/list-companies"))
-     (hunchentoot:redirect "/login")))
-
-
+      (hunchentoot:redirect "/list-companies"))))
 
 (defun company-card (instance)
     (let ((comp-name (slot-value instance 'name))
@@ -19,7 +16,9 @@
 	  (zipcode (slot-value instance 'zipcode))
 	  (suspended (slot-value instance 'suspend-flag))
 	  (subscription-plan (slot-value instance 'subscription-plan))
-	  (row-id (slot-value instance 'row-id)))
+	  (row-id (slot-value instance 'row-id))
+	  (accountageindays (account-created-days-ago instance))
+	  (trialaccexpirydays (trial-account-days-to-expiry instance)))
 	(cl-who:with-html-output (*standard-output* nil)
 	  (:div :class "row"
 		(:div :class "col-xs-8" 
@@ -58,7 +57,17 @@
 	      (:h5 (cl-who:str (format nil  "No of Vendors: ~A " (count-company-vendors instance ))))))
 	  (with-html-div-row
 	    (with-html-div-col
-	      (:h5 (cl-who:str (format nil  "Subscription Plan: ~A " subscription-plan))))))))
+	      (:h5 (cl-who:str (format nil  "Subscription Plan: ~A " subscription-plan)))))
+	  (with-html-div-row
+	    (with-html-div-col
+	      (:h5 (cl-who:str (format nil "Account Age in Days: ~A" accountageindays))))
+	  (when (equal subscription-plan "TRIAL")
+	    (if (> trialaccexpirydays 0)
+		(cl-who:htm
+		 (with-html-div-col
+		   (:h5 (cl-who:str (format nil "Days to Expiry: ~A" trialaccexpirydays )))))
+		;;else
+		(cl-who:htm (:div :class "stampbox rotated" "EXPIRED"))))))))
 
 
 (defun dod-controller-list-companies ()
