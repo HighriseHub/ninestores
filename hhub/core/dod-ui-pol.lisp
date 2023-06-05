@@ -5,7 +5,6 @@
 ;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR HIGHRISEHUB ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
 (defun com-hhub-policy-vendor-prodcatg-add (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))                                                                                                                                                              (suspend-flag (slot-value company 'suspend-flag))
          (subscription-plan (slot-value company 'subscription-plan))
@@ -57,6 +56,16 @@
       (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. You have exceeded maximum number of Products allowed to be created." company-name)))  
     (when (com-hhub-attribute-company-issuspended suspend-flag)
 	(error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))))
+
+(defun com-hhub-policy-vendor-bulk-products-add (&optional (params nil))
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (subscription-plan (slot-value company 'subscription-plan))
+	 (bulkuploadp (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan))
+	 (suspend-flag (slot-value company 'suspend-flag)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    bulkuploadp))
+
 
 (defun com-hhub-policy-restore-account (&optional (params nil))
   :documentation "This policy governs the Account suspension"
@@ -113,6 +122,14 @@
  (com-hhub-policy-cad-product-approve-action params))
 
 (defun com-hhub-policy-compadmin-home ( &optional (params nil))
+  (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
+    (equal rolename "COMPADMIN")))
+
+(defun com-hhub-policy-publish-account-exturl (&optional (params nil))
+  (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
+    (equal rolename "COMPADMIN")))
+  
+(defun com-hhub-policy-compadmin-updatedetails-action (&optional (params nil))
   (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
     (equal rolename "COMPADMIN")))
 

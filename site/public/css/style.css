@@ -454,7 +454,7 @@ border: 0.1rem solid rgba(0, 0, 0, 0.1);
 border-color: #0080fd;
 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 width: 377px; 
-height: 300px;
+height: 350px;
  transition: all 0.3s cubic-bezier(0.45, 0.05, 0.55, 0.95);
 } 
 

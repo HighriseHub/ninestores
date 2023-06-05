@@ -61,6 +61,7 @@ CREATE TABLE `DOD_COMPANY` (
   `TSHIRT_SIZE` char(2) DEFAULT 'SM',
   `REVENUE` int(11) DEFAULT NULL,
   `SUBSCRIPTION_PLAN` varchar(50) NOT NULL DEFAULT 'TRIAL',
+  `EXTERNAL_URL` varchar(255) character set utf8 collate utf8_general_ci null default null,
   PRIMARY KEY (`ROW_ID`)
 );
 

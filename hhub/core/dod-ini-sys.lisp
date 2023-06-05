@@ -33,7 +33,7 @@
 (defvar *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE* "guestcustorder.html")
 (defvar *HHUB-TERMSANDCONDITIONS-FILE* "tnc.html")
 (defvar *HHUB-PRIVACY-FILE* "privacy.html")
-(defvar *HHUB-STATIC-FILES* "/home/hhubplatform/site/public")
+(defvar *HHUB-STATIC-FILES* "/home/ubuntu/hhubplatform/site/public")
 
 (defvar *dod-db-instance*)
 (defvar *siteurl* "https://www.highrisehub.com")
@@ -79,7 +79,7 @@
 (defvar *HHUBSUPPORTEMAIL* "support@highrisehub.com")
 (defvar *HHUBPENDINGUPIFUNCTIONS-HT* nil)
 (defvar *HHUBTRIALCOMPANYEXPIRYDAYS* 90)
-
+(defvar *HHUBOTPTESTING* T)
 
 (defun set-customer-page-title (name)
   (setf *customer-page-title* (format nil "Welcome to HighriseHub - ~A." name))) 
