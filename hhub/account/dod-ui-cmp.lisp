@@ -1,11 +1,24 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 
+(defun com-hhub-transaction-display-store ()
+  (let* ((parambase64 (hunchentoot:parameter "key"))
+	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
+	 (paramslist (first (cl-csv:read-csv param-csv
+					     :skip-first-p T
+					     :map-fn #'(lambda (row)
+							 row))))
+	 (tenant-id (nth 0 paramslist)))
+    (unless  ( or (null tenant-id) (zerop (length tenant-id)))
+      (if (equal (dod-cust-login-as-guest :tenant-id tenant-id :session-time-limit 300) NIL) (hunchentoot:redirect "/hhub/customer-login.html") (hunchentoot:redirect  "/hhub/dodcustindex")))))
+
+
 (defun dod-controller-delete-company ()
   (with-opr-session-check 
     (let ((id (hunchentoot:parameter "id")) )
       (delete-dod-company id)
       (hunchentoot:redirect "/list-companies"))))
+
 
 (defun company-card (instance)
     (let ((comp-name (slot-value instance 'name))
@@ -79,30 +92,32 @@
 (defun ui-list-companies (company-list)
  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
   (if company-list 
-      (cl-who:htm (:div :class "row-fluid"	  
-	    (mapcar (lambda (cmp)
-		      (cl-who:htm
-		        (:div :class "col-sm-4 col-lg-3 col-md-4"
-			      (:form :method "POST" :action "custsignup1action" :id "custsignup1form" 
-				     (:div :class "form-group"
-					   (:input :class "form-control" :name "cname" :type "hidden" :value (cl-who:str (format nil "~A" (slot-value cmp 'name)))))
-				     (:div :class "form-group"
-					   (:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A - Sign Up" (slot-value cmp 'name))))))
-			(:a :target "_blank" :href (format nil "dascustloginasguest?tenant-id=~A" (slot-value cmp 'row-id)) (:span :class "glyphicon glyphicon-shopping-cart") " Shop Now")
-			)))  company-list)))
+      (cl-who:htm
+       (:div :class "row-fluid"	  
+	     (mapcar (lambda (cmp)
+		       (let ((external-url (slot-value cmp 'external-url)))
+			 (cl-who:htm
+			  (:div :class "col-sm-4 col-lg-3 col-md-4"
+				(:form :method "POST" :action "custsignup1action" :id "custsignup1form" 
+				       (:div :class "form-group"
+					     (:input :class "form-control" :name "cname" :type "hidden" :value (cl-who:str (format nil "~A" (slot-value cmp 'name)))))
+				       (:div :class "form-group"
+					     (:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A - Sign Up" (slot-value cmp 'name))))))
+				(:a :target "_blank" :href (format nil "dascustloginasguest?tenant-id=~A" (slot-value cmp 'row-id)) (:span :class "glyphicon glyphicon-shopping-cart") " Shop Now")
+				(:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Copy External URL" 
+				      (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:span :class  "glyphicon glyphicon-share"))))))) company-list)))
 					;else
-      (cl-who:htm (:div :class "col-sm-12 col-md-12 col-lg-12"
-		 (:h3 "Record Not Found."))))))
+       (cl-who:htm (:div :class "col-sm-12 col-md-12 col-lg-12"
+			 (:h3 "Record Not Found."))))))
+  
+(defun get-login-user ()
+  (hunchentoot:session-value :login-user))
 
 (defun get-login-tenant-id ()
   (hunchentoot:session-value :login-tenant-id))
 
 (defun get-login-cust-tenant-id ()
   (hunchentoot:session-value :login-customer-tenant-id))
-
-(defun get-login-vend-tenant-id ()
-  (hunchentoot:session-value :login-vendor-tenant-id))
-
 
 
 (defun get-login-company ()
@@ -129,8 +144,9 @@
 (defun get-login-vendor-company ()
 (hunchentoot:session-value :login-vendor-company))  
 
-
-
 (defun get-login-vendor-company-name ()
  (hunchentoot:session-value :login-vendor-company-name))  
 	
+(defun get-login-vend-tenant-id ()
+  (hunchentoot:session-value :login-vendor-tenant-id))
+
