@@ -4,6 +4,9 @@
 
 
 
+(defun logIamhere (where)
+  (hunchentoot:log-message* :info (format nil "I am here ~A" where)))
+
 (defun hhub-business-adapter (function params)
   :documentation "This is a database adapter for HHUb. It takes parameters in a association list."
   (if (listp params)

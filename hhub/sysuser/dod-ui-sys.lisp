@@ -59,8 +59,10 @@
     ;; Set the otp to the session value 
     (setf (hunchentoot:session-value :genericotp ) otp)
     ;; Send SMS to the phone with OTP template text 
-    ;;(hunchentoot:log-message* :info (format nil "sessionotp is ~A" otp))
-    (send-sms-notification phone *HHUBAWSSNSSENDERID* (format nil *HHUBAWSSNSOTPTEMPLATETEXT* otp))
+    (if *HHUBOTPTESTING*
+	(hunchentoot:log-message* :info (format nil "sessionotp is ~A" otp))
+	;;else 
+	(send-sms-notification phone *HHUBAWSSNSSENDERID* (format nil *HHUBAWSSNSOTPTEMPLATETEXT* otp)))
     ;; redirect to the OTP page 
     (hunchentoot:redirect (format nil "/hhub/otppage?phone=~A&context=~A" phone context))))
 
@@ -565,6 +567,7 @@
 	   login-user 
 	   (null (hunchentoot:session-value :login-username))) ;; User should not be logged-in in the first place.
       (progn (add-login-user username  login-user)
+	     (setf (hunchentoot:session-value :login-user) login-user)
 	     (setf *current-user-session* (hunchentoot:start-session))
 	     (setf (hunchentoot:session-value :login-username) username)
 	     (setf (hunchentoot:session-value :login-userid) login-userid)
@@ -759,6 +762,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/otppage" 'dod-controller-OTP-request-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubotpregenerateaction" 'dod-controller-otp-regenerate-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubotpsubmitaction" 'dod-controller-otp-submit-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/displaystore" 'com-hhub-transaction-display-store)
 	
 	;***************** COMPADMIN/COMPANYHELPDESK/COMPANYOPERATOR  RELATED ********************
      
@@ -768,6 +772,10 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcadlogout" 'com-hhub-transaction-cad-logout) 
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcadprdrejectaction" 'com-hhub-transaction-cad-product-reject-action )
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcadprdapproveaction" 'com-hhub-transaction-cad-product-approve-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubpublishaccountexturl" 'com-hhub-transaction-publish-account-exturl)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcadprofile" 'dod-controller-cad-profile)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcompadminupdateaction" 'com-hhub-transaction-compadmin-updatedetails-action)
+	
 	
 	
 	

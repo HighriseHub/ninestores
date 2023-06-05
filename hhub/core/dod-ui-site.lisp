@@ -166,13 +166,13 @@
 	  (list  "No of Vendors" "No of Customers" "Revenue/Month" "Basic Inventory Control (Stock)" "Product Images & Zoom" "Guest Login/Phone Order"
 		 "Products" "Shipping Integration" "Payment Gateway Integration" 
 		 "FREE UPI Payments"  "Sub Domains" "Email/SMS (Transactional)" "Browser Notifications"
-		 "Email Support" "Domain Registrations" "Products Bulk Upload (CSV)" "Product Subscriptions" "Wallets"  "COD Orders"
+		 "Email Support" "Products Bulk Upload (CSV)" "Domain Registrations" "Product Subscriptions" "Wallets"  "COD Orders"
 		 "Customer Loyalty Points" "API Access" "Blocked IPs" "Save Cart" "Customer Groups" "SEO Tools" "Facebook Store"))
 	(features-active (list T T NIL T NIL T T T T T NIL NIL T T T T T T T NIL NIL NIL NIL nil nil nil))
 	(pricing-table
 	  (list	   
 	   (list "1"  "50"   "Upto &#8377; 1 Lac"   "Y" "1"  "Y" "100"  "Y" "Y" "Y" "N" "Y" "Y" "Y" "N" "N" "N" "N" "N" "N")
-	   (list "5"  "500"  "Upto &#8377; 5 Lacs"  "Y" "5"  "Y" "1000" "Y" "Y" "Y" "2" "Y" "Y" "Y" "N" "N" "N" "N" "N" "N")
+	   (list "5"  "500"  "Upto &#8377; 5 Lacs"  "Y" "5"  "Y" "1000" "Y" "Y" "Y" "2" "Y" "Y" "Y" "Y" "N" "N" "N" "N" "N")
 	   (list "10" "1000" "Upto &#8377; 10 Lacs" "Y" "10" "Y" "3000" "Y" "Y" "Y" "5" "Y" "Y" "Y" "Y" "Y" "Y" "Y" "Y" "Y" ))))
     (with-standard-admin-page "HighriseHub Pricing" 
       (:link :href "/css/pricing.css" :rel "stylesheet")

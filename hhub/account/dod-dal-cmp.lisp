@@ -86,6 +86,10 @@
     :type (string 50)
     :initarg :subscription-plan)
    
+   (external-url
+    :type (string 255)
+    :initarg :external-url)
+
    (employees
     :reader company-employees
     :db-kind :join
