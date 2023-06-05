@@ -2,6 +2,13 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+(defun generate-account-ext-url (account)
+  :description "Generates an external URL for an account, which can be shared with external entities"
+  (let* ((tenant-id (slot-value account 'row-id))
+	 (param-csv (format nil "tenant-id~C~A" #\linefeed tenant-id))
+	 (param-base64 (cl-base64:string-to-base64-string param-csv)))
+    (format nil "~A/hhub/displaystore?key=~A" *siteurl* param-base64)))
+
 
 (defun new-dod-company(cname caddress city state country zipcode website cmp-type subscription-plan createdby updatedby)
   (let  ((company-name cname)(company-address caddress))
