@@ -1129,9 +1129,23 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	;otherwise, return the retrieved item from the hash table. 
 	order-items-from-ht)))
 
-
-
-
+(defun dod-get-cached-order-items-by-order-id (order-id order-func-list)
+  ;; Add the order item to a hash table. Key - order-id to improve performance.
+  ;; Discovered in May 2020
+  ;; If the order-items are not found in the hash table, search them and add them to hash table.                                                                               
+  (let ((order-items-from-ht (get-ht-val order-id (hunchentoot:session-value :vendor-order-items-hashtable))))
+    (if (null order-items-from-ht)
+	(let* ((order-items-func (nth 2 order-func-list))
+               (order-items-list (funcall order-items-func))
+	       (order-items (remove nil (mapcar (lambda (item)
+						  (if (equal (slot-value item 'order-id) order-id) item)) order-items-list))))
+	  (when (> (length order-items) 0)
+            ;; save in the order items hashtable for faster access next time.
+	    (setf (gethash order-id (hunchentoot:session-value :vendor-order-items-hashtable)) order-items)
+	    ;; return order items
+	    order-items))
+          ;;otherwise, return the retrieved items list from the hash table.
+          order-items-from-ht)))
 
 
 (defun dod-controller-vend-index () 
