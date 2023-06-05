@@ -1,6 +1,105 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+
+(defun com-hhub-transaction-publish-account-exturl ()
+  (with-cad-session-check 
+    (let* ((params nil))
+      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+      (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+      (with-hhub-transaction "com-hhub-transaction-publish-account-exturl" params 
+	(let* ((redirectto (hunchentoot:parameter "redirectto"))
+	       (account (get-login-company))
+	       (ext-url (slot-value account 'external-url)))
+	  (unless ext-url
+	    (let ((url (generate-account-ext-url account)))
+	      (setf (slot-value account 'external-url) url)
+	      (update-company account)))
+	  (hunchentoot:redirect redirectto))))))
+
+
+(defun dod-controller-cad-profile ()
+  (with-cad-session-check 
+    (let ((account (get-login-company)))
+      (with-standard-compadmin-page "HighriseHub - Company Admin Profile"
+	(:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))
+	(:hr)
+	(:div :class "list-group col-sm-6 col-md-6 col-lg-6"
+	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodaccountexturl-modal")  :href "#"  "Account External URL")
+	      (modal-dialog (format nil "dodaccountexturl-modal") "Account External URL" (modal.account-external-url account))
+	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodaccountadminupdate-modal")  :href "#"  "Contact Information")
+	      (modal-dialog (format nil "dodaccountadminupdate-modal") "Update Account Administrator" (modal.account-admin-update-details)) 
+	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodaccadminchangepin-modal")  :href "#"  "Change Password")
+	      (modal-dialog (format nil "dodaccadminchangepin-modal") "Change Password" (modal.account-admin-change-pin)))))))
+
+
+
+(defun modal.account-admin-change-pin ()
+  )
+
+(defun modal.account-external-url (account)
+  :description "Update the external URL for a given account"
+  (let* ((ext-url (slot-value account 'external-url)))
+    (when ext-url
+      (cl-who:with-html-output (*standard-output* nil)
+	(:div :class "row" 
+	      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		    (:p (cl-who:str (format nil "~A" ext-url)))))))
+    (unless ext-url
+      (cl-who:with-html-output (*standard-output* nil)
+	(:div :class "row" 
+	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		  (:form :id (format nil "form-compadminupdate")  :role "form" :method "POST" :action "hhubpublishaccountexturl" :enctype "multipart/form-data" 
+			 (:div :class "form-group" :style "display:none;"
+			       (:input :class "form-control" :name "redirectto" :value "/hhub/hhubcadprofile" :placeholder "" :type "text"))
+			 (:div :class "form-group"
+			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Generate URL")))))))))
+
+
+
+
+(defun modal.account-admin-update-details ()
+  (let* ((admin (get-login-user))
+	 (name (name admin))
+	 (phone  (phone-mobile admin))
+	 (email (email admin)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :class "row" 
+	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		  (:form :id (format nil "form-compadminupdate")  :role "form" :method "POST" :action "hhubcompadminupdateaction" :enctype "multipart/form-data" 
+			 (:h1 :class "text-center login-title"  "Update Company Admin Details")
+			 (:div :class "form-group"
+			       (:input :class "form-control" :name "name" :value name :placeholder "Customer Name" :type "text"))
+			 (:div :class "form-group"
+			       (:input :class "form-control" :name "phone"  :value phone :placeholder "Phone"  :type "text" ))
+			 (:div :class "form-group"
+			       (:input :class "form-control" :name "email" :value email :placeholder "Email" :type "text"))
+			 (:div :class "form-group"
+			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+
+      
+
+
+(defun com-hhub-transaction-compadmin-updatedetails-action ()
+  (let* ((params nil))
+    (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+    (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+    (with-hhub-transaction "com-hhub-transaction-compadmin-updatedetails-action" params
+      (let ((name (hunchentoot:parameter "name"))
+	    (phone (hunchentoot:parameter "phone"))
+	    (email (hunchentoot:parameter "email"))
+	    (admin (get-login-user)))
+	
+	(when admin 
+	  (setf (slot-value admin 'name) name)
+	  (setf (slot-value admin 'phone-mobile) phone)
+	  (setf (slot-value admin 'email) email)
+	  (update-user admin))
+	(hunchentoot:redirect "/hhub/hhubcadprofile")))))
+  
+  
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-compadmin-navigation-bar ()
     :documentation "This macro returns the html text for generating a navigation bar using bootstrap."
@@ -22,7 +121,7 @@
 			      (:li :align "center" (:a :href "#" (print-web-session-timeout))))
 			 
 			 (:ul :class "nav navbar-nav navbar-right"
-			      (:li :align "center" (:a :href "#"   (:span :class "glyphicon glyphicon-user") " My Profile" )) 
+			      (:li :align "center" (:a :href "/hhub/hhubcadprofile"   (:span :class "glyphicon glyphicon-user") " My Profile" )) 
 			      (:li :align "center" (:a :href "/hhub/hhubcadlogout"  (:span :class "glyphicon glyphicon-off") " Logout "  )))))))))
   
 
@@ -116,6 +215,7 @@
 	   (null (hunchentoot:session-value :login-username))) ;; User should not be logged-in in the first place.
       (progn
 	(hunchentoot:start-session)
+	(setf (hunchentoot:session-value :login-user) login-user)
 	(setf (hunchentoot:session-value :login-username) username)
 	(setf (hunchentoot:session-value :login-userid) login-userid)
 	(setf (hunchentoot:session-value :login-attribute-cart) login-attribute-cart)
