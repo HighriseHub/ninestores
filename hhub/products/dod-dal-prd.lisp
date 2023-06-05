@@ -86,7 +86,7 @@
    
    (external-url
     :type (string 255)
-    :initarg :prd-url)
+    :initarg :external-url)
 
    
    (active-flag
