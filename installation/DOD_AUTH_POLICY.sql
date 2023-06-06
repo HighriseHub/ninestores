@@ -1,0 +1,25 @@
+
+INSERT INTO `DOD_AUTH_POLICY` VALUES
+('com.hhub.policy.create.company','Only Superadmin role can create company.....','com-hhub-policy-create-company','2017-12-19 08:01:37',NULL,'Y','N',1),
+('com.hhub.policy.create.attribute','A policy for attribute creation.....','com-hhub-policy-create-attribute','2018-01-17 12:03:10',NULL,'Y','N',1),
+('com.hhub.policy.create','Policy Create','com-hhub-policy-create','2018-01-18 10:40:16',NULL,'Y','N',1),
+('com.hhub.policy.create.order','Policy for order create by customer','com-hhub-policy-create-order','2018-04-16 10:36:33',NULL,'Y','N',1),
+('com.hhub.policy.cust.edit.order.item','Policy for customer order edit scenario.','com-hhub-policy-cust-edit-order-item','2018-07-04 06:05:57',NULL,'Y','N',1),
+('com.hhub.policy.sadmin.home','Super admin home page after login','com-hhub-policy-sadmin-home','2018-09-10 17:25:12',NULL,'Y','N',1),
+('com.hhub.policy.sadmin.login','Super admin login policy','com-hhub-policy-sadmin-login','2018-09-10 17:25:29',NULL,'Y','N',1),
+('com.hhub.policy.sadmin.create.users.page','Policy for the Super admin user to edit a user. ','com-hhub-policy-sadmin-create-users-page','2018-11-17 18:44:43',NULL,'Y','N',1),
+('com.hhub.policy.sadmin.profile','This is a policy for the Superadmin profile page. ','com-hhub-policy-sadmin-profile','2018-12-09 02:37:03',NULL,'Y','N',1),
+('com.hhub.policy.compadmin.home','Only a Company Administrator role can approve products for that company. ','com-hhub-policy-compadmin-home','2019-01-08 11:22:51',NULL,'Y','N',1),
+('com.hhub.policy.cad.login.page','Company Administrator Login Page. ','com-hhub-policy-cad-login-page','2019-01-13 02:34:21',NULL,'Y','N',1),
+('com.hhub.policy.cad.login.action','Company Administrator login action. This is a dummy policy as the request is initiated by browser','com-hhub-policy-cad-login-action','2019-01-13 03:49:32',NULL,'Y','N',1),
+('com.hhub.policy.cad.logout','Company administrator logout policy. ','com-hhub-policy-cad-logout','2019-01-13 07:08:29',NULL,'Y','N',1),
+('com.hhub.policy.cad.product.approve.action','This is a governing policy for company administrator to accept the product. ','com-hhub-policy-cad-product-approve-action','2019-01-13 07:18:52',NULL,'Y','N',1),
+('com.hhub.policy.cad.product.reject.action','Company Administrator can reject a product. ','com-hhub-policy-cad-product-reject-action','2019-01-13 08:29:05',NULL,'Y','N',1),
+('com.hhub.policy.vendor.bulk.product.add','Vendor can add bulk products','com-hhub-policy-vendor-bulk-product-add','2020-10-13 12:39:44',NULL,'Y','N',1),
+('com.hhub.policy.suspend-account','Policy for Suspending an Account','com-hhub-policy-suspend-account','2021-01-13 12:58:03',NULL,'Y','N',1),
+('com.hhub.policy.restore.account','Policy to restore account','com-hhub-policy-restore-account','2021-01-14 00:25:21',NULL,'Y','N',1),
+('com.hhub.policy.vendor.add.product.action','Policy to execute when a vendor is adding a new product','com-hhub-policy-vendor-add-product-action','2021-01-14 01:07:30',NULL,'Y','N',1),
+('com.hhub.policy.customer&vendor.create','Policy to be executed when a new vendor is created. ','com-hhub-policy-customer&vendor-create','2021-04-01 17:46:41',NULL,'Y','N',1),
+('com.hhub.policy.vendor.order.setfulfilled','Vendor updates the order and sets it to fulfilled. ','com-hhub-policy-vendor-order-setfulfilled','2021-04-06 16:35:48',NULL,'Y','N',1),
+('com.hhub.policy.abac.security.page','Policy to display the ABAC Security page. In this page, we will display policies, transactions ','com-hhub-policy-abac-security-page','2022-01-17 08:48:37',NULL,'Y','N',1);
+

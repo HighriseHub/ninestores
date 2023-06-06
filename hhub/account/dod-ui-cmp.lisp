@@ -104,8 +104,9 @@
 				       (:div :class "form-group"
 					     (:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A - Sign Up" (slot-value cmp 'name))))))
 				(:a :target "_blank" :href (format nil "dascustloginasguest?tenant-id=~A" (slot-value cmp 'row-id)) (:span :class "glyphicon glyphicon-shopping-cart") " Shop Now")
-				(:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Copy External URL" 
-				      (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:span :class  "glyphicon glyphicon-share"))))))) company-list)))
+				(when external-url
+				  (cl-who:htm (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Copy External URL" 
+				      (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:span :class  "glyphicon glyphicon-share"))))))))) company-list)))
 					;else
        (cl-who:htm (:div :class "col-sm-12 col-md-12 col-lg-12"
 			 (:h3 "Record Not Found."))))))
