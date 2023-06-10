@@ -14,6 +14,10 @@ const s3 = new AWS.S3({
     secretAccessKey: process.env.AWS_S3_SECRET_ACCESS_KEY,
     region: process.env.AWS_REGION
 })
+
+//Auth secret used to authentication notification requests.
+let AUTH_SECRET = "highrisehub1234"; //process.env.AUTH_SECRET;
+
 // Set region
 //AWS.config.update({region: process.env.AWS_REGION});
 //var credentials = new AWS.SharedIniFileCredentials({profile: 'default'});
@@ -28,6 +32,11 @@ app.get("/file/status", function(req, res) {
 
 
 app.get('/file/upload', (req, res) => {
+
+    if (req.get("auth-secret") != AUTH_SECRET) {
+	console.log("Missing or incorrect auth-secret header. Rejecting request.");
+	return res.sendStatus(401);
+    }
 
     const fileName = filePath + req.query.filename;
     console.log("fileName = " + fileName);
