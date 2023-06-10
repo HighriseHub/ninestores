@@ -703,8 +703,9 @@
 					;else
 	      (progn
 		(new-dod-company cmpname cmpaddress cmpcity cmpstate cmpcountry cmpzipcode cmpwebsite cmp-type subscription-plan loginuser loginuser))))
-		;; once a new company is created, create the Company Administrator
-		;; Once a new company is created, we will create a default Vendor with the same name, phone number as the company admin)))
+	
+	;; once a new company is created, create the Company Administrator
+	;; Once a new company is created, we will create a default Vendor with the same name, phone number as the company admin)))
 	      (hunchentoot:redirect  "/hhub/sadminhome"))))))
 
 
@@ -913,6 +914,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendsearchproduct"   'dod-controller-vendor-search-products)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendprodcategories"   'dod-controller-vendor-product-categories-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubprodcatgaddaction"   'com-hhub-transaction-vendor-prodcatg-add)
+	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenddeleteprodcatg" 'dod-controller-vendor-delete-product-category)
 		
 ))
 

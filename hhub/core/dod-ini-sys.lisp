@@ -80,6 +80,11 @@
 (defvar *HHUBPENDINGUPIFUNCTIONS-HT* nil)
 (defvar *HHUBTRIALCOMPANYEXPIRYDAYS* 90)
 (defvar *HHUBOTPTESTING* T)
+(defvar *HHUBUSELOCALSTORFORRES* T)
+
+
+
+
 
 (defun set-customer-page-title (name)
   (setf *customer-page-title* (format nil "Welcome to HighriseHub - ~A." name))) 

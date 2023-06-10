@@ -11,7 +11,7 @@
 	      (:div :class "row"
                 (:div :class "col-lg-12"
                     (:ul :class "list-inline"
-			 (:li (:a :href "https://www.highrisehub.com" "Home"))
+			 (:li (:a :href *siteurl* "Home"))
 			 (:li :class "footer-menu-divider" "&sdot;")
 			 (:li (:a :href "/hhub/aboutuspage" "About"))
 			 (:li :class "footer-menu-divider" "&sdot;")
@@ -57,8 +57,6 @@
 		  (cl-who:str tncstr)))
       (hhub-html-page-footer))))
 
-  
-
 (defun hhub-controller-privacy-page ()
   :documentation "Privacy Page"
  (let* ((privacystr (hhub-read-file (format nil "~A/~A" *HHUB-STATIC-FILES* *HHUB-PRIVACY-FILE*))))
@@ -67,9 +65,6 @@
 	    (:div :class "col-sm-12"
 		  (cl-who:str privacystr)))
       (hhub-html-page-footer))))
-
-
-
 
 (defun hhub-controller-aboutus-page ()
   (with-standard-admin-page "HighriseHub - Contact Us"
