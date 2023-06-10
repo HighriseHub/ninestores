@@ -1,0 +1,32 @@
+{
+  "name": "fileserver",
+  "version": "1.0.0",
+  "description": "File server for AWS S3",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+  "type": "git",
+  "url": "git+https://github.com/highrisehub/hhubplatform.git"
+  },
+
+  "keywords": [
+    "fileserver",
+    "upload"
+  ],
+    
+  "author": "HighriseHub",
+  "license": "MIT ",
+  "bugs": {
+    "url": "https://github.com/highrisehub/hhubplatform/issues"
+  },
+  "homepage": "https://github.com/highrisehub/hhubplatform#readme",
+  "dependencies": {
+    "aws-sdk": "^2.823.0",  
+      "dotenv": "^8.0.0",
+    "dotenv-extended": "^2.9.0",
+    "express": "^4.17.1"
+  }
+
+}
