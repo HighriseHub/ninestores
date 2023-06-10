@@ -32,6 +32,10 @@
     (setf (slot-value product 'active-flag) "N")
     (update-prd-details product)))
 
+
+
+
+
 (defun activate-product (id company)
   (let ((product (select-product-by-id id company)))
     (setf (slot-value product 'active-flag) "Y")
@@ -243,6 +247,15 @@
 		[= [:active-flag] "Y"] 
 		[= [:tenant-id] tenant-id]]    :caching nil :flatp t ))
 
+(defun get-root-prd-catg (tenant-id)
+  (clsql:select 'dod-prd-catg  :where 
+		[and 
+		[= [:deleted-state] "N"] 
+		[= [:active-flag] "Y"] 
+		[= [:tenant-id] tenant-id]
+		[= [:catg-name] "root"]]    :caching nil :flatp t ))
+
+
 (defun select-prdcatg-by-company (company-instance)
   (let ((tenant-id (slot-value company-instance 'row-id)))
     (clsql:select 'dod-prd-catg  :where
@@ -252,6 +265,7 @@
 		  [<> [:catg-name] "root"]
 		  [= [:tenant-id] tenant-id]]
      :caching nil :flatp t )))
+
 
 (defun search-prdcatg-in-list (row-id list)
     (if (not (equal row-id (slot-value (car list) 'row-id))) (search-prdcatg-in-list row-id (cdr list))
@@ -281,15 +295,23 @@
 		[like  [:catg-name] name-like-clause]]
 		:caching *dod-database-caching* :flatp t))))
 
+(defun add-root-prdcatg (company-instance)                                                                                                                                                    
+  (let ((tenant-id (slot-value company-instance 'row-id)))                                                                                                                                    
+    (persist-prdcatg "root" 1 2 tenant-id)))
+
 
 (defun add-new-node-prdcatg (name company-instance) 
   (let* ((tenant-id (slot-value company-instance 'row-id))
+	 (rootprdcatg (get-root-prd-catg tenant-id))
 	 (query1 (format nil "SELECT @myRight := rgt FROM DOD_PRD_CATG  WHERE catg_name = 'root' and tenant_id=~A; " tenant-id))
 	 (command1 (format nil "UPDATE DOD_PRD_CATG  SET rgt = rgt + 2 WHERE rgt > @myRight;" ))
 	 (command2 (format nil "UPDATE DOD_PRD_CATG SET lft = lft + 2 WHERE lft > @myRight; "))
 	 (command3 (format nil "INSERT INTO DOD_PRD_CATG (catg_name, lft, rgt, tenant_id, active_flag, deleted_state ) VALUES('~A', @myRight + 1, @myRight + 2, ~A, 'Y', 'N');" name tenant-id)))
-    
-    (print query1)
+    ;; if root prd category is not present, create it first. 
+    (unless rootprdcatg
+      (add-root-prdcatg company-instance))
+    ;; sleep for a second after creating a root prd category because we are going to query for it again. We do not want to fail.
+    (sleep 1)
     (clsql:query query1 :field-names nil :flatp t)
     (clsql:execute-command command1 )
     (clsql:execute-command command2 )
@@ -310,9 +332,9 @@
     (clsql:execute-command command4 )))
 
 
-(defun delete-prd-catg (name company)
+(defun delete-prd-catg (id company)
   (let* ((tenant-id (slot-value company 'row-id))
-	 (query (format nil "SELECT @myLeft := lft, @myRight := rgt, @myWidth := rgt - lft + 1 FROM DOD_PRD_CATG  WHERE catg_name = '~A' and tenant_id=~A" name tenant-id))
+	 (query (format nil "SELECT @myLeft := lft, @myRight := rgt, @myWidth := rgt - lft + 1 FROM DOD_PRD_CATG  WHERE row_id = ~A and tenant_id=~A" id tenant-id))
 	 (command1 (format nil "DELETE FROM DOD_PRD_CATG WHERE lft BETWEEN @myLeft AND @myRight;"))
 	 (command2 (format nil "UPDATE DOD_PRD_CATG  SET rgt = rgt - @myWidth WHERE rgt > @myRight;"))
 	 (command3 (format nil "UPDATE DOD_PRD_CATG  SET lft = lft - @myWidth WHERE lft > @myRight;")))

@@ -478,6 +478,19 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 
+(defun upload-file-s3bucket (filename) 
+  (let* ((paramnames (list "filename"))
+	 (paramvalues (list filename))
+	 (param-alist (pairlis paramnames paramvalues))
+	 (headers nil) 
+	 (headers (acons "auth-secret" "highrisehub1234" headers)))
+    ;;(logiamhere (format nil "Filename is ~A" filename))
+    ;; Execution
+    
+    (drakma:http-request "http://192.168.0.108:4301/file/upload"
+			 :additional-headers headers
+			 :parameters param-alist)))
+
 (defun com-hhub-transaction-vendor-product-add-action () 
   (with-vend-session-check
     (let* ((prodname (hunchentoot:parameter "prdname"))
@@ -494,7 +507,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					;(destructuring-bind (path file-name content-type) prodimageparams))
 	   (tempfilewithpath (first prodimageparams))
 	   (file-name (format nil "~A-~A" (get-universal-time) (second prodimageparams)))
-	   (external-url (generate-product-ext-url product)) 
+	   (external-url (if product (generate-product-ext-url product)))
 	   (params nil))
 
       (setf params (acons "company" (get-login-vendor-company) params))
@@ -516,7 +529,13 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		(setf (slot-value product 'units-in-stock) units-in-stock)
 		(setf (slot-value product 'subscribe-flag) subscriptionflag)
 		(setf (slot-value product 'external-url) external-url)
-		(if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name)))
+		;; Save the image in AWS S3 bucket if we are in production.
+		(if *HHUBUSELOCALSTORFORRES* 
+		  (let ((s3filelocation (upload-file-s3bucket (format nil "~A" file-name))))
+		    (if tempfilewithpath (setf (slot-value product 'prd-image-path) s3filelocation)))
+		  ;;else
+		  (if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name))))
+	       
 		(update-prd-details product))
 					;else
 	      (create-product prodname description (get-login-vendor) (select-prdcatg-by-id catg-id (get-login-vendor-company)) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag  (get-login-vendor-company)))
@@ -947,7 +966,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-prd-details-for-vendor ()
     (if (is-dod-vend-session-valid?)
-	(with-standard-vendor-page (:title "Product Details")
+	(with-standard-vendor-page "Product Details"
 	    (let* ((company (hunchentoot:session-value :login-vendor-company))
 		   (product (select-product-by-id (parse-integer (hunchentoot:parameter "id")) company)))
 		(product-card-with-details-for-vendor product)))
@@ -955,23 +974,18 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun dod-controller-vendor-deactivate-product ()
-  (if (is-dod-vend-session-valid?)
-  (let ((id (parse-integer (hunchentoot:parameter "id"))))
-    (deactivate-product id (get-login-vendor-company))
-    (setf (hunchentoot:session-value :login-vendor-products-functions) (dod-gen-vendor-products-functions (get-login-vendor) (get-login-vendor-company)))   
-    (hunchentoot:redirect "/hhub/dodvenproducts"))
-  ;else
-  (hunchentoot:redirect "/hhub/vendor-login.html")))
+  (with-vend-session-check 
+    (let ((id (parse-integer (hunchentoot:parameter "id"))))
+      (deactivate-product id (get-login-vendor-company))
+      (setf (hunchentoot:session-value :login-vendor-products-functions) (dod-gen-vendor-products-functions (get-login-vendor) (get-login-vendor-company)))   
+      (hunchentoot:redirect "/hhub/dodvenproducts"))))
 
 (defun dod-controller-vendor-activate-product ()
-  (if (is-dod-vend-session-valid?)
-  (let ((id (hunchentoot:parameter "id")))
-    (activate-product id (get-login-vendor-company))
-    (setf (hunchentoot:session-value :login-vendor-products-functions) (dod-gen-vendor-products-functions (get-login-vendor) (get-login-vendor-company)))   
-    (hunchentoot:redirect "/hhub/dodvenproducts"))
-  ;else
-  (hunchentoot:redirect "/hhub/vendor-login.html")))
-
+  (with-vend-session-check
+    (let ((id (hunchentoot:parameter "id")))
+      (activate-product id (get-login-vendor-company))
+      (setf (hunchentoot:session-value :login-vendor-products-functions) (dod-gen-vendor-products-functions (get-login-vendor) (get-login-vendor-company)))   
+      (hunchentoot:redirect "/hhub/dodvenproducts"))))
 
 (defun dod-controller-vendor-copy-product ()
 ) 
@@ -1024,18 +1038,21 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (hunchentoot:redirect "/hhub/dodvendprodcategories"))))
   
 
+(defun dod-controller-vendor-delete-product-category ()
+  (with-vend-session-check
+    (let ((id (hunchentoot:parameter "id"))
+	  (company (get-login-vendor-company)))
+      (when id (delete-prd-catg id company))
+      (hunchentoot:redirect "/hhub/dodvendprodcategories"))))
+
 
 (defun vendor-product-category-row (category)
-  (with-slots (row-id catg-name active-flag) category 
+  (with-slots (row-id catg-name) category 
       (cl-who:with-html-output (*standard-output* nil)
 	(:td  :height "10px" (cl-who:str catg-name))
 	(:td :height "10px"
-	     (if (equal active-flag "Y")
-		    (cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Turn Off" 
-		      (:a :href (format nil "dodvenddeactivateprodcatg?id=~A" row-id) (:span :class "glyphicon glyphicon-off"))))
-		    ;else
-		    (cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Turn On" 
-		      (:a :href (format nil "dodvenddeactivateprodcatg?id=~A" row-id) (:span :class "glyphicon glyphicon-off")))))))))
+	     (cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Delete" 
+			       (:a :href (format nil "dodvenddeleteprodcatg?id=~A" row-id) (:span :class "glyphicon glyphicon-off"))))))))
 	
 	
 
@@ -1113,21 +1130,6 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun dod-get-cached-completed-orders-today ()
   (let ((completed-orders-func (nth 3 (hunchentoot:session-value :order-func-list))))
     (funcall completed-orders-func)))
-
-(defun dod-get-cached-order-items-by-order-id (order-id order-func-list)
-  					; Add the order item to a hash table. Key - order-id to improve performance.
-					; Discovered in May 2020
-					; If the order-items are not found in the hash table, search them and add them to hash table.
-  (let ((order-items-from-ht (get-ht-val order-id (hunchentoot:session-value :vendor-order-items-hashtable))))
-    (if (null order-items-from-ht)
-	  (let* ((order-items-func (nth 2 order-func-list))
-		 (order-items (funcall order-items-func)))
-	    (setf (gethash order-id (hunchentoot:session-value :vendor-order-items-hashtable))
-		  (remove nil (mapcar (lambda (item)
-					(if (equal (slot-value item 'order-id) order-id) item)) order-items))))
-	  
-	;otherwise, return the retrieved item from the hash table. 
-	order-items-from-ht)))
 
 (defun dod-get-cached-order-items-by-order-id (order-id order-func-list)
   ;; Add the order item to a hash table. Key - order-id to improve performance.
