@@ -531,11 +531,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		(setf (slot-value product 'external-url) external-url)
 		;; Save the image in AWS S3 bucket if we are in production.
 		(if *HHUBUSELOCALSTORFORRES* 
-		  (let ((s3filelocation (upload-file-s3bucket (format nil "~A" file-name))))
-		    (if tempfilewithpath (setf (slot-value product 'prd-image-path) s3filelocation)))
-		  ;;else
-		  (if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name))))
-	       
+		    (if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name)))
+		    ;;else
+		    (let ((s3filelocation (upload-file-s3bucket (format nil "~A" file-name))))
+		      (if tempfilewithpath (setf (slot-value product 'prd-image-path) s3filelocation))))
+		 	       
 		(update-prd-details product))
 					;else
 	      (create-product prodname description (get-login-vendor) (select-prdcatg-by-id catg-id (get-login-vendor-company)) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag  (get-login-vendor-company)))
