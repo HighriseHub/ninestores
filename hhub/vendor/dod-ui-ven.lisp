@@ -1276,16 +1276,25 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun vendor-details-card (vendor-instance)
-    (let ((vend-name (slot-value vendor-instance 'name))
-	     (vend-address  (slot-value vendor-instance 'address))
-	     (phone (slot-value vendor-instance 'phone))
-	  (picture-path (slot-value vendor-instance 'picture-path)))
-	(cl-who:with-html-output (*standard-output* nil)
-		(:h4 (cl-who:str vend-name) )
-	    (:div (cl-who:str vend-address))
-		(:div  (cl-who:str phone))
-		(:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6 image-responsive"
-			  (:img :src  (format nil "~A" picture-path) :height "300" :width "400" :alt vend-name " ")))))
+  (let ((vend-name (slot-value vendor-instance 'name))
+	(vend-address  (slot-value vendor-instance 'address))
+	(phone (slot-value vendor-instance 'phone))
+	(picture-path (slot-value vendor-instance 'picture-path)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-div-row
+	(with-html-div-col 
+	  (:h4 (cl-who:str vend-name))))
+      (with-html-div-row
+	(with-html-div-col
+	  (:h5 (cl-who:str vend-address))))
+      (with-html-div-row
+	(with-html-div-col
+	  (:h4  (cl-who:str phone)))
+	(with-html-div-col
+	  (:a :target "_blank" :href (createwhatsapplink phone) (:img :src (format nil "/img/~A" *HHUBWHATSAPPBUTTONIMG*) :alt "Chat on WhatsApp" " "))))
+      (with-html-div-row
+        (:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6 image-responsive"
+	      (:img :src  (format nil "~A" picture-path) :height "300" :width "400" :alt vend-name " "))))))
 		  
 
 
