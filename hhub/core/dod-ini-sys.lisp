@@ -81,7 +81,8 @@
 (defvar *HHUBTRIALCOMPANYEXPIRYDAYS* 90)
 (defvar *HHUBOTPTESTING* T)
 (defvar *HHUBUSELOCALSTORFORRES* T)
-
+(defvar *HHUBWHATAPPLINKURLINDIA* "https://wa.me/91")
+(defvar *HHUBWHATSAPPBUTTONIMG* "WhatsAppButtonGreenSmall.png")
 
 
 
