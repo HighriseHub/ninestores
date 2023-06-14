@@ -531,11 +531,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		(setf (slot-value product 'external-url) external-url)
 		;; Save the image in AWS S3 bucket if we are in production.
 		(if *HHUBUSELOCALSTORFORRES* 
-		  (let ((s3filelocation (upload-file-s3bucket (format nil "~A" file-name))))
-		    (if tempfilewithpath (setf (slot-value product 'prd-image-path) s3filelocation)))
-		  ;;else
-		  (if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name))))
-	       
+		    (if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name)))
+		    ;;else
+		    (let ((s3filelocation (upload-file-s3bucket (format nil "~A" file-name))))
+		      (if tempfilewithpath (setf (slot-value product 'prd-image-path) s3filelocation))))
+		 	       
 		(update-prd-details product))
 					;else
 	      (create-product prodname description (get-login-vendor) (select-prdcatg-by-id catg-id (get-login-vendor-company)) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag  (get-login-vendor-company)))
@@ -1276,16 +1276,25 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun vendor-details-card (vendor-instance)
-    (let ((vend-name (slot-value vendor-instance 'name))
-	     (vend-address  (slot-value vendor-instance 'address))
-	     (phone (slot-value vendor-instance 'phone))
-	  (picture-path (slot-value vendor-instance 'picture-path)))
-	(cl-who:with-html-output (*standard-output* nil)
-		(:h4 (cl-who:str vend-name) )
-	    (:div (cl-who:str vend-address))
-		(:div  (cl-who:str phone))
-		(:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6 image-responsive"
-			  (:img :src  (format nil "~A" picture-path) :height "300" :width "400" :alt vend-name " ")))))
+  (let ((vend-name (slot-value vendor-instance 'name))
+	(vend-address  (slot-value vendor-instance 'address))
+	(phone (slot-value vendor-instance 'phone))
+	(picture-path (slot-value vendor-instance 'picture-path)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-div-row
+	(with-html-div-col 
+	  (:h4 (cl-who:str vend-name))))
+      (with-html-div-row
+	(with-html-div-col
+	  (:h5 (cl-who:str vend-address))))
+      (with-html-div-row
+	(with-html-div-col
+	  (:h4  (cl-who:str phone)))
+	(with-html-div-col
+	  (:a :target "_blank" :href (createwhatsapplink phone) (:img :src (format nil "/img/~A" *HHUBWHATSAPPBUTTONIMG*) :alt "Chat on WhatsApp" " "))))
+      (with-html-div-row
+        (:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6 image-responsive"
+	      (:img :src  (format nil "~A" picture-path) :height "300" :width "400" :alt vend-name " "))))))
 		  
 
 

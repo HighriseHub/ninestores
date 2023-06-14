@@ -2,7 +2,8 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
-
+(defun createwhatsapplink (phone)
+  (format nil "~A~A" *HHUBWHATAPPLINKURLINDIA* phone))
 
 (defun search-in-hashtable (search-string hashtable)
   :documentation "Search for a string in hashtable. Returns a list of all the values where the key contains the substring" 

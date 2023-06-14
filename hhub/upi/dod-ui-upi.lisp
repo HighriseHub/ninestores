@@ -10,8 +10,9 @@
 	 (filepath (format nil "~A/~A" *HHUBRESOURCESDIR* filename))
 	 (qrcodecmd (format nil "qrencode -s 5 -l L -v 5 -o ~A ~A" filepath paymentstr)))
 	 
-    (sb-ext:run-program "/bin/sh" (list "-c" qrcodecmd ) :input nil :output *standard-output*)
-    filename))
+    (when upi-id
+      (sb-ext:run-program "/bin/sh" (list "-c" qrcodecmd ) :input nil :output *standard-output*)
+      filename)))
 
 (defun generateupiurlsforvendor  (vendor retailer-category-code transaction-id amount)
   :description "Generates the UPI payment URLs for a vendor and returns an url list containing one url per app. upiapp values are phonepe, paytmmp, gpay, upi"
@@ -90,19 +91,23 @@
 	   (qrcodepath (generateqrcodeforvendor vendor "ABC" transaction-id amount)))
 	 	   
       (with-standard-customer-page-v2 "HighriseHub - UPI Payment Page" 
-	(with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
-	  (display-upi-widget amount qrcodepath upiurls)
-	  (with-html-form "customerupipaymentform" "hhubcustwalletrechargeaction"
-	    (:div :class "row mb-3"
-		  (:div :class "col-sm-4" :style "text-align: center;"
-			(:input :class "form-control" :name "wallet-id" :value wallet-id :type "hidden")
-			(:input :class "form-control" :name "amount" :value amount :type "hidden")
-			(:input :class "form-control" :name "transaction-id" :value transaction-id :type "hidden")
-			(:label :for "utrnum" "UTR No")
-			(:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :max "999999999999" :maxlength "12"  :required T)))
-	    (:div :class "row mb-3"
-		  (:div :class "col-sm-4" :style "text-align: center;"
-			(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
+	(if qrcodepath 
+	    (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
+	      (display-upi-widget amount qrcodepath upiurls)
+	      (with-html-form "customerupipaymentform" "hhubcustwalletrechargeaction"
+		(:div :class "row mb-3"
+		      (:div :class "col-sm-4" :style "text-align: center;"
+			    (:input :class "form-control" :name "wallet-id" :value wallet-id :type "hidden")
+			    (:input :class "form-control" :name "amount" :value amount :type "hidden")
+			    (:input :class "form-control" :name "transaction-id" :value transaction-id :type "hidden")
+			    (:label :for "utrnum" "UTR No")
+			    (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :max "999999999999" :maxlength "12"  :required T)))
+		(:div :class "row mb-3"
+		      (:div :class "col-sm-4" :style "text-align: center;"
+			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))
+	    ;;else
+	    (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
+	      (:h2 (cl-who:str "UPI Details for Vendor Missing"))))))))
   
   (defun hhub-controller-upi-recharge-wallet-action ()
     (with-cust-session-check

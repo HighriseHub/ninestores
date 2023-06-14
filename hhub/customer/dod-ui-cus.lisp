@@ -595,11 +595,11 @@
 	    
 (defun  customer-my-order-details (order-id)
   (let* ((dodorder (get-order-by-id order-id (get-login-cust-company)))
-	 (header (list "status" "action" "name" "qty"   "sub-total" ))
+	 (header (list "Status" "Action" "Name" "Qty"   "Sub-total" ))
 	 (odtlst (get-order-items dodorder))
 	 (total (reduce #'+ (mapcar (lambda (odt) (* (slot-value odt 'prd-qty) (slot-value odt 'unit-price))) odtlst)))) 
     (cl-who:with-html-output (*standard-output* nil)
-      (if odtlst (ui-list-cust-orderdetails header odtlst) "no order details")
+      (if odtlst (ui-list-cust-orderdetails header odtlst) "No Order Details")
       (cl-who:htm (:div :class "row" 
 		 (:div :class "col-md-12" :align "right" 
 		       (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total)))))))
