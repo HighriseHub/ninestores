@@ -75,7 +75,7 @@
 (defvar *HHUBCADLOGINPAGEURL* "/hhub/cad-login.html")
 (defvar *HHUBPASSRESETTIMEWINDOW* 20) ; 20 minutes. Depicts the reset password time window. 
 (defvar *HHUBGUESTCUSTOMERPHONE* "9999999999")
-(defvar *HHUBSUPERADMINEMAIL* "pawan.deshpande@gmail.com")
+(defvar *HHUBSUPERADMINEMAIL* "support@highrisehub.com")
 (defvar *HHUBSUPPORTEMAIL* "support@highrisehub.com")
 (defvar *HHUBPENDINGUPIFUNCTIONS-HT* nil)
 (defvar *HHUBTRIALCOMPANYEXPIRYDAYS* 90)

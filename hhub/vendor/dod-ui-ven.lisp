@@ -478,16 +478,19 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 
-(defun upload-file-s3bucket (filename) 
-  (let* ((paramnames (list "filename"))
-	 (paramvalues (list filename))
-	 (param-alist (pairlis paramnames paramvalues))
-	 (headers nil) 
-	 (headers (acons "auth-secret" "highrisehub1234" headers)))
+(defun vendor-upload-file-s3bucket (filename) 
+  (let* ((tenantid (format nil "~A" (get-login-vendor-tenant-id)))
+         (vendorid (format nil "~A" (slot-value (get-login-vendor) 'row-id)))
+         (uuid (format nil "~A" (uuid:make-v1-uuid)))
+         (paramnames (list "filename" "tenantid" "vendorid" "uuid"))
+         (paramvalues (list filename tenantid vendorid uuid))
+         (param-alist (pairlis paramnames paramvalues))
+         (headers nil)
+         (headers (acons "auth-secret" "highrisehub1234" headers)))   
     ;;(logiamhere (format nil "Filename is ~A" filename))
     ;; Execution
     
-    (drakma:http-request "http://192.168.0.108:4301/file/upload"
+    (drakma:http-request (format nil "~A/file/upload" *siteurl*)
 			 :additional-headers headers
 			 :parameters param-alist)))
 
@@ -533,7 +536,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		(if *HHUBUSELOCALSTORFORRES* 
 		    (if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name)))
 		    ;;else
-		    (let ((s3filelocation (upload-file-s3bucket (format nil "~A" file-name))))
+		    (let ((s3filelocation (vendor-upload-file-s3bucket (format nil "~A" file-name))))
 		      (if tempfilewithpath (setf (slot-value product 'prd-image-path) s3filelocation))))
 		 	       
 		(update-prd-details product))
@@ -738,7 +741,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (cust-id (slot-value customer 'row-id))
-	 (wallet (get-cust-wallet-by-vendor customer  vendor company)))
+	 (cust-phone (slot-value customer 'phone))
+	 (cust-name (slot-value customer 'name))
+	 (wallet (get-cust-wallet-by-vendor customer  vendor company))
+	 (chatonwhatsappurl (createwhatsapplinkwithmessage cust-phone (format nil "Hi ~A" cust-name))))
     (with-slots (name phone address) customer
       (cl-who:with-html-output (*standard-output* nil)
 	(:td  :height "10px" (cl-who:str name))
@@ -747,7 +753,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(:td  :height "10px" (cl-who:str (slot-value wallet 'balance)))
 	(:td  :height "10px"
 	      (:a :data-toggle "modal" :data-target (format nil "#vendormycustomerwallet~A" cust-id)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
-		 (modal-dialog (format nil "vendormycustomerwallet~A" cust-id) "Recharge Wallet" (modal.vendor-my-customer-wallet-recharge wallet phone)))))))
+	      (modal-dialog (format nil "vendormycustomerwallet~A" cust-id) "Recharge Wallet" (modal.vendor-my-customer-wallet-recharge wallet phone)))
+	      (:td :height "10px" (:a :href chatonwhatsappurl :target "_blank" (:i :class "fa fa-whatsapp fa-lg" :aria-hidden "true" )))))))
  
 (defun modal.vendor-my-customer-wallet-recharge (wallet phone)
   (cl-who:with-html-output (*standard-output* nil)
@@ -1004,57 +1011,22 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (categories (select-prdcatg-by-company company))
 	   (catgcount (length categories)))
       (with-standard-vendor-page "Product Categories"
-	(with-html-div-row
-	  (with-html-div-col
-	     (:a :data-toggle "modal" :data-target (format nil "#dodvenaddprodcatg-modal")  :href "#"  (:span :class "glyphicon glyphicon-plus") "Add New Category" )
-		     (modal-dialog (format nil "dodvenaddprodcatg-modal") "Add New Category" (modal.vendor-product-category-add)))
-	  (with-html-div-col :align "right"
-	    (:span :class "badge" (cl-who:str (format nil " ~d " catgcount)))))
+	(with-html-div-row :align "right"
+	  (:span :class "badge" (cl-who:str (format nil " ~d " catgcount))))
 	(:hr)
-	(cl-who:str (display-as-table (list "Name" "Action") categories 'vendor-product-category-row))))))
+	(cl-who:str (display-as-table (list "Name") categories 'vendor-product-category-row))
+	(:hr)
+	(with-html-div-row
+	  (:h4 "Note: Contact Administrator to create/delete the Product Categories."))
+	;; We will write some javascript to give a success alert here. 
+	(jscript-displaysuccess "Note: Contact Administrator to create/delete the Product Categories.")))))
+
+
 	
-(defun modal.vendor-product-category-add ()
-  (cl-who:with-html-output (*standard-output* nil)
-    (with-html-div-row 
-      (with-html-div-col
-	(with-html-form "form-productcategories" "hhubprodcatgaddaction"
-	  (:div :class "form-group"
-		(:input :class "form-control" :name "catg-name" :value "" :placeholder "Category Name" :type "text" ))
-	  (:div :class "form-group" 
-		(:input :type "submit"  :class "btn btn-primary" :value "Add Category")))))))
-
-
-(defun com-hhub-transaction-vendor-prodcatg-add ()
-  (with-vend-session-check
-    (let* ((catg-name (hunchentoot:parameter "catg-name"))
-	   (company (get-login-vendor-company))
-	   (params nil))
-      
-      (setf params (acons "company" company params))
-      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-      
-      (with-hhub-transaction "com-hhub-transaction-vendor-prodcatg-add" params
-	(when catg-name (add-new-node-prdcatg catg-name company)))
-      (hunchentoot:redirect "/hhub/dodvendprodcategories"))))
-  
-
-(defun dod-controller-vendor-delete-product-category ()
-  (with-vend-session-check
-    (let ((id (hunchentoot:parameter "id"))
-	  (company (get-login-vendor-company)))
-      (when id (delete-prd-catg id company))
-      (hunchentoot:redirect "/hhub/dodvendprodcategories"))))
-
-
 (defun vendor-product-category-row (category)
   (with-slots (row-id catg-name) category 
       (cl-who:with-html-output (*standard-output* nil)
-	(:td  :height "10px" (cl-who:str catg-name))
-	(:td :height "10px"
-	     (cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Delete" 
-			       (:a :href (format nil "dodvenddeleteprodcatg?id=~A" row-id) (:span :class "glyphicon glyphicon-off"))))))))
-	
-	
+	(:td  :height "10px" (cl-who:str catg-name)))))
 
 (defun dod-controller-vendor-products ()
   (with-vend-session-check 

@@ -280,19 +280,33 @@ body {
 
 .hhub-success-alert
 {
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 200;
     position: fixed;
-    color: grey;
+    color: black;
     left: 30%;
-    top: 30%;
+    bottom: 5%;
     width: 50%;
-    height: 30% ;
-    z-index: 9999;
+    height: 10% ;
+    z-index: 999;
+    background-color:  white;
     display: none;
 }
 
+.closebtn {
+  margin-left: 15px;
+  color: black;
+  font-weight: bold;
+  float: right;
+  font-size: 30px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: 0.3s;
+}
 
+.closebtn:hover {
+  color: blue;
+}
 
 .hhub-footer {
   position: relative;

@@ -114,29 +114,29 @@
     :db-constraints :not-null
     :type integer
     :initarg :row-id)
-  (name
+   (name
     :type (string 50)
     :initarg :name)
- 
- (uri
-  :type (string 100)
+   
+   (uri
+    :type (string 100)
     :initarg :uri)
- 
- (trans-func
-  :type (string 100)
+   
+   (trans-func
+    :type (string 100)
     :initarg :trans-func)
-
- (auth-policy-id
-  :type integer
-  :initarg :auth-policy-id)
-  (bus-tran-policy
+   
+   (auth-policy-id
+    :type integer
+    :initarg :auth-policy-id)
+   (bus-tran-policy
     :ACCESSOR get-bus-tran-policy
     :DB-KIND :JOIN
     :DB-INFO (:JOIN-CLASS dod-auth-policy
-                          :HOME-KEY auth-policy-id
+              :HOME-KEY auth-policy-id
                           :FOREIGN-KEY row-id
-                          :SET NIL))
-
+              :SET NIL))
+   
    (abac-subject-id
     :type integer
     :initarg abac-subject-id)
@@ -144,38 +144,38 @@
     :accessor get-bus-tran-abac-subject
     :DB-KIND :JOIN
     :DB-INFO (:JOIN-CLASS dod-abac-subject
-			  :HOME-KEY abac-subject-id
-			  :FOREIGN-KEY row-id
-			  :SET NIL))
-
-
-(trans-type
- :type (string 15)
- :initarg :trans-type)
-
-
+	      :HOME-KEY abac-subject-id
+	      :FOREIGN-KEY row-id
+	      :SET NIL))
+   
+   
+   (trans-type
+    :type (string 15)
+    :initarg :trans-type)
+   
+   
      (deleted-state
-    :type (string 1)
-    :void-value "N"
-    :initarg :deleted-state)
-
-        (active-flg
+      :type (string 1)
+      :void-value "N"
+      :initarg :deleted-state)
+   
+   (active-flg
     :type (string 1)
     :void-value "Y"
     :initarg :active-flg)
-
-  
- (created-by
+   
+   
+   (created-by
     :TYPE INTEGER
     :INITARG :created-by)
    (bus-tran-created-by
     :ACCESSOR get-bus-tran-created-by
     :DB-KIND :JOIN
     :DB-INFO (:JOIN-CLASS dod-users
-                          :HOME-KEY created-by
-                          :FOREIGN-KEY row-id
-                          :SET NIL))
- 
+              :HOME-KEY created-by
+              :FOREIGN-KEY row-id
+              :SET NIL))
+   
   
    (tenant-id
     :type integer
@@ -184,12 +184,12 @@
     :ACCESSOR policy-attr-company
     :DB-KIND :JOIN
     :DB-INFO (:JOIN-CLASS dod-company
-	                  :HOME-KEY tenant-id
-                          :FOREIGN-KEY row-id
-                          :SET NIL)))
-
-
-
-   (:base-table dod_bus_transaction))
+	      :HOME-KEY tenant-id
+              :FOREIGN-KEY row-id
+              :SET NIL)))
+  
+  
+  
+  (:base-table dod_bus_transaction))
 
    
