@@ -453,8 +453,9 @@
 (with-opr-session-check 
   (let ((abacsubjects (select-abac-subject-by-company (get-login-company))))
     (with-standard-admin-page "Business Personas ..."
-			      (IAM-security-page-header)
-      (:div :class "row"
+      (IAM-security-page-header)
+      (:hr)
+      (with-html-div-row
 	    (:div :class "col-md-12" (:h4 "Business Personas")))
       (cl-who:str (display-as-table (list "Name")  abacsubjects 'busobj-card))
       (:h4 "Note: To add new Business Persona to the system, follow these steps.")
@@ -466,15 +467,16 @@
 (with-opr-session-check 
   (let ((bustrans (hhub-get-cached-transactions)))
     (with-standard-admin-page "Business Transactions..."
-			      (IAM-security-page-header)
-			      (:div :class "row"
-				    (:div :class "col-md-12" 
-					  (:div :class "col-md-12" (:h4 "Business Transactions"))))
-			      (:div :class "col-md-12" 
-				    (:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target "#addtransaction-modal" "New Transaction"))
-			      
-			      (cl-who:str (display-as-table (list "Name" "URI" "Function" "Action")  bustrans 'bustrans-card))
-			      (modal-dialog "addtransaction-modal" "Add/Edit Transaction" (new-transaction-html))))))
+      (IAM-security-page-header)
+      (:hr)
+      (with-html-div-row
+	(:div :class "col-md-12" 
+		  (:div :class "col-md-12" (:h4 "Business Transactions"))))
+      (:div :class "col-md-12" 
+	    (:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target "#addtransaction-modal" "New Transaction"))
+      
+      (cl-who:str (display-as-table (list "Name" "URI" "Function" "Action")  bustrans 'bustrans-card))
+      (modal-dialog "addtransaction-modal" "Add/Edit Transaction" (new-transaction-html))))))
 
 (defun dod-controller-list-attrs ()
 :documentation "This function lists the attributes used in policy making"
@@ -764,6 +766,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubotpregenerateaction" 'dod-controller-otp-regenerate-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubotpsubmitaction" 'dod-controller-otp-submit-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/displaystore" 'com-hhub-transaction-display-store)
+	(hunchentoot:create-regex-dispatcher "^/hhub/createwhatsapplinkwithmessage" 'hhub-controller-create-whatsapp-link-with-message)
 	
 	;***************** COMPADMIN/COMPANYHELPDESK/COMPANYOPERATOR  RELATED ********************
      
@@ -776,7 +779,10 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubpublishaccountexturl" 'com-hhub-transaction-publish-account-exturl)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcadprofile" 'dod-controller-cad-profile)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcompadminupdateaction" 'com-hhub-transaction-compadmin-updatedetails-action)
-	
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcadlistprodcatg" 'dod-controller-product-categories-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubprodcatgaddaction" 'com-hhub-transaction-prodcatg-add-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubdeleteprodcatg" 'dod-controller-delete-product-category)
+
 	
 	
 	
@@ -913,9 +919,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupipayconfirm"   'hhub-controller-vendor-upi-confirm)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendsearchproduct"   'dod-controller-vendor-search-products)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendprodcategories"   'dod-controller-vendor-product-categories-page)
-	(hunchentoot:create-regex-dispatcher "^/hhub/hhubprodcatgaddaction"   'com-hhub-transaction-vendor-prodcatg-add)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenddeleteprodcatg" 'dod-controller-vendor-delete-product-category)
-		
+			
 ))
 
 

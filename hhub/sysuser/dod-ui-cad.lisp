@@ -2,6 +2,66 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
+(defun dod-controller-product-categories-page ()
+  (with-cad-session-check
+    (let* ((company (get-login-company))
+	   (categories (select-prdcatg-by-company company))
+	   (catgcount (length categories)))
+      (with-standard-compadmin-page "Product Categories"
+	(with-html-div-row
+	  (with-html-div-col
+	    (:a :data-toggle "modal" :data-target (format nil "#dodvenaddprodcatg-modal")  :href "#"  (:span :class "glyphicon glyphicon-plus") "Add New Category" )
+	    (modal-dialog (format nil "dodvenaddprodcatg-modal") "Add New Category" (modal.product-category-add)))
+	  (with-html-div-col :align "right"
+	    (:span :class "badge" (cl-who:str (format nil " ~d " catgcount)))))
+	(:hr)
+	(cl-who:str (display-as-table (list "Name" "Action") categories 'product-category-row))))))
+
+(defun modal.product-category-add ()
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-html-div-row 
+      (with-html-div-col
+	(with-html-form "form-productcategories" "hhubprodcatgaddaction"
+	  (:div :class "form-group"
+		(:input :class "form-control" :name "catg-name" :value "" :placeholder "Category Name" :type "text" ))
+	  (:div :class "form-group" 
+		(:input :type "submit"  :class "btn btn-primary" :value "Add Category")))))))
+
+(defun product-category-row (category)
+  (with-slots (row-id catg-name) category 
+      (cl-who:with-html-output (*standard-output* nil)
+	(:td  :height "10px" (cl-who:str catg-name))
+	(:td :height "10px"
+	     (:div :class "col-xs-2" :data-toggle "tooltip" :title "Delete" 
+		   (:a :href (format nil "hhubdeleteprodcatg?id=~A" row-id) (:span :class "glyphicon glyphicon-off")))))))
+
+
+
+(defun com-hhub-transaction-prodcatg-add-action ()
+  (with-cad-session-check
+    (let* ((catg-name (hunchentoot:parameter "catg-name"))
+	   (company (get-login-company))
+	   (params nil))
+      
+      (setf params (acons "company" company params))
+      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+      (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+      
+      (with-hhub-transaction "com-hhub-transaction-prodcatg-add-action" params
+	(when catg-name (add-new-node-prdcatg catg-name company)))
+      (hunchentoot:redirect "/hhub/hhubcadlistprodcatg"))))
+  
+
+
+(defun dod-controller-delete-product-category ()
+  (with-cad-session-check
+    (let ((id (hunchentoot:parameter "id"))
+	  (company (get-login-company)))
+      (when id (delete-prd-catg id company))
+      (hunchentoot:redirect "/hhub/hhubcadlistprodcatg"))))
+
+
+
 (defun com-hhub-transaction-publish-account-exturl ()
   (with-cad-session-check 
     (let* ((params nil))
@@ -25,6 +85,7 @@
 	(:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))
 	(:hr)
 	(:div :class "list-group col-sm-6 col-md-6 col-lg-6"
+	      (:a :class "list-group-item"  :href "hhubcadlistprodcatg"  "Product Categories")
 	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodaccountexturl-modal")  :href "#"  "Account External URL")
 	      (modal-dialog (format nil "dodaccountexturl-modal") "Account External URL" (modal.account-external-url account))
 	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodaccountadminupdate-modal")  :href "#"  "Contact Information")
