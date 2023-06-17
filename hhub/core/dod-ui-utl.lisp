@@ -4,6 +4,26 @@
 
 
 
+(defun hhub-controller-create-whatsapp-link-with-message ()
+  (let* ((phone (hunchentoot:parameter "phone"))
+	 (message (hunchentoot:parameter "message"))
+	 (url (createwhatsapplinkwithmessage phone message)))
+    (hunchentoot:redirect url)))    
+
+(defun jscript-displaysuccess (message)
+  (cl-who:with-html-output (*standard-output* nil)
+    (:script :type "text/javascript"
+	     (cl-who:str
+	      (format nil "window.onload = function(){ ~A };" (parenscript:ps (display-success (parenscript:lisp "#hhub-success") (parenscript:lisp message) (parenscript:lisp 3000))))))))    
+
+
+(defun jscript-displayerror (message)
+  (cl-who:with-html-output (*standard-output* nil)
+    (:script :type "text/javascript"
+	     (cl-who:str
+	      (format nil "window.onload = function(){ ~A };" (parenscript:ps (display-error (parenscript:lisp "#hhub-error") (parenscript:lisp message) (parenscript:lisp 3000))))))))    
+
+
 (defun logIamhere (where)
   (hunchentoot:log-message* :info (format nil "I am here ~A" where)))
 
@@ -160,7 +180,9 @@
 		 (:div :id "dod-main-container"
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
-		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;" )
+		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;"
+					 (:span :class "closebtn" :onclick "this.parentElement.style.display='none';" "&times;" )
+					 (:strong "Success:&nbsp;") "Y")
 		       (:div :id "busy-indicator")
 		       (:script :src "/js/hhubbusy.js")
 		       (if hunchentoot:*session* (,nav-func)) 
@@ -257,8 +279,8 @@
     `(with-standard-page-template  ,title  with-customer-navigation-bar ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro with-standard-vendor-page ( title &body body)
-    `(with-standard-page-template  ,title with-vendor-navigation-bar  ,@body)))
+  (defmacro with-standard-vendor-page ( title  &body body)
+    `(with-standard-page-template  ,title with-vendor-navigation-bar ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-admin-page ( title &body body)
