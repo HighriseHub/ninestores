@@ -1133,7 +1133,7 @@
 				       (:div :class "form-group"
 					     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
 				       (:div :class "form-group"
-					     (:input :class "form-control" :name "password" :placeholder "password=demo" :type "password"  :required "true" ))
+					     (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password"  :required "true" ))
 				       (:div :class "form-group"
 					     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))
 				       
