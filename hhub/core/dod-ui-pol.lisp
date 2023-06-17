@@ -5,13 +5,18 @@
 ;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR HIGHRISEHUB ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun com-hhub-policy-vendor-prodcatg-add (&optional (params nil))
-  (let* ((company (cdr (assoc "company" params :test 'equal)))                                                                                                                                                              (suspend-flag (slot-value company 'suspend-flag))
+(defun com-hhub-policy-prodcatg-add-action (&optional (params nil))
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag))
          (subscription-plan (slot-value company 'subscription-plan))
 	 (maxcatgcount (com-hhub-attribute-company-maxprodcatgcount subscription-plan))
-	 (currentcatgcount (com-hhub-attribute-vendor-currentprodcatgcount company)))
-    (if (and (equal suspend-flag "N") (<= currentcatgcount maxcatgcount)) T NIL)))
-    
+	 (currentcatgcount (com-hhub-attribute-vendor-currentprodcatgcount company))
+	 (rolename (cdr (assoc "rolename" params :test 'equal))))
+    (if (and
+	 (equal rolename "COMPADMIN")
+	 (equal suspend-flag "N")
+	 (<= currentcatgcount maxcatgcount)) T NIL)))
+
 
 
 (defun com-hhub-policy-vendor-order-setfulfilled (&optional (params nil))
