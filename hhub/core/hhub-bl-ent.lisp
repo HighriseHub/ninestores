@@ -153,6 +153,10 @@
    ((htmldata 
      :accessor htmldata)))
 
+
+
+;; DB Adapter service
+
 (defclass DBAdapterService ()
   ((businessobject
    :accessor businessobject
@@ -165,6 +169,35 @@
     :initarg :company)
    (exception
     :accessor exception)))
+
+
+;;; Generic functions for DBAdapterService
+(defgeneric init (DBAdapterService BusinessObject)
+  (:documentation "Set the domain object of the DBAdapterService"))
+(defgeneric init (ResponseModel BusinessObject)
+  (:documentation "Set the domain object of the ResponseModel "))
+
+(defgeneric setCompany (DBAdapterService company)
+  (:documentation "Set the Company"))
+(defgeneric setException (DBAdapterService Exception)
+  (:documentation "Set the Exception for the Database Adapter Service"))
+(defgeneric setDBObject (DBAdapterService dbobject)
+  (:documentation "Set the DBObject"))
+(defgeneric db-save (DBAdapterService)
+  (:documentation "Savte the domianobject to the database"))
+(defgeneric db-fetch (DBAdapterService row-id)
+  (:documentation "Fetch the DBObject by row-id"))
+(defgeneric db-fetch-all (DBAdapterService)
+  (:documentation "Fetch records by company"))
+(defgeneric db-delete (DBAdapterService)
+  (:documentation "Delete the dbobject in the database"))
+(defgeneric Copy-BusinessObject-To-DBObject (DBAdapterService)
+  (:documentation "Syncs the dbobject and the domainobject"))
+(defgeneric Copy-DbObject-To-BusinessObject (DBAdapterService)
+  (:documentation "Syncs the DBobject to BusinessObject"))
+
+(defgeneric getbusinessobject (DBAdapterService)
+  (:documentation "gets the domain object"))
 
 
 
@@ -269,35 +302,14 @@
   (:documentation "Do Service implementation for a Business Service. Takes in the BusinessSession and input params and returns back output params and exceptions if any."))
 (defgeneric doCreate (BusinessService RequestModel)
   (:documentation "DoCreate service implementation for a Business Service"))
-
-
-;;; Generic functions for DBAdapterService
-(defgeneric init (DBAdapterService BusinessObject)
-  (:documentation "Set the domain object of the DBAdapterService"))
-(defgeneric init (ResponseModel BusinessObject)
-  (:documentation "Set the domain object of the ResponseModel "))
-
-(defgeneric setCompany (DBAdapterService company)
-  (:documentation "Set the Company"))
-(defgeneric setException (DBAdapterService Exception)
-  (:documentation "Set the Exception for the Database Adapter Service"))
-(defgeneric setDBObject (DBAdapterService dbobject)
-  (:documentation "Set the DBObject"))
-(defgeneric db-save (DBAdapterService)
-  (:documentation "Savte the domianobject to the database"))
-(defgeneric db-fetch (DBAdapterService row-id)
-  (:documentation "Fetch the DBObject by row-id"))
-(defgeneric db-fetch-all (DBAdapterService)
-  (:documentation "Fetch records by company"))
-(defgeneric db-delete (DBAdapterService)
-  (:documentation "Delete the dbobject in the database"))
-(defgeneric Copy-BusinessObject-To-DBObject (DBAdapterService)
-  (:documentation "Syncs the dbobject and the domainobject"))
-(defgeneric Copy-DbObject-To-BusinessObject (DBAdapterService)
-  (:documentation "Syncs the DBobject to BusinessObject"))
-
-(defgeneric getbusinessobject (DBAdapterService)
-  (:documentation "gets the domain object"))
+(defgeneric doRead (BusinessService RequestModel)
+  (:documentation "DoCreate service implementation for a Business Service"))
+(defgeneric doReadall (BusinessService RequestModel)
+  (:documentation "DoCreate service implementation for a Business Service"))
+(defgeneric doUpdate (BusinessService RequestModel)
+  (:documentation "DoCreate service implementation for a Business Service"))
+(defgeneric doDelete (BusinessService RequestModel)
+  (:documentation "DoCreate service implementation for a Business Service"))
 
 
 ;;; Method implementation for Business Server 
