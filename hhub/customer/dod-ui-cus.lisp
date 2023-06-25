@@ -313,7 +313,7 @@
 	(hunchentoot:remove-session hunchentoot:*session*)
 	(if (> (length company-website) 0) (hunchentoot:redirect (format nil "http://~A" company-website)) 
 	    ;else
-	    (hunchentoot:redirect "https://www.highrisehub.com")))))
+	    (hunchentoot:redirect *siteurl*)))))
 
 (defun dod-controller-guest-customer-logout ()
   (unless (hunchentoot:remove-session hunchentoot:*session*)
@@ -1916,9 +1916,13 @@
    (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	  (lstcount (length lstshopcart))
 	  (lstprodcatg (hunchentoot:session-value :login-prdcatg-cache))
-	  (lstproducts (hunchentoot:session-value :login-prd-cache)))
+	  (lstproducts (hunchentoot:session-value :login-prd-cache))
+	  (prdcount (length lstproducts))
+	  (first100products (if (> prdcount 100) (subseq lstproducts 0 100))))
+							  
 					;(sleep 5)
      (with-standard-customer-page "Welcome to HighriseHub - customer"
+       
        (:form :id "theForm" :name "theForm" :method "POST" :action "dodsearchproducts" :onSubmit "return false"
 	      (:div :class "container" 
 		    (:div :class "col-lg-6 col-md-6 col-sm-6" 
@@ -1932,7 +1936,10 @@
        (:a :id "floatingcheckoutbutton" :href "dodcustshopcart" (:span :class "glyphicon glyphicon-shopping-cart") "&nbsp;&nbsp;Checkout&nbsp;&nbsp;" (:span :class "badge" (cl-who:str (format nil " ~A " lstcount))))
        (cl-who:str (ui-list-prod-catg lstprodcatg))
        (:hr)
-       (cl-who:str (ui-list-customer-products lstproducts lstshopcart))))))
+       (if (> prdcount 100)
+	   (cl-who:str (ui-list-customer-products first100products lstshopcart))
+	   ;;else
+	   (cl-who:str (ui-list-customer-products lstproducts lstshopcart)))))))
 
 
 (defun dod-controller-customer-products-by-category ()
@@ -1990,10 +1997,10 @@
 
 (defun show-empty-shopping-cart ()
   (with-standard-customer-page-v2  "My Shopping Cart"
-    (:div :class "row"
-	  (:div :class "col-xs-12"
-		(:h4 "0 items in shopping cart") 
-		(:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "bi bi-arrow-left"))))))
+    (with-html-div-row
+      (with-html-div-col 
+	(:h4 "0 items in shopping cart") 
+	(:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "bi bi-arrow-left"))))))
 
 
 

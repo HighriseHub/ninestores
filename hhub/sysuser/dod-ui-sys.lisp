@@ -5,6 +5,13 @@
 (defvar *logged-in-users* nil)
 (defvar *current-user-session* nil)
 
+(defun hhub-controller-permission-denied ()
+  (let ((message (hunchentoot:parameter "message")))
+    (with-no-navbar-page "Permission Denied"
+      (with-html-div-row (:h4 "Permission Denied"))
+      (html-back-button)
+      (jscript-displayerror message))))
+
 
 (defun dod-controller-OTP-request-page ()
   (let ((phone (hunchentoot:parameter "phone"))
@@ -393,21 +400,21 @@
       (setf params (acons "username" (get-login-user-name) params))
       (setf params (acons "uri" (hunchentoot:request-uri*)  params))
       (with-hhub-transaction "com-hhub-transaction-sadmin-home" params 
-      (let (( companies (hhub-get-cached-companies)))
-	(with-standard-admin-page  "Welcome to Highrisehub."
-	  (:div :id "row"
-		(:div :id "col-xs-6" 
-		      (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))))
-	  (company-search-html)
-	  (:div :id "row"
+	(let (( companies (hhub-get-cached-companies)))
+	  (with-standard-admin-page  "Welcome to Highrisehub."
+	    (:div :id "row"
+		  (:div :id "col-xs-6" 
+			(:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))))
+	    (company-search-html)
+	    (:div :id "row"
 		(:div :id "col-xs-6"
 					;  (:a :class "btn btn-primary" :role "button" :href "new-company" :data-toggle "modal" :data-target "#editcompany-modal" (:span :class "glyphicon glyphicon-shopping-plus") " Add New Group  ")
 		      (:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target "#editcompany-modal" "Add New Group"))
 		(:div :id "col-xs-6" :align "right" 
 		      (:span :class "badge" (cl-who:str (format nil "~A" (length companies))))))
 	  (:hr)
-	  (modal-dialog "editcompany-modal" "Add/Edit Group" (com-hhub-transaction-create-company-dialog))
-	  (cl-who:str (display-as-tiles companies 'company-card "tenant-box"))))))))
+	    (modal-dialog "editcompany-modal" "Add/Edit Group" (com-hhub-transaction-create-company-dialog))
+	    (cl-who:str (display-as-tiles companies 'company-card "tenant-box"))))))))
 
 
 
@@ -532,17 +539,17 @@
    (setf params (acons "username" uname params))
    (setf params (acons "company" cname params))
    (with-hhub-transaction "com-hhub-transaction-sadmin-login"  params   
-      (unless(and
-	    ( or (null cname) (zerop (length cname)))
-	    ( or (null uname) (zerop (length uname)))
-	    ( or (null passwd) (zerop (length passwd))))
+      (unless (and
+	       ( or (null cname) (zerop (length cname)))
+	       ( or (null uname) (zerop (length uname)))
+	       ( or (null passwd) (zerop (length passwd))))
       (if (equal (dod-login :company-name cname :username uname :password passwd) NIL) (hunchentoot:redirect "/hhub/opr-login.html") (hunchentoot:redirect  "/hhub/sadminhome"))))))
-   
+
   
-   (defun dod-controller-logout ()
-     (progn (dod-logout (get-login-user-name))
-	    (hunchentoot:remove-session *current-user-session*)
-	    (hunchentoot:redirect "/hhub/opr-login.html")))
+(defun dod-controller-logout ()
+  (progn (dod-logout (get-login-user-name))
+	 (hunchentoot:remove-session *current-user-session*)
+	 (hunchentoot:redirect "/hhub/opr-login.html")))
 
 (defun is-dod-session-valid? ()
  ;(if  (null (get-login-user-name)) NIL T))
@@ -767,6 +774,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubotpsubmitaction" 'dod-controller-otp-submit-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/displaystore" 'com-hhub-transaction-display-store)
 	(hunchentoot:create-regex-dispatcher "^/hhub/createwhatsapplinkwithmessage" 'hhub-controller-create-whatsapp-link-with-message)
+	(hunchentoot:create-regex-dispatcher "^/hhub/permissiondenied" 'hhub-controller-permission-denied)
 	
 	;***************** COMPADMIN/COMPANYHELPDESK/COMPANYOPERATOR  RELATED ********************
      
@@ -782,9 +790,9 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcadlistprodcatg" 'dod-controller-product-categories-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubprodcatgaddaction" 'com-hhub-transaction-prodcatg-add-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubdeleteprodcatg" 'dod-controller-delete-product-category)
-
-	
-	
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendorapprovalpage" 'dod-controller-vendor-approval-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendorapproveaction" 'com-hhub-transaction-vendor-approve-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendorrejectaction" 'com-hhub-transaction-vendor-reject-action)
 	
 	;************CUSTOMER LOGIN RELATED ********************
 	(hunchentoot:create-regex-dispatcher  "^/hhub/customer-login.html" 'dod-controller-customer-loginpage)
@@ -917,6 +925,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdateupisettings"   'hhub-controller-save-vendor-upi-settings)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendorupitransactions"   'hhub-controller-show-vendor-upi-transactions)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupipayconfirm"   'hhub-controller-vendor-upi-confirm)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupipaycancel"   'hhub-controller-vendor-upi-cancel)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendsearchproduct"   'dod-controller-vendor-search-products)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendprodcategories"   'dod-controller-vendor-product-categories-page)
 			

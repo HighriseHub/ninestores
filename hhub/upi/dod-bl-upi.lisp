@@ -63,11 +63,18 @@
 	 (upipaymentsdbservice (make-instance 'UpiPaymentsDBService))
 	 (utrnum (utrnum requestmodel))
 	 (comp (company requestmodel))
+	 (paymentconfirm (paymentconfirm requestmodel))
 	 (upidbobj (select-upi-transaction-by-utrnum utrnum vend comp))
 	 (upiobj (make-instance 'UpiPayment)))
-        
-    (setf (slot-value upidbobj 'vendorconfirm) "Y")
-    (setf (slot-value upidbobj 'status) "CNF")
+    
+    (when paymentconfirm 
+      (setf (slot-value upidbobj 'vendorconfirm) "Y")
+      (setf (slot-value upidbobj 'status) "CNF"))
+    
+    (unless paymentconfirm
+      (setf (slot-value upidbobj 'vendorconfirm) "N")
+      (setf (slot-value upidbobj 'status) "CAN"))
+
     (setf (slot-value upipaymentsdbservice 'dbobject) upidbobj)
     (setf (slot-value upipaymentsdbservice 'businessobject) upiobj)
     

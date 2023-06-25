@@ -1,5 +1,46 @@
+; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
+
+
+(defun com-hhub-transaction-vendor-reject-action ()
+  (with-cad-session-check
+    (let ((params nil))
+      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+      (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+   (with-hhub-transaction "com-hhub-transaction-vendor-reject-action" params
+      (let ((id (hunchentoot:parameter "vendor-id")))
+	(reject-vendor id)))
+     (hunchentoot:redirect "/hhub/hhubvendorapprovalpage"))))
+      
+(defun com-hhub-transaction-vendor-approve-action () 
+  (with-cad-session-check
+    (let* ((params nil)
+	   (vendor-id (hunchentoot:parameter "vendor-id"))
+	   (companyadmin (get-login-user)))
+
+      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+      (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+      (setf params (acons "company" (get-login-company) params))
+      
+      (with-hhub-transaction "com-hhub-transaction-vendor-approve-action"  params
+	(let* ((requestmodel (make-instance 'RequestModelVendorApproval
+					    :vendor-id vendor-id
+					    :companyadmin companyadmin))
+	       (adapter (make-instance 'VendorApprovalAdapter)))
+	  (ProcessUpdateRequest adapter requestmodel)
+	  (hunchentoot:redirect "/hhub/hhubvendorapprovalpage"))))))
+      
+(defun test-vendor-approval ()
+  (let* ((vendor-id 1)
+	 (companyadmin (select-user-by-id 4 2))
+	 (requestmodel (make-instance 'RequestModelVendorApproval
+				      :vendor-id vendor-id
+				      :companyadmin companyadmin))
+	 (adapter (make-instance 'VendorApprovalAdapter))
+	 (updatedvendor (ProcessUpdateRequest adapter requestmodel)))
+    updatedvendor))
+
 
 
 (defun dod-controller-product-categories-page ()
@@ -177,7 +218,7 @@
 			 (:ul :class "nav navbar-nav navbar-left"
 			      (:li :class "active" :align "center" (:a :href "/hhub/hhubcadindex"  (:span :class "glyphicon glyphicon-home")  " Home"))
 			      (:li  (:a :href "/hhub/dasproductapprovals" "Customer Approvals"))
-			      (:li  (:a :href "/hhub/dasproductapprovals" "Vendor Approvals"))
+			      (:li  (:a :href "/hhub/hhubvendorapprovalpage" "Vendor Approvals"))
 			      (:li :align "center" (:a :href "#" (cl-who:str (format nil "Group: ~a" (slot-value (get-login-company) 'name)))))
 			      (:li :align "center" (:a :href "#" (print-web-session-timeout))))
 			 
@@ -193,7 +234,7 @@
 		  (hunchentoot:redirect "/hhub/hhubcadindex")
 		  ;else
 		  (with-standard-compadmin-page "Company Administrator Login"
-						(:div :class "row"
+		    (:div :class "row"
 			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 				(:div :class "account-wall"
 				      (:img :class "profile-img" :src "/img/logo.png" :alt "")
@@ -205,11 +246,12 @@
 					     (:div :class "form-group"
 						   (:input :class "form-control" :name "password"  :placeholder "Password=demo" :type "password"))
 					     (:input :type "submit"  :class "btn btn-primary" :value "Login      "))))))))
-	      (clsql:sql-database-data-error (condition)
-					     (if (equal (clsql:sql-error-error-id condition) 2006 ) (progn
-												      (stop-das) 
-												      (start-das)
-												      (hunchentoot:redirect "/hhub/cad-login.html"))))))
+    (clsql:sql-database-data-error (condition)
+      (if (equal (clsql:sql-error-error-id condition) 2006 )
+	  (progn
+	    (stop-das) 
+	    (start-das)
+	    (hunchentoot:redirect "/hhub/cad-login.html"))))))
 
 
 
@@ -239,18 +281,21 @@
 (defun com-hhub-transaction-cad-login-action ()
   (let ((params nil))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-    ; The person has not yet logged in 
-					;(setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+    ;; The person has not yet logged in 
+    ;; (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
     (with-hhub-transaction "com-hhub-transaction-cad-login-action" params
-    (let  ((phone (hunchentoot:parameter "phone"))
-	   (passwd (hunchentoot:parameter "password")))
-      (unless(and
-	      ( or (null phone) (zerop (length phone)))
-	      ( or (null passwd) (zerop (length passwd))))
-	(if (dod-cad-login :phone phone :password passwd)
-	    (hunchentoot:redirect  "/hhub/hhubcadindex")
-					;else
+      (let  ((phone (hunchentoot:parameter "phone"))
+	     (passwd (hunchentoot:parameter "password")))
+	(unless (and
+		 (or (null phone) (zerop (length phone)))
+		 (or (null passwd) (zerop (length passwd))))
+	  (if (dod-cad-login :phone phone :password passwd)
+	      (hunchentoot:redirect  "/hhub/hhubcadindex")
+	      ;; else
 	      (hunchentoot:redirect "/hhub/cad-login.html")))))))
+      
+	
+
 
 
 (defun dod-cad-login (&key phone  password)
@@ -318,27 +363,86 @@
       (setf params (acons "uri" (hunchentoot:request-uri*)  params))
       (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
    (with-hhub-transaction "com-hhub-transaction-cad-product-approve-action" params
-      (let ((id (hunchentoot:parameter "id"))
-	    (description (hunchentoot:parameter "description")))
-	(approve-product id description (get-login-company))
-	(hunchentoot:redirect "/hhub/hhubcadindex"))))))
-
+     (let ((id (hunchentoot:parameter "id"))
+	   (description (hunchentoot:parameter "description")))
+       (approve-product id description (get-login-company))
+       (hunchentoot:redirect "/hhub/hhubcadindex"))))))
 
 (defun dod-controller-products-approval-page ()
   :documentation "This controller function is used by the System admin and Company Admin to approve products" 
  (with-cad-session-check
    (let ((products (get-products-for-approval (get-login-tenant-id))))
      (with-standard-compadmin-page "New products approval" 
-	(:div :class "container"
-	(:div :id "row"
-	      (:div :id "col-xs-6" 
-	(:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))))
-	(:hr)
-	(:h4 "Pending Product Approvals")
-	(:div :id "row"
-	      (:div :id "col-xs-6"
-		    (:div :id "col-xs-6" :align "right" 
-			  (:span :class "badge" (cl-who:str (format nil "~A" (length products)))))))
-	(:hr)
-   	(cl-who:str (display-as-tiles products 'product-card-for-approval 'product-box )))))))
-   
+       (welcomemessage (get-login-user-name))
+       (:hr)
+       (with-html-div-row
+	 (with-html-div-col (:h4 "Pending Product Approvals"))
+	 (with-html-div-col :align "right"
+ 	   (:span :class "badge" (cl-who:str (format nil "~A" (length products))))))
+       (:hr)
+       (cl-who:str (display-as-tiles products 'product-card-for-approval 'product-box ))))))
+
+(defun dod-controller-vendor-approval-page ()
+  :documentation "This controller function is used by the System admin and Company Admin to approve vendors" 
+ (with-cad-session-check
+   (let ((pendingvendors (get-vendors-for-approval (get-login-tenant-id))))
+     (with-standard-compadmin-page "New Vendor approval" 
+       (welcomemessage (get-login-user-name))
+       (:hr)
+       (with-html-div-row
+	 (with-html-div-col (:h4 "Pending Vendor Approvals"))
+	 (with-html-div-col :align "right"
+	   (:span :class "badge" (cl-who:str (format nil "~A" (length pendingvendors))))))
+       (:hr)
+       (cl-who:str (display-as-tiles pendingvendors 'vendor-card-for-approval "product-box" ))))))
+
+
+
+(defun vendor-card-for-approval (vendor-instance)
+    (let* ((name (slot-value vendor-instance 'name))
+	   (phone (slot-value vendor-instance 'phone))
+	   (vendor-id (slot-value vendor-instance 'row-id))
+	   ;; (active-flag (slot-value vendor-instance 'active-flag))
+	   (approved-flag (slot-value vendor-instance 'approved-flag))
+	   (tenant-id (slot-value vendor-instance 'tenant-id))
+	   (company (select-company-by-id tenant-id))
+	   (company-name (slot-value company 'name))
+	   (approval-status (slot-value vendor-instance 'approval-status)))
+      (when (and (equal approved-flag "N") (equal approval-status "PENDING"))
+	(cl-who:with-html-output (*standard-output* nil)
+	  (with-html-div-row
+	    (:div :class "col-xs-12" (:h5 (cl-who:str (format nil "~A" company-name)))))
+	  (with-html-div-row
+	    (with-html-div-col
+	      (:h5 :class "product-name" (cl-who:str (if (> (length name) 30)  (subseq name  0 30) name))))
+	    (with-html-div-col
+	      (:h5 :class "product-name" (cl-who:str phone))))
+	  (with-html-div-row
+	    (with-html-div-col
+	      (:button :data-toggle "modal" :data-target (format nil "#dodvendreject-modal~A" vendor-id)  :href "#"  (:span :class "glyphicon glyphicon-remove") "Reject")
+	      (modal-dialog (format nil "dodvendreject-modal~A" vendor-id) "Reject Vendor" (modal.reject-vendor-html  vendor-id)))
+	    (with-html-div-col
+	      (:button :data-toggle "modal" :data-target (format nil "#dodvendaccept-modal~A" vendor-id)  :href "#"  (:span :class "glyphicon glyphicon-ok") "Approve")
+	      (modal-dialog (format nil "dodvendaccept-modal~A" vendor-id) "Approve Vendor" (modal.approve-vendor-html vendor-id ))))))))
+
+
+
+(defun modal.reject-vendor-html (vendor-id)
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-html-form "form-vendorreject" "hhubvendorrejectaction" 
+      (:div :class "form-group" :style "display: none"
+	    (:input :class "form-control" :name "vendor-id" :value vendor-id :type "text" :readonly T ))
+      (:div :class "form-group"
+	    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Reject")))))
+
+(defun modal.approve-vendor-html (vendor-id)
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-html-form "form-vendorreject" "hhubvendorapproveaction"
+      (:div :class "form-group" :style "display: none"
+	    (:input :class "form-control" :name "vendor-id" :value vendor-id :type "text" :readonly T ))
+      (:div :class "form-group"
+	    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Approve")))))
+
+
+
+      

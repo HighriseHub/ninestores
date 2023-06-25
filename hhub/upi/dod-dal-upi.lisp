@@ -108,7 +108,10 @@
    (phone
     :initarg :phone
     :accessor phone)
-  
+   (paymentconfirm
+    :initarg :paymentconfirm
+    :accessor paymentconfirm)
+
    (company
     :initarg :company
     :accessor company)))
