@@ -144,11 +144,11 @@
 (defun hhub-add-pending-upi-task (utrnum pendingfunction)
   (setf (gethash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*) pendingfunction))
 
-(defun hhub-execute-pending-upi-task (utrnum)
+(defun hhub-execute-pending-upi-task (utrnum &optional (cancel nil))
   (let ((func (gethash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*)))
-    (when func
-      (funcall func)
-      (remhash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*))))
+    (if (and func (not cancel)) 
+	(funcall func))
+    (remhash utrnum *HHUBPENDINGUPIFUNCTIONS-HT*)))
 
 (defun save-upi-transaction (amount utrnum transaction-id customer vendor company phone)
   :description "Save the UPI transaction to the DB and return the domain object."
@@ -178,12 +178,35 @@
     (let* ((requestmodel (make-instance 'UpiPaymentsRequestModel
 					:vendor vendor
 					:utrnum utrnum
+					:paymentconfirm T
 					:company company))
 	   (upipaymentsadapter (make-instance 'UpiPaymentsAdapter)))
 	
       ;; We are creating the UPI domain model object. It also saves the UPI payment transaction to DB.
 	(ProcessUpdateRequest upipaymentsadapter requestmodel))))
     
+(defun vendor-upi-payment-cancel (utrnum vendor company)
+  :description "Update the UPI transaction with vendorconfirm and status fields set"
+  (with-vend-session-check
+    (let* ((requestmodel (make-instance 'UpiPaymentsRequestModel
+					:vendor vendor
+					:utrnum utrnum
+					:paymentconfirm NIL
+					:company company))
+	   (upipaymentsadapter (make-instance 'UpiPaymentsAdapter)))
+	
+      ;; We are creating the UPI domain model object. It also saves the UPI payment transaction to DB.
+	(ProcessUpdateRequest upipaymentsadapter requestmodel))))
+
+(defun hhub-controller-vendor-upi-cancel ()
+  (with-vend-session-check
+    (let* ((utrnum (hunchentoot:parameter "utrnum"))
+	   (vendor (get-login-vendor))
+	   (company (get-login-vendor-company)))
+      (vendor-upi-payment-cancel utrnum vendor company)
+      (hhub-execute-pending-upi-task utrnum T)
+      (hunchentoot:redirect "/hhub/hhubvendorupitransactions"))))
+
 
 (defun hhub-controller-vendor-upi-confirm ()
   (with-vend-session-check
@@ -233,14 +256,17 @@
 	(:td :height "10px"
 	     (:a :data-toggle "modal" :data-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
 	     (modal-dialog (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (if vorder (modal.vendor-order-details vorder company))))
-    	(when (equal vendorconfirm "N")
-	  (cl-who:htm
-	   (:td  :height "10px" 
-		 (:a :data-toggle "modal" :data-target (format nil "#vendorupipaymentconfirm~A" utrnum)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
-		 (modal-dialog (format nil "vendorupipaymentconfirm~A" utrnum) "Confirm UPI Payment" (modal.vendor-upi-payment-confirm upiviewmodel)))))
-	(when (equal vendorconfirm "Y")
-	(cl-who:htm
-	 (:td :height "10px" (:i :class "fa fa-inr" :aria-hidden "true") " Received")))))))
+    	(cond ((and (equal vendorconfirm "N") (equal status "CAN"))
+	       (cl-who:htm
+		(:td :height "10px" (:i :class "fa fa-inr" :aria-hidden "true") "Payment Not Received")))
+	      ((equal vendorconfirm "N") 
+	       (cl-who:htm
+		(:td  :height "10px" 
+		      (:a :data-toggle "modal" :data-target (format nil "#vendorupipaymentconfirm~A" utrnum)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
+		      (modal-dialog (format nil "vendorupipaymentconfirm~A" utrnum) "Confirm UPI Payment" (modal.vendor-upi-payment-confirm upiviewmodel)))))
+	      ((and (equal vendorconfirm "Y") (equal status "CNF"))
+	       (cl-who:htm
+		(:td :height "10px" (:i :class "fa fa-inr" :aria-hidden "true") " Received"))))))))
 
 
 (defun modal.vendor-upi-payment-confirm (upiviewmodel)
@@ -248,12 +274,18 @@
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-div-row 
 	(:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+	      (:h3 (cl-who:str (format nil "UTR Number - ~A." utrnum)))
 	      (:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipayconfirm" :enctype "multipart/form-data"
-		     (:div :class "form-group"
-			   (:h3 (cl-who:str (format nil "UTR Number - ~A." utrnum))))
 		     (:div :class "form-group" :style "display: none"
 			    (:input :class "form-control" :name "utrnum" :value utrnum :placeholder "UTR Number" :type "text" :readonly T ))
 		     (:div :class "form-group"
-			   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Payment Received"))))))))
+			   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Payment Received")))))
+	(with-html-div-row
+	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipaycancel" :enctype "multipart/form-data"
+		       (:div :class "form-group" :style "display: none"
+			     (:input :class "form-control" :name "utrnum" :value utrnum :placeholder "UTR Number" :type "text" :readonly T ))
+		       (:div :class "form-group"
+			     (:button :class "btn btn-lg btn-danger btn-block" :type "submit" "Payment Not Received"))))))))
 
 
