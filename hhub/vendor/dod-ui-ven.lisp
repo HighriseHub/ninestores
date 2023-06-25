@@ -2,6 +2,9 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+
+
+
 (defun dod-controller-vendor-pushsubscribe-page ()
   (with-vend-session-check
     (with-standard-vendor-page "Push Subscription for Vendor"
@@ -686,8 +689,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 				(:div :class "account-wall"
 				      (:form :class "form-vendorsignin" :role "form" :method "POST" :action "dodvendlogin"
-					     (:a :href "https://www.highrisehub.com" (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-					     (:h1 :class "text-center login-title"  "Vendor - Login to DAS")
+					     (:a :href *siteurl*  (:img :class "profile-img" :src "/img/logo.png" :alt ""))
+					     (:h1 :class "text-center login-title"  "Vendor - Login to HighriseHub")
 					     (:div :class "form-group"
 						   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex:9999999990" :type "text" ))
 					     (:div :class "form-group"
@@ -880,7 +883,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			      (:li :align "center" (:a :href "dodvendprofile?context=home"   (:span :class "glyphicon glyphicon-user") "&nbsp;&nbsp;" )) 
 				(:li :align "center" (:a :target "_blank" :href "https://goo.gl/forms/XaZdzF30Z6K43gQm2"  (:span :class "glyphicon glyphicon-envelope") "&nbsp;&nbsp;"))
 				(:li :align "center" (:a :target "_blank" :href "https://goo.gl/forms/SGizZXYwXDUiTgVY2"  "Bug" ))
-				(:li :align "center" (:a :href "dodvendlogout"  (:i :class "fa fa-sign-out" :aria-hidden"true") "&nbsp;&nbsp; "  )))))))))
+				(:li :align "center" (:a :href "dodvendlogout"  (:i :class "fa-regular fa-right-from-bracket") "&nbsp;&nbsp; "  )))))))))
   
   
 
@@ -906,8 +909,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun dod-vend-login (&key phone password )
   (handler-case
       (let* ((dbvendor (car (clsql:select 'dod-vend-profile :where [and
-				   [= [slot-value 'dod-vend-profile 'phone] phone]
-				   [= [:deleted-state] "N"]]
+					  [= [slot-value 'dod-vend-profile 'phone] phone]
+					  [= [:approved-flag] "Y"]
+					  [= [:approval-status] "APPROVED"]
+					  [= [:deleted-state] "N"]]
 				   :caching nil :flatp t)))
 	     (pwd (if dbvendor (slot-value dbvendor 'password)))
 	     (salt (if dbvendor (slot-value dbvendor 'salt)))
@@ -1241,8 +1246,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(hunchentoot:remove-session hunchentoot:*session*)
 	;;(deleteHHUBBusinessSession (hunchentoot:session-value :login-vendor-business-session-id)) 
 	(if (> (length company-website) 0)  (hunchentoot:redirect (format nil "http://~A" company-website)) 
-					;else
-	   (hunchentoot:redirect "https://www.highrisehub.com")))))
+	    ;;else
+	   (hunchentoot:redirect *siteurl*)))))
 
 
 
