@@ -5,6 +5,17 @@
 ;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR HIGHRISEHUB ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun com-hhub-policy-vendor-approve-action (&optional (params nil))
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag))
+	 (rolename (cdr (assoc "rolename" params :test 'equal))))
+    (if (and
+	 (equal rolename "COMPADMIN")
+	 (equal suspend-flag "N")) T NIL)))
+
+(defun com-hhub-policy-vendor-reject-action (&optional (params nil))
+  (com-hhub-policy-vendor-approve-action params))
+
 (defun com-hhub-policy-prodcatg-add-action (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
 	 (suspend-flag (slot-value company 'suspend-flag))
@@ -100,18 +111,15 @@
 
 (defun com-hhub-policy-cad-login-page (&optional (params nil))
 :documentation "Company Administrator login page is open to all. This policy is dummy as the request is initiated by the Browser."
-(let ((rolename (cdr (assoc "rolename" params :test 'equal))))
-    (equal rolename "COMPADMIN")))
-
+  T)
 
 (defun com-hhub-policy-cad-login-action (&optional (params nil))
   :documentation "Company Administrator login action is open to all. This policy is dummy as the request is initiated by the Browser."
-  (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
-    (equal rolename "COMPADMIN")))
+T)
 
 (defun com-hhub-policy-cad-logout (&optional (params nil) )
   :documentation "Company Administrator logout action is open to all. This policy is dummy as the request is initiated by the Browser."
-(let ((rolename (cdr (assoc "rolename" params :test 'equal))))
+  (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
     (equal rolename "COMPADMIN")))
 
 
@@ -145,7 +153,11 @@
 
 (defun com-hhub-policy-sadmin-login (&optional (params nil))
   :documentation "Super Administrator Login Policy"
-  (equal (cdr (assoc "username" params :test 'equal))  "superadmin"))
+  (let* ((username (cdr (assoc "username" params :test 'equal)))
+	(company (cdr (assoc "company" params :test 'equal)))
+	(returnvalue (and (equal username  "superadmin")
+			  (equal company "super"))))
+    returnvalue))
 
 (defun com-hhub-policy-cust-edit-order-item (&optional (params nil))
   (com-hhub-policy-create-order params))

@@ -25,7 +25,15 @@
    (payment-api-key)
    (payment-api-salt)
    (push-notify-subs-flag)
-   (email-add-verified)))
+   (email-add-verified)
+   (tenantobj)))
+
+(defclass RequestModelVendorApproval (RequestModel)
+  ((vendor-id
+    :initarg :vendor-id)
+   (companyadmin
+    :initarg :companyadmin)))
+
 
 (defclass ResponseVendor (ResponseModel)
   ((name)
@@ -48,7 +56,8 @@
    (payment-api-key)
    (payment-api-salt)
    (push-notify-subs-flag)
-   (email-add-verified)))
+   (email-add-verified)
+   (tenantobj)))
   
 (defclass VendorViewModel (ViewModel)
   ((name)
@@ -76,6 +85,9 @@
 
 (defclass VendorAdapter (AdapterService)
   ())
+(defclass VendorApprovalAdapter (AdapterService)
+  ())
+
 (defclass VendorPresenter (PresenterService)
   ())
 
@@ -85,6 +97,10 @@
   ())
 (defclass VendorPushnotificationService (BusinessService)
   ())
+(defclass VendorApprovalService (BusinessService)
+  ())
+
+
 ;;; Business Service classes for Vendor 
 
 
@@ -122,6 +138,9 @@
    (email-add-verified)
    (suspend-flag)
    (active-flag)
+   (approved-flag)
+   (approved-by)
+   (approval-status)
    (upi-id)
    (tenantobj
     :accessor vendor-company
@@ -237,6 +256,23 @@
     :type (string 70)
     :initarg :upi-id)
    
+
+   (approved-flag
+    :accessor approved-flag
+    :type (string 1)
+    :void-value "N"
+    :initarg :approved-flag)
+
+   (approval-status
+    :accessor approval-status
+    :type (string 20)
+    :void-value "PENDING"
+    :initarg :approval-status)
+
+   (approved-by
+    :accessor approved-by
+    :type (string 30)
+    :initarg :approved-by)
    
    (push-notify-subs-flag
     :accessor push-notify-subs-flag 
@@ -319,10 +355,6 @@
 
 ;;;;;;;;;; Method implementations ;;;;;;;;;;;;;;;;;;;;
 
-
-  
-
-
 (defmethod loadAllVendors ((vr BusinessObjectRepository))
   :documentation "This method will load all the vendors from the database irrespective of the company they belong to."
   (let* ((ht (make-hash-table :test 'equal))
@@ -330,7 +362,7 @@
     (loop for db-vendor in allvendors do
       (let ((key (slot-value db-vendor 'phone))
 	    (vendor (make-instance 'Vendor)))
-	(transform db-vendor vendor)
+	(Copy-DbObject-To-BusinessObject db-vendor vendor)
 	(setf (gethash key ht) vendor)))
     ;; Return  the hash table. 
     (setf (slot-value vr 'BusinessObjects) ht)))
