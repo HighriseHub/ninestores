@@ -232,6 +232,8 @@
 	   (viewallmodel (CreateAllViewModel upipaymentspresenter upipaymentsresponsemodellist))
 	   (htmlview (make-instance 'UPIPaymentsHTMLView)))
       (with-standard-vendor-page "Vendor UPI Transactions"
+	(with-html-div-row
+	  (:h4 "Showing records for last 60 Days"))
 	  (cl-who:str (RenderListViewHTML htmlview viewallmodel))))))
 
 (defmethod RenderListViewHTML ((htmlview UPIPaymentsHTMLView) viewmodellist)
