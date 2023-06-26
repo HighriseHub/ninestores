@@ -178,6 +178,7 @@
     (handler-case 
 	(multiple-value-bind (returnvalues) (funcall (intern  (string-upcase policy-func) :hhub) params)
 					;Return a list of return values and exception as nil. 
+	  (logiamhere (format nil "Exexuting function - ~A" policy-func))
 	  (list returnvalues nil))
 
       ;; If we get an ABAC Transaction exception
