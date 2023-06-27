@@ -33,10 +33,9 @@
 (defun com-hhub-policy-vendor-order-setfulfilled (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
 	 (suspend-flag (slot-value company 'suspend-flag)))
-    (cond
-        ((com-hhub-attribute-company-issuspended suspend-flag)
-	   (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
-	  (() T))))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
 
 	
 	 
@@ -71,7 +70,8 @@
     (when (<= (- maxproductcount currproductcount) 0)
       (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. You have exceeded maximum number of Products allowed to be created." company-name)))  
     (when (com-hhub-attribute-company-issuspended suspend-flag)
-	(error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))))
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
 
 (defun com-hhub-policy-vendor-bulk-products-add (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))

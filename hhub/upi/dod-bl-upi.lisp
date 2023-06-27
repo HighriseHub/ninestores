@@ -113,16 +113,19 @@
      :caching *dod-database-caching* :flatp t )))
 
 
-(defun select-upi-transactions-by-vendor (vend company)
+(defun select-upi-transactions-by-vendor (vend company &optional (recordsfordays 60))
   (let ((tenant-id (slot-value company 'row-id))
-	(vendor-id (slot-value vend 'row-id)))
+	(vendor-id (slot-value vend 'row-id))
+	(strfromdate (get-date-string-mysql (clsql-sys:date- (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays))))
+	(strtodate (get-date-string-mysql (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays)))))
     
     (clsql:select 'dod-upi-payments  :where
 		[and 
 		[= [:deleted-state] "N"]
 		[= [:vendor-id] vendor-id]
-		[= [:tenant-id] tenant-id]]
-     :caching *dod-database-caching* :flatp t )))
+		[between [:created] strfromdate strtodate]
+		[= [:tenant-id] tenant-id]] :order-by '(([row-id] :desc)) 
+				     :caching *dod-database-caching* :flatp t)))
 
 (defmethod doCreate ((service UpiPaymentsService) (requestmodel UpiPaymentsRequestModel))
   (let* ((vend (vendor requestmodel))

@@ -136,7 +136,7 @@
 			 
 			 (:ul :class "nav navbar-nav navbar-right"
 			      (:li :align "center" (:a :href "hhubsadminprofile"   (:span :class "glyphicon glyphicon-user") " My Profile" )) 
-			      (:li :align "center" (:a :href "dodlogout"  (:span :class "glyphicon glyphicon-off") " Logout "  )))))))))
+			      (:li :align "center" (:a :href "dodlogout"  (:span :class "fa-solid fa-arrow-right-from-bracket"))))))))))
   
   
 (defun dod-controller-dbreset-page () 

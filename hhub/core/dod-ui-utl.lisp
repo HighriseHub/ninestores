@@ -39,9 +39,6 @@
 
 (defun attr (object field)
   (cdr (assoc field object)))
-
-
-
     
 (defun dod-controller-new-company-registration-email-sent ()
   (with-standard-customer-page  "New Company Registration Request"
@@ -52,8 +49,6 @@
 		     (:h1 :class "text-center login-title"  "New Store details have been sent. You will be contacted soon. ")
 		     (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:span :class "glyphicon glyphicon-home"))
 		     (hhub-html-page-footer))))))
-  
-
 
 (defun dod-controller-password-reset-mail-link-sent ()
   (with-standard-customer-page  "Password reset mail" 
@@ -130,18 +125,15 @@
 
 
 
-
-(defmacro with-html-email ( &body body)
- `(cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-    (:html 
-     (:body
-       (:img :class "profile-img" :src "https://highrisehub.com/img/logo.png" :alt "Welcome to Highrisehub.com")
-       (:p
-	,@body)))))
-
-
-
-
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defmacro with-html-email ( &body body)
+    `(cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+       (:html 
+	(:body
+	 (:img :class "profile-img" :src "https://highrisehub.com/img/logo.png" :alt "Welcome to Highrisehub.com")
+	 (:p
+	  ,@body))))))
+  
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-standard-page-template (title nav-func  &body body)
     `(cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
@@ -157,43 +149,47 @@
 		(:meta :name "author" :content "HighriseHub")
 		(:link :rel "icon" :href "/favicon.ico")
 		(:title ,title )
-					; Link to the app manifest for PWA. 
+		;; Link to the app manifest for PWA. 
 		(:link :rel "manifest" :href "/manifest.json")
 		(:link :href "/css/style.css" :rel "stylesheet")
 		;; Bootstrap CSS
 		(:link :href "/css/bootstrap.css" :rel "stylesheet")
 		(:link :href "/css/bootstrap-theme.min.css" :rel "stylesheet")
-		(:link :href "https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" :rel "stylesheet")
-		(:link :href "https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" :rel "stylesheet")
+		
+		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/themes/cupertino/jquery-ui.min.css" :rel "stylesheet")
+		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/themes/cupertino/theme.min.css" :rel "stylesheet")
+		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" :rel "stylesheet")
 		(:link :href "https://fonts.googleapis.com/css?family=Merriweather:400,900,900i" :rel "stylesheet")
 		(:link :href "/css/theme.css" :rel "stylesheet")
 
 
-				;; js files related to bootstrap and jquery. Jquery must come first. 
-		(:script :src "https://code.jquery.com/jquery-3.5.1.min.js" :integrity "sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" :crossorigin "anonymous")
-		(:script :src "https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" :integrity "sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" :crossorigin "anonymous")
+		;; js files related to bootstrap and jquery. Jquery must come first.
+		(:script :src "https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js" :integrity "sha256-2Pmvv0kuTBOenSvLm6bvfBSSHrUJ+3A7x6P5Ebd07/g=" :crossorigin "anonymous")
+		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin="anonymous")
 		(:script :src "/js/spin.min.js")
 		(:script :src "https://www.google.com/recaptcha/api.js")
-		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
-		) ;; header completes here.
+		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.9/validator.min.js"))
+		;; header completes here.
 	        (:body
-		 (:div :id "dod-main-container"
+		 (:div :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;"
-					 (:span :class "closebtn" :onclick "this.parentElement.style.display='none';" "&times;" )
-					 (:strong "Success:&nbsp;") "Y")
+			     (:span :class "closebtn" :onclick "this.parentElement.style.display='none';" "&times;" )
+			     (:strong "Success:&nbsp;") "Y")
 		       (:div :id "busy-indicator")
 		       (:script :src "/js/hhubbusy.js")
 		       (if hunchentoot:*session* (,nav-func)) 
 					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
-		       (:div :class "container theme-showcase" :role "main" 
+		       (:div :class "container theme-showcase" :style "background-color: white; min-height: calc(100vh - 100px);" :role "main" 
 			     (:div :class "sidebar-nav" 
 				   (:div :id "hhubmaincontent"  ,@body))))
 		 ;; rangeslider
 		      ;; bootstrap core javascript
 		 (:script :src "/js/bootstrap.js")
 		 (:script :src "/js/dod.js"))))))
+
+
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
@@ -360,19 +356,23 @@
     `(let* ((transaction (get-ht-val ,name (hhub-get-cached-transactions-ht)))
 	    (uri (cdr (assoc "uri" params :test 'equal)))
 	    (returnlist (has-permission transaction ,params))
-	    (errorstring (nth 1 returnlist)))
+	    (returnvalue (nth 0 returnlist))
+	    (exceptionstr (nth 1 returnlist)))
+       
+       ;;(logiamhere (format nil "In the transaction ~A" (slot-value transaction 'name)))
+       ;;(logiamhere (format nil "URI -  ~A" uri))
+       ;;(logiamhere (format nil "URI in DB  -  ~A" (slot-value transaction 'uri)))
+       ;; check for returnvalue to be T and the uri to match 
+       (if (and returnvalue (>= (search (slot-value transaction 'uri) uri) 0))
+	   ,@body
+	   ;;else
+	   (progn 
+	     (logiamhere (format nil "Permission denied for transaction ~A. Error: ~A " (slot-value transaction 'trans-func) exceptionstr))
+	     ;;(setf (hunchentoot:return-code hunchentoot:*reply*) 500)
+	     (unless returnvalue 
+	       (hunchentoot:redirect (format nil "/hhub/permissiondenied?message=~A" (hunchentoot:url-encode "Permission Denied")))))))))
 
-	    (hunchentoot:log-message* :info "In the transaction ~A" (slot-value transaction 'name))
-	    (hunchentoot:log-message* :info "URI -  ~A" uri)
-	    (hunchentoot:log-message* :info "URI in DB  -  ~A" (slot-value transaction 'uri))
-	    (if (and (null errorstring) ; check for any exeptions from business function. If there are no exceptions, then we will go ahead with the data processing.  
-		     (>= (search  (slot-value transaction 'uri) uri) 0))
-		,@body
-					;else
-		(progn 
-		  (hunchentoot:log-message* :info "Permission denied for transaction ~A. Error: ~A " (slot-value transaction 'name) errorstring)
-		  (setf (hunchentoot:return-code hunchentoot:*reply*) 500)
-		  (format nil "Permission Denied: ~A" errorstring))))))
+
 
 
 ; Policy Enforcement Point for HHUB
@@ -426,6 +426,12 @@ individual tiles. It also supports search functionality by including the searchr
 			  (cl-who:htm (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4" 
 					    (:div :class tile-css-class (funcall displayfunc item)))))  listdata)))))
 
+(defun html-back-button ()
+  :documentation "HTML Back button"
+  `(cl-who:with-html-output-to-string (*standard-output* nil ) 
+     (with-html-div-row
+       (with-html-div-col 
+	 (:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "bi bi-arrow-left"))))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -441,12 +447,19 @@ individual tiles. It also supports search functionality by including the searchr
        ,@body))))
 
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun WelcomeMessage (username)
+    (cl-who:with-html-output (*standard-output* nil) 
+      (with-html-div-row
+	(with-html-div-col
+	  (:h3 "Welcome " (cl-who:str (format nil "~A" username))))))))
+
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form ( form-name form-action  &body body) 
     :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js"  
     `(cl-who:with-html-output (*standard-output* nil) 
-       (:form :class ,form-name :id ,form-name :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" 
+       (:form :class ,form-name :id ,form-name :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
 	      ,@body))))
 
 
@@ -475,6 +488,14 @@ individual tiles. It also supports search functionality by including the searchr
   (defmacro with-html-input-text (name label placeholder  value brequired validation-error-msg tabindex &body other-attributes)
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "form-group"
+	     (:label :for ,name ,label)
+	     (:input :class "form-control"  :type "text" :id ,name :name ,name :placeholder ,placeholder :required ,brequired :value ,value :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
+	     (:div :class "help-block with-errors")))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-input-text-hidden (name label placeholder  value brequired validation-error-msg tabindex &body other-attributes)
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:div :class "form-group" :style "display: none;"
 	     (:label :for ,name ,label)
 	     (:input :class "form-control"  :type "text" :id ,name :name ,name :placeholder ,placeholder :required ,brequired :value ,value :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
 	     (:div :class "help-block with-errors")))))
