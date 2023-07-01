@@ -7,9 +7,10 @@
     (let (( dodorderprefs (hunchentoot:session-value :login-cusopf-cache))
 	   (header (list  "Product"  "Day"  "Qty" "Qty Per Unit" "Price"  "Actions")))
       (with-cust-session-check
-	(with-standard-customer-page  "Customer Order Subscriptions"
+	(with-standard-customer-page-v2  "Customer Order Subscriptions"
 	  (:h3 "My Subscriptions.")      
 	  (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustindex") "Shop Now")
+	  (:hr)
 	  (cl-who:str (display-as-table header dodorderprefs 'cust-opf-as-row))))))
 ;; (das-cust-page-with-tiles 'ui-list-cust-orderprefs "customer order preferences" header dodorderprefs)))
 
@@ -31,7 +32,7 @@
 	  (:td  :height "12px" (cl-who:str (slot-value orderpref 'prd-qty)))
 	  (:td  :height "12px" (cl-who:str (slot-value opf-product  'qty-per-unit)))
 	  (:td  :height "12px" (cl-who:str (format nil "Rs. ~$"  (slot-value opf-product  'unit-price))))     
-	  (:td :height "12px" (:a  :onclick "return DeleteConfirm();" :href  (format nil  "delopref?id=~A" opf-id ) (:span :class "glyphicon glyphicon-remove"))))))
+	  (:td :height "12px" (:a  :onclick "return DeleteConfirm();" :href  (format nil  "delopref?id=~A" opf-id ) (:i :class "fa-regular fa-trash-can"))))))
   
   
 
