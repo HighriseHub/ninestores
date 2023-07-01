@@ -762,7 +762,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(:td  :height "10px"
 	      (:a :data-toggle "modal" :data-target (format nil "#vendormycustomerwallet~A" cust-id)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
 	      (modal-dialog (format nil "vendormycustomerwallet~A" cust-id) "Recharge Wallet" (modal.vendor-my-customer-wallet-recharge wallet phone)))
-	      (:td :height "10px" (:a :href chatonwhatsappurl :target "_blank" (:i :class "fa-brands  fa-whatsapp  fa-xl" :aria-hidden "true" )))))))
+	      (:td :height "10px" (:a :href chatonwhatsappurl :target "_blank" (:i :class "fa-brands fa-whatsapp fa-xl" :style "color: #39dd30;")))))))
  
 (defun modal.vendor-my-customer-wallet-recharge (wallet phone)
   (cl-who:with-html-output (*standard-output* nil)
