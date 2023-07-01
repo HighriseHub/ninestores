@@ -50,9 +50,14 @@
   (let* ((header (list "Product Name " "Description" "Qty Per Unit" "Unit Price" "Units In Stock" "Subscription Flag" "Image Path (DO NOT MODIFY)" "Image Hash (DO NOT MODIFY)"))
 	 (vendor-id (slot-value (get-login-vendor) 'row-id))
 	 (filepaths (mapcar (lambda (image)
-			     (let* ((newimageparams (remove "uploadedimagefiles" image :test #'equal ))
-				    (filename (process-image  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
-			       (format nil "/img/~A" filename))) images))
+			      (let* ((newimageparams (remove "uploadedimagefiles" image :test #'equal ))
+				     (tempfilewithpath (nth 0 newimageparams))
+				     (filename (process-image  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
+				
+				(if *HHUBUSELOCALSTORFORRES* 
+				    (if tempfilewithpath (format nil "/img/~A" filename))
+				    ;;else return the path of the uploaded file in S3 bucket.
+				    (vendor-upload-file-s3bucket filename)))) images))
 	 (image-path-hashes (mapcar (lambda (filepath)
 				 (string-upcase (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :MD5 (ironclad:ascii-string-to-byte-array filepath))))) filepaths)))
 	 (with-open-file (stream (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id)  
@@ -92,7 +97,7 @@
 										 :vendor-id (slot-value (get-login-vendor) 'row-id)
 										 :catg-id nil
 										 :qty-per-unit (nth 2 row)
-										 :unit-price (with-input-from-string (in (nth 3 row)) (read in)) 
+										 :unit-price (float (with-input-from-string (in (nth 3 row)) (read in)))
 										 :units-in-stock  (parse-integer (nth 4 row))
 										 :subscribe-flag (nth 5 row)
 										 :prd-image-path (nth 6 row)
@@ -512,7 +517,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (prodimageparams (hunchentoot:post-parameter "prodimage"))
 					;(destructuring-bind (path file-name content-type) prodimageparams))
 	   (tempfilewithpath (first prodimageparams))
-	   (file-name (format nil "~A-~A" (get-universal-time) (second prodimageparams)))
+	   (file-name (format nil "~A" (second prodimageparams)))
 	   (external-url (if product (generate-product-ext-url product)))
 	   (params nil))
 
@@ -757,7 +762,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(:td  :height "10px"
 	      (:a :data-toggle "modal" :data-target (format nil "#vendormycustomerwallet~A" cust-id)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
 	      (modal-dialog (format nil "vendormycustomerwallet~A" cust-id) "Recharge Wallet" (modal.vendor-my-customer-wallet-recharge wallet phone)))
-	      (:td :height "10px" (:a :href chatonwhatsappurl :target "_blank" (:i :class "fa fa-whatsapp fa-lg" :aria-hidden "true" )))))))
+	      (:td :height "10px" (:a :href chatonwhatsappurl :target "_blank" (:i :class "fa-brands  fa-whatsapp  fa-xl" :aria-hidden "true" )))))))
  
 (defun modal.vendor-my-customer-wallet-recharge (wallet phone)
   (cl-who:with-html-output (*standard-output* nil)
@@ -766,10 +771,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(:form :class "form-vendor-update-balance" :role "form" :method "POST" :action "dodupdatewalletbalance"
 	       (:div :class "form-group"
 		     (:input :class "form-control" :name "balance" :placeholder "recharge amount" :type "text" ))
-	       (:input :class "form-control" :name "wallet-id" :value (slot-value wallet 'row-id) :type "hidden")
-	       (:input :class "form-control" :name "phone" :value phone :type "hidden")
+	       (:input :class "form-control" :name "wallet-id" :value (slot-value wallet 'row-id) :type "text" :style "display:none;")
+	       (:input :class "form-control" :name "phone" :value phone :type "text" :style "display:none;")
 	       (:div :class "form-group"
-		     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))
+		     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))
+    (with-html-div-row
+      (:h5 "Note: Receive money from customer via cash/UPI and then update the wallet balance here."))))
       
 ;; Deprecated. 
 (defun dod-controller-vendor-search-cust-wallet-page ()
@@ -883,7 +890,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			      (:li :align "center" (:a :href "dodvendprofile?context=home"   (:span :class "glyphicon glyphicon-user") "&nbsp;&nbsp;" )) 
 				(:li :align "center" (:a :target "_blank" :href "https://goo.gl/forms/XaZdzF30Z6K43gQm2"  (:span :class "glyphicon glyphicon-envelope") "&nbsp;&nbsp;"))
 				(:li :align "center" (:a :target "_blank" :href "https://goo.gl/forms/SGizZXYwXDUiTgVY2"  "Bug" ))
-				(:li :align "center" (:a :href "dodvendlogout"  (:i :class "fa-regular fa-right-from-bracket") "&nbsp;&nbsp; "  )))))))))
+				(:li :align "center" (:a :href "dodvendlogout"  (:i :class "fa fa-sign-out" :aria-hidden "true") "&nbsp;&nbsp;")))))))))
   
   
 
