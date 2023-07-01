@@ -49,7 +49,7 @@
 	   (shopcart-total (get-shop-cart-total odts))
 	   (customer (get-login-customer))
 	   (custcomp (get-login-customer-company))
-	   (wallet-balance (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'balance))
+	   ;;(wallet-balance (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'balance))
 	   (order-cxt (format nil "hhubcustopy~A" (get-universal-time)))
 	   (shopcart-products (mapcar (lambda (odt)
 					(let ((prd-id (slot-value odt 'prd-id)))
@@ -63,24 +63,35 @@
       (when (equal cust-type "GUEST")
 	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email))
 
-      (with-standard-customer-page "Payment Methods Page"
-	(:div :class "row" 
-	      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		    (:h1 :class "text-center"  "Choose Payment Method")
-		    (:a :class "btn btn-primary"  :role "button" :href "/hhub/dodcustindex"  (:span :class "glyphicon glyphicon-home"))))
+      (with-standard-customer-page-v2 "Payment Methods Page"
+	(with-html-div-row
+	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(:h5 :class "text-center"  "Choose Payment Method")
+		(:a :class "btn btn-primary"  :role "button" :href "/hhub/dodcustindex"  (:i :class "fa-solid fa-house"))))
 
 	(:hr)
 	(when (> lstcount 0)
-	  (cond ((equal cust-type "STANDARD") (standardcustpaymentmethods wallet-balance))
-		 ((equal cust-type "GUEST") (guestcustpaymentmethods singlevendor-p vpayapikey-p vupiid-p phone))))))))
+	  (cond ((equal cust-type "STANDARD") (standardcustpaymentmethods vendor-list customer custcomp))
+		((equal cust-type "GUEST") (guestcustpaymentmethods singlevendor-p vpayapikey-p vupiid-p phone))))))))
   
 
 
-(defun standardcustpaymentmethods (wallet-balance)
+(defun standardcustpaymentmethods (vendorlist customer company)
   (cl-who:with-html-output (*standard-output* nil)
-    (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	  (:h4  (cl-who:str (format nil "Prepaid Wallet: Balance: ~d" wallet-balance)))
-	  (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=PRE") "Checkout"))))
+    (with-html-div-row
+      (:h5 (:u "Prepaid Wallet Balance")))
+    (mapcar (lambda (vendor)
+	      (let* ((wallet (get-cust-wallet-by-vendor customer vendor company))
+		     (wallet-balance (slot-value wallet 'balance))
+		     (vendorname (slot-value vendor 'name)))
+		(cl-who:htm
+		 (with-html-div-row
+		   (with-html-div-col
+		     (:h6 (cl-who:str (format nil "Vendor - ~A" vendorname))))
+		   (with-html-div-col
+		     (:span  :style "color:blue" (cl-who:str (format nil "~d" wallet-balance)))))))) vendorlist)
+    (:hr)
+    (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=PRE") "Checkout")))
 	
   
 (defun guestcustpaymentmethods (singlevendor-p vpayapi-p vupiid-p phone)
@@ -339,7 +350,7 @@
 	 (header (list "Vendor" "Phone" "Balance" "Recharge"))
 	 (wallets (get-cust-wallets customer company)))
     (with-cust-session-check
-      (with-standard-customer-page "HighriseHub - Customer Wallets"
+      (with-standard-customer-page-v2 "HighriseHub - Customer Wallets"
 	(cl-who:str (display-as-table header wallets 'cust-wallet-as-row))))))
 					;     (cl-who:str (display-as-tiles wallets 'wallet-card))))))
 
@@ -630,9 +641,9 @@
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
-  (defmacro with-customer-navigation-bar ()
+  (defun with-customer-navigation-bar ()
     :documentation "this macro returns the html text for generating a navigation bar using bootstrap."
-    `(let ((customer-type (get-login-customer-type)))
+    (let ((customer-type (get-login-customer-type)))
        (cl-who:with-html-output (*standard-output* nil)
 	 (:div :class "navbar navbar-inverse  navbar-static-top"
 	     (:div :class "container-fluid"
@@ -641,24 +652,24 @@
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar"))
-			 (:a :class "navbar-brand" :href "#" :title "highrisehub" (:img :style "width: 50px; height: 50px;" :src "/img/logo.png" )))
+			 (:a :class "navbar-brand" :href *siteurl* :title "highrisehub" (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" )))
 			;; (:a :class "navbar-brand" :onclick "javascript:history.go(-1);"  :href "#"  (:span :class "glyphicon glyphicon-arrow-left")))
 		   (:div :class "collapse navbar-collapse" :id "navheadercollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
-			      (:li :class "active" :align "center" (:a :href "/hhub/dodcustindex" (:span :class "glyphicon glyphicon-home")  " Home"))
+			      (:li :class "active" :align "center" (:a :href "/hhub/dodcustindex" (:i :class "fa-solid fa-house") "&nbsp;Home"))
 			      (if (equal customer-type "STANDARD")
 				  (cl-who:htm (:li :align "center" (:a :href "dodcustorderprefs" "Subscriptions"))
 					      (:li :align "center" (:a :href "dodcustorderscal" "Orders"))
-					      (:li :align "center" (:a :href "dodcustwallet" (:span :class "glyphicon glyphicon-piggy-bank") " Wallets" ))))
+					      (:li :align "center" (:a :href "dodcustwallet" (:i :class "fa-solid fa-wallet") "&nbsp;Wallets" ))))
 					;(:li :align "center" (:a :href "#" (print-web-session-timeout)))
 			      (:li :align "center" (:a :href "#" (cl-who:str (format nil "~a" (get-login-customer-company-name))))))
-			 
-			 (:ul :class "nav navbar-nav navbar-right"
-			      (if (equal customer-type "STANDARD")
-				  (cl-who:htm
-				   (:li :align "center" (:a :href "#"   (:span :class "glyphicon glyphicon-bell") " " ))
-				   (:li :align "center" (:a :href "dodcustprofile"   (:span :class "glyphicon glyphicon-user") " " ))))
 			      
+			      (:ul :class "nav navbar-nav navbar-right"
+				   (if (equal customer-type "STANDARD")
+				       (cl-who:htm
+					(:li :align "right" (:a :href "#"   (:span :class "glyphicon glyphicon-bell") " " ))
+					(:li :align "right" (:a :href "dodcustprofile"   (:span :class "glyphicon glyphicon-user") " " ))))
+				   
 			      (if (equal customer-type "GUEST")
 				  (cl-who:htm
 				   (:li :class "dropdown"
@@ -677,49 +688,46 @@
     
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
-  (defmacro with-customer-navigation-bar-v2 ()
+  (defun with-customer-navigation-bar-v2 ()
     :documentation "this macro returns the html text for generating a navigation bar using bootstrap."
-    `(let ((customer-type (get-login-customer-type)))
+    (let ((customer-type (get-login-customer-type)))
        (cl-who:with-html-output (*standard-output* nil)
-	 (:nav :class "navbar navbar-expand-lg  navbar-dark bg-dark"  ;; "navbar navbar-dark bg-dark" 
+	 (:nav :class "navbar navbar-expand-sm  navbar-dark bg-dark" 
 	       (:div :class "container-fluid"
+		     (:a :class "navbar-brand" :href *siteurl* (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" ))
 		     (:button :class "navbar-toggler" :type "button" :data-bs-toggle "collapse" :data-bs-target "#navbarSupportedContent" :aria-controls "navbarSupportedContent" :aria-expanded "false" :aria-label "Toggle navigation" 
 			      (:span :class "navbar-toggler-icon" ))
-		     (:div :class "collapse navbar-collapse" :id "navbarSupportedContent"
-			    (:a :class "navbar-brand" :href "#" :title "highrisehub" (:img :style "width: 50px; height: 50px;" :src "/img/logo.png" ))
-			   (:ul :class "navbar-nav me-auto mb-2 mb-lg-0"
+		     (:div :class "collapse navbar-collapse justify-content-between" :id "navbarSupportedContent"
+			   (:ul :class "navbar-nav me-auto mb-2 mb-lg-0" 
 				(:li :class "nav-item" 	
-				     (:a :class "nav-link active" :aria-current "page" :href "/hhub/dodcustindex" (:span :class "glyphicon glyphicon-home")  "Home"))
-				
+				     (:a :class "nav-link active" :aria-current "page" :href "/hhub/dodcustindex" (:i :class "fa-solid fa-house") "&nbsp;Home"))
 				(if (equal customer-type "STANDARD")
 				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustorderprefs" "Subscriptions"))
 						(:li :class "nav-item"  (:a :class "nav-link" :href "dodcustorderscal" "Orders"))
-						(:li :class "nav-item"  (:a :class "nav-link" :href "dodcustwallet" (:span :class "glyphicon glyphicon-piggy-bank") " Wallets" ))))
-				
-			      (:li :class "nav-item"  (:a :class "nav-link" :href "#" (cl-who:str (format nil "~a" (get-login-customer-company-name))))))
+						(:li :class "nav-item"  (:a :class "nav-link" :href "dodcustwallet" (:i :class "fa-solid fa-wallet")  "&nbsp;Wallets" ))))
+				(:li :class "nav-item"  (:a :class "nav-link" :href "#" (cl-who:str (format nil "~a" (get-login-customer-company-name))))))
 
-			      
-			   (:ul :class "navbar-nav ms-auto"
-			   (if (equal customer-type "STANDARD")
-				    (cl-who:htm
-				     (:li :class "nav-item"  (:a :class "nav-link" :href "#"  (:i :class "bi bi-bell")))
-				     (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustprofile"  (:i :class "bi bi-person-circle")))))
+
+				(:ul :class "navbar-nav ms-auto"
+				     (if (equal customer-type "STANDARD")
+					 (cl-who:htm
+					  (:li :class "nav-item"  (:a :class "nav-link" :href "#"  (:i :class "fa-regular fa-bell")))
+					  (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustprofile"  (:i :class "fa-regular fa-user")))))
 				
-				(if (equal customer-type "GUEST")
-				    (cl-who:htm
-				     (:li :class "nav-item dropdown"
-					  (:a :class "nav-link dropdown-toggle" :href "#" :id "navbarDropdown" :role "button" :data-bs-toggle "dropdown" :aria-expanded "false")
-					  (:ul :class "dropdown-menu" :aria-labelledby "navbarDropdown"
-					       (:li (:a :class "dropdown-item" :href "dodguestcustlogout" "Member Login" ))
-					       (:li 
-						(:form :method "POST" :action "custsignup1action" :id "custsignup1form" 
-						       (:div :class "form-group"
-							     (:input :class "form-control" :name "cname" :type "hidden" :value (cl-who:str (format nil "~A" (get-login-customer-company-name)))))
-						       (:div :class "form-group"
-							     (:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "Sign Up" ))))))))))
-			      
-				(:li :class "nav-item" (:a :class "nav-link" :href "dodcustlogout" (:i :class "bi bi-door-closed")))))))))))
-    
+				(when (equal customer-type "GUEST")
+				  (cl-who:htm
+				   (:li :class "nav-item dropdown">
+					(:a :class "nav-link dropdown-toggle" :href "#" :id "navbarDropdown" :role "button" :data-bs-toggle "dropdown" :aria-expanded="false" "More&nbsp;")
+					(:ul :class "dropdown-menu" :aria-labelledby "navbarDropdown"
+					     (:li (:a :class "dropdown-item" :href "dodguestcustlogout" "Member Login" ))
+					     (:li 
+					      (:form :method "POST" :action "custsignup1action" :id "custsignup1form" 
+						     (:div :class "form-group"
+							   (:input :class "form-control" :name "cname" :type "hidden" :value (cl-who:str (format nil "~A" (get-login-customer-company-name)))))
+						     (:div :class "form-group"
+							   (:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "Sign Up" ))))))))))
+				(:li :class "nav-item" (:a :class "nav-link" :href "dodcustlogout" (:i :class "fa-solid fa-arrow-right-from-bracket")))))))))))
+
 
 
 
@@ -727,9 +735,9 @@
 
 ;;deprecated 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
-  (defmacro with-guestuser-navigation-bar ()
+  (defun with-guestuser-navigation-bar ()
     :documentation "this macro returns the html text for generating a navigation bar using bootstrap."
-    `(cl-who:with-html-output (*standard-output* nil)
+    (cl-who:with-html-output (*standard-output* nil)
        (:div :class "navbar navbar-inverse  navbar-static-top"
 	     (:div :class "container-fluid"
 		   (:div :class "navbar-header"
@@ -1933,7 +1941,7 @@
 		    (:div :class "col-lg-6 col-md-6 col-sm-6" :align "right"
 			  (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart"  (:span :class "glyphicon glyphicon-shopping-cart")  (:span :class "badge" (cl-who:str (format nil " ~A " lstcount)))))))
        (:hr)
-       (:a :id "floatingcheckoutbutton" :href "dodcustshopcart" (:span :class "glyphicon glyphicon-shopping-cart") "&nbsp;&nbsp;Checkout&nbsp;&nbsp;" (:span :class "badge" (cl-who:str (format nil " ~A " lstcount))))
+       (:a :id "floatingcheckoutbutton" :href "dodcustshopcart" :style "font-weight: bold; font-size: 25px !important;"  (:i :class "fa-solid fa-cart-shopping") "&nbsp;&nbsp;Checkout&nbsp;&nbsp;"  (:span :class "badge" (cl-who:str (format nil " ~A " lstcount))))
        (cl-who:str (ui-list-prod-catg lstprodcatg))
        (:hr)
        (if (> prdcount 100)
@@ -1953,7 +1961,7 @@
 	(cl-who:htm
 	 (:div :class "row"
 	       (:div :class "col-md-12" :align "right"
-		     (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart" (:span :class "glyphicon glyphicon-shopping-cart") " My Cart  " (:span :class "badge" (cl-who:str (format nil " ~A " (length lstshopcart)))))))
+		     (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart" (:span :class "glyphicon glyphicon-shopping-cart")  (:span :class "badge" (cl-who:str (format nil " ~A " (length lstshopcart)))))))
 	 (:hr))		       
 	(cl-who:str (ui-list-customer-products lstprodbycatg lstshopcart))))))
 
