@@ -210,17 +210,12 @@
 					; Link to the app manifest for PWA. 
 		(:link :rel "manifest" :href "/manifest.json")
 		;; Bootstrap CSS
-		(:link :href "https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" :rel "stylesheet" :integrity "sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" :crossorigin "anonymous")
+		(:link :href "/css/bs5.3/css/bootstrap.css" :rel "stylesheet" )
 
 		(:link :href "/css/style.css" :rel "stylesheet")
-		
-		(:link :href "https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" :rel "stylesheet")
-		(:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.3/font/bootstrap-icons.css")
+		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" :rel "stylesheet")
 		(:link :href "https://fonts.googleapis.com/css?family=Merriweather:400,900,900i" :rel "stylesheet")
-		
-
-
-				;; js files related to bootstrap and jquery. Jquery must come first. 
+		;; js files related to bootstrap and jquery. Jquery must come first. 
 		(:script :src "https://code.jquery.com/jquery-3.5.1.min.js" :integrity "sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" :crossorigin "anonymous")
 		(:script :src "https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" :integrity "sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" :crossorigin "anonymous")
 		(:script :src "/js/spin.min.js")
@@ -228,7 +223,7 @@
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
 		) ;; header completes here.
 	        (:body
-		 (:div :id "dod-main-container"
+		 (:div :id "dod-main-container"  :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;" )
@@ -236,7 +231,7 @@
 		       (:script :src "/js/hhubbusy.js")
 		       (if hunchentoot:*session* (,nav-func)) 
 					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
-		       (:div :class "container theme-showcase" :role "main" 
+		       (:div :class "container theme-showcase" :role "main" :style "background-color: white; min-height: calc(100vh - 100px);" 
 			     (:div :class "sidebar-nav" 
 				   (:div :id "hhubmaincontent"  ,@body))))
 		 ;; rangeslider
