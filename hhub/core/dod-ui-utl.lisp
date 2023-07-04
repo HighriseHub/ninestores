@@ -47,7 +47,7 @@
 		   (with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		     (:h1 :class "text-center login-title"  "New Store details have been sent. You will be contacted soon. ")
-		     (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:span :class "glyphicon glyphicon-home"))
+		     (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house"))
 		     (hhub-html-page-footer))))))
 
 (defun dod-controller-password-reset-mail-link-sent ()
@@ -57,7 +57,7 @@
 		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		  (:h1 :class "text-center login-title"  "Password Reset Link Sent To Your Email.")
-		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:span :class "glyphicon glyphicon-home")))))))
+		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house")))))))
 
 
 (defun dod-controller-password-reset-mail-sent ()
@@ -67,7 +67,7 @@
 		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		  (:h1 :class "text-center login-title"  "Password Reset Email Sent.")
-		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:span :class "glyphicon glyphicon-home")))))))
+		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house")))))))
   
 
 (defun dod-controller-invalid-email-error ()
@@ -77,7 +77,7 @@
 		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		  (:h1 :class "text-center login-title"  "Invalid Customer Email.")
-		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:span :class "glyphicon glyphicon-home")))))))
+		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house")))))))
 
 
 
@@ -88,7 +88,7 @@
 		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		  (:h1 :class "text-center login-title"  "Your password reset time window has expired. Please try again." )
-		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:span :class "glyphicon glyphicon-home")))))))
+		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house")))))))
 
 
 
@@ -488,12 +488,10 @@ individual tiles. It also supports search functionality by including the searchr
 	     (:div :class "help-block with-errors")))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-input-text-hidden (name label placeholder  value brequired validation-error-msg tabindex &body other-attributes)
+  (defmacro with-html-input-text-hidden (name value  &body other-attributes)
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "form-group" :style "display: none;"
-	     (:label :for ,name ,label)
-	     (:input :class "form-control"  :type "text" :id ,name :name ,name :placeholder ,placeholder :required ,brequired :value ,value :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
-	     (:div :class "help-block with-errors")))))
+	     (:input :class "form-control"  :type "text" :id ,name :name ,name :value ,value ,@other-attributes)))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     

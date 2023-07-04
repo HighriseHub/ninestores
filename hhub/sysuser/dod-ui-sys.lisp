@@ -130,13 +130,13 @@
 			 (:a :class "navbar-brand" :href "#" :title "HighriseHub" (:img :style "width: 30px; height: 30px;" :src "/img/logo.png" )  ))
 		   (:div :class "collapse navbar-collapse" :id "navHeaderCollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
-			      (:li :class "active" :align "center" (:a :href "/hhub/sadminhome"  (:span :class "glyphicon glyphicon-home")  " Home"))
+			      (:li :class "active" :align "center" (:a :href "/hhub/sadminhome"  (:i :class "fa-solid fa-house")  "&nbsp;Home"))
 			      (:li  (:a :href "/hhub/dasabacsecurity" "IAM Security"))
 			      (:li :align "center" (:a :href "#" (print-web-session-timeout))))
 			 
 			 (:ul :class "nav navbar-nav navbar-right"
-			      (:li :align "center" (:a :href "hhubsadminprofile"   (:span :class "glyphicon glyphicon-user") " My Profile" )) 
-			      (:li :align "center" (:a :href "dodlogout"  (:span :class "fa-solid fa-arrow-right-from-bracket"))))))))))
+			      (:li :align "center" (:a :href "hhubsadminprofile"   (:i :class "fa-regular fa-user") "&nbsp;My Profile" )) 
+			      (:li :align "center" (:a :href "dodlogout"  (:i :class "fa-solid fa-arrow-right-from-bracket"))))))))))
   
   
 (defun dod-controller-dbreset-page () 
@@ -311,7 +311,7 @@
 	  (with-html-div-col
 	    (with-html-checkbox "tnccheck" "tncagreed" T  T
 	      (:label :class "form-check-label" :for "tnccheck" "&nbsp;&nbsp;Agree Terms and Conditions&nbsp;&nbsp;")
-	      (:a  :href "https://www.highrisehub.com/tnc.html"  (:span :class "glyphicon glyphicon-eye-open") " Terms and Conditions.  "))))
+	      (:a  :href "https://www.highrisehub.com/tnc.html"  (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms"))))
 
 	
 	(with-html-div-row
@@ -356,11 +356,11 @@
 			  (:input :class "form-control" :type "text" :maxlength "256" :value "" :placeholder "Website" :name "cmpwebsite" ))
 		    (:div :class "form-group checkbox" 
 			  (:input :type "checkbox" :name "tnccheck" :value  "tncagreed" :required T "Agree Terms and Conditions.  "))
-		    (:a  :href "https://www.highrisehub.com/tnc.html"  (:span :class "glyphicon glyphicon-eye-open") " Terms and Conditions.  ")
+		    (:a  :href "https://www.highrisehub.com/tnc.html"  (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms")
 		    (:div :class "form-group checkbox" 
 			  (:input :type "checkbox" :name "privacycheck" :value "privacyagreed" :required T  "Agree Privacy Policy.  "))
 		   
-		    (:a  :href "https://www.highrisehub.com/privacy.html"  (:span :class "glyphicon glyphicon-eye-open") " Privacy Policy. ")
+		    (:a  :href "https://www.highrisehub.com/privacy.html"  (:i :class "fa-solid fa-eye") "&nbsp;Privacy Policy. ")
 		    (:div :class "form-group"
 			  (:div :class "g-recaptcha" :data-sitekey *HHUBRECAPTCHAV2KEY* ))
 		    (:div :class "form-group"
@@ -435,7 +435,7 @@
 	  (:div :class "col-xs-2"
 		(:a :class "btn btn-primary" :role "button" :href "/hhub/listbustrans"  "Transactions"))
 	  (:div :class "col-xs-2"
-		(:a :class "btn btn-primary btn-xs" :role "button" :href "/hhub/refreshiamsettings" (:span :class "glyphicon glyphicon-refresh"))))
+		(:a :class "btn btn-primary btn-xs" :role "button" :href "/hhub/refreshiamsettings" (:i :class "fa-solid fa-rotate-right"))))
     (:div :class "row" )))
 
 (setq *logged-in-users* (make-hash-table :test 'equal))

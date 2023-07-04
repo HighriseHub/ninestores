@@ -123,7 +123,7 @@
       (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 		  (:h1 :class "text-center"  "Vendor UPI ID Not Found.") 
-		  (:a :class "btn btn-primary"  :role "button" :href "/hhub/dodcustindex"  (:span :class "glyphicon glyphicon-home")))))))
+		  (:a :class "btn btn-primary"  :role "button" :href "/hhub/dodcustindex"  (:i :class "fa-solid fa-house")))))))
 
 
 
@@ -457,8 +457,8 @@
     (with-cust-session-check
 	(with-standard-customer-page (:title "list dod customer orders")   
 	  (:ul :class "nav nav-pills" 
-	       (:li :role "presentation" :class "active" (:a :href "dodmyorders" (:span :class "glyphicon glyphicon-th-list")))
-	       (:li :role "presentation" :class "active" (:a :href "dodcustorderscal" (:span :class "glyphicon glyphicon-calendar")))
+	       (:li :role "presentation" :class "active" (:a :href "dodmyorders" (:i :class "fa-solid fa-list")))
+	       (:li :role "presentation" :class "active" (:a :href "dodcustorderscal" (:i :class "fa-regular fa-calendar-days")))
 	       (:li :role "presentation" :class "active" (:a :href "dodcustindex" "Shop Now")))
 
 	  (let (( dodorders (hunchentoot:session-value :login-cusord-cache))
@@ -508,8 +508,8 @@
     (with-standard-customer-page  "list dod customer orders"   
 				 (:link :href "/css/calendar.css" :rel "stylesheet")
 				 (:ul :class "nav nav-pills" 
-				      (:li :role "presentation" :class "active" (:a :href "dodmyorders" (:span :class "glyphicon glyphicon-th-list")))
-				      (:li :role "presentation" :class "active" (:a :href "dodcustorderscal" (:span :class "glyphicon glyphicon-calendar")))
+				      (:li :role "presentation" :class "active" (:a :href "dodmyorders" (:span :class "fa-solid fa-list")))
+				      (:li :role "presentation" :class "active" (:a :href "dodcustorderscal" (:span :class "fa-regular fa-calendar-days")))
 				      (:li :role "presentation" :class "active" (:a :href "dodcustindex" "Shop Now")))
 				 (:div :class "container"
 				       (:div :class "page-header"
@@ -667,8 +667,8 @@
 			      (:ul :class "nav navbar-nav navbar-right"
 				   (if (equal customer-type "STANDARD")
 				       (cl-who:htm
-					(:li :align "right" (:a :href "#"   (:span :class "glyphicon glyphicon-bell") " " ))
-					(:li :align "right" (:a :href "dodcustprofile"   (:span :class "glyphicon glyphicon-user") " " ))))
+					(:li :align "right" (:a :href "#"   (:i :class "fa-regular fa-bell") "&nbsp;" ))
+					(:li :align "right" (:a :href "dodcustprofile"   (:i :class "fa-regular fa-user") "&nbsp;" ))))
 				   
 			      (if (equal customer-type "GUEST")
 				  (cl-who:htm
@@ -684,7 +684,7 @@
 							   (:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "Sign Up" ))))))))))
 			      
 					;(:li :align "center" (:a :href "/dodcustshopcart" (:span :class "glyphicon glyphicon-shopping-cart") " my cart " (:span :class "badge" (cl-who:str (format nil " ~a " (length (hunchentoot:session-value :login-shopping-cart)))) )))
-			      (:li :align "center" (:a :href "dodcustlogout" (:span :class "glyphicon glyphicon-off")))))))))))
+			      (:li :align "center" (:a :href "dodcustlogout" (:i :class "fa-solid fa-arrow-right-from-bracket")))))))))))
     
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
@@ -716,8 +716,8 @@
 				
 				(when (equal customer-type "GUEST")
 				  (cl-who:htm
-				   (:li :class "nav-item dropdown">
-					(:a :class "nav-link dropdown-toggle" :href "#" :id "navbarDropdown" :role "button" :data-bs-toggle "dropdown" :aria-expanded="false" "More&nbsp;")
+				   (:li :class "nav-item dropdown"
+					(:a :class "nav-link dropdown-toggle" :href "#" :id "navbarDropdown" :role "button" :data-bs-toggle "dropdown" :aria-expanded="false" "My Account&nbsp;")
 					(:ul :class "dropdown-menu" :aria-labelledby "navbarDropdown"
 					     (:li (:a :class "dropdown-item" :href "dodguestcustlogout" "Member Login" ))
 					     (:li 
@@ -748,7 +748,7 @@
 			 (:a :class "navbar-brand" :href "#" :title "highrisehub" (:img :style "width: 50px; height: 50px;" :src "/img/logo.png" )  ))
 		   (:div :class "collapse navbar-collapse" :id "navheadercollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
-			      (:li :class "active" :align "center" (:a :href "/hhub/dodcustindex" (:span :class "glyphicon glyphicon-home")  " Home"))
+			      (:li :class "active" :align "center" (:a :href "/hhub/dodcustindex" (:i :class "fa-solid fa-house")  "&nbsp;Home"))
 			      (:li :align "center" (:a :href "#" (cl-who:str (format nil "Group: ~a" (get-login-customer-company-name))))))
 			 (:ul :class "nav navbar-nav navbar-right"
 			      (:li :class "dropdown"
@@ -762,7 +762,7 @@
 				     (:div :class "form-group"
 					   (:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A - Sign Up" (get-login-customer-company-name)))))))
 					
-					(:li :align "center" (:a :href "dodcustlogout" (:span :class "glyphicon glyphicon-off")  )))))))))))
+					(:li :align "center" (:a :href "dodcustlogout" (:i :class "fa-solid fa-arrow-right-from-bracket")  )))))))))))
   
   
   ;;**********************************************************************************
@@ -957,7 +957,7 @@
 (defun dod-response-passwords-do-not-match-error ()
    (with-standard-customer-page (:title "Passwords do not match error.")
     (:h2 "Passwords do not match. Please try again. ")
-    	(:a :class "btn btn-primary" :role "button" :onclick "goBack();"  :href "#" (:span :class "glyphicon glyphicon-arrow-left" "Go Back"))))
+    	(:a :class "btn btn-primary" :role "button" :onclick "goBack();"  :href "#" (:i :class "fa-solid fa-arrow-left" "Go Back"))))
 
 
 (defun dod-response-captcha-error ()
@@ -1255,11 +1255,11 @@
 
 				 (:div  :class "inputQty row" 
 				 (:div :class "col-xs-4"
-				  (:a :class "down btn btn-primary" :href "#" (:span :class "glyphicon glyphicon-minus" ""))) 
+				  (:a :class "down btn btn-primary" :href "#" (:i :class "fa-solid fa-minus"))) 
 				  (:div :class "form-group col-xs-4" 
 				(:input :class "form-control input-quantity" :readonly "true" :name "prdqty" :placeholder "Enter a number"  :value "1" :min "1" :max "99"  :type "number"))
 				  (:div :class "col-xs-4"
-				  (:a :class "up btn btn-primary" :href "#" (:span :class "glyphicon glyphicon-plus" ""))))
+				  (:a :class "up btn btn-primary" :href "#" (:i :class "fa-solid fa-plus" ""))))
 			    (:div :class "form-group row" 
 				  (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-mon" :value "Monday" :checked "" "Monday"))
 				  (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-tue" :value "Tuesday" :checked "" "Tuesday"))
@@ -1388,7 +1388,7 @@
 	   (:div :class "row"
 		 (:hr))
 	   
-	    (:div :class "row"
+	    (:div :class "row" :style "display: none;"
 		  (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6"
 			(:h4 "(optional)" ))
 		  (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6"
@@ -1415,7 +1415,7 @@
 		       (:div :class "form-check"
 			     (:input :type "checkbox" :name "tnccheck" :value  "tncagreed" :tabindex "11" :required T)
 			     (:label :class= "form-check-label" :for "tnccheck" "&nbsp;&nbsp;Agree Terms and Conditions&nbsp;&nbsp;")
-			     (:a  :href "https://www.highrisehub.com/tnc.html"  (:i :class "fa fa-eye" :aria-hidden "true") "&nbsp;&nbsp;Terms"))
+			     (:a  :href "/hhub/tnc" (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms"))
 		       ;;(:div :class "form-check" 
 			 ;;    (:input :type "checkbox" :name "privacycheck" :value "privacyagreed" :tabindex "12" :required T)
 			 ;;    (:label :class= "form-check-label" :for "tnccheck" "&nbsp;&nbsp;Agree Privacy Policy&nbsp;&nbsp;")
@@ -1542,13 +1542,11 @@
 					   (get-order-items-total-for-vendor vendor odts)) vendor-list)))
 	    	
 	(with-standard-customer-page (:title "Low Wallet Balance")
-	(:div :class "row" 
-	      (:div :class "col-sm-12 col-xs-12 col-md-12 col-lg-12"
-		    (:h3 (:span :class "label label-danger" "Low Wallet Balance."))))
-	(list-customer-low-wallet-balance   wallets order-items-totals)
-	(:a :class "btn btn-primary" :role "button" :href "dodcustshopcart" (:span :class "glyphicon glyphicon-shopping-cart") " Modify Cart  ")))
-	
-      ))
+	  (:div :class "row" 
+		(:div :class "col-sm-12 col-xs-12 col-md-12 col-lg-12"
+		      (:h3 (:span :class "label label-danger" "Low Wallet Balance."))))
+	  (list-customer-low-wallet-balance   wallets order-items-totals)
+	  (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart" (:i :class "fa-solid fa-cart-shopping") "&nbsp;Modify Cart&nbsp;")))))
 
 
 (defun dod-controller-low-wallet-balance-for-orderitems ()
@@ -1939,7 +1937,7 @@
 				(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" "Go!" ))))
 					; Display the My Cart button. 
 		    (:div :class "col-lg-6 col-md-6 col-sm-6" :align "right"
-			  (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart"  (:span :class "glyphicon glyphicon-shopping-cart")  (:span :class "badge" (cl-who:str (format nil " ~A " lstcount)))))))
+			  (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart"  (:i :class "fa-solid fa-cart-shopping")  (:span :class "badge" (cl-who:str (format nil " ~A " lstcount)))))))
        (:hr)
        (:a :id "floatingcheckoutbutton" :href "dodcustshopcart" :style "font-weight: bold; font-size: 25px !important;"  (:i :class "fa-solid fa-cart-shopping") "&nbsp;&nbsp;Checkout&nbsp;&nbsp;"  (:span :class "badge" (cl-who:str (format nil " ~A " lstcount))))
        (cl-who:str (ui-list-prod-catg lstprodcatg))
@@ -1961,7 +1959,7 @@
 	(cl-who:htm
 	 (:div :class "row"
 	       (:div :class "col-md-12" :align "right"
-		     (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart" (:span :class "glyphicon glyphicon-shopping-cart")  (:span :class "badge" (cl-who:str (format nil " ~A " (length lstshopcart)))))))
+		     (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart" (:i :class "fa-solid fa-cart-shopping") (:span :class "badge" (cl-who:str (format nil " ~A " (length lstshopcart)))))))
 	 (:hr))		       
 	(cl-who:str (ui-list-customer-products lstprodbycatg lstshopcart))))))
 

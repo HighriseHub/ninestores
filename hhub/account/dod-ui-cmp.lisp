@@ -37,7 +37,7 @@
 		(:div :class "col-xs-8" 
 		      (:h3 (cl-who:str (if (> (length comp-name) 20)  (subseq comp-name 0 20) comp-name))))
 		(:div :class "col-xs-1" :align "right" 
-		      (:a  :data-toggle "modal" :data-target (format nil "#editcompany-modal~A" row-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
+		      (:a  :data-toggle "modal" :data-target (format nil "#editcompany-modal~A" row-id)  :href "#"  (:i :class "fa-regular fa-pen-to-square"))
 				(modal-dialog (format nil "editcompany-modal~a" row-id) "Add/Edit Group" (com-hhub-transaction-create-company-dialog row-id)))
 		(:div :class "col-xs-2 dropdown" 
 		      (:button :class "btn btn-primary dropdown-toggle" :type "button" :id "dropdownMenu1" :data-toggle "dropdown" :aria-haspopup "true" :aria-expanded "false" (:span :class "glyphicon glyphicon-option-vertical"))
