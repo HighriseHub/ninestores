@@ -987,13 +987,13 @@
 		      (:h2 "Store Search.")
 		      (:div :id "custom-search-input"
 			    (:div :class "input-group col-xs-12 col-sm-12 col-md-12 col-lg-12"
-				  (with-html-search-form "companysearchaction" "Store name starts with...")))
+				  (with-html-search-form "companysearchaction" "Enter Pincode. For ex: 560001")))
 		(:div :id "searchresult"))
 		(:hr)
 		(:div :class "row"
 		      (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6"
-			    (:a :class "order-box"  :href "hhubnewcompanyreqpage?cmp-type=COMMUNITY"  "New Community Store - FREE!"))
-		      (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6"
+			    (:a :class "order-box"  :href "hhubnewcommstorerequest?cmp-type=COMMUNITY"  "Store Not Found? Create New Public Store For Your Pincode - FREE!"))
+		      (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6" :style "display: none;"
 			    (:a :class "order-box"  :href "pricing"  "New Grocery, Mobile, Apparel, Electronics Store.")))
 		
 		(:hr)
