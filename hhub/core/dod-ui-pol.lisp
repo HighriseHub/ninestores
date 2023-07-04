@@ -296,8 +296,8 @@ T)
       (:td :height "10px" 
 	   (:h6 :class "bustrans-name"  (cl-who:str (format nil "~A" trans-func))))
       (:td :height "10px" 
-	   (:a  :data-toggle "modal" :data-target (format nil "#editbustrans-modal~A" row-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
-	   (:a  :data-toggle "modal"  :data-target (format nil "#linkbustrans-modal~A" row-id)  :href "#"  (:span :class "glyphicon glyphicon-link"))
+	   (:a  :data-toggle "modal" :data-target (format nil "#editbustrans-modal~A" row-id)  :href "#"  (:i :class "fa-regular fa-pen-to-square"))
+	   (:a  :data-toggle "modal"  :data-target (format nil "#linkbustrans-modal~A" row-id)  :href "#"  (:i :class "fa-regular fa-link"))
 	   (modal-dialog (format nil "linkbustrans-modal~a" row-id) "Add/Edit Business Transaction" (link-bus-transaction-to-policy bustrans-instance))
 	   (modal-dialog (format nil "editbustrans-modal~a" row-id) "Add/Edit Business Transaction" (new-transaction-html  bustrans-instance))))))
 
@@ -316,11 +316,11 @@ T)
 	 (:h6 :class "attribute-desc"  (cl-who:str description) ))
       (:td :height "10px" 
 	   (:h6 :class "attribute-name"  (cl-who:str attr-func))
-	   (:a :class "attribute-func"  :onclick copystr  :href "#" (:span :class "glyphicon glyphicon-copy")))
+	   (:a :class "attribute-func"  :onclick copystr  :href "#" (:i :class "fa-regular fa-copy")))
       (:td :height "10px" 
 	 (:h6 :class "attribute-type" (cl-who:str  (format nil "~A"  attr-type))))
       (:td :height "10px" 
-	   (:a  :data-toggle "modal" :data-target (format nil "#editattribute-modal~A" row-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
+	   (:a  :data-toggle "modal" :data-target (format nil "#editattribute-modal~A" row-id)  :href "#"  (:i :class "fa-regular fa-pen-to-square"))
 	   (modal-dialog (format nil "editattribute-modal~a" row-id) "Add/Edit Attribute" (com-hhub-transaction-create-attribute-dialog attribute-instance))))))
 
 
@@ -338,7 +338,7 @@ T)
       (:td :height "10px" 
 	   (:h6 :class "policy-func-name"  (cl-who:str policy-func) ))
       (:td :height "10px" 
-	   (:a  :data-toggle "modal" :data-target (format nil "#editpolicy-modal~A" row-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
+	   (:a  :data-toggle "modal" :data-target (format nil "#editpolicy-modal~A" row-id)  :href "#"  (:i :class "fa-regular fa-pen-to-squlare"))
 	   (modal-dialog (format nil "editpolicy-modal~a" row-id) "Add/Edit Policy" (com-hhub-transaction-policy-create-dialog  policy-instance))))))
 
 ;; @@ deprecated : start using with-html-dropdown instead. 
