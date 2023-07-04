@@ -284,7 +284,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (cl-who:with-html-output (*standard-output* nil)
       (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		  (with-html-form "form-vendorchangepin" "hhubvendorchangepin"  
+		  (with-html-form "form-vendorchangepin" "hhubvendchangepin"  
 					;(:div :class "account-wall"
 			 (:h1 :class "text-center login-title"  "Change Password")
 			 (:div :class "form-group"
@@ -699,7 +699,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					     (:div :class "form-group"
 						   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex:9999999990" :type "text" ))
 					     (:div :class "form-group"
-						   (:input :class "form-control" :name "password" :placeholder "password=demo" :type "password" ))
+						   (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password" ))
 					     (:div :class "form-group"
 						   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))
 				      (:div :class "form-group"
