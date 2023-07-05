@@ -20,10 +20,11 @@
       (with-html-form  "form-hhubotppage" "hhubotpsubmitaction" 
 	(:img :class "profile-img" :src "/img/logo.png" :alt "")
 	(:div :id "withCountDownTimerExpired"
-	    (with-html-div-row
-	      (with-html-div-col
-		(with-html-input-hidden "context" context)
-		(with-html-input-password "otp" (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6)))) "OTP" nil T "Please enter OTP" "1")))
+	      (with-html-div-row
+		(with-html-div-col
+		  (with-html-input-text-hidden "phone" phone)
+		  (with-html-input-text-hidden "context" context)
+		  (with-html-input-password "otp" (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6)))) "OTP" nil T "Please enter OTP" "1")))
 	    (with-html-div-row
 	      (with-html-div-col
 		(:p :id "withCountDownTimer")))
@@ -37,8 +38,8 @@
 	  (with-html-div-row
 	    (with-html-div-col
 	      (:div :class "form-group"
-		    (with-html-input-hidden "phone" phone)
-		    (with-html-input-hidden "context" context)
+		    (with-html-input-text-hidden "phone" phone)
+		    (with-html-input-text-hidden "context" context)
 		    (:button :class "submit center-block btn btn-primary btn-block" :type "submit" (cl-who:str  (format nil "Regenerate OTP for ~A " (concatenate 'string "xxxxx" (subseq phone 6)))))))))
 	(hhub-html-page-footer)
 	(:script "window.onload = function() {countdowntimer(0,0,5,0);}"))))
@@ -51,7 +52,7 @@
     (if (equal (parse-integer otp) sessionotp)
 	(hunchentoot:redirect (format nil "/hhub/~A" context))
 	;;else
-	(hunchentoot:redirect "https://www.highrisehub.com"))))
+	(hunchentoot:redirect *siteurl*))))
   
 
 (defun dod-controller-otp-regenerate-action ()
@@ -326,6 +327,73 @@
 
 	(hhub-html-page-footer)))))
 
+
+
+(defun hhub-controller-new-community-store-request-page ()
+  (let ((cmp-type (hunchentoot:parameter "cmp-type")))
+    ;; Since we came to the new company request page, we will create new session here
+    (with-no-navbar-page  "New Store Request"  
+      (with-html-form  "form-hhubnewcompanyemail" "hhubnewstorerequeststep2"
+	(:img :class "profile-img" :src "/img/logo.png" :alt "")
+		    	
+	(with-html-div-row
+	  (with-html-div-col 
+	    (:h4 (:span :class "label label-primary" "Store Requester Details"))))
+	
+	(with-html-div-row
+	  (with-html-div-col
+	    (with-html-input-text "custname" "Name" "Full Name" nil T "Please fill your full name" "1")))
+	
+	(with-html-div-row
+	  (with-html-div-col
+	    (with-html-input-text "phone" "Mobile Phone (+91)" "Enter 10 digit phone number" nil T "Please enter phone number" 2))	
+	  (with-html-div-col
+	    (with-html-input-text "email" "Email" "Email" nil T "Please enter email" 3)))
+	
+	(with-html-div-row (:hr))
+
+	(with-html-div-row
+	  (with-html-div-col
+	    (:h4 (:span :class "label label-primary" "Store Details"))))
+	
+	(with-html-input-text-hidden "cmptype" cmp-type) 
+	
+	(with-html-div-row
+	  (with-html-div-col
+	    (with-html-input-text "cmpzipcode" nil "Pincode" nil T "Enter Pincode" 6 :inputmode "numeric" :oninput "this.value = this.value.replace(/[^0-9]/g,'');")
+	    (:span :id "areaname" :class "label label-info")))
+	
+	(with-html-div-row
+	  (with-html-div-col
+	    (with-html-input-text "cmpcity" "City" "City" nil T "Enter City" nil :readonly T )))
+	
+	
+	(with-html-div-row
+	  (with-html-div-col
+	        (with-html-input-text "cmpstate" "State" "State" nil T "Enter State" nil :readonly T )))
+
+	(with-html-div-row
+	  (with-html-div-col
+	    (:input :class "form-control" :type "text" :value "INDIA" :readonly "true"  :name "cmpcountry" )))
+	
+	(with-html-div-row
+	  (with-html-div-col
+	    (with-html-checkbox "tnccheck" "tncagreed" T  T
+	      (:label :class "form-check-label" :for "tnccheck" "&nbsp;&nbsp;Agree Terms and Conditions&nbsp;&nbsp;")
+	      (:a  :href (format nil "~A/hhub/tnc" *siteurl*)  (:i :class "fa-solid fa-scale-balanced")  "&nbsp;Terms."))))
+
+	
+	(with-html-div-row
+	  (with-html-div-col
+	    (:div :class "form-group"
+		  (:div :class "g-recaptcha" :required T :data-sitekey *HHUBRECAPTCHAV2KEY* ))))
+	
+	(with-html-div-row
+	  (with-html-div-col
+	    (:div :class "form-group"
+		  (:button :class "submit center-block btn btn-primary btn-block" :type "submit" "Send Request"))))
+
+	(hhub-html-page-footer)))))
 
 
 
@@ -775,6 +843,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/displaystore" 'com-hhub-transaction-display-store)
 	(hunchentoot:create-regex-dispatcher "^/hhub/createwhatsapplinkwithmessage" 'hhub-controller-create-whatsapp-link-with-message)
 	(hunchentoot:create-regex-dispatcher "^/hhub/permissiondenied" 'hhub-controller-permission-denied)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubnewcommstorerequest" 'hhub-controller-new-community-store-request-page)
 	
 	;***************** COMPADMIN/COMPANYHELPDESK/COMPANYOPERATOR  RELATED ********************
      
