@@ -26,7 +26,6 @@
 	   (vpayapikey-p (if singlevendor-p (when (slot-value singlevendor 'payment-api-key) t)))
 	   (vupiid-p (if singlevendor-p (when (slot-value singlevendor 'upi-id) t)))
 	   (odts (hunchentoot:session-value :login-shopping-cart))
-	   (payment-mode nil)
 	   (products (hunchentoot:session-value :login-prd-cache))
 	   (odate  (get-date-from-string (hunchentoot:parameter "orddate")))
 	   (custname (hunchentoot:parameter "custname"))
@@ -58,7 +57,7 @@
 					; Save the email address to send a mail in future if this is a guest customer.
       (setf (hunchentoot:session-value :guest-email-address) email)
       					; Save the customer order parameters. 
-      (save-cust-order-params (list odts shopcart-products odate reqdate nil  shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total payment-mode comments customer custcomp order-cxt phone email custname))
+      (save-cust-order-params (list odts shopcart-products odate reqdate nil  shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total comments customer custcomp order-cxt phone email custname))
       ;; Save the Guest customer details so that we can use them within the session if required. 
       (when (equal cust-type "GUEST")
 	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email))
@@ -106,15 +105,15 @@
       ;;else
       ;; if it is single vendor and vendor has UPI ID defined
       ((and singlevendor-p vupiid-p)
-     (cl-who:htm
-      (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	    (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=COD&phone=~A" phone) "Cash On Delivery")
-	    (:a :class "list-group-item" :href (format nil "hhubcustupipage?paymentmode=UPI") "UPI Payment"))))
+       (cl-who:htm
+	(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=cod&phone=~A" phone) "Cash On Delivery")
+	      (:a :class "list-group-item" :href (format nil "hhubcustupipage?paymentmode=UPI") "UPI Payment"))))
       ;; if nothing matches.
       (t
-     (cl-who:htm
-      (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	    (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=COD&phone=~A" phone) "Cash On Delivery")))))))
+       (cl-who:htm
+	(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=cod&phone=~A" phone) "Cash On Delivery")))))))
   
 		      
 (defun dod-controller-vendor-upi-notfound ()
@@ -1061,7 +1060,7 @@
   (let* ((token (hunchentoot:parameter "token"))
 	 (rstpassinst (get-reset-password-instance-by-token token))
 	 (user-type (if rstpassinst (slot-value rstpassinst 'user-type)))
-	 (url (format nil "https://www.highrisehub.com/hhub/hhubcustpassreset.html?token=~A" token))
+	 (url (format nil "~A/hhub/hhubcustpassreset.html?token=~A" *siteurl* token))
 	 (email (if rstpassinst (slot-value rstpassinst 'email))))
     
 	 (cond 
@@ -1085,7 +1084,7 @@
 	 (user-type (hunchentoot:parameter "user-type"))
 	 (tenant-id (if customer (slot-value customer 'tenant-id)))
 	 (captcha-resp (hunchentoot:parameter "g-recaptcha-response"))
-	 (url (format nil "https://www.highrisehub.com/hhub/hhubcustgentemppass?token=~A" token))
+	 (url (format nil "~A/hhub/hhubcustgentemppass?token=~A" *siteurl* token))
 	 (paramname (list "secret" "response" ) ) 
 	 (paramvalue (list *HHUBRECAPTCHAV2SECRET*  captcha-resp))
 	 (param-alist (pairlis paramname paramvalue ))
@@ -1136,7 +1135,7 @@
 		    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 			   (:div :class "account-wall"
 				 (:form :class "form-custsignin" :role "form" :method "POST" :action "dodcustlogin" :data-toggle "validator"
-					(:a :href "https://www.highrisehub.com" (:img :class "profile-img" :src "/img/logo.png" :alt ""))
+					(:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
 				       (:h1 :class "text-center login-title"  "Customer - Login")
 				       (:div :class "form-group"
 					     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
@@ -1197,7 +1196,9 @@
 	 (unit-price (slot-value product 'unit-price))
 	 (qty-per-unit (slot-value product 'qty-per-unit))
 	 (units-in-stock (slot-value product 'units-in-stock))
-	 (prd-name (slot-value product 'prd-name)))
+	 (prd-name (slot-value product 'prd-name))
+	 (upbtn (format nil "up_~A" prd-id))
+	 (downbtn (format nil "down_~A" prd-id)))
     
   (cl-who:with-html-output (*standard-output* nil)
    (:div :align "center" :class "row" 
@@ -1219,15 +1220,14 @@
 		      
 	        (:div  :class "inputQty row" 
 	       (:div :class "col-xs-4"
-		     (:a :class "down btn btn-primary" :href "#" (:span :class "glyphicon glyphicon-minus" ""))) 
+		     (:a :class "down btn btn-primary" :id downbtn :onClick "minusbtnclick(this.id);" :href "#" (:i :class "fa-solid fa-minus"))) 
 	       (:div :class "form-group col-xs-4" 
-		     (:input :class "form-control input-quantity" :readonly "true"  :name "prdqty" :value "1"  :min "1" :max units-in-stock  :type "number"))
+		     (:input :class "form-control input-quantity" :readonly "true"  :name "prdqty" :id (format nil "prdqtyfor_~A" prd-id)  :value "1"  :min "1" :max units-in-stock  :type "number"))
 	       (:div :class "col-xs-4"
-		     (:a :class "up btn btn-primary" :href "#" (:span :class "glyphicon glyphicon-plus" ""))))
+		     (:a :class "up btn btn-primary" :id upbtn :onClick "plusbtnclick(this.id);" :href "#" (:span :class "fa-solid fa-plus"))))
 	 
 		(:div :class "form-group" 
-		      (:input :type "submit"  :class "btn btn-primary" :value "Add To Cart"))
-			    ))))))
+		      (:input :type "submit"  :class "btn btn-primary" :value "Add To Cart"))))))))
   
   
 (defun product-subscribe-html (prd-id) 
@@ -1633,7 +1633,7 @@
       (setf params (acons "company" (get-login-customer-company)  params))
       
       (with-hhub-transaction "com-hhub-transaction-create-order" params
-	(multiple-value-bind (odts products odate reqdate ship-date shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total payment-mode comments cust custcomp order-cxt phone email custname utrnum)
+	(multiple-value-bind (odts products odate reqdate ship-date shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total comments cust custcomp order-cxt phone email custname payment-mode utrnum)
 	    (values-list (get-cust-order-params)) 
 	 (let* ((temp-ht (make-hash-table :test 'equal))
 		(vendor-list (get-shopcart-vendorlist odts))
@@ -1646,6 +1646,7 @@
 
 	   ;; If the payment mode is PREPAID, then check whether we have enough balance first. If not, then redirect to the low wallet balance. 
 	   ;; Redirecting to some other place is not a pure function behavior. Is there a better way to handle this? 
+	   (logiamhere (format nil "payment mode is ~A" payment-mode))
 	   (setf (gethash "PRE" temp-ht) (symbol-function 'check-all-vendors-wallet-balance))
 	   (let ((func (gethash payment-mode temp-ht)))
 	     (if func (if (funcall (gethash payment-mode temp-ht) vendor-list wallet-list odts)	 (hunchentoot:redirect "/hhub/dodcustlowbalanceshopcarts"))))
@@ -1689,7 +1690,7 @@
 	   (cust-type (get-login-customer-type)))
 
       ;; Redirect to the OTP page only for Guest customer. 
-      (if (equal cust-type "GUEST") (generateotp&redirect phone context)
+      (if (equal cust-type "GUEST") (generateotp&redirect phone context paymentmode)
 	  ;;else for standard customer, redirect to final checkout page. 
 	  (hunchentoot:redirect (format nil "/hhub/~A?paymentmode=~A" context paymentmode))))))
 
@@ -1729,56 +1730,66 @@
 	   (company-type (slot-value custcomp 'cmp-type))
 	   (vendor-list (get-shopcart-vendorlist odts))
 	   (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
-
+      
+      (logiamhere (format nil "orderparams length is ~d" (length orderparams)))
+      ;; Add the payment mode to the order params. 
+      (if payment-mode
+	  (setf orderparams (append orderparams (list payment-mode)))
+	  ;; else
+	  (progn
+	    (setf payment-mode "COD")
+	    (setf orderparams (append orderparams (list payment-mode)))))
       ;; if payment is made using UPI, then add the utrnum to the order parameters
       (when utrnum
-	(setf orderparams (append orderparams (list utrnum)))
-	(save-cust-order-params orderparams))
-      
-      (with-standard-customer-page "Shopping cart finalize"
-	(:div :class "row"
-	      (:div :class "col-xs-12"
-		    (cl-who:str (format nil "Order Date: ~A" (get-date-string odate)))))
-	(:div :class "row"
-	      (:div :class "col-xs-12"
-		    (cl-who:str (format nil "Request Date: ~A" (get-date-string reqdate)))))
-	(:div :class "row"
-	      (:div :class "col-xs-12"
-		    (cl-who:str (format nil "Payment Mode: ~A" payment-mode))))
-	
-	(if (equal cust-type "GUEST") 
-	    (cl-who:htm (:div :class "row"
-			      (:div :class "col-xs-12"
-				    (:h4 (cl-who:str (format nil "Phone: ~A" phone)))))
-			;;If email is given by the guest customer during shopping
-			(when (> (length email) 0)
-			  (cl-who:htm (:div :class "row"
-					    (:div :class "col-xs-12"
-						  (cl-who:str (format nil "Email: ~A" email))))))
-			;; Shipping address
-			(:div :class "row"
-			      (:div :class "col-xs-12"
-				    (cl-who:str (format nil "Shipping Address: ~A, ~A, ~A, ~A" shipaddress shipcity shipstate shipzipcode))))
-					
-			;; billing address
-			(when (not billsameasshipchecked)
-			  (cl-who:htm
-			   (:div :class "row"
-			      (:div :class "col-xs-12"
-				    (cl-who:str (format nil "Billing Address: ~A, ~A, ~A, ~A" billaddress billcity billstate billzipcode))))))
-			
-						
-			;; GST Number and Organization
-			(when (and claimitcchecked (> (length gstnumber) 0))
-			  (cl-who:htm
-			   (:div :class "row"
-			      (:div :class "col-xs-12"
-				    (cl-who:str (format nil "GST Number: ~A/" gstnumber))
-				    (cl-who:str (format nil "GST Organization: ~A" gstorgname))))))))
-
+	(setf orderparams (append orderparams (list utrnum))))
+      (logiamhere (format nil "now orderparams length is ~d" (length orderparams)))
+    ;; Save the order params for further use. 
+      (save-cust-order-params orderparams)
+  
+    (with-standard-customer-page "Shopping cart finalize"
       (:div :class "row"
 	    (:div :class "col-xs-12"
-		  (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" shopcart-total))))))
+		  (cl-who:str (format nil "Order Date: ~A" (get-date-string odate)))))
+      (:div :class "row"
+	    (:div :class "col-xs-12"
+		  (cl-who:str (format nil "Request Date: ~A" (get-date-string reqdate)))))
+      (:div :class "row"
+	      (:div :class "col-xs-12"
+		    (cl-who:str (format nil "Payment Mode: ~A" payment-mode))))
+      
+      (if (equal cust-type "GUEST") 
+	  (cl-who:htm (:div :class "row"
+			    (:div :class "col-xs-12"
+				  (:h4 (cl-who:str (format nil "Phone: ~A" phone)))))
+		    ;;If email is given by the guest customer during shopping
+		      (when (> (length email) 0)
+			(cl-who:htm (:div :class "row"
+					  (:div :class "col-xs-12"
+						(cl-who:str (format nil "Email: ~A" email))))))
+		      ;; Shipping address
+		      (:div :class "row"
+			    (:div :class "col-xs-12"
+				    (cl-who:str (format nil "Shipping Address: ~A, ~A, ~A, ~A" shipaddress shipcity shipstate shipzipcode))))
+		      
+		      ;; billing address
+		      (when (not billsameasshipchecked)
+			(cl-who:htm
+			 (:div :class "row"
+			       (:div :class "col-xs-12"
+				     (cl-who:str (format nil "Billing Address: ~A, ~A, ~A, ~A" billaddress billcity billstate billzipcode))))))
+		    
+		      
+		      ;; GST Number and Organization
+		      (when (and claimitcchecked (> (length gstnumber) 0))
+			(cl-who:htm
+			 (:div :class "row"
+			       (:div :class "col-xs-12"
+				     (cl-who:str (format nil "GST Number: ~A/" gstnumber))
+				     (cl-who:str (format nil "GST Organization: ~A" gstorgname))))))))
+      
+      (:div :class "row"
+	    (:div :class "col-xs-12"
+		(:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" shopcart-total))))))
       (:div :class "row"
 	    (:div :class "col-xs-12"
 		  (cond
@@ -1791,10 +1802,10 @@
 		     (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "test" order-cxt)))
 		    (T (with-html-form "placeorderform" "dodmyorderaddaction"  
 			 (:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary" :type "submit" "Place Order" )))))))
-	(:hr)
-	(:div :class "row"
-	      (cl-who:str(ui-list-shopcart-readonly shopcart-products odts)))
-	(:hr)))))
+      (:hr)
+    (:div :class "row"
+	  (cl-who:str(ui-list-shopcart-readonly shopcart-products odts)))
+      (:hr)))))
 
 
 
@@ -1880,7 +1891,8 @@
 		  (odt (create-odtinst-shopcart nil product  prdqty (slot-value product 'unit-price) (hunchentoot:session-value :login-customer-company))))
 	  (if (and wallet (> prdqty 0)) 
 	      (progn (setf (hunchentoot:session-value :login-shopping-cart) (append myshopcart (list odt)))
-		     (if (length (hunchentoot:session-value :login-shopping-cart)) (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
+		     "success")
+	      ;;xb(if (length (hunchentoot:session-value :login-shopping-cart)) (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
 	      ;else if wallet is not defined, create wallet first
 	      (hunchentoot:redirect (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id))))
 	))
@@ -1925,8 +1937,7 @@
 	  (lstproducts (hunchentoot:session-value :login-prd-cache))
 	  (prdcount (length lstproducts))
 	  (first100products (if (> prdcount 100) (subseq lstproducts 0 100))))
-							  
-					;(sleep 5)
+     ;;(sleep 5)
      (with-standard-customer-page "Welcome to HighriseHub - customer"
        
        (:form :id "theForm" :name "theForm" :method "POST" :action "dodsearchproducts" :onSubmit "return false"
@@ -2006,9 +2017,7 @@
     (with-html-div-row
       (with-html-div-col 
 	(:h4 "0 items in shopping cart") 
-	(:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "bi bi-arrow-left"))))))
-
-
+	(:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "fa-solid fa-arrow-left"))))))
 
 
 (defun dod-controller-remove-shopcart-item ()
