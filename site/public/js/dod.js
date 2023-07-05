@@ -2,11 +2,15 @@ var $busyindicator = document.getElementById('busy-indicator');
 var $error = document.getElementById('hhub-error');
 var $success = document.getElementById('hhub-success');
 var  $formcustsignin = $(".form-custsignin"),  $formvendsignin = $(".form-vendorsignin");
-
+var cartitemscount = 0;
 // Create a generic JQuery AJAX function
-
 var ajaxCallParams = {};
 var ajaxDataParams = {}; 
+
+$(document).ready(function(){
+    cartitemscount = 0;
+});
+
 
 function countdowntimer (days, hours, minutes, seconds){ 
     // Set the date we're counting down to
@@ -14,21 +18,17 @@ function countdowntimer (days, hours, minutes, seconds){
     if (days > 0 ){
 	countDownDate = countDownDate + 1000 * 60 * 60 * 24 * days;
     } 
-    
     if (hours > 0) {
 	countDownDate = countDownDate + 1000 * 60 * 60 * hours;
     }
-    
     if (minutes > 0) {
 	countDownDate += 1000 * 60 *  minutes; 
     }
-    
     if (seconds > 0) {
 	countDownDate += 1000 *  seconds ; 
     }
     // Update the count down every 1 second
     var x = setInterval(function() {
-	
 	// Get today's date and time
 	var now = new Date().getTime();
 	
@@ -293,28 +293,30 @@ $(document).ready(function() {
         $('[data-toggle="tooltip"]').tooltip({'placement': 'top'});
 });
 
-$(document).ready (function(){
-    $('.up').on('click',function(){
-	$('.input-quantity').val(parseInt($('.input-quantity').val())+1);
-    });
-});
 
-$(document).ready (function(){
-    $('.down').on('click',function(){
-	if($('.input-quantity').val() == 0) return false; 
-	$('.input-quantity').val(parseInt($('.input-quantity').val())-1);
-    }); 
-});
+function plusbtnclick (id){
+    var plusbutton = document.getElementById(id);
+    var prdrowid = id.substring(id.indexOf("_") + 1);
+    var elemname = "prdqtyfor_" + prdrowid; 
+    var prdqtyelem = document.getElementById(elemname);
+    prdqtyelem.value = parseInt(prdqtyelem.value) + 1; 
+}
+
+function minusbtnclick (id){
+    var plusbutton = document.getElementById(id);
+    var prdrowid = id.substring(id.indexOf("_") + 1);
+    var elemname = "prdqtyfor_" + prdrowid; 
+    var prdqtyelem = document.getElementById(elemname);
+    if(prdqtyelem.value == 0) return false; 
+    prdqtyelem.value = parseInt(prdqtyelem.value) - 1; 
+}
+
 
 $(document).ready (function(){
     $('.prdaddbtn').on('click',function(){
 	$('.input-quantity').val(1);
     }); 
 });
-
-
-
-
 
 function countChar(val, maxchars){
 var length = val.value.length; 
@@ -418,22 +420,21 @@ $(".form-vendordercomplete").on('submit', function (e) {
       });
       e.preventDefault();});
 
-
-
-
-$(".form-product").on('submit', function (e) {
+$(".form-addproduct").on('submit', function (e) {
+    // Stop form from submitting normally
+    event.preventDefault();
     var theForm = $(this);
-    $(theForm).find("button[type='submit']").hide(); //prop('disabled',true);
-      $.ajax({
-            type: 'POST',
-          url: $(theForm).attr("action"), 
-            data: $(theForm).serialize(),
-            success: function (response) {
-		console.log("Added a product to cart");
-		location.reload();
-            }
-      });
-      e.preventDefault();});
+    
+    //$(theForm).find("button[type='submit']").style('display: none;');
+    ajaxCallParams.Type = "POST";
+    ajaxCallParams.Url = $(theForm).attr("action");
+    ajaxCallParams.DataType = "HTML"; // Return data type e-g Html, Json etc                                                                                                                                    
+    ajaxDataParams = $(theForm).serialize();
+    ajaxCall(ajaxCallParams, ajaxDataParams, function (data) { 
+	console.log("Added product to cart");
+	cartitemscount++;
+	location.reload();});
+});
 
 	    
 $(".form-shopcart").on('submit', function (e) {
