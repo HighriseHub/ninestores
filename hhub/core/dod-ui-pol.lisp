@@ -110,10 +110,12 @@
 
 
 (defun com-hhub-policy-cad-login-page (&optional (params nil))
-:documentation "Company Administrator login page is open to all. This policy is dummy as the request is initiated by the Browser."
+  (declare (ignore params))
+  :documentation "Company Administrator login page is open to all. This policy is dummy as the request is initiated by the Browser."
   T)
 
 (defun com-hhub-policy-cad-login-action (&optional (params nil))
+  (declare (ignore params))
   :documentation "Company Administrator login action is open to all. This policy is dummy as the request is initiated by the Browser."
 T)
 
