@@ -95,21 +95,17 @@
 (defun ui-list-shopcart (products shopcart)
     :documentation "A function used for rendering the shopping cart data in HTML format."
     (cl-who:with-html-output-to-string (*standard-output* nil)
-					; Header section.
-	   				; Data section.
-	      (:div :class "row-fluid"
-		    (mapcar (lambda (product odt)
-				    (cl-who:htm (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4" 
-					       (:div :class "product-box" (product-card-shopcart product odt)))))      products shopcart ))))
+      (:div :class "all-products"
+	    (mapcar (lambda (product odt)
+		      (cl-who:htm (:div :class "product-box" (product-card-shopcart product odt))))  products shopcart))))
 
 
 (defun ui-list-shopcart-readonly (products shopcart)
     :documentation "A function used for rendering the shopping cart data in HTML format."
     (cl-who:with-html-output-to-string (*standard-output* nil)
-      (:div :class "row-fluid"
+      (:div :class "all-products-row"
 	    (mapcar (lambda (product odt)
-		      (cl-who:htm (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4" 
-				 (:div :class "product-box" (product-card-shopcart-readonly product odt)))))  products shopcart ))))
+		      (cl-who:htm (:div :class "product-box-row" (product-card-shopcart-readonly product odt))))  products shopcart))))
 
 
 

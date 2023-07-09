@@ -90,7 +90,10 @@
 		   (with-html-div-col
 		     (:span  :style "color:blue" (cl-who:str (format nil "~d" wallet-balance)))))))) vendorlist)
     (:hr)
-    (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=PRE") "Checkout")))
+    (with-html-form "stdcustprepaid-form" "dodcustshopcartro"
+      (with-html-input-text-hidden "paymentmode" "PRE")
+      (with-html-submit-button "Checkout"))))
+;;    (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=PRE") "Checkout")))
 	
   
 (defun guestcustpaymentmethods (singlevendor-p vpayapi-p vupiid-p phone)
@@ -100,20 +103,20 @@
        (cl-who:htm
 	(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
 	      (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=OPY&phone=~A" phone) "Online Payment")
-	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=COD&phone=~A" phone) "Cash On Delivery")
+	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")
 	      (:a :class "list-group-item" :href (format nil "hhubcustupipage?paymentmode=UPI") "UPI Payment"))))
       ;;else
       ;; if it is single vendor and vendor has UPI ID defined
       ((and singlevendor-p vupiid-p)
        (cl-who:htm
 	(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=cod&phone=~A" phone) "Cash On Delivery")
+	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")
 	      (:a :class "list-group-item" :href (format nil "hhubcustupipage?paymentmode=UPI") "UPI Payment"))))
       ;; if nothing matches.
       (t
        (cl-who:htm
 	(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=cod&phone=~A" phone) "Cash On Delivery")))))))
+	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")))))))
   
 		      
 (defun dod-controller-vendor-upi-notfound ()
@@ -623,9 +626,10 @@
 
 
 (defun hhub-controller-customer-my-orderdetails ()
-  (with-cust-session-check (with-standard-customer-page (:title "Customer My Order Details")
-	    (let* ((order-id (parse-integer (hunchentoot:parameter "id"))))
-	      (customer-my-order-details order-id)))))
+  (with-cust-session-check
+    (with-standard-customer-page "Customer My Order Details"
+      (let* ((order-id (parse-integer (hunchentoot:parameter "id"))))
+	(customer-my-order-details order-id)))))
 
 									  
 
@@ -1607,16 +1611,22 @@
     (send-order-mail email (format nil "HighriseHub order ~A" order-id) order-disp-str)))
 
 (defun send-order-sms-guest-customer (order-id phone)
+  (declare (ignore order-id phone))
   :documentation "Send an SMS to Guest customer when order is placed.")
+  
+
 ;;(send-sms-notification phone "HIGHUB" (format nil "[HIGHRISEHUB] Thank You for placing the order. Your order number is ~A and will be processed soon" order-id)))
 ;; we are not sending any SMS to standard customer as of now for placing an order. This also will be based on settings on the company. Will need to register a SMS template for this. 
 
 (defun send-order-sms-standard-customer(order-id phone)
+  (declare (ignore order-id phone))
   :documentation "Send an SMS to Guest customer when order is placed.")
+
 ;; (send-sms-notification phone "HIGHUB" (format nil "[HIGHRISEHUB] Thank You for placing the order. Your order number is ~A and will be processed soon" order-id)))
 ;; we are not sending any SMS to standard customer as of now for placing an order. This also will be based on settings on the company. Will need to register a SMS template for this. 
 
 (defun send-order-email-standard-customer(order-id email products shopcart)
+  (declare (ignore order-id email products shopcart))
   :Documentation "We are not sending any email to standard customer Today. We will check his settings and then decide whether to send email or not. Future")
 
 (defun check-all-vendors-wallet-balance(vendor-list wallet-list shopcart)
@@ -1628,49 +1638,49 @@
 
 (defun com-hhub-transaction-create-order ()
   (with-cust-session-check
-    (let ((params nil))
+    (let ((params nil)
+	  (redirectlocation "/hhub/dodcustordsuccess"))
       (setf params (acons "uri" (hunchentoot:request-uri*)  params))
       (setf params (acons "company" (get-login-customer-company)  params))
-      
       (with-hhub-transaction "com-hhub-transaction-create-order" params
 	(multiple-value-bind (odts products odate reqdate ship-date shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total comments cust custcomp order-cxt phone email custname payment-mode utrnum)
-	    (values-list (get-cust-order-params)) 
-	 (let* ((temp-ht (make-hash-table :test 'equal))
-		(vendor-list (get-shopcart-vendorlist odts))
-		(wallet-list (mapcar (lambda (vendor) (get-cust-wallet-by-vendor cust vendor custcomp)) vendor-list))
-		(cust-type (slot-value cust 'cust-type))
-		(temp-customer (hunchentoot:session-value :temp-guest-customer)))
-	   	   
-		;; This function call is not pure. Try to make it pure. 
-		;; (guest-email (hunchentoot:session-value :guest-email-address)))
-
-	   ;; If the payment mode is PREPAID, then check whether we have enough balance first. If not, then redirect to the low wallet balance. 
-	   ;; Redirecting to some other place is not a pure function behavior. Is there a better way to handle this? 
-	   (logiamhere (format nil "payment mode is ~A" payment-mode))
-	   (setf (gethash "PRE" temp-ht) (symbol-function 'check-all-vendors-wallet-balance))
-	   (let ((func (gethash payment-mode temp-ht)))
-	     (if func (if (funcall (gethash payment-mode temp-ht) vendor-list wallet-list odts)	 (hunchentoot:redirect "/hhub/dodcustlowbalanceshopcarts"))))
-	   ;; If everything gets through, create order. 
-	   (let ((order-id (create-order-from-shopcart  odts products odate reqdate ship-date  shipaddress shopcart-total payment-mode comments cust custcomp temp-customer utrnum)))
-	     (setf (gethash "GUEST-EMAIL" temp-ht) (symbol-function 'send-order-email-guest-customer))
-	     (setf (gethash "GUEST-SMS" temp-ht) (symbol-function 'send-order-sms-guest-customer))
-	     (setf (gethash "STANDARD-EMAIL" temp-ht) (symbol-function 'send-order-email-standard-customer))
-	     (setf (gethash "STANDARD-SMS" temp-ht) (symbol-function 'send-order-sms-standard-customer))
-	     
-	       ;; Send order SMS to guest customer if phone is provided. (Phone is required field for Guest customer, hence SMS will always be sent)
-	       (when (and (equal cust-type "GUEST") phone) (funcall (gethash (format nil "~A-SMS" cust-type) temp-ht) order-id  phone))
-	       ;; Send order email to guest customer if email is provided. 
-	       (when (and (equal cust-type "GUEST") (> (length email) 0))  (funcall (gethash (format nil "~A-EMAIL" cust-type) temp-ht) order-id email temp-customer  products odts))
-	       ;; If STANDARD customer has email, then send order email 
-	       (when (and (equal cust-type "STANDARD") (> (length email) 0)) (funcall (gethash (format nil "~A-EMAIL" cust-type) temp-ht) order-id email products odts))
-	       ;; If standard customer has phone, then send SMS 
-	       (when (and (equal cust-type "STANDARD") phone) (funcall (gethash (format nil "~A-SMS" cust-type) temp-ht) order-id phone))
-
-	     
-	     (reset-cust-order-params)
-	     (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer cust))
-	     (setf (hunchentoot:session-value :login-shopping-cart ) nil)
-	     (hunchentoot:redirect "/hhub/dodcustordsuccess"))))))))
+	    (values-list (get-cust-order-params))
+	  (declare (ignore billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname order-cxt shipzipcode shipcity shipstate custname ))
+	  (let* ((temp-ht (make-hash-table :test 'equal))
+		 (vendor-list (get-shopcart-vendorlist odts))
+		 (wallet-list (mapcar (lambda (vendor) (get-cust-wallet-by-vendor cust vendor custcomp)) vendor-list))
+		 (cust-type (slot-value cust 'cust-type))
+		 (temp-customer (hunchentoot:session-value :temp-guest-customer)))
+	    
+	    ;; This function call is not pure. Try to make it pure. 
+	    ;; (guest-email (hunchentoot:session-value :guest-email-address)))
+	    
+	    ;; If the payment mode is PREPAID, then check whether we have enough balance first. If not, then redirect to the low wallet balance. 
+	    ;; Redirecting to some other place is not a pure function behavior. Is there a better way to handle this? 
+	    (logiamhere (format nil "payment mode is ~A" payment-mode))
+	    (setf (gethash "PRE" temp-ht) (symbol-function 'check-all-vendors-wallet-balance))
+	    (let ((func (gethash payment-mode temp-ht)))
+	      (if func (if (funcall (gethash payment-mode temp-ht) vendor-list wallet-list odts) (hunchentoot:redirect "/hhub/dodcustlowbalanceshopcarts"))))
+	    ;; If everything gets through, create order. 
+	    (let ((order-id (create-order-from-shopcart  odts products odate reqdate ship-date  shipaddress shopcart-total payment-mode comments cust custcomp temp-customer utrnum)))
+	      (setf (gethash "GUEST-EMAIL" temp-ht) (symbol-function 'send-order-email-guest-customer))
+	      (setf (gethash "GUEST-SMS" temp-ht) (symbol-function 'send-order-sms-guest-customer))
+	      (setf (gethash "STANDARD-EMAIL" temp-ht) (symbol-function 'send-order-email-standard-customer))
+	      (setf (gethash "STANDARD-SMS" temp-ht) (symbol-function 'send-order-sms-standard-customer))
+	      
+	      ;; Send order SMS to guest customer if phone is provided. (Phone is required field for Guest customer, hence SMS will always be sent)
+	      (when (and (equal cust-type "GUEST") phone) (funcall (gethash (format nil "~A-SMS" cust-type) temp-ht) order-id  phone))
+	      ;; Send order email to guest customer if email is provided. 
+	      (when (and (equal cust-type "GUEST") (> (length email) 0))  (funcall (gethash (format nil "~A-EMAIL" cust-type) temp-ht) order-id email temp-customer  products odts))
+	      ;; If STANDARD customer has email, then send order email 
+	      (when (and (equal cust-type "STANDARD") (> (length email) 0)) (funcall (gethash (format nil "~A-EMAIL" cust-type) temp-ht) order-id email products odts))
+	      ;; If standard customer has phone, then send SMS 
+	      (when (and (equal cust-type "STANDARD") phone) (funcall (gethash (format nil "~A-SMS" cust-type) temp-ht) order-id phone))
+	      (reset-cust-order-params)
+	      (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer cust))
+	      (setf (hunchentoot:session-value :login-shopping-cart ) nil))
+	    ;; We will create a JSON string for redirect here.
+	    (format nil "~A~A" *siteurl* redirectlocation)))))))
 
 (defun save-cust-order-params (list) 
   (setf (hunchentoot:session-value :customer-clipboard) list))
@@ -1690,9 +1700,9 @@
 	   (cust-type (get-login-customer-type)))
 
       ;; Redirect to the OTP page only for Guest customer. 
-      (if (equal cust-type "GUEST") (generateotp&redirect phone context paymentmode)
+      (if (equal cust-type "GUEST") (generateotp&redirect phone context)
 	  ;;else for standard customer, redirect to final checkout page. 
-	  (hunchentoot:redirect (format nil "/hhub/~A?paymentmode=~A" context paymentmode))))))
+	  (hunchentoot:redirect (format nil "/hhub/~A&paymentmode=~A" context paymentmode))))))
 
 
       	
@@ -1720,8 +1730,8 @@
 	   (payment-mode (hunchentoot:parameter "paymentmode"))
 	   (utrnum (hunchentoot:parameter "utrnum"))
 	   ;;(comments (nth 20 orderparams))
-	   (phone  (nth 23 orderparams))
-	   (email (nth 24 orderparams))
+	   (phone  (nth 22 orderparams))
+	   (email (nth 23 orderparams))
 	   ;;(custname (nth 26 orderparams))
 	   (customer (get-login-customer))
 	   (custcomp (get-login-customer-company))
@@ -1740,7 +1750,7 @@
 	    (setf payment-mode "COD")
 	    (setf orderparams (append orderparams (list payment-mode)))))
       ;; if payment is made using UPI, then add the utrnum to the order parameters
-      (when utrnum
+      (when (and (equal payment-mode "UPI") utrnum)
 	(setf orderparams (append orderparams (list utrnum))))
       (logiamhere (format nil "now orderparams length is ~d" (length orderparams)))
     ;; Save the order params for further use. 
@@ -1804,7 +1814,7 @@
 			 (:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary" :type "submit" "Place Order" )))))))
       (:hr)
     (:div :class "row"
-	  (cl-who:str(ui-list-shopcart-readonly shopcart-products odts)))
+	  (cl-who:str (ui-list-shopcart-readonly shopcart-products odts)))
       (:hr)))))
 
 
@@ -1889,13 +1899,13 @@
 		  (vendor-id (slot-value vendor 'row-id))
 		  (wallet (get-cust-wallet-by-vendor (get-login-customer) vendor (get-login-customer-company)))
 		  (odt (create-odtinst-shopcart nil product  prdqty (slot-value product 'unit-price) (hunchentoot:session-value :login-customer-company))))
+
 	  (if (and wallet (> prdqty 0)) 
 	      (progn (setf (hunchentoot:session-value :login-shopping-cart) (append myshopcart (list odt)))
 		     "success")
 	      ;;xb(if (length (hunchentoot:session-value :login-shopping-cart)) (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
 	      ;else if wallet is not defined, create wallet first
-	      (hunchentoot:redirect (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id))))
-	))
+	      (hunchentoot:redirect (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id))))))
 
 
 
@@ -1996,18 +2006,14 @@
 		      (:div :class "col-sm-6" :align "right"
 			    (cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping"  ))))
 		(:hr)
-		
-		(:div :class "rowfluid"
-		      (:div :class "col-xs-12" 
-			    (cl-who:str (ui-list-shopcart products lstshopcart))))
-		(:hr)
-	  (:div :class "row" 
-		(:div :class "col-xs-12" :align "right" 
-		      (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total))))))
-		(:hr)
 		(:div :class "row"
 		      (:div :class "col-xs-12" :align "right"
-			    (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustorderaddpage") "Checkout"))))
+			    (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustorderaddpage") "Checkout")))
+		(:div :class "row" 
+		      (:div :class "col-xs-12" :align "right" 
+			    (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total))))))
+		(cl-who:str (ui-list-shopcart products lstshopcart)))
+	  	
 	      ;; else
 	      (show-empty-shopping-cart)))))
    

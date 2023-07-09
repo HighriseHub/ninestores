@@ -152,23 +152,20 @@
 
 (defun save-upi-transaction (amount utrnum transaction-id customer vendor company phone)
   :description "Save the UPI transaction to the DB and return the domain object."
-  (with-cust-session-check
-      (as:start-event-loop
-       (lambda ()
-	 (let* ((requestmodel (make-instance 'UpiPaymentsRequestModel
-					  :vendor vendor
-					  :customer customer
-					  :amount amount
-					  :transaction-id transaction-id
-					  :utrnum utrnum
-					  :phone phone
-					  :company company))
+  (let* ((requestmodel (make-instance 'UpiPaymentsRequestModel
+					:vendor vendor
+					:customer customer
+					:amount amount
+					:transaction-id transaction-id
+					:utrnum utrnum
+					:phone phone
+					:company company))
 	     (upipaymentsadapter (make-instance 'UpiPaymentsAdapter)))
 	
       ;; We are creating the UPI domain model object. It also saves the UPI payment transaction to DB.
       (ProcessCreateRequest upipaymentsadapter requestmodel)
       ;; currently we do not have any pending task. 
-      (hhub-add-pending-upi-task utrnum (function (lambda () ()))))))))
+      (hhub-add-pending-upi-task utrnum (function (lambda () ())))))
 
 
 
