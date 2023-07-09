@@ -67,7 +67,13 @@ function ajaxCall(callParams, dataParams, callback) {
         dataType: callParams.DataType,
         data: dataParams,
         cache: true,
-        success:function (response) {
+	beforeSend: function(){
+    	    $busyindicator.appendChild(spinner.el);
+	},
+	complete: function(){
+   	    $busyindicator.removeChild(spinner.el);
+	},
+	success:function (response) {
             callback(response);
         },
         error: function (jqXHR, textStatus, errorThrown) {
@@ -422,10 +428,10 @@ $(".form-vendordercomplete").on('submit', function (e) {
 
 $(".form-addproduct").on('submit', function (e) {
     // Stop form from submitting normally
-    event.preventDefault();
+    e.preventDefault();
     var theForm = $(this);
     
-    //$(theForm).find("button[type='submit']").style('display: none;');
+    $(theForm).find("button[type='submit']").hide();
     ajaxCallParams.Type = "POST";
     ajaxCallParams.Url = $(theForm).attr("action");
     ajaxCallParams.DataType = "HTML"; // Return data type e-g Html, Json etc                                                                                                                                    
@@ -436,7 +442,24 @@ $(".form-addproduct").on('submit', function (e) {
 	location.reload();});
 });
 
-	    
+$(".placeorderform").on('submit', function (e){
+    e.preventDefault();
+    var theForm = $(this);
+    submitformandredirect(theForm);
+});
+
+function submitformandredirect (theForm){
+    $(theForm).find("button[type='submit']").hide();
+    ajaxCallParams.Type = "POST";
+    ajaxCallParams.Url = $(theForm).attr("action");
+    ajaxCallParams.DataType = "HTML"; // Return data type e-g Html, Json etc                                                                                                                                    
+    ajaxDataParams = $(theForm).serialize();
+    ajaxCall(ajaxCallParams, ajaxDataParams, function (data) { 
+	console.log("Form submitted");
+	location.replace(data);});
+}
+
+
 $(".form-shopcart").on('submit', function (e) {
     var theForm = $(this);
     $(theForm).find("button[type='submit']").hide(); //prop('disabled',true);

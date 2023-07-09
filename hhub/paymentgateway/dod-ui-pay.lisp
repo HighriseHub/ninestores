@@ -35,7 +35,8 @@
 	 (param-values (list amount payment-api-key customer-city customer-country currency description customer-email mode  customer-name order-id  customer-phone return-url show-convenience-fee return-url-cancel return-url-failure udf1 udf2 udf3 udf4 udf5  customer-zipcode))
 	 (params-alist (pairlis param-names param-values))
 	 (hash (generatehashkey  params-alist  payment-api-salt  :sha512)))
-	 
+
+    
 	 
     (setf (hunchentoot:session-value :payment-hash ) hash)
     					;do something
@@ -174,9 +175,9 @@
 	 (vendor (get-vendor wallet))
 	 (payment-api-salt (slot-value vendor 'payment-api-salt))
 	 (udf2 (hunchentoot:parameter "udf2"))
-					;(udf3 (hunchentoot:parameter "udf3"))
-					;(udf4 (hunchentoot:parameter "udf4"))
-					;(udf5 (hunchentoot:parameter "udf5"))
+	 ;; (udf3 (hunchentoot:parameter "udf3"))
+	 ;; (udf4 (hunchentoot:parameter "udf4"))
+	 ;; (udf5 (hunchentoot:parameter "udf5"))
 	 (tdr-amount (hunchentoot:parameter "tdr_amount"))
 	 (tax-on-tdr-amount (hunchentoot:parameter "tax_on_tdr_amount"))
 	 (amount-orig (hunchentoot:parameter "amount_orig"))
@@ -189,11 +190,12 @@
 					; create the pending order if the order_id matches with what we saved in the order params cache.
 	 (order-params (funcall 'get-cust-order-params))
 	 (order-cxt (nth 22 order-params)))
-	 
+
+    (declare (ignore customer-name customer-email customer-phone customer-city customer-state customer-country customer-zipcode tdr-amount tax-on-tdr-amount amount-orig show-convenience-fee cardmasked))
 	
    ;;;;;;;;;;;;;;;;;;;;;;;;;;DEBUGGING PURPOSES ;;;;;;;;;;;;;;;;;;;;;;;;;;;
-					; Print all the post params. 
-					;Update customer's wallet first
+    ;; Print all the post params. 
+    ;; Update customer's wallet first
   ; (hunchentoot:log-message* :info  (format nil "params count =  ~A" (length params-alist)))
    ;(loop for (a . b) in params-alist 
 ;	   do (hunchentoot:log-message* :info  (format nil "param is ~a: ~a" a b)))

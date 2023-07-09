@@ -25,7 +25,8 @@
 
 
 (defun logIamhere (where)
-  (hunchentoot:log-message* :info (format nil "I am here ~A" where)))
+  (when *dod-debug-mode*
+    (hunchentoot:log-message* :info (format nil "~A" where))))
 
 (defun hhub-business-adapter (function params)
   :documentation "This is a database adapter for HHUb. It takes parameters in a association list."
@@ -478,6 +479,12 @@ individual tiles. It also supports search functionality by including the searchr
     `(cl-who:with-html-output (*standard-output* nil) 
        (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4"
 	     ,@body))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-submit-button (titletext &body other-attributes)
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:div :class "form-group"
+	     (:button :class "btn btn-lg btn-primary" :type "submit" ,@other-attributes ,titletext)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-input-text (name label placeholder  value brequired validation-error-msg tabindex &body other-attributes)

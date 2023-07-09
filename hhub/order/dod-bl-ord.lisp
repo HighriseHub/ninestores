@@ -4,53 +4,43 @@
 
 
 
-(defun set-order-fulfilled ( value order-instance company-instance)
+(defun set-order-fulfilled ( value vendor order-instance company-instance)
     :documentation "value should be Y or N, followed by order instance and company instance"
-    (let* ((vendor (get-login-vendor))
-	   (vendor-order (get-vendor-order-instance (slot-value order-instance 'row-id) vendor))
-	   (customer (get-customer order-instance)) 
-	   (payment-mode (slot-value order-instance 'payment-mode))
-	   (wallet (get-cust-wallet-by-vendor customer vendor company-instance))
-	   (vendor-order-items (get-order-items-for-vendor-by-order-id  order-instance vendor ))
-	   (total   (reduce #'+  (mapcar (lambda (voitem)
-					   (* (slot-value voitem 'unit-price) (slot-value voitem 'prd-qty))) vendor-order-items))))
-      
-      (hunchentoot:log-message* :info "Inside set-order-fulfilled function - before if condition:  login vendor company is ~A" (slot-value company-instance 'name))
-      (hunchentoot:log-message* :info "Inside set-order-fulfilled function - before if condition:  order company is ~A" (slot-value (get-company order-instance) 'name))
-      (if  (equal (slot-value (get-company order-instance) 'name) (slot-value  company-instance 'name))
-	   (progn
-	     (hunchentoot:log-message* :info "Inside set-order-fulfilled function - now completing order item status to CMP. ")
-					; complete the order items for that particular vendor.  	
-	     (mapcar (lambda (voitem)
-			(progn     (setf (slot-value voitem 'status) "CMP")
-			    (setf (slot-value voitem 'fulfilled) value)
-			    (update-order-item voitem)))   vendor-order-items)
-	     (sleep 1)
+  (let* ((vendor-order (get-vendor-order-instance (slot-value order-instance 'row-id) vendor))
+	 ;;(order-id (slot-value order-instance 'row-id))
+	 (customer (get-customer order-instance)) 
+	 (payment-mode (slot-value order-instance 'payment-mode))
+	 (wallet (get-cust-wallet-by-vendor customer vendor company-instance))
+	 (vendor-order-items (get-order-items-for-vendor-by-order-id  order-instance vendor ))
+	 (total   (reduce #'+  (mapcar (lambda (voitem)
+					 (* (slot-value voitem 'unit-price) (slot-value voitem 'prd-qty))) vendor-order-items))))
+        (if (equal (slot-value (get-company order-instance) 'name) (slot-value  company-instance 'name))
+	(progn
+	  ;; complete the order items for that particular vendor.  	
+	  (mapcar (lambda (voitem)
+		    (progn
+		      (setf (slot-value voitem 'status) "CMP")
+		      (setf (slot-value voitem 'fulfilled) value)
+		      (update-order-item voitem)))   vendor-order-items)
+	  ;; complete the vendor_order  
+	  (if vendor-order 
+	      (progn  
+		(setf (slot-value vendor-order 'status) "CMP")
+		(setf (slot-value vendor-order 'fulfilled) value)
+		(setf (slot-value vendor-order 'shipped-date) (clsql-sys:get-date))
+		(update-order vendor-order)))
+	  ;; Complete the main order only if all other vendor-order-items have been completed. 
+	  (if (equal (count-order-items-pending order-instance company-instance) 0 ) 
+	      (progn (setf (slot-value order-instance 'order-fulfilled) value)
+		     (setf (slot-value order-instance 'shipped-date) (clsql-sys:get-date))
+		     (setf (slot-value order-instance 'status ) "CMP")
+		     (update-order order-instance)))
+	  (dod-reset-order-functions vendor company-instance)
+	  ;; Deduct the money from the wallet. 
+	  (if (equal payment-mode "PRE") (deduct-wallet-balance total wallet))))))
 
-					; complete the vendor_order  
-	     (if vendor-order 
-		 (progn  
-		   (hunchentoot:log-message* :info "Inside set-order-fulfilled function - now completing vendor order with status CMP..order id= ~A " (slot-value vendor-order 'order-id))
-		   (setf (slot-value vendor-order 'status) "CMP")
-		   (setf (slot-value vendor-order 'fulfilled) value)
-		   (setf (slot-value vendor-order 'shipped-date) (clsql-sys:get-date))
-		   (update-order vendor-order)))
-					; Complete the main order only if all other vendor-order-items have been completed. 
-	    
-	    
-	     (hunchentoot:log-message* :info "Inside set-order-fulfilled function - now completing the customer order ")
-	     (if (equal (count-order-items-pending order-instance company-instance) 0 ) 
-		 (progn (setf (slot-value order-instance 'order-fulfilled) value)
-			(setf (slot-value order-instance 'shipped-date) (clsql-sys:get-date))
-			(setf (slot-value order-instance 'status ) "CMP")
-			(update-order order-instance)))
-	     (hunchentoot:log-message* :info "Inside set-order-fulfilled function - now resetting order functions. ")
-	     (dod-reset-order-functions (get-login-vendor) (get-login-vendor-company))
-					; Deduct the money from the wallet. 
-	     (if (equal payment-mode "PRE") (deduct-wallet-balance total wallet))))))
-
-
-
+    
+    
 
 
 (defun get-orders-by-company (company-instance &optional (fulfilled "N"))
@@ -411,46 +401,47 @@
 
 (defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt payment-mode  comments customer-instance company-instance guest-customer utrnum)
   (let ((uuid (uuid:make-v1-uuid )))
-    ;Create an order in the database. 
-    (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt payment-mode comments  company-instance)
-    (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
-	   (order-id (slot-value order 'row-id))
-	   (cust-id (slot-value customer-instance 'row-id))
-	   (cust-type (slot-value customer-instance 'cust-type))
-	   (vendors (get-shopcart-vendorlist order-items))
-	   (tenant-id (slot-value company-instance 'row-id)))
-
-	     ;Create the order-items and also update the current products in stock. 
-      (mapcar (lambda (odt)
-		(let* ((prd (search-prd-in-list (slot-value odt 'prd-id) products))
-		       (units-in-stock (slot-value prd 'units-in-stock))
-		       (unit-price (slot-value odt 'unit-price))
-		       (prd-qty (slot-value odt 'prd-qty))
-		       (updated-units-in-stock  (if (and units-in-stock (> units-in-stock 0)) (- units-in-stock  prd-qty) 0)))
-		  (create-order-items order prd  prd-qty unit-price company-instance)
-		  (setf (slot-value prd 'units-in-stock) updated-units-in-stock)
-		  (update-prd-details prd))) order-items)
-      	         ; Create one row per vendor in the vendor_orders table. Send an order received email to each vendor. 
-      (mapcar (lambda (vendor) 
-		(let* ((vendor-email (slot-value vendor 'email))
-		       (vitems (filter-order-items-by-vendor vendor order-items))
-		       (vproducts (mapcar (lambda (odt)
-					    (let ((prd-id (slot-value odt 'prd-id)))
+      ;; Create an order in the database. 
+      (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt payment-mode comments  company-instance)
+      (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
+	     (order-id (slot-value order 'row-id))
+	     (cust-id (slot-value customer-instance 'row-id))
+	     (cust-type (slot-value customer-instance 'cust-type))
+	     (vendors (get-shopcart-vendorlist order-items))
+	     (tenant-id (slot-value company-instance 'row-id)))
+	(bt:make-thread
+	 (lambda ()
+	;; Create the order-items and also update the current products in stock. 
+	   (mapcar (lambda (odt)
+		     (let* ((prd (search-prd-in-list (slot-value odt 'prd-id) products))
+			    (units-in-stock (slot-value prd 'units-in-stock))
+			    (unit-price (slot-value odt 'unit-price))
+			    (prd-qty (slot-value odt 'prd-qty))
+			    (updated-units-in-stock  (if (and units-in-stock (> units-in-stock 0)) (- units-in-stock  prd-qty) 0)))
+		       (create-order-items order prd  prd-qty unit-price company-instance)
+		       (setf (slot-value prd 'units-in-stock) updated-units-in-stock)
+		       (update-prd-details prd))) order-items)
+					; Create one row per vendor in the vendor_orders table. Send an order received email to each vendor. 
+	   (mapcar (lambda (vendor) 
+		     (let* ((vendor-email (slot-value vendor 'email))
+			    (vitems (filter-order-items-by-vendor vendor order-items))
+			    (vproducts (mapcar (lambda (odt)
+						 (let ((prd-id (slot-value odt 'prd-id)))
 					      (search-prd-in-list prd-id products))) vitems))
-		       (total (get-order-items-total-for-vendor vendor vitems))
-		       (vendor-id (slot-value vendor 'row-id))
-		       (custinst (if (equal cust-type "GUEST") guest-customer customer-instance))
-		       (order-disp-str (create-order-email-content vproducts vitems custinst order-id total))) 
-      		  
-		  (persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total )
-		  ;; Save the UPI Transaction 
-		  (when utrnum (save-upi-transaction total utrnum (format nil "#ORD:~A" order-id) custinst vendor company-instance (slot-value custinst 'phone)))
-		  ;;Send a mail to the vendor
-		  (when vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  order-disp-str))
-		  ;; Send a push notification on the vendor's browser
-		  (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)
+			    (total (get-order-items-total-for-vendor vendor vitems))
+			    (vendor-id (slot-value vendor 'row-id))
+			    (custinst (if (equal cust-type "GUEST") guest-customer customer-instance))
+			    (order-disp-str (create-order-email-content vproducts vitems custinst order-id total))) 
+      		       
+		       (persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total )
+		       ;; Save the UPI Transaction 
+		       (when utrnum (save-upi-transaction total utrnum (format nil "#ORD:~A" order-id) custinst vendor company-instance (slot-value custinst 'phone)))
+		       ;;Send a mail to the vendor
+		       (when vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  order-disp-str))
+		       ;; Send a push notification on the vendor's browser
+		       (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)) :name (format nil "Order Thread: ~d" order-id ))
       ;; Return the order id
-  order-id)))
+	order-id))) 
 
 
 

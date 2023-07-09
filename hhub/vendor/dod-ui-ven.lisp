@@ -1195,15 +1195,17 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	       (vendor (get-login-vendor))
 	       (wallet (get-cust-wallet-by-vendor customer vendor company-instance))
 	       (vendor-order-items (get-order-items-for-vendor-by-order-id  order-instance (get-login-vendor) ))
+	       (vorderitemstotal (get-order-items-total-for-vendor vendor  vendor-order-items))
 	       (params nil))
 
 	 (setf params (acons "uri" (hunchentoot:request-uri*)  params))
 	 (setf params (acons "company" company-instance params))
 	 (with-hhub-transaction "com-hhub-transaction-vendor-order-setfulfilled"  params   
 	   (progn (if (equal payment-mode "PRE")
-		      (if (not (check-wallet-balance (get-order-items-total-for-vendor vendor  vendor-order-items) wallet))
-			  (display-wallet-for-customer wallet "Not enough balance for the transaction.")))
-		  (set-order-fulfilled "Y"  order-instance company-instance)
+		      (unless (check-wallet-balance vorderitemstotal wallet)
+			(display-wallet-for-customer wallet "Not enough balance for the transaction.")))
+		  ;; We will make all the database changes in the background. 
+		  (set-order-fulfilled "Y" vendor  order-instance company-instance)
 		  (hunchentoot:redirect "/hhub/dodvendindex?context=pendingorders"))))))
 
 (defun display-wallet-for-customer (wallet-instance custom-message)
