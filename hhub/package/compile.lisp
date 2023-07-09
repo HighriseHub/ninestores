@@ -76,7 +76,10 @@
 		     "sysuser/dod-ui-cad.lisp"
 		     "sysuser/dod-ui-sys.lisp"
 		     "sysuser/dod-ui-usr.lisp"
-
+		     ;; Payment Gateway
+		     "paymentgateway/dod-dal-pay.lisp"
+		     "paymentgateway/dod-bl-pay.lisp"
+		     "paymentgateway/dod-ui-pay.lisp"
 		     ;; Upi
 		     "upi/dod-dal-upi.lisp"
 		     "upi/dod-bl-upi.lisp"
