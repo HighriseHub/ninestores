@@ -1251,12 +1251,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     :documentation "Vendor logout."
     (let* ((vc (get-login-vendor-company))
 	   (company-website (if vc (slot-value vc 'website))))
-      (progn 
-	(hunchentoot:remove-session hunchentoot:*session*)
-	;;(deleteHHUBBusinessSession (hunchentoot:session-value :login-vendor-business-session-id)) 
-	(if (> (length company-website) 0)  (hunchentoot:redirect (format nil "http://~A" company-website)) 
-	    ;;else
-	   (hunchentoot:redirect *siteurl*)))))
+      (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
+      ;;(deleteHHUBBusinessSession (hunchentoot:session-value :login-vendor-business-session-id)) 
+      (if (> (length company-website) 0)  (hunchentoot:redirect (format nil "http://~A" company-website)) 
+	  ;;else
+	  (hunchentoot:redirect *siteurl*))))
 
 
 
