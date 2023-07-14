@@ -615,9 +615,10 @@
 
   
 (defun dod-controller-logout ()
-  (progn (dod-logout (get-login-user-name))
-	 (hunchentoot:remove-session *current-user-session*)
-	 (hunchentoot:redirect "/hhub/opr-login.html")))
+  (progn
+    (dod-logout (get-login-user-name))
+    (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
+    (hunchentoot:redirect "/hhub/opr-login.html")))
 
 (defun is-dod-session-valid? ()
  ;(if  (null (get-login-user-name)) NIL T))
@@ -776,6 +777,7 @@
 		     (setf (slot-value company 'website) cmpwebsite)
 		     (setf (slot-value company 'cmp-type) cmp-type)
 		     (setf (slot-value company 'subscription-plan) subscription-plan)
+		     (create-guest-customer company)
 		     (update-company company))
 					;else
 	      (progn
@@ -783,6 +785,9 @@
 	
 	;; once a new company is created, create the Company Administrator
 	;; Once a new company is created, we will create a default Vendor with the same name, phone number as the company admin)))
+	
+	;; once a new company is created, we need to create a new guest customer for that company.
+	
 	      (hunchentoot:redirect  "/hhub/sadminhome"))))))
 
 
