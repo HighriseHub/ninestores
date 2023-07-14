@@ -320,17 +320,16 @@
     (hunchentoot:session-value :login-customer-name))
 
 (defun dod-controller-customer-logout ()
-    :documentation "customer logout."
-    (let ((company-website (get-login-customer-company-website)))
-      (progn 
-	(hunchentoot:remove-session hunchentoot:*session*)
-	(if (> (length company-website) 0) (hunchentoot:redirect (format nil "http://~A" company-website)) 
-	    ;else
-	    (hunchentoot:redirect *siteurl*)))))
+  :documentation "customer logout."
+  (let ((company-website (get-login-customer-company-website)))
+    (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
+    (if (> (length company-website) 0) (hunchentoot:redirect (format nil "http://~A" company-website)) 
+	;; else
+	(hunchentoot:redirect *siteurl*))))
 
 (defun dod-controller-guest-customer-logout ()
-  (unless (hunchentoot:remove-session hunchentoot:*session*)
-    (hunchentoot:redirect "/hhub/customer-login.html")))
+  (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
+  (hunchentoot:redirect "/hhub/customer-login.html"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; das-cust-page-with-tiles;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
