@@ -1,7 +1,7 @@
 This repository contains the common lisp source code for E-Commerce Stores, Digital Marketplaces. You can create your own e-commerce SAAS application where you can host your customers. Your site will provide e-commerce store building capabilities for Individual Sellers/Social groups/Small communities who want to buy/sell goods and services. Some of the salient features of this project are as under. 
 There are two kinds of people involved in this marketplace. The Customers and Vendors. It has got all the features of e-commerce marketplace such as 
 
-* Orders 
+* Order Management & Fulfillment
 * Product Subscriptions 
 * Product listings 
 * Basic Inventory control with Stock Management. 
@@ -9,13 +9,15 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 * Order Management for Vendors.
 * Product Management for Vendors. 
 * Multiple Vendors per order. 
-* Vendors have access to multiple groups/communities. 
+* Vendors have access to multiple groups/communities.
+* Customer have access to multiple groups/communities. (coming soon...)  
 * Standalone Vendor support. Using this feature, you can promote online selling for your own website. Visitors from your website will be forwarded to www.highrisehub.com to create orders, make payments. You can copy the source code from this repository and create your own Digital Marketplace. 
 * Payment modes supported are Online Payment using Payment Gateway, Cash On Demand and Prepaid Wallet and UPI payments. (For Indian Subcontinent Customers) 
 * Progressive Web Application. 
 * Browser Push Notification for Vendors. 
-* SMS One Time Password - OTP for 2 Factor Authorization.   
-* Support for Tag based or Attribute Based Access Control (ABAC). 
+* SMS One Time Password - OTP for 2 Factor Authentication.   
+* Support for Tag based or Attribute Based Access Control (ABAC) only for System Administrators.
+* UI is built using Bootstrap 5.3 framework. 
 * For a detailed list of features please visit https://www.highrisehub.com/pricing
 
 ** How to setup the repository. **
@@ -28,7 +30,7 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 * Install libmysqlclient if you want to run as a load balancing node in addition to the main server node. sudo apt-get install libmysqlclient. 
 * Install libuv as we use async IO operations. sudo apt-get install libuv1-dev. 
 * Install PM2 (Process Manager 2). sudo npm install pm2 -g. 
-* Install Node.js for sending SMS and Webpush Notifications : sudo apt-get install nodejs, sudo apt-get install npm
+* Install Node.js for sending SMS, Webpush Notifications, S3 Bucket : sudo apt-get install nodejs, sudo apt-get install npm
 * Install qrencode - sudo apt-get install qrencode 
 * Install Quicklisp
 * Setup Slime for using emacs as in IDE for lisp programming. 
