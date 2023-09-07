@@ -11,7 +11,8 @@
 
 
 (defun new-dod-company(cname caddress city state country zipcode website cmp-type subscription-plan createdby updatedby)
-  (let  ((company-name cname)(company-address caddress))
+  (let  ((company-name cname)
+	 (company-address caddress))
 	(clsql:update-records-from-instance (make-instance 'dod-company
 							   :name company-name
 							   :address company-address

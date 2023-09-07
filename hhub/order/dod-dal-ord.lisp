@@ -91,6 +91,10 @@
     :type float
     :initarg :order-amt)
 
+   (shipping-cost
+    :type float
+    :initarg :shipping-cost)
+
    (total-discount
     :type float
     :initarg :total-discount)
@@ -260,12 +264,15 @@
     :accessor get-billsameasship
     :type (string 1)
     :initarg :billsameasship)
-
-
    
    (order-amt
     :type float
     :initarg :order-amt)
+
+   (shipping-cost
+    :type float
+    :initarg :shipping-cost)
+
    
    (payment-mode
     :type (string 3)

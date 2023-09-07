@@ -21,53 +21,60 @@
 	   
 (defun ui-list-prod-catg (catglist)
   (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
-    (:div :id "searchresult"  :class "container" 
-	  (with-html-div-row-fluid
+    (:div :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
+	  (with-html-div-row :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
 	    (mapcar (lambda (prdcatg)
 		      (cl-who:htm
-		       (:div :class "col-xs-6 col-sm-6 col-md-3 col-lg-2"
-			     (:div :class "order-box" (prdcatg-card prdcatg )))))
+		       (:div :class "prd-catg-card" (prdcatg-card prdcatg ))))
 		    catglist)))))
+
 
 
   
 
 (defun ui-list-customer-products (data lstshopcart)
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-    (:div :id "searchresult"  :class "container" 
-	  (:div :class "all-products" 
-		(mapcar (lambda (product)
-			  (cl-who:htm
-			   (:div :class "product-box"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart)))))
-			data)))))
+    (:div :id "searchresult" 
+	  (cl-who:str (render-products-list data lstshopcart)))))
+
+(defun render-products-list (data lstshopcart)
+  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+    (:div :class "all-products" 
+	  (mapcar (lambda (product)
+		    (cl-who:htm
+		     (:div :class "product-card"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart)))))
+		  data))))
+
+(defun ui-list-cust-products-horizontal (data lstshopcart)
+  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+    (:div :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
+	  (with-html-div-row :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
+	    (mapcar (lambda (product)
+		      (cl-who:htm
+		       (:div :class "product-card"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart)))))
+		    data)))))
+
 
 
 (defun product-card-shopcart (product-instance odt-instance)
     (let* ((prd-name (slot-value product-instance 'prd-name))
 	   (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	   (prdqty (slot-value odt-instance 'prd-qty))
+	   (units-in-stock (slot-value product-instance 'units-in-stock))
 	   (unit-price (slot-value product-instance 'unit-price))
 	   (prd-image-path (slot-value product-instance 'prd-image-path))
 	   (prd-id (slot-value product-instance 'row-id))
-	   (subtotal (* prdqty unit-price))
-	   (prd-vendor (product-vendor product-instance)))
+	   (subtotal (* prdqty unit-price)))
+
       (cl-who:with-html-output (*standard-output* nil)
-	(with-html-form "form-shopcart" "dodcustupdatecart"    
-	  (with-html-div-row
-	    (:div  :class "col-xs-6" (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
-		    			;Remove button.
-	    (:div :class "col-xs-6" :align "right"
-		  (cl-who:htm (:a :data-toggle "tooltip" :title "Remove from shopcart"  :href (format nil "dodcustremshctitem?action=remitem&id=~A" prd-id) (:span :class "glyphicon glyphicon-remove")))))
-					;Product name and other details
-	  (with-html-div-row
-	    (:div :class "col-sm-12"
-		  (:h5 :class "product-name"  (cl-who:str prd-name) )
-		  (:p  (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor))))))
-	    (with-html-div-row
-	      (:div :class "col-sm-12"
-		    (:h4  (:span :class "label label-info" (cl-who:str (format nil "Rs. ~$ X ~A = Rs. ~$"  unit-price prdqty subtotal))))))))))
-
-
+	(:div (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "50" :width "70" :alt prd-name " ")))
+	(:div (:p (cl-who:str (format nil "~A: ~A/~A" prd-name unit-price qty-per-unit))))
+	(:div (:p (cl-who:str (format nil "~A" prdqty))))
+	;;(:div (:p  (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor)))))
+	(:div (:p (:span :class "label label-success" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal)))))
+	(:a  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id) :data-toggle "tooltip" :title "Modify"  :href "#" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) (:i :class "fa-regular fa-pen-to-square"))
+	(modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-edit-html product-instance odt-instance))
+	(:div (:a :data-toggle "tooltip" :title "Remove from shopcart"  :href (format nil "dodcustremshctitem?action=remitem&id=~A" prd-id) (:i :style "width: 15px; height: 15px; font-size: 20px;"  :class "fa-solid fa-xmark"))))))
 
 (defun product-card-for-email (product-instance odt-instance)
   (let* ((prd-name (slot-value product-instance 'prd-name))
@@ -99,11 +106,11 @@
 	 (prd-image-path (slot-value product-instance 'prd-image-path))
 	 (subtotal (* prdqty unit-price))
 	 (prd-vendor (product-vendor product-instance)))
-    (cl-who:with-html-output (*standard-output* nil)
-      (:div :class "row" (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
-      (:div (:h5 :class "product-name"  (cl-who:str prd-name)))
-      (:div (:p  (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor)))))
-      (:div (:h3(:span :class "label label-success" (cl-who:str (format nil "Rs. ~$ X ~A = Rs. ~$"  unit-price prdqty subtotal))))))))
+     (cl-who:with-html-output (*standard-output* nil)
+       (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
+       (:p  (cl-who:str prd-name))
+       (:p  (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor))))
+       (:div :class "txt-bg-success p3" (cl-who:str (format nil "Rs. ~$ X ~A = Rs. ~$"  unit-price prdqty subtotal))))))
 
 
 
@@ -111,8 +118,7 @@
     (let ((catg-name (slot-value prdcatg-instance 'catg-name))
 	  (row-id (slot-value prdcatg-instance 'row-id)))
 	(cl-who:with-html-output (*standard-output* nil)
-		(with-html-div-row
-		(:div :class "col-sm-12" (:a :href (format nil "dodproductsbycatg?id=~A" row-id) (cl-who:str catg-name)))))))
+	  (:a :href (format nil "dodproductsbycatg?id=~A" row-id) (cl-who:str catg-name)))))
 
 
 (defun modal.vendor-product-edit-html (product mode) 
@@ -130,12 +136,12 @@
 
  (cl-who:with-html-output (*standard-output* nil)
    (with-html-div-row 
-	 (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-	       (:form :id (format nil "form-vendorprod~A" mode) :data-toggle "validator"  :role "form" :method "POST" :action "dodvenaddproductaction" :enctype "multipart/form-data" 
+     (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+	   (:form :id (format nil "form-vendorprod~A" mode) :data-toggle "validator"  :role "form" :method "POST" :action "dodvenaddproductaction" :enctype "multipart/form-data" 
 					;(:div :class "account-wall"
-		(if (and product (equal mode "EDIT")) (cl-who:htm (:input :class "form-control" :type "hidden" :value prd-id :name "id")))
-		 (:div :align "center"  :class "form-group" 
-		       (:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
+		  (if (and product (equal mode "EDIT")) (cl-who:htm (:input :class "form-control" :type "hidden" :value prd-id :name "id")))
+		  (:div :align "center"  :class "form-group" 
+			(:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
 		 (:h1 :class "text-center login-title"  "Edit/Copy Product")
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
@@ -163,6 +169,35 @@
 		      (:div :class "form-group"
 			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
 
+(defun modal.vendor-product-shipping-html (product mode)
+  (let* ((prd-id (slot-value product 'row-id))
+	 (prd-name (slot-value product 'prd-name))
+	 (prd-image-path (slot-value product 'prd-image-path))
+	 (shipping-length-cms (slot-value product 'shipping-length-cms))
+	 (shipping-width-cms (slot-value product 'shipping-width-cms))
+	 (shipping-height-cms (slot-value product 'shipping-height-cms))
+	 (shipping-weight-kg (slot-value product 'shipping-weight-kg)))
+    (cl-who:with-html-output (*standard-output* nil)
+   (with-html-div-row 
+     (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+	   (with-html-form (format nil "form-vendorprodship~A" mode) "hhubvendaddprodshipinfoaction" 
+	     (if (and product (equal mode "EDIT"))
+		 (cl-who:htm (with-html-input-text-hidden "id" prd-id)))
+	     (:h1 :class "text-center login-title"  "Shipping Information")
+	     (:div :align "center"  :class "form-group" 
+			(:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
+	     (:div :class "form-group"
+		   (with-html-input-text "shipping-length-cms" "Shipping Length" "Enter Product length in CM" shipping-length-cms T "Enter Shipping Length in CM" 1))
+	     (:div :class "form-group"
+		   (with-html-input-text "shipping-width-cms" "Shipping Width" "Enter Product width in CM" shipping-width-cms T "Enter Shipping Width in CM" 2))
+	     (:div :class "form-group"
+		   (with-html-input-text "shipping-height-cms" "Shipping Height" "Enter Product height in CM" shipping-height-cms T "Enter Shipping Height in CM" 3))
+	     (:div :class "form-group"
+		   (with-html-input-text "shipping-weight-kg" "Shipping Weight" "Enter Product weight in KG" shipping-weight-kg T "Enter Shipping Weight in KG" 1))
+	     (:div :class "form-group"
+		   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+
+	
 
 
 (defun modal.vendor-product-reject-html (prd-id tenant-id)
@@ -221,47 +256,55 @@
 
 
 (defun product-card-for-vendor (product-instance)
-    (let ((prd-name (slot-value product-instance 'prd-name))
-	  (qty-per-unit (slot-value product-instance 'qty-per-unit))
-	  (unit-price (slot-value product-instance 'unit-price))
-	  (units-in-stock (slot-value product-instance 'units-in-stock))
-	  (description (slot-value product-instance 'description))
-	  (prd-image-path (slot-value product-instance 'prd-image-path))
-	  (prd-id (slot-value product-instance 'row-id))
-	  (active-flag (slot-value product-instance 'active-flag))
-	  (approved-flag (slot-value product-instance 'approved-flag))
-	  (approval-status (slot-value product-instance 'approval-status))
-	  (subscribe-flag (slot-value product-instance 'subscribe-flag))
-	  (external-url (slot-value product-instance 'external-url)))
+  (let ((prd-name (slot-value product-instance 'prd-name))
+	(qty-per-unit (slot-value product-instance 'qty-per-unit))
+	(unit-price (slot-value product-instance 'unit-price))
+	(units-in-stock (slot-value product-instance 'units-in-stock))
+	(description (slot-value product-instance 'description))
+	(prd-image-path (slot-value product-instance 'prd-image-path))
+	(prd-id (slot-value product-instance 'row-id))
+	(active-flag (slot-value product-instance 'active-flag))
+	(approved-flag (slot-value product-instance 'approved-flag))
+	(approval-status (slot-value product-instance 'approval-status))
+	(subscribe-flag (slot-value product-instance 'subscribe-flag))
+	(external-url (slot-value product-instance 'external-url))
+	(shipping-weight-kg (slot-value product-instance 'shipping-weight-kg)))
 	 
+      
+      (cl-who:with-html-output (*standard-output* nil)
+	  (with-html-div-row :style "background-color:#e6f0ff; border-bottom: solid 1px; margin-bottom: 3px;"
+	    (if (equal active-flag "Y")
+		(cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Turn Off" 
+				  (:a   :href (format nil "dodvenddeactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off"))))
+					;else
+		(cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Turn On" 
+				  (:a :href (format nil "dodvendactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off")))))
+	    (:div :class "col-xs-2" :data-toggle "tooltip" :title "Copy" 
+		  (:a :data-toggle "modal" :data-target (format nil "#dodvendcopyprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-clone"))
+		  (modal-dialog (format nil "dodvendcopyprod-modal~A" prd-id) "Copy Product" (modal.vendor-product-edit-html  product-instance "COPY")))
+	    (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Edit" 
+		  (:a :data-toggle "modal" :data-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
+		  (modal-dialog (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
 	    
-	(cl-who:with-html-output (*standard-output* nil)
-	  (:div :style "background-color:#e6f0ff; border-bottom: solid 1px; margin-bottom: 3px;" :class "row"
-		(if (equal active-flag "Y")
-		    (cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Turn Off" 
-		      (:a   :href (format nil "dodvenddeactivateprod?id=~A" prd-id) (:span :class "glyphicon glyphicon-off"))))
-		    ;else
-		    (cl-who:htm (:div :class "col-xs-2" :data-toggle "tooltip" :title "Turn On" 
-		      (:a :href (format nil "dodvendactivateprod?id=~A" prd-id) (:span :class "glyphicon glyphicon-off")))))
-		(:div :class "col-xs-2" :data-toggle "tooltip" :title "Copy" 
-		      (:a :data-toggle "modal" :data-target (format nil "#dodvendcopyprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-copy"))
-		      (modal-dialog (format nil "dodvendcopyprod-modal~A" prd-id) "Copy Product" (modal.vendor-product-edit-html  product-instance "COPY")))
-		(:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Edit" 
-		     (:a :data-toggle "modal" :data-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
-		     (modal-dialog (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
-
-		(unless external-url
-		  (cl-who:htm 
-		   (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Information: Edit & Save to enable sharing" 
-			 (:a :href "#" (:span :class  "glyphicon glyphicon-share")))))
-		(when external-url
-		  (cl-who:htm
-		   (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Copy External URL" 
-			 (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:span :class  "glyphicon glyphicon-share")))))
-		     		
-		(:div :class "col-xs-2" :align "right" "")
-		(:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Delete" 
-		      (:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:span :class "glyphicon glyphicon-remove"))))
+	    (unless external-url
+	      (cl-who:htm 
+	       (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Information: Edit & Save to enable sharing" 
+		     (:a :href "#" (:span :class  "glyphicon glyphicon-share")))))
+	    (when external-url
+	      (cl-who:htm
+	       (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Copy External URL" 
+		     (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes")))))
+	    
+	    (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Shipping" 
+		  (if (and shipping-weight-kg (> shipping-weight-kg 0)) 
+		      (cl-who:htm
+		       (:a :data-toggle "modal" :data-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck")))
+		      ;;else
+		      (cl-who:htm
+		       (:a :style "color:red;" :data-toggle "modal" :data-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck"))))
+		  (modal-dialog (format nil "dodprodshipping-modal~A" prd-id) "Shipping" (modal.vendor-product-shipping-html product-instance "EDIT")))
+	    (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Delete" 
+		  (:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:i :class "fa-solid fa-xmark"))))
 	  (with-html-div-row
 		(if (<= units-in-stock 0) 
 		    (cl-who:htm (:div :class "stampbox rotated" "NO STOCK" ))
@@ -328,11 +371,6 @@
 	  )))
 
 
-
-
-
-
-
 (defun product-card (product-instance prdincart-p)
     (let ((prd-name (slot-value product-instance 'prd-name))
 	  (unit-price (slot-value product-instance 'unit-price))
@@ -340,36 +378,28 @@
 	  (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	  (units-in-stock (slot-value product-instance 'units-in-stock))
 	  (description (slot-value product-instance 'description))
-	  (prd-id (slot-value product-instance 'row-id))
-	  (subscribe-flag (slot-value product-instance 'subscribe-flag))
-	  (customer-type (get-login-customer-type)))
+	  (prd-id (slot-value product-instance 'row-id)))
+	
       (cl-who:with-html-output (*standard-output* nil)
 	(:a  :href (format nil "dodprddetailsforcust?id=~A" prd-id) (:img :src  (format nil "~A" prd-image-path)  :alt prd-name " "))
-	(:div :class "product-info"
-	      (:p :class "product-price" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit)))
-	      (:h4 :class "product-title" (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) (cl-who:str prd-name)))
-	(with-html-div-row
-	  (when (and (equal subscribe-flag "Y") 
-		     (equal customer-type "STANDARD"))
-	    (cl-who:htm
-	     (:div :class "col-xs-6"  
-		   (:button :data-toggle "modal" :data-target (format nil "#productsubscribe-modal~A" prd-id)  :href "#"   :class "btn btn-sm btn-primary" :id (format nil "btnsubscribe~A" prd-id) :name (format nil "btnsubscribe~A" prd-id)  (:span :class "glyphicon glyphicon glyphicon-hand-up") " Subscribe"))
-	  (modal-dialog (format nil "productsubscribe-modal~A" prd-id) "Subscribe Product/Service" (product-subscribe-html prd-id))))
-	  (if  prdincart-p 
-	       (cl-who:htm   (:div :class "col-xs-6"  (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);") (:span :class "glyphicon glyphicon-ok"  ))))
-	       ;; else 
-	       (if (and units-in-stock (> units-in-stock 0))
-		   (cl-who:htm (:div  :class "col-xs-6"   
-				      (:button  :data-toggle "modal" :data-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "btn btn-sm btn-primary prdaddbtn" :id (format nil "btnaddproduct~A" prd-id) :name (format nil "btnaddproduct~A" prd-id)  (:span :class "glyphicon glyphicon glyphicon-plus") " Add")
-				      (modal-dialog (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-edit-html prd-id))))
-		   ;; else
-		   (cl-who:htm (:div :class "col-xs-6" 
-				     (:h5 (:span :class "label label-danger" "Out Of Stock")))))))
-	(with-html-div-row 
-	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12" 
-		(:h6 (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))))))))
+	(:div :class "product-details"
+	      (:p :class "new-price" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit)))
+	      (:p :class "product-title" (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) (cl-who:str prd-name)))
+	      ;; Display the subscribe button only for standard customers.
+	      
+	      (if  prdincart-p 
+		   (cl-who:htm (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);")(:i :class "fa-solid fa-check")))
+		   ;; else 
+		   (if (and units-in-stock (> units-in-stock 0))
+		       (cl-who:htm (:button  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "add-to-cart-btn" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id)  "Add&nbsp; " (:i :class "fa-solid fa-plus"))
+				   (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-add-html product-instance)))
+		       ;; else
+		       (cl-who:htm (:div :class "col-6" 
+					 (:h5 (:span :class "label label-danger" "Out Of Stock"))))))
+	      (:p :class "description"  (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))))))
 
-(defun product-card-with-details-for-customer (product-instance prdincart-p)
+
+(defun product-card-with-details-for-customer (product-instance customer  prdincart-p)
   (let* ((prd-name (slot-value product-instance 'prd-name))
 	 (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	 (units-in-stock (slot-value product-instance 'units-in-stock))
@@ -377,33 +407,38 @@
 	 (description (slot-value product-instance 'description))
 	 (prd-image-path (slot-value product-instance 'prd-image-path))
 	 (prd-id (slot-value product-instance 'row-id))
+	 (subscribe-flag (slot-value product-instance 'subscribe-flag))
+	 (cust-type (slot-value customer 'cust-type))
 	 (prd-vendor (product-vendor product-instance))
 	 (vendor-id (slot-value prd-vendor 'row-id)))
     (cl-who:with-html-output (*standard-output* nil)
-      (:div :class "container"
-	    (with-html-div-row
-					; Product image only here
-	      (:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6 image-responsive"
-		    (:img :src  (format nil "~A" prd-image-path) :height "300" :width "400" :alt prd-name " "))
-	      (:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6"
-		    (:h1  (cl-who:str prd-name))
-		    (:div (cl-who:str qty-per-unit))
-		    (:button :data-toggle "modal" :data-target (format nil "#vendordetails-modal~A" vendor-id)  :href "#"   :class "btn btn-sm btn-primary" :name "btnvendormodal" (cl-who:str (name prd-vendor)))  
-		    (modal-dialog (format nil "vendordetails-modal~A" vendor-id) (cl-who:str (format nil "Vendor Details")) (modal.vendor-details vendor-id))
-					; (:div (cl-who:str (format nil "Supplier - "))  (:a :href (format nil  "dodvendordetails?id=~A" (slot-value prd-vendor 'row-id)) (cl-who:str (name prd-vendor))))
-		    (:hr)
-		    (:div  (:h2 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$"  unit-price))) ))
-		    (:hr)
-		    (:div (:h4 (cl-who:str description)))
-		    (if  prdincart-p 
-			 (cl-who:htm (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);") (:span :class "glyphicon glyphicon-ok"  )))
-					;else
-			 (when (and units-in-stock (> units-in-stock 0))
-			   (cl-who:htm
-			    (:div  :class "col-xs-6"   
-				   (:button :data-toggle "modal" :data-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "btn btn-sm btn-primary" :name "btnsubscribe"  (:span :class "glyphicon glyphicon glyphicon-plus") " Add")
-				   (modal-dialog (format nil "producteditqty-modal~A" prd-id) "Edit Product Quantity" (product-qty-edit-html prd-id ))))))))))))
-
+      (:div :class "single-product-card"
+	    ;; Product image only here
+	    (:img :src  (format nil "~A" prd-image-path) :height "200" :width "323" :alt prd-name " ")
+	    (:div :class "product-details"
+		  (:p :class "product-title" (cl-who:str prd-name))
+		  (:p (cl-who:str qty-per-unit))
+		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#vendordetails-modal~A" vendor-id)  :href "#"   :class "btn btn-sm btn-primary" :onclick "addtocartclick(this.id);" :name "btnvendormodal" (cl-who:str (name prd-vendor)))  
+		  (modal-dialog-v2 (format nil "vendordetails-modal~A" vendor-id) (cl-who:str (format nil "Vendor Details")) (modal.vendor-details vendor-id))
+		  (:hr)
+		  (:p :class "new-price" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit)))
+		  (:hr)
+		  (:p (cl-who:str description))
+		  (if  prdincart-p 
+		       (cl-who:htm (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);")(:i :class "fa-solid fa-check")))
+		       ;; else 
+		 (if (and units-in-stock (> units-in-stock 0))
+		     (cl-who:htm (:button  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "add-to-cart-btn" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id)  "Add&nbsp; " (:i :class "fa-solid fa-plus"))
+				 (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-add-html product-instance)))
+		     ;; else
+		     (cl-who:htm (:div :class "col-6" 
+				       (:h5 (:span :class "label label-danger" "Out Of Stock"))))))
+		  (when (and (equal subscribe-flag "Y") 
+			     (equal cust-type "STANDARD"))
+	      (cl-who:htm
+	       (:button :data-bs-toggle "modal" :data-bs-target (format nil "#productsubscribe-modal~A" prd-id)  :href "#"   :class "subscription-btn" :id (format nil "btnsubscribe~A" prd-id) :name (format nil "btnsubscribe~A" prd-id) "Subscribe&nbsp;" (:i :class "fa-solid fa-hand-point-up"))
+	       (modal-dialog-v2 (format nil "productsubscribe-modal~A" prd-id) "Subscribe Product/Service" (product-subscribe-html prd-id)))))))))
+  
 
 
 

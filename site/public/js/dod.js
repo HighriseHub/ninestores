@@ -6,10 +6,80 @@ var cartitemscount = 0;
 // Create a generic JQuery AJAX function
 var ajaxCallParams = {};
 var ajaxDataParams = {}; 
+var slideindex =1;
+
+
+const setRangeValue = (event)=>{
+    
+    const range = event.target;
+    const id = event.target.id; 
+    const prdrowid = id.substring(id.indexOf("_") + 1);
+    const rangeV = document.querySelector('#rangeV_' + prdrowid);
+    const
+    newValue = Number( (range.value - range.min) * 100 / (range.max - range.min) ),
+    newPosition = 10 - (newValue * 0.2);
+    rangeV.innerHTML = `<span>${range.value}</span>`;
+    rangeV.style.left = `calc(${newValue}% + (${newPosition}px))`;
+    };
+
+$(document).ready(function() {
+  var $navbar = $("#hhubcustnavbar");
+  
+  StickyHeader(); // Incase the user loads the page from halfway down (or something);
+  $(window).scroll(function() {
+      StickyHeader();
+  });
+    
+    function StickyHeader(){
+	if ($(window).scrollTop() > 60) {
+	    if (!$navbar.hasClass("navbar-fixed-top")) {
+		$navbar.addClass("navbar-fixed-top");
+	    }
+	} else {
+	    $navbar.removeClass("navbar-fixed-top");
+	}
+    }
+});
+
 
 $(document).ready(function(){
     cartitemscount = 0;
+    var carouselcontainer = document.getElementById('carousel-container');
+    if(carouselcontainer != null){
+	//setInterval(performslideshow, 6000);
+    }
 });
+
+function performslideshow(){
+    var linkid, previouslinkid, link, previouslink;; 
+    if(slideindex == 6)
+    {
+	previouslinkid = "#slidelink" + (slideindex -1);
+	previouslink = document.querySelector(previouslinkid);
+	previouslink.style = "background-color: white;"
+	slideindex =1;
+    }
+    else
+    {
+	linkid = "#slidelink" + slideindex;
+	link = document.querySelector(linkid);
+	link.style = "background-color: grey;"
+	
+	    // We will click the button only if we are in the first 300 pixels
+	if ($(window).scrollTop() < 300) {
+	    link.click();
+	}
+	
+	if(slideindex > 1){
+	    previouslinkid = "#slidelink" + (slideindex -1);
+	    previouslink = document.querySelector(previouslinkid);
+	    previouslink.style = "background-color: white;"
+	}
+	slideindex++;
+    }
+    
+}
+
 
 
 function countdowntimer (days, hours, minutes, seconds){ 
@@ -86,6 +156,13 @@ function ajaxCall(callParams, dataParams, callback) {
     });
 }
 
+/* This function displays the spinner on every link click. 
+
+$("a").click(function(){
+    var href = $(this).prop('href');
+    if(href.endsWith("#") == false)
+	$busyindicator.appendChild(spinner.el);
+});*/
 
 $(document).ready(function () {
     $.ajaxSetup({
@@ -106,11 +183,13 @@ function goback (){
     };
 }
 
-function pincodecheck (pincodefield, cityfield, statefield, areafield){
+function pincodecheck (addressfield, pincodefield, cityfield, statefield, areafield){
     var city = cityfield;
     var pincode = pincodefield.val();
     var state = statefield;
     var localarea = areafield;
+    var address = addressfield;
+    var addressval = address.val();
     
     if (pincode.length  == 6){
 	ajaxCallParams.Type = "GET"; 
@@ -126,9 +205,10 @@ function pincodecheck (pincodefield, cityfield, statefield, areafield){
 	    if(retdata['success'] != 0){
 		console.log(retdata);
 		var data = retdata['result'];
-		city.val(data[0].city);
+		city.val(data[0].locality + ", " +  data[0].city)
 		state.val(data[0].state);
 		localarea.text(data[0].locality);
+		
 	    }
 	    else
 	    {
@@ -144,14 +224,14 @@ function pincodecheck (pincodefield, cityfield, statefield, areafield){
 
 $(document).ready(function() {
     $('#shipzipcode').keyup(function(){
-        pincodecheck($('#shipzipcode'),$('#shipcity'), $('#shipstate'), $('#areaname'));
+        pincodecheck($('#shipaddress'),$('#shipzipcode'),$('#shipcity'), $('#shipstate'), $('#areaname'));
     });
 });
 
 
 $(document).ready(function() {
     $('#cmpzipcode').keyup(function(){
-        pincodecheck($('#cmpzipcode'), $('#cmpcity'), $('#cmpstate'), $('#areaname'));
+        pincodecheck($('#cmpaddress'),$('#cmpzipcode'), $('#cmpcity'), $('#cmpstate'), $('#areaname'));
     });
 });
 
@@ -276,10 +356,8 @@ const copyToClipboard = text => {
   }, function(err) {
     console.error('Async: Could not copy text: ', err);
   });
+    displaySuccess("#hhub-success","Copied To Clipboard");   
 }
-
-
-
 
 
 function getCookie(k)
@@ -300,37 +378,55 @@ $(document).ready(function() {
 });
 
 
+function addtocartclick (id){
+    event.preventDefault();
+
+    const addtocartbtn = document.querySelector("#"+id);
+    const prdrowid = id.substring(id.indexOf("_") + 1);
+
+    const range = document.querySelector('#range_' + prdrowid);
+    const rangeV = document.querySelector('#rangeV_' + prdrowid);
+    range.addEventListener('input', setRangeValue);
+
+    const
+    newValue = Number( (range.value - range.min) * 100 / (range.max - range.min) ),
+    newPosition = 10 - (newValue * 0.2);
+    rangeV.innerHTML = `<span>${range.value}</span>`;
+    rangeV.style.left = `calc(${newValue}% + (${newPosition}px))`;
+
+}
+
 function plusbtnclick (id){
-    var plusbutton = document.getElementById(id);
-    var prdrowid = id.substring(id.indexOf("_") + 1);
-    var elemname = "prdqtyfor_" + prdrowid; 
-    var prdqtyelem = document.getElementById(elemname);
-    prdqtyelem.value = parseInt(prdqtyelem.value) + 1; 
+    event.preventDefault();
+    const plusbutton = document.querySelector("#"+id);
+    const  prdrowid = id.substring(id.indexOf("_") + 1);
+    const  elemname = "#prdqtyfor_" + prdrowid; 
+    const  prdqtyelem = document.querySelector(elemname);
+    prdqtyelem.valueAsNumber++;
 }
 
 function minusbtnclick (id){
-    var plusbutton = document.getElementById(id);
-    var prdrowid = id.substring(id.indexOf("_") + 1);
-    var elemname = "prdqtyfor_" + prdrowid; 
-    var prdqtyelem = document.getElementById(elemname);
+    event.preventDefault();
+    const plusbutton = document.querySelector("#"+id);
+    const prdrowid = id.substring(id.indexOf("_") + 1);
+    const elemname = "#prdqtyfor_" + prdrowid; 
+    const prdqtyelem = document.querySelector(elemname);
     if(prdqtyelem.value == 0) return false; 
-    prdqtyelem.value = parseInt(prdqtyelem.value) - 1; 
+    prdqtyelem.valueAsNumber--;
 }
 
 
-$(document).ready (function(){
-    $('.prdaddbtn').on('click',function(){
-	$('.input-quantity').val(1);
-    }); 
-});
+
 
 function countChar(val, maxchars){
 var length = val.value.length; 
-    if (length >= maxchars){
-	val.value = val.value.substring(0, maxchars); 
+    if (length >= maxchars+1){
+	val.value = val.value.substring(0, maxchars);
+	$('#charcount').text ("Length Exceeded beyond - " + maxchars)
     }else {
 	$('#charcount').text (maxchars - length)
-	}
+    }
+
 }; 
 
 
@@ -510,7 +606,7 @@ $(document).ready(function(){
 		  
 		   //document.getElementById("livesearch").innerHTML=this.responseText;
 		//document.getElementById("livesearch").style.border="1px solid #A5ACB2";
-			$("#searchresult").html(response); 
+		    $("#searchresult").html(response); 
 		//	$("#finalResult").style.border = "1px solid #a5acb2";
 		}, 
 		error: function(){      
@@ -540,6 +636,11 @@ $(document).ready (function(){
 	$('html, body').animate({scrollTop:0}, '300');
     });
 }); 
+
+
+
+
+
 
 $(document).ready (function(){
     var floatingbtn = $('#floatingcheckoutbutton');

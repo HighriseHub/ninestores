@@ -105,7 +105,8 @@
 
 		     ;; Shipping
 		     "shipping/dod-dal-osh.lisp"
-
+		     "shipping/dod-bl-osh.lisp"
+		     "shipping/dod-ui-osh.lisp"
 		   
 		     ;; UNIT TESTS
 		     "test/hhub-tst-upi.lisp"

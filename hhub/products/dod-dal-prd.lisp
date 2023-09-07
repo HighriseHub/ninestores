@@ -88,7 +88,22 @@
     :type (string 255)
     :initarg :external-url)
 
-   
+   (shipping-length-cms
+    :type integer
+    :initarg :shipping-length-cms)
+
+   (shipping-width-cms
+    :type integer
+    :initarg :shipping-width-cms)
+
+   (shipping-height-cms
+    :type integer
+    :initarg :shipping-height-cms)
+
+   (shipping-weight-kg
+    :type float
+    :initarg :shipping-weight-kg)
+ 
    (active-flag
     :type (string 1)
     :void-value "N"

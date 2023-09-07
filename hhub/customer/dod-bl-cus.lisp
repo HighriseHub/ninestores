@@ -288,8 +288,9 @@
 
 (defun create-guest-customer(company)
   (let ((tenant-id (slot-value company 'row-id))
-	(customer-name (format nil "Guest Customer - ~A" (slot-value company 'name))))
- (clsql:update-records-from-instance (make-instance 'dod-cust-profile
+	(customer-name (format nil "Guest Customer - ~A" (slot-value company 'name)))
+	(existingguestcust (select-guest-customer company)))
+    (unless existingguestcust (clsql:update-records-from-instance (make-instance 'dod-cust-profile
 						    :name customer-name
 						    :address (slot-value company 'address)
 						    :email nil 
@@ -303,7 +304,7 @@
 						    :tenant-id tenant-id
 						    :cust-type "GUEST"
 						    :active-flag "Y"
-						    :deleted-state "N"))))
+						    :deleted-state "N")))))
 
 
 
@@ -324,8 +325,8 @@
 				    		    :deleted-state "N")))
 
 (defun check-wallet-balance (amount customer-wallet)
-(let ((cur-balance (slot-value customer-wallet  'balance)))
-  (if (> cur-balance amount) T nil)))
+  (let ((cur-balance (slot-value customer-wallet  'balance)))
+    (if (> cur-balance amount) T nil)))
 
 (defun check-low-wallet-balance (customer-wallet) 
 (if (< (slot-value customer-wallet 'balance) 50.00) T nil))

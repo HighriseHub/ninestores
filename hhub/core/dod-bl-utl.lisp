@@ -2,6 +2,33 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+
+
+(defun max-item (list)
+  (loop for item in list
+        maximizing item))
+
+(defun min-item (list)
+  (loop for item in list
+	minimizing item))
+
+
+(defun average (list)
+  (when (and list (> (length list) 0)) 
+    (/ (reduce #'+ list) (length list))))
+
+(defun get-max-of (objlist fieldname)
+  (reduce #'max (mapcar (lambda (object)
+			(let ((fieldvalue (slot-value object fieldname)))
+			  fieldvalue)) objlist)))
+
+
+(defun get-total-of (objlist fieldname)
+  (reduce #'+ (mapcar (lambda (object)
+			(let ((fieldvalue (slot-value object fieldname)))
+			  (if fieldvalue fieldvalue 0))) objlist)))
+
+
 (defun createwhatsapplink (phone)
   (format nil "~A~A" *HHUBWHATAPPLINKURLINDIA* phone))
 
@@ -68,6 +95,12 @@
     :documentation "If the key is found in the hash table, then return the value. Otherwise it returns nil in two cases. One- the key was present and value was nil. Second - key itself is not present"
   (multiple-value-bind (value present) (gethash key hash-table)
       (if present value )))
+
+(defun get-ht-values (hashtable)
+  (loop for v being the hash-value in hashtable
+	return (format nil "~A" v)))
+	     
+
 
 (defun parse-date-string (datestr)
   "Read a date string of the form \"DD/MM/YYYY\" and return the 
@@ -186,6 +219,7 @@ corresponding universal time."
   (multiple-value-bind (day mon year) 
 	  (clsql-sys:decode-date dateobj) 
 	    (encode-universal-time  0 0 0 day mon year)))
+
 
 
 (defvar *unix-epoch-difference*
