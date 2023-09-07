@@ -5,13 +5,15 @@
 
 (defun com-hhub-transaction-vendor-reject-action ()
   (with-cad-session-check
-    (let ((params nil))
+    (let ((params nil)
+	  (companyadmin (get-login-user)))
       (setf params (acons "uri" (hunchentoot:request-uri*)  params))
       (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
    (with-hhub-transaction "com-hhub-transaction-vendor-reject-action" params
-      (let ((id (hunchentoot:parameter "vendor-id")))
-	(reject-vendor id)))
-     (hunchentoot:redirect "/hhub/hhubvendorapprovalpage"))))
+     (let* ((id (hunchentoot:parameter "vendor-id"))
+	    (vendor (select-vendor-by-id id)))
+       (reject-vendor vendor companyadmin)
+       (hunchentoot:redirect "/hhub/hhubvendorapprovalpage"))))))
       
 (defun com-hhub-transaction-vendor-approve-action () 
   (with-cad-session-check
@@ -40,7 +42,6 @@
 	 (adapter (make-instance 'VendorApprovalAdapter))
 	 (updatedvendor (ProcessUpdateRequest adapter requestmodel)))
     updatedvendor))
-
 
 
 (defun dod-controller-product-categories-page ()
@@ -338,10 +339,8 @@
     (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
     (with-hhub-transaction "com-hhub-transaction-cad-logout" params 
       (progn (dod-logout (get-login-user-name))
-	     (hunchentoot:remove-session hunchentoot:*session*)
+	     (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
 	     (hunchentoot:redirect "/hhub/cad-login.html")))))
-
-
 
 (defun com-hhub-transaction-cad-product-reject-action ()
   (with-cad-session-check

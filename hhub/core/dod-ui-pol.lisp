@@ -5,6 +5,18 @@
 ;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR HIGHRISEHUB ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun com-hhub-policy-vendor-prod-ship-infoadd (&optional (params nil))
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (vendor (cdr (assoc "vendor" params :test 'equal)))
+	 (vendor-name (slot-value vendor 'name))
+	 (suspend-flag (slot-value company 'suspend-flag))
+	 (shipping-enabled (com-hhub-attribute-vendor-shipping-enabled vendor)))
+    (unless shipping-enabled
+      (error 'hhub-abac-transaction-error :errstring (format nil "Vendor Name: ~A : Shipping is not enabled" vendor-name)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
+
 (defun com-hhub-policy-vendor-approve-action (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
 	 (suspend-flag (slot-value company 'suspend-flag))
@@ -55,7 +67,8 @@
     (when (<= (- maxcustomercount  currcustomercount) 0)
       (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. You have exceeded maximum numbers of customer allowed to be created." company-name)))
     (when (com-hhub-attribute-company-issuspended suspend-flag)
-      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))))
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
 
 
 

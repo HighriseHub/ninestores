@@ -315,7 +315,7 @@
   
 
   
-(defun persist-order(order-date customer-id request-date ship-date ship-address  context-id order-amt payment-mode comments tenant-id )
+(defun persist-order(order-date customer-id request-date ship-date ship-address  context-id order-amt shipping-cost payment-mode comments tenant-id )
  (clsql:update-records-from-instance (make-instance 'dod-order
 					 :ord-date order-date
 					 :cust-id customer-id
@@ -330,21 +330,22 @@
 					 :status "PEN"
 					 :order-type "SALE"
 					 :order-amt order-amt
+					 :shipping-cost shipping-cost
 					 :deleted-state "N")))
 
 
 
-(defun create-order (order-date customer-instance request-date ship-date ship-address context-id order-amt payment-mode comments company-instance) 
+(defun create-order (order-date customer-instance request-date ship-date ship-address context-id order-amt shipping-cost payment-mode comments company-instance) 
   (let ((customer-id (slot-value  customer-instance 'row-id) )
 	(tenant-id (slot-value company-instance 'row-id)))
-    (persist-order order-date customer-id request-date ship-date ship-address  context-id order-amt payment-mode comments  tenant-id)))
+    (persist-order order-date customer-id request-date ship-date ship-address  context-id order-amt shipping-cost payment-mode comments  tenant-id)))
 
 
 
-(defun create-order-from-pref (order-pref-list order-date request-date ship-date ship-address order-amt  customer-instance company-instance)
+(defun create-order-from-pref (order-pref-list order-date request-date ship-date ship-address order-amt shipping-cost customer-instance company-instance)
   (let ((uuid (uuid:make-v1-uuid ))
 	(tenant-id (slot-value company-instance 'row-id)))
-      (progn  (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt "PRE" nil  company-instance)
+      (progn  (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost "PRE" nil  company-instance)
 	      (let ((order (get-order-by-context-id (print-object uuid nil) company-instance))
 		    (vendors (get-opref-vendorlist order-pref-list))
 		    (cust-id (slot-value customer-instance 'row-id)))
@@ -375,7 +376,7 @@
 	(if (member day lst) t nil)))
 
 
-(defun create-order-email-content (vproducts vitems customer order-id total)
+(defun create-order-email-content (vproducts vitems customer order-id shipping-cost sub-total)
   (with-slots (zipcode address phone email city state name) customer
     (let* ((headerstr (with-html-table "" (list "Particulars" "Details") "1"
 			(:tr (:td (cl-who:str (format nil "Order No")))
@@ -390,19 +391,53 @@
 				  (:td (cl-who:str (format nil "~A" email)))))))
 	   (datastr (ui-list-shopcart-for-email vproducts vitems))
 	   (footer (cl-who:with-html-output-to-string (*standard-output* nil)
-		      (:tr (:td :align "right"
-				(:h2  (:span  :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total)))))))))
+		     (:tr (:td :align "right"
+			       (:span  :class "label label-default" (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))))
+		     (:tr (:td :align "right"
+			       (:span  :class "label label-default" (cl-who:str (format nil "Sub Total: ~A ~$" *HTMLRUPEESYMBOL* sub-total)))))
+		     (:tr (:td :align "right"
+			       (:h2  (:span  :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* (+ shipping-cost sub-total))))))))))
       (hhub-log-message  (format nil "~A~A~A" headerstr datastr footer))
       (format nil "~A~A~A" headerstr datastr footer))))
+
+(defun create-order-email-content-for-vendor (vproducts vitems customer order-id shipping-info total)
+  (with-slots (zipcode address phone email city state name) customer
+    (let* ((headerstr (with-html-table "" (list "Particulars" "Details") "1"
+			(:tr (:td (cl-who:str (format nil "Order No")))
+			     (:td (cl-who:str (format nil "~A" order-id))))
+			(:tr (:td (cl-who:str (format nil "Name")))
+			     (:td (cl-who:str (format nil "~A" name)))
+			     (:tr (:td (cl-who:str (format nil "Address")))
+				  (:td (cl-who:str (format nil "~A, ~A, ~A, ~A" address city zipcode state))))
+			     (:tr (:td (cl-who:str (format nil "Phone")))
+				  (:td (cl-who:str (format nil "~A" phone))))
+			     (:tr (:td (cl-who:str (format nil "Email")))
+				  (:td (cl-who:str (format nil "~A" email)))))))
+	   (datastr (ui-list-shopcart-for-email vproducts vitems))
+	   (footer (cl-who:with-html-output-to-string (*standard-output* nil)
+		     (:tr (:td :align "right"
+			       (:h2  (:span  :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total))))))))
+	   (shipstr (process-shipping-information-for-email shipping-info)))
+      ;;(hhub-log-message  (format nil "~A~A~A" headerstr datastr footer))
+      (format nil "~A~A~A~A" headerstr datastr footer shipstr))))
+
+(defun process-shipping-information-for-email (shipping-info)
+  (when shipping-info
+    (with-html-table "" (list "Provider" "Weight Limit" "Rate" "Zone" "Timeline") "1"  
+      (mapcar (lambda (shipinfo)
+		(cl-who:htm
+		 (:tr
+		  (:td (cl-who:str (nth 0 shipinfo)))
+		  (:td (cl-who:str (nth 8 shipinfo)))
+		  (:td (cl-who:str (nth 9 shipinfo)))
+		  (:td (cl-who:str (nth 10 shipinfo)))
+		  (:td (cl-who:str (nth 11 shipinfo)))))) shipping-info))))
   
 
-
-
-
-(defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt payment-mode  comments customer-instance company-instance guest-customer utrnum)
+(defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt shipping-cost shipping-info payment-mode  comments customer-instance company-instance guest-customer utrnum)
   (let ((uuid (uuid:make-v1-uuid )))
       ;; Create an order in the database. 
-      (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt payment-mode comments  company-instance)
+      (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments  company-instance)
       (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
 	     (order-id (slot-value order 'row-id))
 	     (cust-id (slot-value customer-instance 'row-id))
@@ -431,13 +466,14 @@
 			    (total (get-order-items-total-for-vendor vendor vitems))
 			    (vendor-id (slot-value vendor 'row-id))
 			    (custinst (if (equal cust-type "GUEST") guest-customer customer-instance))
-			    (order-disp-str (create-order-email-content vproducts vitems custinst order-id total))) 
+			    (order-disp-str (create-order-email-content vproducts vitems custinst order-id shipping-cost total))
+			    (shipstr (process-shipping-information-for-email shipping-info))) 
       		       
-		       (persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total )
+		       (persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost)
 		       ;; Save the UPI Transaction 
 		       (when utrnum (save-upi-transaction total utrnum (format nil "#ORD:~A" order-id) custinst vendor company-instance (slot-value custinst 'phone)))
 		       ;;Send a mail to the vendor
-		       (when vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  order-disp-str))
+		       (when vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  (format nil "~A~A" order-disp-str shipstr)))
 		       ;; Send a push notification on the vendor's browser
 		       (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)) :name (format nil "Order Thread: ~d" order-id ))
       ;; Return the order id
@@ -445,7 +481,7 @@
 
 
 
-(defun persist-vendor-orders(order-id cust-id vendor-id tenant-id ord-date req-date ship-date ship-address payment-mode order-amt )
+(defun persist-vendor-orders(order-id cust-id vendor-id tenant-id ord-date req-date ship-date ship-address payment-mode order-amt shipping-cost )
  (clsql:update-records-from-instance (make-instance 'dod-vendor-orders
 					 :order-id order-id
 					 :cust-id cust-id
@@ -458,6 +494,7 @@
 					 :ship-address ship-address
 					 :payment-mode payment-mode 
 					 :order-amt order-amt
+					 :shipping-cost shipping-cost
 					 :deleted-state "N"
 					 :tenant-id tenant-id )))
 
@@ -482,7 +519,7 @@
 										 (if (equal (slot-value preference 'sat) "Y") 6))))
 								(if (member (clsql-sys:date-dow requestdate) lst) t nil)))
 							    (get-opreflist-for-customer customer))))
-			    (if custopflist  (create-order-from-pref custopflist orderdate requestdate nil (slot-value customer 'address) nil   customer dodcompany)) )) customers)))
+			    (if custopflist  (create-order-from-pref custopflist orderdate requestdate nil (slot-value customer 'address) nil 0 customer dodcompany)) )) customers)))
 
 
 

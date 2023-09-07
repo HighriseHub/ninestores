@@ -4,6 +4,7 @@
 (defun com-hhub-transaction-cust-edit-order-item ()
   (let ((params nil))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+    (setf params (acons "company" (get-login-customer-company) params))
   (with-hhub-transaction "com-hhub-transaction-cust-edit-order-item" params 
       (let* ((item-id (hunchentoot:parameter "item-id"))
 	     (company (get-login-customer-company))
@@ -36,12 +37,16 @@
 
 
 (defun order-item-edit-popup (item-id) 
- (let* ((order-item (get-order-item-by-id item-id))
-	(order-id (slot-value order-item 'order-id))
-	(product (get-odt-product order-item))
-	(prd-id (slot-value product 'row-id))
-	(prd-image-path (slot-value product 'prd-image-path))
-	(prd-name (slot-value product 'prd-name)))
+  (let* ((order-item (get-order-item-by-id item-id))
+	 (item-id (slot-value order-item 'row-id))
+	 (order-id (slot-value order-item 'order-id))
+	 (product (get-odt-product order-item))
+	 (prd-id (slot-value product 'row-id))
+	 (units-in-stock (slot-value product 'units-in-stock))
+	 (prd-image-path (slot-value product 'prd-image-path))
+	 (prd-name (slot-value product 'prd-name))
+	 (upbtn (format nil "up_~A" prd-id))
+	 (downbtn (format nil "down_~A" prd-id)))
    (cl-who:with-html-output (*standard-output* nil)
      (:div :align "center" :class "row account-wall" 
 	   (:div :class "col-sm-12  col-xs-12 col-md-12 col-lg-12"
@@ -51,18 +56,19 @@
 				   (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))))
 		 (with-html-form "form-orditemedit" "dodcustorditemedit" 
 		   (:div :class "form-group row"  (:label :for "product-id" (cl-who:str (format nil  " ~a" prd-name ))))
-			(:input :type "hidden" :name "item-id" :value (format nil "~a" (slot-value order-item 'row-id)))
-			(:input :type "hidden" :name "order-id" :value (format nil "~a" order-id ))
-			(:div  :class "inputQty row" 
-			       (:div :class "col-xs-4"
-				     (:a :class "down btn btn-primary" :href "#" (:span :class "glyphicon glyphicon-minus" ""))) 
-			       (:div :class "form-group col-xs-4" 
-				     (:input :class "form-control input-quantity" :readonly "true" :name "prdqty" :placeholder "Enter a number"  :value (format nil "~a" (slot-value order-item 'prd-qty))   :type "number"))
-			(:div :class "col-xs-4"
-			      (:a :class "up btn btn-primary" :href "#" (:span :class "glyphicon glyphicon-plus" ""))))
-		 (:div :class "form-group" 
-		       (:input :type "submit"  :class "btn btn-primary" :value "Save"))))))))
-		 
+		   (with-html-input-text-hidden "item-id" :value (format nil "~a" item-id))
+		   (with-html-input-text-hidden "order-id" :value (format nil "~a" order-id))
+
+		   (:div  :class "inputQty row" 
+			     (:div :class "col-xs-4"
+				   (:a :class "down btn btn-primary" :id downbtn :onClick "minusbtnclick(this.id);" :href "#" (:i :class "fa-solid fa-minus"))) 
+			     (:div :class "form-group col-xs-4" 
+				   (:input :class "form-control input-quantity" :readonly "true"  :name "prdqty" :id (format nil "prdqtyfor_~A" prd-id)  :value "1"  :min "1" :max units-in-stock  :type "number"))
+			     (:div :class "col-xs-4"
+				   (:a :class "up btn btn-primary" :id upbtn :onClick "plusbtnclick(this.id);" :href "#" (:span :class "fa-solid fa-plus"))))
+		   (:div :class "form-group" 
+			 (:input :type "submit"  :class "btn btn-primary" :value "Save"))))))))
+
 
 
 
@@ -89,15 +95,15 @@
 				       (:td  :height "12px" (cl-who:str (slot-value odt 'unit-price)))
 				       (:td :height "12px" (:a :href  (format nil  "/hhub/delorderdetail?id=~A" (slot-value odt 'row-id)) :onclick "return false"  "Delete")
 					    (:a :href  (format nil  "/hhub/editorderdetail?id=~A" (slot-value odt 'row-id)) :onclick "return false"  "Edit")
-					    ))))) (if (not (typep data 'list)) (list data) data) )))))
+					    ))))) (if (not (typep data 'list)) (list data) data))))))
 
 
 (defun ui-list-shopcart (products shopcart)
     :documentation "A function used for rendering the shopping cart data in HTML format."
     (cl-who:with-html-output-to-string (*standard-output* nil)
-      (:div :class "all-products"
+      (:div :class "all-products-row"
 	    (mapcar (lambda (product odt)
-		      (cl-who:htm (:div :class "product-box" (product-card-shopcart product odt))))  products shopcart))))
+		      (cl-who:htm (:div :class "product-card-row" (product-card-shopcart product odt))))  products shopcart))))
 
 
 (defun ui-list-shopcart-readonly (products shopcart)
@@ -105,7 +111,7 @@
     (cl-who:with-html-output-to-string (*standard-output* nil)
       (:div :class "all-products-row"
 	    (mapcar (lambda (product odt)
-		      (cl-who:htm (:div :class "product-box-row" (product-card-shopcart-readonly product odt))))  products shopcart))))
+		      (cl-who:htm (:div :class "product-card-row" (product-card-shopcart-readonly product odt))))  products shopcart))))
 
 
 
@@ -119,34 +125,33 @@
 (defun ui-list-cust-orderdetails  (header data)
   (cl-who:with-html-output (*standard-output* nil)
     (:div :class  "panel panel-default"
-	 (:div :class "panel-heading" "Order Items")
-	 (:div :class "panel-body"
-	       (:table :class "table table-hover"  
-		       (:thead (:tr
-				(mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
-		       (:tbody
-			(mapcar (lambda (odt)
-	(let* ((odt-product  (get-odt-product odt))
-	      (item-id (slot-value odt 'row-id))
-					;(unit-price (slot-value odt 'unit-price))
-	      (ordid (slot-value odt 'order-id))
-	      (order (odt-orderobject odt))
-	      (payment-mode (slot-value order 'payment-mode))
-	      (fulfilled (slot-value odt 'fulfilled))
-	      (status (slot-value odt 'status))
-	      (prd-qty (slot-value odt 'prd-qty)))
-	  (cl-who:htm (:tr  (cond ((and (equal status "PEN") (equal fulfilled "N")) 
-			    (cl-who:htm (:td  :height "12px" (cl-who:str (format nil "Pending")))
-				 (:td  :height "12px" 
-				       (:a  :data-toggle "modal" :data-target (format nil "#orditemedit-modal~A" item-id)  :href "#" (:span :class "glyphicon glyphicon-pencil")) "&nbsp;&nbsp;"
-				       (if (not (equal payment-mode "OPY")) (modal-dialog (format nil "orditemedit-modal~A" item-id) "Order Item Edit" (order-item-edit-popup item-id)))
-				       (:a :onclick "return CancelConfirm();" :href  (format nil "/hhub/doddelcustorditem?id=~A&ord=~A" (slot-value odt 'row-id) ordid) :onclick "return false" (:span :class "glyphicon glyphicon-remove")))))
-			   ((and (equal status "CMP") (equal fulfilled "Y"))  (cl-who:htm (:td  :height "12px" (cl-who:str (format nil "Fulfilled"))))))
-		     (:td  :height "12px" (cl-who:str (slot-value odt-product 'prd-name)))
-		     (:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
+	  (:div :class "panel-heading" "Order Items")
+	  (:div :class "panel-body"
+		(:table :class "table table-hover"  
+			(:thead (:tr
+				 (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
+			(:tbody
+			 (mapcar (lambda (odt)
+				   (let* ((odt-product  (get-odt-product odt))
+					  (item-id (slot-value odt 'row-id))
+					  (ordid (slot-value odt 'order-id))
+					  (order (odt-orderobject odt))
+					  (payment-mode (slot-value order 'payment-mode))
+					  (fulfilled (slot-value odt 'fulfilled))
+					  (status (slot-value odt 'status))
+					  (prd-qty (slot-value odt 'prd-qty)))
+				     (cl-who:htm (:tr  (cond ((and (equal status "PEN") (equal fulfilled "N")) 
+							      (cl-who:htm (:td  :height "12px" (cl-who:str (format nil "Pending")))
+									  (:td  :height "12px" 
+										(:a  :data-bs-toggle "modal" :data-bs-target (format nil "#orditemedit-modal~A" item-id)  :href "#" (:i :class "fa-regular fa-pen-to-square")) "&nbsp;&nbsp;"
+										(if (not (equal payment-mode "OPY")) (modal-dialog-v2 (format nil "orditemedit-modal~A" item-id) "Order Item Edit" (order-item-edit-popup item-id)))
+										(:a :onclick "return CancelConfirm();" :href  (format nil "/hhub/doddelcustorditem?id=~A&ord=~A" (slot-value odt 'row-id) ordid) :onclick "return false" (:span :class "fa-solid fa-xmark")))))
+							     ((and (equal status "CMP") (equal fulfilled "Y"))  (cl-who:htm (:td  :height "12px" (cl-who:str (format nil "Fulfilled"))))))
+						       (:td  :height "12px" (cl-who:str (slot-value odt-product 'prd-name)))
+						       (:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
 					;(:td  :height "12px" (cl-who:str (format nil  "Rs. ~$" unit-price)))
-		     (:td  :height "12px" (cl-who:str (format nil "Rs. ~$" (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty)))))
-		     )))) (if (not (typep data 'list)) (list data) data))))))))
+						       (:td  :height "12px" (cl-who:str (format nil "Rs. ~$" (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty)))))
+						       )))) (if (not (typep data 'list)) (list data) data))))))))
 
 
 (defun display-order-header-for-customer (order-instance)
@@ -176,7 +181,9 @@
 	 (balance (if wallet (slot-value wallet 'balance) 0))
 	 (customer-type (slot-value customer 'cust-type))
 	 (payment-mode (slot-value order-instance 'payment-mode))
+	 (ship-address (slot-value order-instance 'ship-address))
 	 (shipped-date (slot-value order-instance 'shipped-date)))
+    
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-panel "panel panel-default" "Order Header"
 	  (with-html-div-row 
@@ -191,7 +198,7 @@
 	      (:h6 (:span "Customer: ") (cl-who:str (slot-value customer 'name)))))
 	(with-html-div-row
 	  (with-html-div-col
-	    (if (equal customer-type "STANDARD") (cl-who:htm (:h6 (:span "Address:")  (cl-who:str (slot-value customer 'address))))))
+	    (if (equal customer-type "STANDARD") (cl-who:htm (:i (:span "Ship To Address: ")  (cl-who:str ship-address)))))
 	  (with-html-div-col
 	    (:h6 (:span "Phone: ") (cl-who:str (slot-value customer 'phone))))
 	  (with-html-div-col

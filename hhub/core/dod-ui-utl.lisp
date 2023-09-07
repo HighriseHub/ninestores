@@ -2,7 +2,23 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun html-range-control (name id min max value step)
+    (cl-who:with-html-output (*standard-output* nil)
+     (:div :class "hhub-range-body"
+	   (:div :class "hhub-range-wrap"
+		 (:div :class "hhub-range-value" :id (format nil "rangeV_~A" id))
+		 (:input :id (format nil "range_~A" id) :name name :type "range" :min min :max max :value value :step step))))))
 
+
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defmacro with-customer-breadcrumb (&body body)
+    :description "Takes link attributes like HREF and Link name as pair and processes it to display the breadcrumb"
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:nav :aria-label "breadcrumb"
+	     (:ol :class "breadcrumb"
+		  (:li :class "breadcrumb-item" (:a :href "/hhub/dodcustindex" "Home"))
+		  ,@body)))))
 
 (defun hhub-controller-create-whatsapp-link-with-message ()
   (let* ((phone (hunchentoot:parameter "phone"))
@@ -211,15 +227,17 @@
 					; Link to the app manifest for PWA. 
 		(:link :rel "manifest" :href "/manifest.json")
 		;; Bootstrap CSS
-		(:link :href "/css/bs5.3/css/bootstrap.css" :rel "stylesheet" )
+		(:link :href "/css/bootstrap5.3.css" :rel "stylesheet" )
 
 		(:link :href "/css/style.css" :rel "stylesheet")
+		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/themes/cupertino/jquery-ui.min.css" :rel "stylesheet")
 		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" :rel "stylesheet")
 		(:link :href "https://fonts.googleapis.com/css?family=Merriweather:400,900,900i" :rel "stylesheet")
 		;; js files related to bootstrap and jquery. Jquery must come first. 
 		(:script :src "https://code.jquery.com/jquery-3.5.1.min.js" :integrity "sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" :crossorigin "anonymous")
-		(:script :src "https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" :integrity "sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" :crossorigin "anonymous")
+		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin="anonymous")
 		(:script :src "/js/spin.min.js")
+		(:script :src "/js/bs5.3/js/bootstrap.bundle.min.js")
 		(:script :src "https://www.google.com/recaptcha/api.js")
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
 		) ;; header completes here.
@@ -232,12 +250,12 @@
 		       (:script :src "/js/hhubbusy.js")
 		       (if hunchentoot:*session* (,nav-func)) 
 					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
-		       (:div :class "container theme-showcase" :role "main" :style "background-color: white; min-height: calc(100vh - 100px);" 
+		       (:div :class "container" :role "main" :style "background-color: white; min-height: calc(100vh - 100px);" 
 			     (:div :class "sidebar-nav" 
 				   (:div :id "hhubmaincontent"  ,@body))))
 		 ;; rangeslider
 		      ;; bootstrap core javascript
-		 (:script :src "https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" :integrity "sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" :crossorigin="anonymous")
+		 
 		 (:script :src "/js/dod.js"))))))
 
 
@@ -355,9 +373,9 @@
 	    (returnvalue (nth 0 returnlist))
 	    (exceptionstr (nth 1 returnlist)))
        
-       ;;(logiamhere (format nil "In the transaction ~A" (slot-value transaction 'name)))
-       ;;(logiamhere (format nil "URI -  ~A" uri))
-       ;;(logiamhere (format nil "URI in DB  -  ~A" (slot-value transaction 'uri)))
+       (logiamhere (format nil "In the transaction ~A" (slot-value transaction 'name)))
+       (logiamhere (format nil "URI -  ~A" uri))
+       (logiamhere (format nil "URI in DB  -  ~A" (slot-value transaction 'uri)))
        ;; check for returnvalue to be T and the uri to match 
        (if (and returnvalue (>= (search (slot-value transaction 'uri) uri) 0))
 	   ,@body
@@ -401,11 +419,11 @@
 
       ;; searchresult div will be used to store the search result. 
       (:div :id "searchresult"  :class "container" 
-	    (:table :class "table  table-striped  table-hover"
+	    (:table :class "table table-sm  table-striped  table-hover"
 		    (:thead (:tr
 			     (:th "No")
 			     (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
-		    (:tbody
+		    (:tbody :class "table-group-divider"
 		     (mapcar (lambda (item)
 			       (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall rowdisplayfunc item))))  listdata)))))))
 
@@ -474,11 +492,54 @@ individual tiles. It also supports search functionality by including the searchr
 	     ,@body))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-8 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-8"
+	     ,@body))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-6 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-6"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-4 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-4"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-3 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-3"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-2 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-2"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-1 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-1"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-div-col ( &body body) 
     :documentation "A HTML Div element having class as 'col' and also having column sizing" 
     `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4"
+       (:div :class "col-xs-12 col-sm-12 col-md-4 col-lg-3"
 	     ,@body))))
+
+
+
+
+
+
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-submit-button (titletext &body other-attributes)
@@ -493,6 +554,16 @@ individual tiles. It also supports search functionality by including the searchr
 	     (:label :for ,name ,label)
 	     (:input :class "form-control"  :type "text" :id ,name :name ,name :placeholder ,placeholder :required ,brequired :value ,value :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
 	     (:div :class "help-block with-errors")))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-input-text-readonly (name label placeholder  value brequired validation-error-msg tabindex &body other-attributes)
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:div :class "form-group"
+	     (:label :for ,name ,label)
+	     (:input :class "form-control"  :type "text" :id ,name :name ,name :placeholder ,placeholder :required ,brequired :value ,value :readonly "true" :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
+	     (:div :class "help-block with-errors")))))
+
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-input-text-hidden (name value  &body other-attributes)
@@ -579,6 +650,23 @@ individual tiles. It also supports search functionality by including the searchr
 			   (:div :class "modal-body" ,@body)
 			   (:div :class "modal-footer"
 				 (:button :type "button" :class "btn btn-secondary" :data-dismiss "modal" "Close")))))))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro modal-dialog-v2 (id title &rest body )
+    :documentation "This macro returns the html text for generating a modal dialog using bootstrap."
+    `(let ((arialabelledby (format nil "~ALabel" ,id)))
+       (cl-who:with-html-output (*standard-output* nil)
+	 (:div :class "modal fade" :id ,id :tabindex "-1" :aria-labelledby arialabelledby :aria-hidden "true" 
+	       (:div :class "modal-dialog"
+		     (:div :class "modal-content" 
+			   (:div :class "modal-header" 
+				 (:h5 :class "modal-title" ,title)
+				 (:button :class "btn-close" :type "button" :data-bs-dismiss "modal" :aria-label "Close"
+					  (:span :aria-hidden "true" "&times;")))
+			   (:div :class "modal-body" ,@body)
+			   (:div :class "modal-footer"
+				 (:button :type "button" :class "btn btn-secondary" :data-bs-dismiss "modal" "Close")))))))))
 
 
 

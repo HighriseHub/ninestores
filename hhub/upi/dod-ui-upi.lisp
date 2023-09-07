@@ -65,6 +65,10 @@
       ;; If Vendor UPI ID is not defined, then redirect to the UPI ID not found page. 
       (unless (slot-value vendor 'upi-id) (hunchentoot:redirect "/hhub/vendorupinotfound"))
       (with-standard-customer-page-v2 "HighriseHub - UPI Payment Page"
+	(with-customer-breadcrumb
+	  (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
+	  (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address")))
+	
 	(with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
 	  (display-upi-widget shopcart-total qrcodepath upiurls)
 	  (with-html-form "customerupipaymentform" "dodcustshopcartro" 
@@ -73,7 +77,8 @@
 			(:label :for "utrnum" "UTR No")
 			(:input :class "form-control" :name "paymentmode" :value "UPI" :type "hidden")
 			(:input :class "form-control" :name "amount" :value shopcart-total :type "hidden")
-			(:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :max "999999999999" :maxlength "12"  :required T)))
+			(:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup "countChar(this, 12)" :max "999999999999" :maxlength "12"  :required T)))
+	    (:div :id "charcount" :class "form-group")
 	    (:div :class "row mb-3"
 		  (:div :class "col-sm-4" :style "text-align: center;"
 			(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
@@ -90,7 +95,7 @@
 	   (upiurls (generateupiurlsforvendor vendor "ABC" transaction-id amount))
 	   (qrcodepath (generateqrcodeforvendor vendor "ABC" transaction-id amount)))
 	 	   
-      (with-standard-customer-page-v2 "HighriseHub - UPI Payment Page" 
+      (with-standard-customer-page-v2 "HighriseHub - UPI Payment Page"
 	(if qrcodepath 
 	    (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
 	      (display-upi-widget amount qrcodepath upiurls)
@@ -283,7 +288,7 @@
 	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 		(:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipaycancel" :enctype "multipart/form-data"
 		       (:div :class "form-group" :style "display: none"
-			     (:input :class "form-control" :name "utrnum" :value utrnum :placeholder "UTR Number" :type "text" :readonly T ))
+			     (:input :class "form-control" :name "utrnum" :value utrnum :placeholder "UTR Number" :type "numeric"   :readonly T ))
 		       (:div :class "form-group"
 			     (:button :class "btn btn-lg btn-danger btn-block" :type "submit" "Payment Not Received"))))))))
 

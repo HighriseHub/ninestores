@@ -97,12 +97,12 @@
 						    (cl-who:str (slot-value prd 'qty-per-unit)))
 					      
 					      (:div :class "col-sm-12 col-xs-12 col-md-2 col-lg-2"
-						    (:h5 (cl-who:str (format nil "Rs ~$ Each" ( slot-value prd 'unit-price)))))
+						    (:h5 (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* ( slot-value prd 'unit-price)))))
 					      (:div :class "col-sm-12 col-xs-12 col-md-2 col-lg-2"
 						    (:span :class "badge" (cl-who:str quantity)))
 					      
 					      (:div :class "col-sm-12 col-xs-12 col-md-2 col-lg-2"
-						    (:h4 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$" subtotal))))))
+						    (:h4 (:span :class "label label-default" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal))))))
 					
 					(:div :class "row"
 					      (mapcar (lambda (order)
@@ -132,23 +132,24 @@
 			 ;else
 		     (cl-who:htm (:div :class "row"
 			    (:div :class "col-sm-12 col-xs-12 col-md-4 col-lg-2"
-			     (:h5 (cl-who:str (format nil "Order: ~A ~A. ~A. ~A. " (slot-value ord 'order-id) (slot-value customer 'name) (slot-value customer 'phone)(slot-value customer 'address))))))))
+			     (:h5 (cl-who:str (format nil "Order: ~A ~A. ~A. ~A. " (slot-value ord 'order-id) (slot-value customer 'name) (slot-value customer 'phone)(slot-value ord 'ship-address))))))))
+		     
 		     (mapcar (lambda (odt)
-			       (let ((prd (get-odt-product odt)))
-				 (cl-who:htm (:div :class "row"
-					    (:div :class "col-sm-12 col-xs-12 col-md-4 col-lg-2"
-						  (cl-who:str (slot-value prd 'prd-name)))
-					    (:div :class "col-sm-12 col-xs-12 col-md-4 col-lg-2"
-						  (cl-who:str (slot-value odt 'prd-qty)))
-					    (:div :class "col-sm-12 col-xs-12 col-md-4 col-lg-2"
-						  (cl-who:str (slot-value prd 'qty-per-unit)))
-					    (:div :class "col-sm-12 col-xs-12 col-md-4 col-lg-2"
-						  (:h5 (cl-who:str (format nil "Rs ~$ Each" (slot-value odt 'unit-price))) )))))) odtlst)
+			       (let* ((prd (get-odt-product odt))
+				      (prd-name (slot-value prd 'prd-name))
+				      (unit-price (slot-value prd 'unit-price))
+				      (prd-qty (slot-value odt 'prd-qty))
+				      (qty-per-unit (slot-value prd 'qty-per-unit)))
+				 (cl-who:htm 
+				  (with-html-div-row :style "border: solid 0.5px;"
+				    (with-html-div-col
+				      (cl-who:str (format nil "~A | ~A | ~A | ~A " prd-name prd-qty qty-per-unit unit-price))
+				      (:h5 (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* (slot-value odt 'unit-price))))))))) odtlst)
 					; Display the total for an order
 			  
 		     (cl-who:htm (:div :class "row"
-				      (:div :class "col-sm-12" 
-					    (:h4 (:span :class "label label-default" (cl-who:str (format nil "Total ~$" total)))))))
+				       (:div :class "col-sm-12" 
+					     (:h4 (:span :class "label label-default" (cl-who:str (format nil "Total ~$" total)))))))
 		     ))) ordlist)))
 
 
