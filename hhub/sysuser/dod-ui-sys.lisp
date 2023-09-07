@@ -16,7 +16,7 @@
 (defun dod-controller-OTP-request-page ()
   (let ((phone (hunchentoot:parameter "phone"))
 	(context (hunchentoot:parameter "context")))
-    (with-no-navbar-page  "New Store Request"   
+    (with-no-navbar-page-v2  "New Store Request"   
       (with-html-form  "form-hhubotppage" "hhubotpsubmitaction" 
 	(:img :class "profile-img" :src "/img/logo.png" :alt "")
 	(:div :id "withCountDownTimerExpired"
@@ -942,6 +942,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustwalletrechargepage"   'hhub-controller-upi-recharge-wallet-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustwalletrechargeaction"   'hhub-controller-upi-recharge-wallet-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubsearchmycustomer"   'hhub-controller-search-my-customer-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcarouseltest"   'hhub-controller-carousel-test)
 
 
 
@@ -1002,6 +1003,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupipaycancel"   'hhub-controller-vendor-upi-cancel)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendsearchproduct"   'dod-controller-vendor-search-products)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendprodcategories"   'dod-controller-vendor-product-categories-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendaddprodshipinfoaction"  'com-hhub-transaction-vend-prd-shipinfo-add-action)
 			
 ))
 

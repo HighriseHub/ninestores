@@ -17,10 +17,28 @@
 	 (shopcart-total (+ oitem1price oitem2price))
 	 (odts (list oitem1 oitem2))
 	 (shipaddress "A-456, Brigade Metropolis, Mahadevapura, Bangalore")
-	 (orderid (create-order-from-shopcart odts products OrderDate RequestDate ShipDate shipaddress  shopcart-total "COD" "" customer company nil nil)))
+	 (orderid (create-order-from-shopcart odts products OrderDate RequestDate ShipDate shipaddress  shopcart-total 0 nil "COD" "" customer company nil nil)))
     orderid))
 
 
+(defun hhub-test-shipping-rate-check ()
+  (let* ((company (select-company-by-id 2))
+	 (NandiniBlue (select-product-by-id 1 company))
+	 (NandiniGreen (select-product-by-id 2 company))
+	 (prodlist (list NandiniBlue NandiniGreen))
+	 (oitem1 (create-odtinst-shopcart nil NandiniBlue 2 (slot-value NandiniBlue 'unit-price) company))
+	 (oitem2 (create-odtinst-shopcart nil NandiniGreen 2 (slot-value NandiniGreen 'unit-price) company))
+	 (odts (list oitem1 oitem2)))
+	 
+    (order-shipping-rate-check odts prodlist "560010" "560096")))
+
+
+(defun hhub-test-shipping-rate-check-zonewise ()
+  (let* ((company (select-company-by-id 2))
+	 (NandiniBlue (select-product-by-id 1 company))
+	 (NandiniGreen (select-product-by-id 2 company))
+	 (prodlist (list NandiniBlue NandiniGreen)))
+    (order-shipping-rate-check-zonewise prodlist "400092")))
 
 
 (defun hhub-test-async-event-loop ()
@@ -55,6 +73,42 @@
     (logiamhere (format t "I am in the main task. Thread info ~A" asynceventsthread))))
 		    
 
+(defun func1 ()
+  "Hello1")
 
+(defun func2 ()
+  "world1")
+
+(defun func3 ()
+  "Hello2")
+
+(defun func4 ()
+  "World2")
+
+(defun mapcomplexfunc ()
+  (let ((funclist nil))
+    (setf funclist (acons (complex 1 1) "func1" funclist))
+    (setf funclist (acons (complex -1 1 ) "func2"  funclist))
+    (setf funclist (acons (complex -1 -1) "func3"  funclist))
+    (setf funclist (acons (complex 1 -1) "func4"  funclist))
+    funclist))
+
+(defvar nextfunc 
+  (let* ((funclist (mapcomplexfunc))
+	 (complexfactor (complex 0 0.5))
+	 (lasttimefunckey (complex 1 1)))
+
+    (lambda ()
+     (let ((func (cdr (assoc lasttimefunckey funclist :test '=))))
+       (setf lasttimefunckey (* complexfactor lasttimefunckey))
+       (funcall (intern (string-upcase func) :hhub))
+       ))))
+
+(defvar *counter* (let ((count 0))
+                    (lambda () (incf count))))
+
+    
+
+  
 
 

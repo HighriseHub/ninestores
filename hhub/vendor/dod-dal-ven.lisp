@@ -284,7 +284,11 @@
     :type (string 1)
     :void-value "N"
     :initarg :email-add-verified)
-   
+
+   (shipping-enabled
+    :type (string 1)
+    :void-value "N"
+    :initarg :shipping-enabled)
    
    (deleted-state
     :type (string 1)

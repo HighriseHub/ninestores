@@ -1,5 +1,6 @@
 
 select 'dropping the tables' as ' ';
+drop table if exists DOD_SHIPPING_METHODS; SELECT 'dropping shipping methods table, which will let the vendor choose the shipping methods.'; 
 drop table if exists DOD_ORDER_SUBSCRIPTION; SELECT 'dropping product preference table, which will let the vendor know what the product preferences of the user are.'; 
 drop table if exists DOD_ORDER_TRACK; select 'dropping order status table'; 
 drop table if exists DOD_ORDER_ITEMS_TRACK; select 'dropping order details track table'; 
@@ -38,7 +39,36 @@ drop table if exists DOD_COMPANY;  SELECT 'dropping apartment complex/society/gr
 
 
 select 'tables dropped' as ' ';
- 
+
+
+select 'creating table dod_free_shipping_method' as ' ';
+CREATE TABLE `DOD_SHIPPING_METHODS` (
+  `ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,
+  `NAME` varchar(70) DEFAULT NULL,
+  `FREESHIPENABLED` char(1) DEFAULT NULL,
+  `FLATRATESHIPENABLED` char(1) DEFAULT NULL,
+  `TABLERATESHIPENABLED` char(1) DEFAULT NULL,
+  `EXTSHIPENABLED` char(1) DEFAULT NULL, 
+  `STOREPICKUPENABLED` char(1) DEFAULT NULL,
+  `MINORDERAMT` decimal(7,2) DEFAULT NULL,
+  `FLATRATETYPE` char(3) DEFAULT "ORD", 'PER ORDER - ORD, PER ITEM - ITM'
+  `FLATRATEPRICE` decimal(7,2) DEFAULT NULL,   
+  `RATETABLECSV` varchar(500) DEFAULT NULL,	   
+  `VENDOR_ID` mediumint(9) DEFAULT NULL, 
+  `CREATED` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `DELETED_STATE` char(1) DEFAULT NULL,
+  `ACTIVE_FLAG` char(1) DEFAULT NULL,
+  `TENANT_ID` mediumint(9) DEFAULT NULL,
+  PRIMARY KEY (`ROW_ID`),
+  KEY `TENANT_ID` (`TENANT_ID`),
+  KEY `VENDOR_ID` (`VENDOR_ID`),
+  CONSTRAINT `DOD_FREE_SHIPPING_METHOD_ibfk_1` FOREIGN KEY (`TENANT_ID`) REFERENCES `DOD_COMPANY` (`ROW_ID`),
+  CONSTRAINT `DOD_FREE_SHIPPING_METHOD_ibfk_2` FOREIGN KEY (`VENDOR_ID`) REFERENCES `DOD_VEND_PROFILE` (`ROW_ID`)
+);
+
+
+
+
 select 'creating table dod_company' as ' ';
 CREATE TABLE `DOD_COMPANY` (
   `ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -145,10 +175,11 @@ CREATE TABLE `DOD_VEND_PROFILE` (
   `EMAIL_ADD_VERIFIED` char(1) DEFAULT NULL,
   `SUSPEND_FLAG` char(1) DEFAULT NULL,
   `UPI_ID` varchar(70) DEFAULT NULL,
-  PRIMARY KEY (`ROW_ID`),
-  UNIQUE KEY `UC_Vendor` (`PHONE`,`TENANT_ID`),
-  KEY `TENANT_ID` (`TENANT_ID`),
-  CONSTRAINT `DOD_VEND_PROFILE_ibfk_1` FOREIGN KEY (`TENANT_ID`) REFERENCES `DOD_COMPANY` (`ROW_ID`)
+  `SHIPPING_ENABLED` char(1) DEFAULT "N",
+    PRIMARY KEY (`ROW_ID`),
+    UNIQUE KEY `UC_Vendor` (`PHONE`,`TENANT_ID`),
+    KEY `TENANT_ID` (`TENANT_ID`),
+    CONSTRAINT `DOD_VEND_PROFILE_ibfk_1` FOREIGN KEY (`TENANT_ID`) REFERENCES `DOD_COMPANY` (`ROW_ID`)
 );
  
 
@@ -229,6 +260,7 @@ CREATE TABLE `DOD_ORDER` (
   `GSTORGNAME` varchar(50) DEFAULT NULL,
   `TOTAL_DISCOUNT` decimal(7,2) DEFAULT NULL,
   `TOTAL_TAX` decimal(7,2) DEFAULT NULL,
+  `SHIPPING_COST` decimal(7,2) DEFAULT NULL,
   PRIMARY KEY (`ROW_ID`),
   KEY `TENANT_ID` (`TENANT_ID`),
   KEY `CUST_ID` (`CUST_ID`),
@@ -281,6 +313,10 @@ CREATE TABLE `DOD_PRD_MASTER` (
   `isbn` varchar(20) character set utf8 collate utf8_general_ci null default null,
   `serial_no` varchar(20) character set utf8 collate utf8_general_ci null default null,
   `external_url` varchar(255) character set utf8 collate utf8_general_ci null default null,
+  `SHIPPING_LENGTH_CMS` smallint DEFAULT NULL,
+  `SHIPPING_WIDTH_CMS` smallint DEFAULT NULL,
+  `SHIPPING_HEIGHT_CMS` smallint DEFAULT NULL,
+  `SHIPPING_WEIGHT_KG` decimal (5,2) DEFAULT NULL,
   PRIMARY KEY (`ROW_ID`),
   KEY `TENANT_ID` (`TENANT_ID`),
   KEY `VENDOR_ID` (`VENDOR_ID`),

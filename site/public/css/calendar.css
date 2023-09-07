@@ -199,6 +199,9 @@
   bottom: 0;
   left: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
 }
 #cal-slide-content ul.unstyled {
   margin-bottom: 0;

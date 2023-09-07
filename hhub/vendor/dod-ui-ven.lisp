@@ -39,7 +39,7 @@
 (with-vend-session-check
   (let* ((images  (remove "uploadedimagefiles" (hunchentoot:post-parameters hunchentoot:*request*) :test (complement #'equal) :key #'car)))
     ;; Asynchronously start the upload of images. 
-    (as:start-event-loop
+    (bt:make-thread
      (lambda ()
        (async-upload-images images)))
     (hunchentoot:redirect "/hhub/dodvenbulkaddprodpage"))))
@@ -49,21 +49,22 @@
 (defun async-upload-images (images)
   (let* ((header (list "Product Name " "Description" "Qty Per Unit" "Unit Price" "Units In Stock" "Subscription Flag" "Image Path (DO NOT MODIFY)" "Image Hash (DO NOT MODIFY)"))
 	 (vendor-id (slot-value (get-login-vendor) 'row-id))
-	 (filepaths (mapcar (lambda (image)
-			      (let* ((newimageparams (remove "uploadedimagefiles" image :test #'equal ))
-				     (tempfilewithpath (nth 0 newimageparams))
-				     (filename (process-image  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
-				
-				(if *HHUBUSELOCALSTORFORRES* 
-				    (if tempfilewithpath (format nil "/img/~A" filename))
-				    ;;else return the path of the uploaded file in S3 bucket.
-				    (vendor-upload-file-s3bucket filename)))) images))
-	 (image-path-hashes (mapcar (lambda (filepath)
-				 (string-upcase (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :MD5 (ironclad:ascii-string-to-byte-array filepath))))) filepaths)))
-	 (with-open-file (stream (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id)  
-			 :direction :output
-			 :if-exists :supersede
-			 :if-does-not-exist :create)
+	 (filepaths (mapcar
+		     (lambda (image)
+		       (let* ((newimageparams (remove "uploadedimagefiles" image :test #'equal ))
+			      (tempfilewithpath (nth 0 newimageparams))
+			      (filename (process-image  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
+			 (if *HHUBUSELOCALSTORFORRES* 
+			     (if tempfilewithpath (format nil "/img/~A" filename))
+			     ;;else return the path of the uploaded file in S3 bucket.
+			     (vendor-upload-file-s3bucket filename)))) images))
+	 (image-path-hashes (mapcar
+			     (lambda (filepath)
+			       (string-upcase (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :MD5 (ironclad:ascii-string-to-byte-array filepath))))) filepaths)))
+    (with-open-file (stream (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id)  
+			    :direction :output
+			    :if-exists :supersede
+			    :if-does-not-exist :create)
       (format stream "~A"  (create-products-csv header filepaths image-path-hashes)))))
 
 (defun create-products-csv (header imagepaths image-path-hashes)
@@ -126,7 +127,7 @@ Phase1: Temporary Image URLs creation using image files upload.
 Phase2: User should copy those URLs in Products.csv and then upload that file."
 (let ((vendor-id (slot-value (get-login-vendor) 'row-id)))
  (with-vend-session-check
-  (with-standard-vendor-page :title "Bulk Add Products using CSV File"
+  (with-standard-vendor-page "Bulk Add Products using CSV File"
     (:div :class "row"
 	  (:div :class "col-xs-12 col-sm-6 col-md-6 col-lg-6"
 		(:ul :class "list-group"
@@ -342,8 +343,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (let* ((id (hunchentoot:parameter "id"))
 	(order (get-order-by-id id (get-login-vendor-company)))
 	(order-id (slot-value order 'row-id)))
-    (cancel-order-by-vendor order)
-    (cancel-order-by-vendor (get-vendor-order-instance order-id (get-login-vendor))))))
+    (cancel-order-by-vendor (get-vendor-order-instance order-id (get-login-vendor)))
+    (hunchentoot:redirect "/hhub/dodvendindex?context=pendingorders"))))
 
 
 (defun dod-controller-vendor-revenue ()
@@ -501,6 +502,34 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (drakma:http-request (format nil "~A/file/upload" *siteurl*)
 			 :additional-headers headers
 			 :parameters param-alist)))
+
+(defun com-hhub-transaction-vend-prd-shipinfo-add-action ()
+  (with-vend-session-check
+    (let* ((vendor (get-login-vendor))
+	   (shipping-enabled (slot-value vendor 'shipping-enabled))
+	   (id (hunchentoot:parameter "id"))
+	   (product (if id (select-product-by-id id (get-login-vendor-company))))
+	   (shipping-length-cms (parse-integer (hunchentoot:parameter "shipping-length-cms")))
+	   (shipping-width-cms (parse-integer (hunchentoot:parameter "shipping-width-cms")))
+	   (shipping-height-cms (parse-integer (hunchentoot:parameter "shipping-height-cms")))
+	   (shipping-weight-kg (float (with-input-from-string (in (hunchentoot:parameter "shipping-weight-kg"))
+			(read in))))
+	   (params nil))
+
+      (setf params (acons "company" (get-login-vendor-company) params))
+      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+      (setf params (acons "vendor" (get-login-vendor)  params))
+      (with-hhub-transaction "com-hhub-transaction-vend-prd-shipinfo-add-action" params
+	(when (and shipping-enabled  product) 
+	  (setf (slot-value product 'shipping-length-cms) shipping-length-cms)
+	  (setf (slot-value product 'shipping-width-cms) shipping-width-cms)
+	  (setf (slot-value product 'shipping-height-cms) shipping-height-cms)
+	  (setf (slot-value product 'shipping-weight-kg) shipping-weight-kg)
+	  (update-prd-details product)
+	  (dod-reset-vendor-products-functions vendor (get-login-vendor-company))
+	  (hunchentoot:redirect "/hhub/dodvenproducts"))))))
+  
+
 
 (defun com-hhub-transaction-vendor-product-add-action () 
   (with-vend-session-check
@@ -1061,7 +1090,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    (:span :class "badge" (cl-who:str (format nil " ~d " (length vendor-products)))))) 
 	(:hr)
 	(:div :id "searchresult" 
-	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-box")))))))
+	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card")))))))
 
 
 
@@ -1292,17 +1321,26 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (payment-mode (if mainorder (slot-value mainorder 'payment-mode)))
 	 (header (list "Product" "Product Qty" "Unit Price"  "Sub-total"))
 	 (odtlst (if mainorder (dod-get-cached-order-items-by-order-id (slot-value mainorder 'row-id) (hunchentoot:session-value :order-func-list) )) )
-	 (total   (reduce #'+  (mapcar (lambda (odt)
-					 (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty))) odtlst)))
+	 (order-amt (slot-value vorder-instance 'order-amt))
+	 (shipping-cost (slot-value vorder-instance 'shipping-cost))
+	 (total (if shipping-cost (+ order-amt shipping-cost) order-amt))
 	 (lowwalletbalance (< balance total)))
     
         (cl-who:with-html-output (*standard-output* nil)
+
+	  (with-html-div-row
+	    (:div :class "col" :align "right"
+		  (when (and shipping-cost (> shipping-cost 0))
+                    (cl-who:htm
+		     (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
+		     (:p (cl-who:str (format nil "Sub Total: ~A ~$" *HTMLRUPEESYMBOL* order-amt)))))))
 	  (with-html-div-row 
 	       (:div :class "col-md-12" :align "right" 
 		     (if (and lowwalletbalance (equal payment-mode "PRE")) 
 			 (cl-who:htm (:h2 (:span :class "label label-danger" (cl-who:str (format nil "Low wallet Balance = Rs ~$" balance))))))
 					;else
-		     (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total))))
+		     (:h3 (:span :class "label label-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL* total))))
+		     
 		     (if (equal venorderfulfilled "Y") 
 			 (cl-who:htm (:span :class "label label-info" "FULFILLED"))
 					;ELSE
@@ -1313,9 +1351,13 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				(:div :class "form-group" 
 				      (:input :type "submit"  :class "btn btn-primary" :value "Complete")))))))
 
-	
-	 (if odtlst (ui-list-vend-orderdetails header odtlst) "No order details")
-	 (if mainorder (display-order-header-for-vendor mainorder)))))
+	  (if odtlst (ui-list-vend-orderdetails header odtlst) "No order details")
+	  (if mainorder (display-order-header-for-vendor mainorder))
+
+	  (with-html-form "form-vendordercancel" "dodvenordcancel" 
+	    (with-html-input-text-hidden "id" (slot-value mainorder 'row-id))
+	    (:div :class "form-group" :style "display:none"
+		  (:input :type "submit"  :class "btn btn-primary" :value "Cancel Order"))))))
 
 (defun dod-controller-vendor-orderdetails ()
  (if (is-dod-vend-session-valid?)

@@ -80,11 +80,11 @@
 (defvar *HHUBPENDINGUPIFUNCTIONS-HT* nil)
 (defvar *HHUBTRIALCOMPANYEXPIRYDAYS* 90)
 (defvar *HHUBOTPTESTING* T)
-(defvar *HHUBUSELOCALSTORFORRES* T)
+(defvar *HHUBUSELOCALSTORFORRES* NIL)
 (defvar *HHUBWHATAPPLINKURLINDIA* "https://wa.me/91")
 (defvar *HHUBWHATSAPPBUTTONIMG* "WhatsAppButtonGreenSmall.png")
-
-
+(defvar *HTMLRUPEESYMBOL* "&#8377;")
+(defvar *HHUBSHIPPINGZONES* nil)
 
 
 (defun set-customer-page-title (name)
@@ -166,7 +166,8 @@ the hunchentoot server with ssl settings"
        ;(setf *HHUBENTITY-WEBPUSHNOTIFYVENDOR-HT* (make-hash-table))
        (setf *HHUBBUSINESSSESSIONS-HT* (make-hash-table)) 
        (hhub-init-business-functions)
-       (setf *HHUBBUSINESSDOMAIN* (initbusinessdomain))))
+       (setf *HHUBBUSINESSDOMAIN* (initbusinessdomain))
+       (define-shipping-zones)))
 
 
 

@@ -100,3 +100,7 @@
 
 (defun com-hhub-attribute-vendor-currentprodcatgcount (company)
   (length (select-prdcatg-by-company company)))
+
+(defun com-hhub-attribute-vendor-shipping-enabled (vendor)
+  (let ((shipping-enabled (slot-value vendor 'shipping-enabled)))
+    (if (equal shipping-enabled "Y") T NIL)))
