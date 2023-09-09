@@ -360,7 +360,7 @@
 			  (let* ((vitems (filter-opref-items-by-vendor vendor order-pref-list))
 				 (total (get-opref-items-total-for-vendor vendor vitems))) 
 			    
-			    (persist-vendor-orders (slot-value order 'row-id) cust-id (slot-value vendor 'row-id) tenant-id order-date request-date ship-date ship-address "PREPAID"  total )))  vendors)
+			    (persist-vendor-orders (slot-value order 'row-id) cust-id (slot-value vendor 'row-id) tenant-id order-date request-date ship-date ship-address "PREPAID"  total shipping-cost )))  vendors)
       
 		))))
 
@@ -437,15 +437,19 @@
 (defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt shipping-cost shipping-info payment-mode  comments customer-instance company-instance guest-customer utrnum)
   (let ((uuid (uuid:make-v1-uuid )))
       ;; Create an order in the database. 
-      (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments  company-instance)
-      (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
+    (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments  company-instance)
+   
+    (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
 	     (order-id (slot-value order 'row-id))
 	     (cust-id (slot-value customer-instance 'row-id))
 	     (cust-type (slot-value customer-instance 'cust-type))
 	     (vendors (get-shopcart-vendorlist order-items))
-	     (tenant-id (slot-value company-instance 'row-id)))
-	(bt:make-thread
-	 (lambda ()
+	   (tenant-id (slot-value company-instance 'row-id)))
+      (as:with-event-loop (:catch-app-errors t)
+	(let* ((result nil)
+	       (notifier (as:make-notifier (lambda () (format t "Job finished! ~a~%" result)))))
+	  (bt:make-thread 
+	   (lambda ()
 	;; Create the order-items and also update the current products in stock. 
 	   (mapcar (lambda (odt)
 		     (let* ((prd (search-prd-in-list (slot-value odt 'prd-id) products))
@@ -475,7 +479,9 @@
 		       ;;Send a mail to the vendor
 		       (when vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  (format nil "~A~A" order-disp-str shipstr)))
 		       ;; Send a push notification on the vendor's browser
-		       (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)) :name (format nil "Order Thread: ~d" order-id ))
+		       (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)
+	   (setf result 1)
+	   (as:trigger-notifier notifier)) :name (format nil "Order Thread: ~d" order-id ))))
       ;; Return the order id
 	order-id))) 
 
