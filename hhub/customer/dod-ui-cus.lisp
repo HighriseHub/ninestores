@@ -1928,7 +1928,7 @@
 	   (vendor-zipcode (slot-value (first vendor-list) 'zipcode))
 	   (vshipping-enabled (slot-value (first vendor-list) 'shipping-enabled))
 	   (freeshipminorderamt (getminorderamt (get-free-shipping-method-for-vendor (first vendor-list) custcomp)))
-	   (shipping-options (when (and vshipping-enabled (< shopcart-total freeshipminorderamt)) (order-shipping-rate-check odts shopcart-products shipzipcode vendor-zipcode)))
+	   (shipping-options (when (and vshipping-enabled (< shopcart-total freeshipminorderamt)) (order-shipping-rate-check odts shopcart-products vendor-zipcode shipzipcode)))
 	   (shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
 								  (nth 9 elem)) shipping-options))
 				       ;; else
