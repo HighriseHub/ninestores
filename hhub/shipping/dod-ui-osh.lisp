@@ -57,6 +57,7 @@
 	 (param-alist (pairlis paramname paramvalue))
 	 (datajson nil))
 
+    (logiamhere (format nil "from ~A to ~A ~C " from-pincode to-pincode #\newline))
     (logiamhere (format nil "Total items - ~d ~C" total-items #\newline))
     (logiamhere (format nil  "Length - ~d ~C" dimension3  #\newline))
     (logiamhere (format nil "width - ~d ~C" dimension1 #\newline))
