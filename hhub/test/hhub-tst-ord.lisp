@@ -54,7 +54,7 @@
 
 (defun worker-2 (context p)
   (declare (ignore context))
-  :documentation ""
+
     (print p))
 
 (defun hhub-background-task ()
@@ -63,14 +63,14 @@
 	    (lambda ()
 	      (as:with-event-loop (:catch-app-errors t)
 		(let* ((result nil)
-		       (notifier (as:make-notifier (lambda () (logiamhere (format t "Job finished! ~a~%" result))))))
+		       (notifier (as:make-notifier (lambda () (format t "Job finished! ~a~%" result)))))
 		  (bt:make-thread 
 				  (lambda ()
 				    (sleep 30)
 				    (setf result 10)
 				    (as:trigger-notifier notifier)) :name "Background Task Thread")
-		  (logiamhere (format t "I am in the async event loop. Exiting loop"))))) :name "Event loop thread")))
-    (logiamhere (format t "I am in the main task. Thread info ~A" asynceventsthread))))
+		  (format t "I am in the async event loop. Exiting loop")))) :name "Event loop thread")))
+    (format t "I am in the main task. Thread info ~A" asynceventsthread)))
 		    
 
 (defun func1 ()
