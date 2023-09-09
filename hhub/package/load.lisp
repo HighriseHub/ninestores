@@ -5,4 +5,4 @@
 (compile-hhub-files)
 (in-package :hhub)
 (start-das) 
-(setf *siteurl* "http://192.168.0.108")
+
