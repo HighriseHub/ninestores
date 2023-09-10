@@ -1004,6 +1004,8 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendsearchproduct"   'dod-controller-vendor-search-products)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendprodcategories"   'dod-controller-vendor-product-categories-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendaddprodshipinfoaction"  'com-hhub-transaction-vend-prd-shipinfo-add-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendorshipmethods"  'dod-controller-vend-shipping-methods)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdatfreeshipmethodaction"  'dod-controller-vendor-update-free-shipping-method-action)
 			
 ))
 
