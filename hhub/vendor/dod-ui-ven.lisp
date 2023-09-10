@@ -155,6 +155,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (name (name vendor))
 	 (address (address vendor))
 	 (phone  (phone vendor))
+	 (zipcode (zipcode vendor))
 	 (email (email vendor))
 	 (picture-path (picture-path vendor)))
     (cl-who:with-html-output (*standard-output* nil)
@@ -171,11 +172,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			    (:input :class "form-control" :name "name" :value name :placeholder "Customer Name" :type "text"))
 		      (:div :class "form-group"
 			    (:label :for "address")
-			    (:textarea :class "form-control" :name "address"  :placeholder "Enter Address ( max 400 characters) "  :rows "5" :onkeyup "countChar(this, 400)" (cl-who:str (format nil "~A" address))))
+			    (:textarea :class "form-control" :name "address"  :placeholder "Enter Address ( max 200 characters) "  :rows "2" :onkeyup "countChar(this, 200)" (cl-who:str (format nil "~A" address))))
 		      (:div :class "form-group" :id "charcount")
 		      (:div :class "form-group"
+			    (:input :class "form-control" :name "zipcode"  :value zipcode :placeholder "Pincode"  :type "text" ))
+		      (:div :class "form-group"
 			    (:input :class "form-control" :name "phone"  :value phone :placeholder "Phone"  :type "text" ))
-		      
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "email" :value email :placeholder "Email" :type "text"))
 		      
@@ -190,6 +192,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (let* ((name (hunchentoot:parameter "name"))
 	   (address (hunchentoot:parameter "address"))
 	   (phone (hunchentoot:parameter "phone"))
+	   (zipcode (hunchentoot:parameter "zipcode"))
 	   (email (hunchentoot:parameter "email"))
 	   (vendor (get-login-vendor))
 	   (prodimageparams (hunchentoot:post-parameter "picturepath"))
@@ -199,6 +202,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (setf (slot-value vendor 'name) name)
       (setf (slot-value vendor 'address) address)
       (setf (slot-value vendor 'phone) phone)
+      (setf (slot-value vendor 'zipcode) zipcode)
       (setf (slot-value vendor 'email) email)
       (if tempfilewithpath (setf (slot-value vendor 'picture-path) (format nil "/img/~A"  file-name)))
       (update-vendor-details vendor)
@@ -877,23 +881,58 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (with-standard-vendor-page "HighriseHub - Vendor Profile"
        (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-vendor-name))))
        (:hr)
-       (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
-		    (:a :class "list-group-item" :href "hhubvendmycustomers" "My Customers")
-		    (:a :class "list-group-item" :href "dodvendortenants" "My Groups")
-		    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupdate-modal")  :href "#"  "Contact Information")
-		    (modal-dialog (format nil "dodvendupdate-modal") "Update Vendor" (modal.vendor-update-details)) 
+      (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
+	    (:a :class "list-group-item" :href "hhubvendmycustomers" "My Customers")
+	    (:a :class "list-group-item" :href "dodvendortenants" "My Groups")
+	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupdate-modal")  :href "#"  "Contact Information")
+	    (modal-dialog (format nil "dodvendupdate-modal") "Update Vendor" (modal.vendor-update-details)) 
 		    
-		    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendchangepin-modal")  :href "#"  "Change Password")
-		    (modal-dialog (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
-		   ; (:a :class "list-group-item" :href "/pushsubscribe.html" "Push Notifications")
-		    (:a :class "list-group-item" :href "/hhub/hhubvendpushsubscribepage" "Push Notifications")
-		    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendsettings-modal")  :href "#"  "Payment Gateway")
-		    (modal-dialog (format nil "dodvendsettings-modal") "Payment Gateway Settings" (modal.vendor-update-payment-gateway-settings-page))
-		    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupisettings-modal") :href "#" "UPI Settings")
-		    (modal-dialog (format nil "dodvendupisettings-modal") "UPI Payment Settings" (modal.vendor-update-UPI-payment-settings-page))
-		    (:a :class "list-group-item" :href "hhubvendorupitransactions" "UPI Transactions")))))
+	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendchangepin-modal")  :href "#"  "Change Password")
+	    (modal-dialog (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
+	    ;; (:a :class "list-group-item" :href "/pushsubscribe.html" "Push Notifications")
+	    (:a :class "list-group-item" :href "/hhub/hhubvendpushsubscribepage" "Push Notifications")
+	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendsettings-modal")  :href "#"  "Payment Gateway")
+	    (modal-dialog (format nil "dodvendsettings-modal") "Payment Gateway Settings" (modal.vendor-update-payment-gateway-settings-page))
+	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupisettings-modal") :href "#" "UPI Settings")
+	    (modal-dialog (format nil "dodvendupisettings-modal") "UPI Payment Settings" (modal.vendor-update-UPI-payment-settings-page))
+	    (:a :class "list-group-item" :href "hhubvendorupitransactions" "UPI Transactions")
+	    (:a :class "list-group-item" :href "hhubvendorshipmethods" "Shipping Methods")))))
 
+(defun dod-controller-vend-shipping-methods ()
+  (let* ((vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (shippingmethod (get-free-shipping-method-for-vendor vendor company))
+	 (minorderamt (getminorderamt shippingmethod)))
+    (with-vend-session-check
+      (with-standard-vendor-page "HighriseHub - Vendor Shipping Methods"
+	(:div :class "list-group col-sm-6 col-md-6 col-lg-6"
+	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendfreeshipping-modal")  :href "#"  "Free Shipping")
+	      (modal-dialog (format nil "dodvendfreeshipping-modal") "Free Shipping Configuration" (modal.vendor-free-shipping-config minorderamt)))))))
 
+(defun modal.vendor-free-shipping-config (minorderamt)
+  (cl-who:with-html-output (*standard-output* nil)
+    (:div :class "row" 
+	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(with-html-form "form-vendorfreeshippingmethod" "hhubvendupdatfreeshipmethodaction" 
+		  (:div :class "form-group"
+			(:label :for "minorderamt" "Minimum Order Amount For Free Shipping")
+			(:input :class "form-control" :name "minorderamt" :value minorderamt :placeholder "Minimum Order Amount For Free Shipping" :type "text"))
+		  (:div :class "form-group"
+			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))
+
+(defun dod-controller-vendor-update-free-shipping-method-action ()
+  (with-vend-session-check 
+    (let* ((vendor (get-login-vendor))
+	   (company (get-login-vendor-company))
+	   (shippingmethod (get-free-shipping-method-for-vendor vendor company))
+	   (minorderamt (float (with-input-from-string (in (hunchentoot:parameter "minorderamt"))
+			(read in)))))  
+      (setf (slot-value shippingmethod 'minorderamt) minorderamt)
+      (setf (slot-value shippingmethod 'freeshipenabled) "Y")
+      (update-shipping-methods shippingmethod)
+      (hunchentoot:redirect "/hhub/hhubvendorshipmethods"))))
+
+    
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-vendor-navigation-bar ()
