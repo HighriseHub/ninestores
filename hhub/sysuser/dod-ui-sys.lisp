@@ -943,6 +943,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustwalletrechargeaction"   'hhub-controller-upi-recharge-wallet-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubsearchmycustomer"   'hhub-controller-search-my-customer-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcarouseltest"   'hhub-controller-carousel-test)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustshippingmethodspage"   'dod-controller-cust-shipping-methods-page)
 
 
 
@@ -1006,6 +1007,12 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendaddprodshipinfoaction"  'com-hhub-transaction-vend-prd-shipinfo-add-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendorshipmethods"  'dod-controller-vend-shipping-methods)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdatfreeshipmethodaction"  'dod-controller-vendor-update-free-shipping-method-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendshipzoneratetablepage"  'dod-controller-vendor-shipzone-ratetable-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvenduploadshipratetableaction"  'dod-controller-vendor-upload-shipping-ratetable-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdatedefaultshipmethod"  'dod-controller-vendor-update-default-shipping-method)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdatflatrateshipmethodaction"  'dod-controller-vendor-update-flatrate-shpping-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdateshippartneraction"  'dod-controller-vendor-update-external-shipping-partner-action)
+	
 			
 ))
 
