@@ -53,7 +53,7 @@
 		     (lambda (image)
 		       (let* ((newimageparams (remove "uploadedimagefiles" image :test #'equal ))
 			      (tempfilewithpath (nth 0 newimageparams))
-			      (filename (process-image  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
+			      (filename (process-file  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
 			 (if *HHUBUSELOCALSTORFORRES* 
 			     (if tempfilewithpath (format nil "/img/~A" filename))
 			     ;;else return the path of the uploaded file in S3 bucket.
@@ -88,7 +88,7 @@
   (let* ((csvfileparams (hunchentoot:post-parameter "uploadedcsvfile"))
 	 (params nil)
 	 (tempfilewithpath (nth 0 csvfileparams))
-					;(final-file-name (process-image  csvfileparams (format nil "~A/temp" *HHUBRESOURCESDIR*)))
+					;(final-file-name (process-file  csvfileparams (format nil "~A/temp" *HHUBRESOURCESDIR*)))
 	 (prdlist (cl-csv:read-csv tempfilewithpath ;(pathname (format nil "~A/temp/~A" *HHUBRESOURCESDIR* final-file-name))
 				   :skip-first-p T  :map-fn #'(lambda (row)
 								(when (equal (nth 7 row) (string-upcase (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :MD5 (ironclad:ascii-string-to-byte-array (nth 6 row))))))
@@ -197,7 +197,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (vendor (get-login-vendor))
 	   (prodimageparams (hunchentoot:post-parameter "picturepath"))
 	   (tempfilewithpath (first prodimageparams))
-	   (file-name (if tempfilewithpath (process-image prodimageparams *HHUBRESOURCESDIR*))))
+	   (file-name (if tempfilewithpath (process-file prodimageparams *HHUBRESOURCESDIR*))))
       
       (setf (slot-value vendor 'name) name)
       (setf (slot-value vendor 'address) address)
@@ -901,34 +901,361 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun dod-controller-vend-shipping-methods ()
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
-	 (shippingmethod (get-free-shipping-method-for-vendor vendor company))
-	 (minorderamt (getminorderamt shippingmethod)))
+	 (shippingmethod (get-shipping-method-for-vendor vendor company))
+	 (flatrateshipenabled (slot-value shippingmethod 'flatrateshipenabled))
+	 (flatratetype (slot-value shippingmethod 'flatratetype))
+	 (flatrateprice (slot-value shippingmethod 'flatrateprice))
+	 (extshipenabled (slot-value shippingmethod 'extshipenabled))
+	 (shippartnerkey (slot-value shippingmethod 'shippartnerkey))
+	 (shippartnersecret (slot-value shippingmethod 'shippartnersecret))
+	 (minorderamt (when shippingmethod (getminorderamt shippingmethod)))
+	 (freeshipenabled (when shippingmethod (slot-value shippingmethod 'freeshipenabled))))
     (with-vend-session-check
       (with-standard-vendor-page "HighriseHub - Vendor Shipping Methods"
 	(:div :class "list-group col-sm-6 col-md-6 col-lg-6"
 	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendfreeshipping-modal")  :href "#"  "Free Shipping")
-	      (modal-dialog (format nil "dodvendfreeshipping-modal") "Free Shipping Configuration" (modal.vendor-free-shipping-config minorderamt)))))))
+	      (modal-dialog (format nil "dodvendfreeshipping-modal") "Free Shipping Configuration" (modal.vendor-free-shipping-config freeshipenabled minorderamt))
+	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendflatrateshipping-modal")  :href "#"  "Flat Rate Shipping")
+	      (modal-dialog (format nil "dodvendflatrateshipping-modal") "Flat Rate Shipping Configuration" (modal.vendor-flatrate-shipping-config flatrateshipenabled flatratetype flatrateprice))
+	      (:a :class "list-group-item" :href "hhubvendshipzoneratetablepage"  "Zonewise Shipping")
+	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendextshipping-modal")  :href "#"  "External Shipping Partners")
+	      (modal-dialog (format nil "dodvendextshipping-modal") "External Shipping Partners Configuration" (modal.vendor-external-shipping-partners-config shippartnerkey shippartnersecret extshipenabled))
+	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvenddefaultshipmethod-modal")  :href "#"  "Select Default Shipping Method")
+	      (modal-dialog (format nil "dodvenddefaultshipmethod-modal") "Default Shipping Method Configuration" (modal.vendor-default-shipping-method-config shippingmethod vendor)))
+	     
+	      
+	(:script "function enableminorderamt() {
+    const freeshipenabled = document.getElementById('freeshipenabled');
+    if( freeshipenabled.checked ){
+	$('#minorderamtctrl').show();
+        freeshipenabled.value = \"Y\";
+    }else
+    {
+       $('#minorderamtctrl').hide();
+       freeshipenabled.value = \"N\";
+    }
+}")
+	(:script "function enablevendorshipping() {
+    const vendorshipenabled = document.getElementById('vendorshipenabled');
+    if( vendorshipenabled.checked ){
+         vendorshipenabled.value = \"Y\";
+	$('#vendorshipenabledctrl').show();
+        
+    }else
+    {
+          vendorshipenabled.value = \"N\";
+       $('#vendorshipenabledctrl').hide();
+      
+    }
+}")
+	(:script "function enablestorepickupmethod(){
+       const  enablestorepickup  = document.getElementById('storepickupenabled');
+    if( enablestorepickup.checked ){
+         enablestorepickup.value = \"Y\";
+    }else
+    {
+         enablestorepickup.value = \"N\";
+    }
+}")))))
 
-(defun modal.vendor-free-shipping-config (minorderamt)
+(defun dod-controller-vendor-shipzone-ratetable-page()
+  (with-vend-session-check
+    (let* ((vendor (get-login-vendor))
+	   (company (get-login-vendor-company))
+	   (shippingmethod (get-shipping-method-for-vendor vendor company))
+	   (tablerateshipenabled (if shippingmethod (slot-value shippingmethod 'tablerateshipenabled)))
+	   (ratetablecsv (if (and tablerateshipenabled shippingmethod) (getratetablecsv shippingmethod) (hhub-read-file (format nil "~A/~A" *HHUBRESOURCESDIR* *HHUBDEFAULTSHIPRATETABLECSV*))))
+	   (shipzones (get-ship-zones-for-vendor vendor company))
+	   (zipcoderanges (hhub-read-file (format nil "~A/~A" *HHUBRESOURCESDIR* *HHUBDEFAULTSHIPZONESCSV*))))
+
+      (with-standard-vendor-page "HighriseHub - Vendor Zonewise Shipping Method"
+	(with-html-form "form-vendorshipratetableupload" "hhubvenduploadshipratetableaction"
+	  (:div :class "form-check"
+		(if (equal tablerateshipenabled "Y")
+			    (cl-who:htm (:input :type "checkbox" :id "tablerateshipenabled" :name "tablerateshipenabled" :value "Y" :onclick (parenscript:ps (enableratetableshipping)) :tabindex "1"  :checked "true"))
+			    ;; else
+			    (cl-who:htm
+			     (:input :type "checkbox" :id "tablerateshipenabled" :name "tablerateshipenabled" :value "N" :onclick (parenscript:ps (enableratetableshipping)) :tabindex "1")))
+		(:label :for "tablerageshipenabled" "&nbsp;&nbsp;&nbsp;Enable Zonewise Shipping:"))
+	  (:br)
+	  (cl-who:htm (:div :id "ratetablecsvuploadctrl"
+			      (:div :class "form-group" (:label :for "" "Select Shipping Rate Table CSV:")
+				    (:input :class "form-control" :name "ratetablecsv" :placeholder "Rate Table CSV File" :type "file" )
+			      (:a :href (format nil "/img/~A"  *HHUBDEFAULTSHIPRATETABLECSV*) (:i :class "fa-solid fa-file-arrow-down fa-beat fa-lg") "&nbsp;&nbsp;Download Sample CSV File"))
+			      (:div :class "form-group" (:label :for "" "Select Shipping Zones & Pincodes CSV:")
+				    (:input :class "form-control" :name "zonepincodescsv" :placeholder "Shipping Zones & Pincodes CSV File" :type "file" ))
+			      (:div (:a :href (format nil "/img/~A"  *HHUBDEFAULTSHIPZONESCSV*) (:i :class "fa-solid fa-file-arrow-down fa-beat fa-lg") "&nbsp;&nbsp;Download Sample CSV File"))))
+			(:div :class "form-group"
+			      (:button :class "btn btn-primary" :type "submit" "Submit")))
+	
+	
+	(:hr)
+	(when ratetablecsv
+	  (cl-who:str
+	   (display-csv-as-html-table ratetablecsv)))
+	(:br)
+	(unless shipzones
+	  (cl-who:str (display-csv-as-html-table zipcoderanges)))
+	(when shipzones
+	  (cl-who:str (display-as-tiles shipzones 'zonezipcodesdisplayfunc "product-card" )))
+		
+	;; Zone 
+	(:script "function enableratetableshipping() {
+    const tablerateshipenabled = document.getElementById('tablerateshipenabled');
+    if( tablerateshipenabled.checked ){
+	$('#ratetablecsvuploadctrl').show();
+        tablerateshipenabled.value = \"Y\";
+    }else
+    {
+       $('#ratetablecsvuploadctrl').hide();
+       tablerateshipenabled.value = \"N\";
+    }
+}")))))
+
+(defun zonezipcodesdisplayfunc (shipzone)
+  (cl-who:with-html-output (*standard-output* nil)
+    (:b (:div  :height "10px" (cl-who:str (slot-value shipzone 'zonename))))
+    (:div :height "10px"  (cl-who:str (slot-value shipzone 'zipcoderangecsv)))))
+
+
+
+(defun dod-controller-vendor-upload-shipping-ratetable-action ()
+  (let* ((ratetablecsvfileparams (hunchentoot:post-parameter "ratetablecsv"))
+	 (zonepincodescsvfileparams (hunchentoot:post-parameter "zonepincodescsv"))
+	 (tablerateshipenabled (hunchentoot:parameter "tablerateshipenabled"))
+	 (ratetablecsvcontents (if ratetablecsvfileparams (hhub-read-file (nth 0 ratetablecsvfileparams))))
+	 (zonepincodescsvcontents (if zonepincodescsvfileparams (hhub-read-file (nth 0 zonepincodescsvfileparams))))
+	 (zonepincodeslst (if zonepincodescsvcontents (cl-csv:read-csv zonepincodescsvcontents :skip-first-p T)))
+	 (vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (shippingmethod (get-shipping-method-for-vendor vendor company))
+	 (shipzones (get-ship-zones-for-vendor vendor company)))
+
+    ;; save the rate table csv in the shipping method table
+
+    (if ratetablecsvcontents (setf (slot-value shippingmethod 'ratetablecsv) ratetablecsvcontents))
+    (setf (slot-value shippingmethod 'tablerateshipenabled) tablerateshipenabled)
+    (update-shipping-methods shippingmethod)
+    ;; save the ship zones pincodes in the ship zones table
+    (unless shipzones
+      (mapcar (lambda (zoneinfo)
+		(let ((zonename (car zoneinfo))
+		      (pincodescsv (format nil "~A" (cdr zoneinfo))))
+		  (create-vendor-ship-zone zonename pincodescsv vendor company))) zonepincodeslst))
+    (when shipzones
+      (mapcar (lambda (shipzone zoneinfo)
+		(let ((zonename (car zoneinfo))
+		      (pincodescsv (cdr zoneinfo)))
+		  (setf (slot-value shipzone 'zipcoderangecsv) (format nil "~A" pincodescsv))
+		  (setf (slot-value shipzone 'zonename) zonename)
+		  (update-vendor-shipzone shipzone))) shipzones zonepincodeslst))
+    (hunchentoot:redirect "/hhub/hhubvendshipzoneratetablepage")))
+   
+
+(defun dod-controller-vendor-update-default-shipping-method ()
+  (let* ((storepickupenabled (hunchentoot:parameter "storepickupenabled"))
+	 (vendorshipenabled (hunchentoot:parameter "vendorshipenabled"))
+	 (defaultshippingmethod (hunchentoot:parameter "defaultshippingmethod"))
+	 (vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (shippingmethod (get-shipping-method-for-vendor vendor company)))
+
+    (setf (slot-value shippingmethod 'defaultshippingmethod) defaultshippingmethod)
+    (if storepickupenabled
+	(setf (slot-value shippingmethod 'storepickupenabled) storepickupenabled)
+	;;else
+	(setf (slot-value shippingmethod 'storepickupenabled) "N"))
+    (if vendorshipenabled
+	(setf (slot-value vendor 'shipping-enabled) vendorshipenabled)
+	;;else
+	(setf (slot-value vendor 'shipping-enabled) "N"))
+    (when (equal defaultshippingmethod "FSH")
+      (setf (slot-value shippingmethod 'freeshipenabled) "Y")
+      (setf (slot-value shippingmethod 'flatrateshipenabled) "N")
+      (setf (slot-value shippingmethod 'tablerateshipenabled) "N")
+      (setf (slot-value shippingmethod 'extshipenabled) "N"))
+          
+    (when (equal defaultshippingmethod "FRS")
+      (setf (slot-value shippingmethod 'flatrateshipenabled) "Y")
+      (setf (slot-value shippingmethod 'tablerateshipenabled) "N")
+      (setf (slot-value shippingmethod 'extshipenabled) "N"))
+    
+    (when (equal defaultshippingmethod "TRS")
+      (setf (slot-value shippingmethod 'tablerateshipenabled) "Y")
+      (setf (slot-value shippingmethod 'flatrateshipenabled) "N")
+      (setf (slot-value shippingmethod 'extshipenabled) "N"))
+    
+    (when (equal defaultshippingmethod "EXS")
+      (setf (slot-value shippingmethod 'extshipenabled) "Y")
+      (setf (slot-value shippingmethod 'flatrateshipenabled) "N")
+      (setf (slot-value shippingmethod 'tablerateshipenabled) "N"))
+        
+    (update-vendor-details vendor)
+    (update-shipping-methods shippingmethod)
+    (hunchentoot:redirect "/hhub/hhubvendorshipmethods")))
+    
+
+
+(defun modal.vendor-default-shipping-method-config (shippingmethod vendor)
+  (let ((storepickupenabled (slot-value shippingmethod 'storepickupenabled))
+	(defaultshippingmethod (slot-value shippingmethod 'defaultshippingmethod))
+	(vendorshipenabled (slot-value vendor 'shipping-enabled))
+	(shippingmethods-ht (make-hash-table :test 'equal)))
+    
+    (setf (gethash "FSH" shippingmethods-ht) "FREE Shipping")
+    (setf (gethash "FRS" shippingmethods-ht) "Flat Rate Shipping")
+    (setf (gethash "TRS" shippingmethods-ht) "Zonewise Shipping")
+    (setf (gethash "EXS" shippingmethods-ht) "External Shipping Partners")
+    
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :class "row" 
+	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(with-html-form "form-vendordefaultshippingmethod" "hhubvendupdatedefaultshipmethod" 
+		  (:div :class "form-check"
+			(if (equal storepickupenabled "Y")
+			    (cl-who:htm
+			     (:input :type "checkbox" :id "storepickupenabled" :name "storepickupenabled" :value "Y" :onclick (parenscript:ps (enablestorepickupmethod)) :tabindex "1"  :checked "true"))
+			    ;; else
+			    (cl-who:htm
+			     (:input :type "checkbox" :id "storepickupenabled" :name "storepickupenabled" :value "N" :onclick (parenscript:ps (enablestorepickupmethod)) :tabindex "1" )))
+			(:label :class "form-check-label" :for "freeshipenabled" "&nbsp;&nbsp;Enable Store Pickup"))
+		  (:div :class "form-check"
+			(if (equal vendorshipenabled "Y")
+			    (cl-who:htm
+			     (:input :type "checkbox" :id "vendorshipenabled" :name "vendorshipenabled" :value "Y" :onclick (parenscript:ps (enablevendorshipping)) :tabindex "2" :checked "true"))
+			    ;; else
+			    (cl-who:htm
+			     (:input :type "checkbox" :id "vendorshipenabled" :name "vendorshipenabled" :value "N" :onclick (parenscript:ps (enablevendorshipping)) :tabindex "2" )))
+			(:label :class "form-check-label" :for "vendorshipenabled" "&nbsp;&nbsp;Enable Shipping"))
+
+		  (:br)
+		  (:div :id "vendorshipenabledctrl" :class "form-group"
+			(:label :class "form-check-label" :for "vendorshipenabled" "&nbsp;&nbsp;Select Default Shipping Method")
+			(with-html-dropdown "defaultshippingmethod" shippingmethods-ht defaultshippingmethod))
+			
+			(:div :class "form-group"
+			      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+  
+
+
+(defun modal.vendor-external-shipping-partners-config (shippartnerkey shippartnersecret extshipenabled)
+  (cl-who:with-html-output (*standard-output* nil)                                                                                                                                                                
+    (:div :class "row"
+          (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(:p (cl-who:str (format nil "We have partnered with ~A for our shipping needs. Please enter your API key and secret here." *HHUBSHIPPINGPARTNERSITE*)))
+		
+		(with-html-form "form-vendorshippartnerupdate" "hhubvendupdateshippartneraction"
+
+		  (:div :class "form-check"
+			(if (equal extshipenabled "Y")
+			    (cl-who:htm
+			     (:input :type "checkbox" :id "extshipenabled" :name "extshipenabled" :value "Y" :onclick (parenscript:ps (enableextshipmethod)) :tabindex "1"  :checked "true"))
+			    ;; else
+			    (cl-who:htm
+			     (:input :type "checkbox" :id "extshipenabled" :name "extshipenabled" :value "Y" :onclick (parenscript:ps (enableextshipmethod)) :tabindex "1")))
+			(:label :class "form-check-label" :for "freeshipenabled" "&nbsp;&nbsp;Enable Store Pickup"))
+		  
+		  (:div :class "form-group"
+			(:input :class "form-control" :name "shippartnerkey" :value shippartnerkey :placeholder "Shipping Partner API Key" :type "text"))
+		  (:div :class "form-group"                                                                  
+			(:input :class "form-control" :name "shippartnersecret" :value shippartnersecret :placeholder "Shipping Partner API Secret" :type "text"))
+		  (:div :class "form-group"
+			(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))
+
+(defun dod-controller-vendor-update-external-shipping-partner-action ()
+  (let* ((vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (shippingmethod (get-shipping-method-for-vendor vendor company))
+	 (extshipenabled (hunchentoot:parameter "extshipenabled"))
+	 (shippartnerkey (hunchentoot:parameter "shippartnerkey"))
+	 (shippartnersecret (hunchentoot:parameter "shippartnersecret")))
+
+    (setf (slot-value shippingmethod 'shippartnerkey) shippartnerkey)
+    (setf (slot-value shippingmethod 'shippartnersecret) shippartnersecret)
+    (setf (slot-value shippingmethod 'extshipenabled) extshipenabled)
+    (update-shipping-methods shippingmethod)
+    (hunchentoot:redirect "/hhub/hhubvendorshipmethods")))
+
+	 
+    
+
+
+(defun modal.vendor-flatrate-shipping-config (flatrateshipenabled flatratetype flatrateprice)
+  (let ((flatratetypedropdown-ht (make-hash-table :test 'equal)))
+    (setf (gethash "ORD" flatratetypedropdown-ht) "Entire Order")
+    (setf (gethash "ITM" flatratetypedropdown-ht) "Each Order Item")
+    
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :class "row" 
+	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		  (with-html-form "form-vendorflatrateshippingmethod" "hhubvendupdatflatrateshipmethodaction" 
+		  (:div :class "form-check"
+			(if (equal flatrateshipenabled "Y")
+			    (cl-who:htm (:input :type "checkbox" :id "flatrateshipenabled" :name "flatrateshipenabled" :value "Y" :onclick (parenscript:ps (enableflatrateshipping)) :tabindex "1"  :checked "true"))
+			    ;; else
+			    (cl-who:htm (:input :type "checkbox" :id "flatrateshipenabled" :name "flatrateshipenabled" :value "Y" :onclick (parenscript:ps (enableflatrateshipping)) :tabindex "1")))
+			(:label :class "form-check-label" :for "flatrateshipenabled" "&nbsp;&nbsp;Enable Flatrate Shipping")
+			(:div :id "flatrateshippingctrl" :class "form-group"
+			      (:label :for "flatratetype" "Flat Rate Applicable On")
+			      (with-html-dropdown "flatratetype" flatratetypedropdown-ht flatratetype)
+			      (:label :for "flatrateprice" "Flat Rate Price")
+			      (:input :class "form-control" :name "flatrateprice" :value flatrateprice :placeholder "Flat Rate Price" :type "text"))
+			(:div :class "form-group"
+			      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
+
+
+(defun dod-controller-vendor-update-flatrate-shpping-action ()
+  (let* ((vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (shippingmethod (get-shipping-method-for-vendor vendor company))
+	 (flatrateshipenabled (hunchentoot:parameter "flatrateshipenabled"))
+	 (flatratetype (hunchentoot:parameter "flatratetype"))
+	 (flatrateprice (float (with-input-from-string (in (hunchentoot:parameter "flatrateprice"))
+			(read in))))) 
+
+    ;; save the rate table csv in the shipping method table
+    (if flatrateshipenabled
+	(setf (slot-value shippingmethod 'flatrateshipenabled) "Y")
+	;;else
+	(setf (slot-value shippingmethod 'flatrateshipenabled) "N"))
+    (setf (slot-value shippingmethod 'flatratetype) flatratetype)
+    (setf (slot-value shippingmethod 'flatrateprice) flatrateprice)
+    (update-shipping-methods shippingmethod)
+    (hunchentoot:redirect "/hhub/hhubvendorshipmethods")))
+
+
+(defun modal.vendor-free-shipping-config (freeshipenabled minorderamt)
   (cl-who:with-html-output (*standard-output* nil)
     (:div :class "row" 
 	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(:p (:b "Note: Free shipping will be always applicable over and above all other shipping methods when enabled."))
 		(with-html-form "form-vendorfreeshippingmethod" "hhubvendupdatfreeshipmethodaction" 
-		  (:div :class "form-group"
-			(:label :for "minorderamt" "Minimum Order Amount For Free Shipping")
-			(:input :class "form-control" :name "minorderamt" :value minorderamt :placeholder "Minimum Order Amount For Free Shipping" :type "text"))
-		  (:div :class "form-group"
-			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))
+		  (:div :class "form-check"
+			(if (equal freeshipenabled "Y")
+			    (cl-who:htm (:input :type "checkbox" :id "freeshipenabled" :name "freeshipenabled" :value "Y" :onclick (parenscript:ps (enableminorderamt)) :tabindex "1"  :checked "true"))
+			    ;; else
+			    (cl-who:htm
+			     (:input :type "checkbox" :id "freeshipenabled" :name "freeshipenabled" :value "N" :onclick (parenscript:ps (enableminorderamt)) :tabindex "1")))
+			(:label :class "form-check-label" :for "freeshipenabled" "&nbsp;&nbsp;Enable Free Shipping")
+			(:div :id "minorderamtctrl" :class "form-group"
+			      (:label :for "minorderamt" "Minimum Order Amount For Free Shipping")
+			      (:input :class "form-control" :name "minorderamt" :value minorderamt :placeholder "Minimum Order Amount For Free Shipping" :type "text"))
+			(:div :class "form-group"
+			      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
 
 (defun dod-controller-vendor-update-free-shipping-method-action ()
   (with-vend-session-check 
     (let* ((vendor (get-login-vendor))
 	   (company (get-login-vendor-company))
-	   (shippingmethod (get-free-shipping-method-for-vendor vendor company))
+	   (shippingmethod (get-shipping-method-for-vendor vendor company))
+	   (freeshipenabled (hunchentoot:parameter "freeshipenabled"))
 	   (minorderamt (float (with-input-from-string (in (hunchentoot:parameter "minorderamt"))
 			(read in)))))  
       (setf (slot-value shippingmethod 'minorderamt) minorderamt)
-      (setf (slot-value shippingmethod 'freeshipenabled) "Y")
+      (if freeshipenabled 
+	  (setf (slot-value shippingmethod 'freeshipenabled) freeshipenabled)
+	  ;;else
+	  (setf (slot-value shippingmethod 'freeshipenabled) "N"))
       (update-shipping-methods shippingmethod)
       (hunchentoot:redirect "/hhub/hhubvendorshipmethods"))))
 
