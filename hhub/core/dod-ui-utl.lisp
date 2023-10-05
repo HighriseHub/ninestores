@@ -3,6 +3,20 @@
 (clsql:file-enable-sql-reader-syntax)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun display-csv-as-html-table (csvstringwithheader)
+    (let* ((data (cl-csv:read-csv csvstringwithheader))
+	   (header (car data))
+	   (csvrows (cdr data)))
+      (cl-who:with-html-output (*standard-output* nil)
+	(with-html-table (format nil "~Acsvtable" (gensym)) header "1"
+	  (loop for row in csvrows do
+	    (cl-who:htm (:tr
+			 (loop for column in row do
+			   (cl-who:htm
+			    (:td  (cl-who:str column))))))))))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defun html-range-control (name id min max value step)
     (cl-who:with-html-output (*standard-output* nil)
      (:div :class "hhub-range-body"

@@ -909,13 +909,6 @@
 				   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))
       (hhub-html-page-footer))))
 
-(defun check&encrypt (password confirmpass salt)
-  (when 
-	 (and (or  password  (length password)) 
-	      (or  confirmpass (length confirmpass))
-	      (equal password confirmpass))
- 
-       (encrypt password salt)))
 
 
 (defun com-hhub-transaction-customer&vendor-create-otpstep ()
@@ -1447,7 +1440,7 @@
 	(:p "Billing")
 	(:div :class "form-check"
 	      (:input :type "checkbox" :id "billsameasshipchecked" :name "billsameasshipchecked" :value  "billsameasshipchecked" :onclick "displaybillingaddress();" :tabindex "9"  :checked "true")
-	      (:label :class= "form-check-label" :style "font-size: 0.7rem;" :for "billsameasshipchecked" "&nbsp;&nbsp;Same as Shipping Address"))))
+	      (:label :class "form-check-label" :style "font-size: 0.7rem;" :for "billsameasshipchecked" "&nbsp;&nbsp;Same as Shipping Address"))))
     
     (with-html-div-row 
       (with-html-div-col-6
@@ -1862,6 +1855,7 @@
 (defun dod-controller-cust-shipping-methods-page ()
   (with-cust-session-check
     (let* ((orderparams-ht (get-cust-order-params-v2))
+	   (company (get-login-customer-company))
 	   (odts (gethash "shoppingcart" orderparams-ht))
 	   (shopcart-products (gethash "shopcartproducts" orderparams-ht))
 	   (shopcart-total (gethash "shopcart-total" orderparams-ht))
@@ -1869,11 +1863,21 @@
 	   (vendor-list (get-shopcart-vendorlist odts))
 	   (vendor-zipcode (slot-value (first vendor-list) 'zipcode))
 	   (vshipping-enabled (slot-value (first vendor-list) 'shipping-enabled))
-	   (shipping-options (when (and vshipping-enabled (< shopcart-total 1000)) (order-shipping-rate-check odts shopcart-products shipzipcode vendor-zipcode)))
-	   (shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
-								   (nth 9 elem)) shipping-options))
-			      ;; else
-			      0.00)))
+	   (vshipping-method (get-shipping-method-for-vendor (first vendor-list) company))
+	   (defaultshipmethod (getdefaultshippingmethod vshipping-method))
+	   (shipping-cost nil)
+	   (shipping-options nil))
+
+      (when (equal defaultshipmethod "TRS")
+	(let ((total-weight(calculate-cartitems-weight-kgs odts shopcart-products)))
+	  (setf shipping-cost (car (get-shipping-rate-from-table shipzipcode total-weight (first vendor-list) company)))))
+      (when (equal defaultshipmethod "EXS")
+	(setf shipping-options (when (and vshipping-enabled (< shopcart-total 1000)) (order-shipping-rate-check odts shopcart-products shipzipcode vendor-zipcode)))
+	(setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
+								(nth 9 elem)) shipping-options))
+			   ;; else
+			   0.00)))
+      
       (setf (gethash "shipping-cost" orderparams-ht) shipping-cost)
       (setf (gethash "shipping-info" orderparams-ht) shipping-options)
       ;; Save the order params for further use. 
@@ -1927,12 +1931,25 @@
 	   (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id))
 	   (vendor-zipcode (slot-value (first vendor-list) 'zipcode))
 	   (vshipping-enabled (slot-value (first vendor-list) 'shipping-enabled))
-	   (freeshipminorderamt (getminorderamt (get-free-shipping-method-for-vendor (first vendor-list) custcomp)))
-	   (shipping-options (when (and vshipping-enabled (< shopcart-total freeshipminorderamt)) (order-shipping-rate-check odts shopcart-products vendor-zipcode shipzipcode)))
-	   (shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
-								  (nth 9 elem)) shipping-options))
-				       ;; else
-				       0.00)))
+	   (vshipping-method (get-shipping-method-for-vendor (first vendor-list) custcomp))
+	   (defaultshipmethod (getdefaultshippingmethod vshipping-method))
+	   (freeshipminorderamt (getminorderamt (get-shipping-method-for-vendor (first vendor-list) custcomp)))
+	   (shipping-options nil)
+	   (shipping-cost 0.0))
+
+
+
+      (when (equal defaultshipmethod "TRS")
+	(let ((total-weight(calculate-cartitems-weight-kgs odts shopcart-products)))
+	  (setf shipping-cost (get-shipping-rate-from-table shipzipcode total-weight (first vendor-list) custcomp))))
+      (when (equal defaultshipmethod "EXS")
+	(setf shipping-options (when (and vshipping-enabled (< shopcart-total 1000)) (order-shipping-rate-check odts shopcart-products shipzipcode vendor-zipcode)))
+	(setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
+								(nth 9 elem)) shipping-options))
+			   ;; else
+			   0.00)))
+      
+
 
       ;; if payment is made using UPI, then add the utrnum to the order parameters
       (when (and (equal payment-mode "UPI") utrnum)

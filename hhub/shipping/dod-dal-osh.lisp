@@ -99,6 +99,18 @@
      :type (string 1)
      :initarg :storepickupenabled)
     
+    (defaultshippingmethod
+     :type (string 3)
+     :initarg :defaultshippingmethod)
+    
+
+    (shippartnerkey
+     :type (string 50)
+     :initarg :shippartnerkey)
+    (shippartnersecret
+     :type (string 50)
+     :initarg :shippartnersecret)
+    
     (flatratetype
      :type (string 3)
      :initarg :flatratetype)
@@ -159,5 +171,65 @@
    
   (:BASE-TABLE dod_shipping_methods))
 
+
+
+(clsql:def-view-class dod-vendor-ship-zones ()
+  ((row-id
+    :db-kind :key
+    :db-constraints :not-null
+    :type integer
+    :initarg row-id)
+
+    (zonename
+    :accessor zonename
+    :TYPE (string 70)
+    :INITARG :zonename)
+
+    (zipcoderangecsv
+     :type (string 1024)
+     :initarg :zipcoderangecsv)
+    
+    (vendor-id
+    :db-constraints :NOT-NULL
+    :type integer
+    :initarg :vendor-id)
+   
+    (vendorobject
+    :accessor odt-vendorobject
+    :db-kind :join
+    :db-info (:join-class dod-vend-profile
+			  :home-key vendor-id
+			  :foreign-key row-id
+			  :set nil))
+ 
+
+    (created
+    :accessor created
+    :TYPE clsql:date)
+   
+    (active-flag
+    :type (string 1)
+    :void-value "Y"
+       :initarg :active-flag)
+
+
+   (deleted-state
+    :type (string 1)
+    :void-value "N"
+       :initarg :deleted-state)
+
+    (tenant-id
+    :type integer
+    :initarg :tenant-id)
+   (COMPANY
+    :ACCESSOR product-company
+    :DB-KIND :JOIN
+    :DB-INFO (:JOIN-CLASS dod-company
+	                  :HOME-KEY tenant-id
+                          :FOREIGN-KEY row-id
+                          :SET T)))
+
+   
+  (:BASE-TABLE dod_vendor_ship_zones))
 
 

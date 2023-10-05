@@ -50,6 +50,14 @@
             (or (gethash arg values)
                 (setf (gethash arg values)
                       (apply original-function arg args)))))))
+(defun check&encrypt (password confirmpass salt)
+  (when 
+	 (and (or  password  (length password)) 
+	      (or  confirmpass (length confirmpass))
+	      (equal password confirmpass))
+ 
+       (encrypt password salt)))
+
 
 (defun hhub-random-password (length)
   (with-output-to-string (stream)
@@ -79,9 +87,9 @@
   (format stream "~A" contents)))
 
 
-(defun process-image (image move-to)
-  (let* ((tempfilewithpath (nth 0 image))
-	 (tempfilename (nth 1 image))
+(defun process-file (file move-to)
+  (let* ((tempfilewithpath (nth 0 file))
+	 (tempfilename (nth 1 file))
 	 (final-file-name (format nil "~A-~A" (get-universal-time) tempfilename)))
    ;; Only if the file size is less than 1 mb do the operation. 
    (when (and (probe-file  tempfilewithpath) (with-open-file (s tempfilewithpath) (< (/ (file-length s) 1000000.0) 1)))  

@@ -43,8 +43,7 @@
 
 (defun order-shipping-rate-check (shopping-cart products from-pincode to-pincode)
   (let* ((total-items (reduce #'+ (mapcar (lambda (item) (slot-value item 'prd-qty)) shopping-cart)))
-	 (unique-prd-count (length products))
-	 (total-weight (/ (* total-items (get-total-of products 'shipping-weight-kg)) unique-prd-count))
+	 (total-weight (calculate-cartitems-weight-kgs shopping-cart products))
 	 (final-lwh (expt (* 5000 total-weight) 1/3))
 	 (dimension1 (floor (- final-lwh (mod final-lwh 5))))
 	 (dimension2 dimension1)

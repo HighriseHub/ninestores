@@ -1,5 +1,7 @@
 
 select 'dropping the tables' as ' ';
+
+drop table if exists DOD_VENDOR_SHIP_ZONES; SELECT 'dropping shipping zones table, which will let the vendor choose the shipping methods.'; 
 drop table if exists DOD_SHIPPING_METHODS; SELECT 'dropping shipping methods table, which will let the vendor choose the shipping methods.'; 
 drop table if exists DOD_ORDER_SUBSCRIPTION; SELECT 'dropping product preference table, which will let the vendor know what the product preferences of the user are.'; 
 drop table if exists DOD_ORDER_TRACK; select 'dropping order status table'; 
@@ -41,6 +43,25 @@ drop table if exists DOD_COMPANY;  SELECT 'dropping apartment complex/society/gr
 select 'tables dropped' as ' ';
 
 
+
+select 'creating table dod_free_shipping_method' as ' ';
+CREATE TABLE `DOD_VENDOR_SHIP_ZONES` (
+  `ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,
+  `ZONENAME` varchar(70) DEFAULT NULL,
+  `VENDOR_ID` mediumint(9) DEFAULT NULL, 
+  `ZIPCODERANGECSV` varchar(1024) DEFAULT NULL, 
+  `CREATED` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `DELETED_STATE` char(1) DEFAULT NULL,
+  `ACTIVE_FLAG` char(1) DEFAULT NULL,
+  `TENANT_ID` mediumint(9) DEFAULT NULL,
+  PRIMARY KEY (`ROW_ID`),
+  KEY `TENANT_ID` (`TENANT_ID`),
+  KEY `VENDOR_ID` (`VENDOR_ID`),
+  CONSTRAINT `DOD_VENDOR_SHIP_ZONES_ibfk_1` FOREIGN KEY (`TENANT_ID`) REFERENCES `DOD_COMPANY` (`ROW_ID`),
+  CONSTRAINT `DOD_VENDOR_SHIP_ZONES_ibfk_2` FOREIGN KEY (`VENDOR_ID`) REFERENCES `DOD_VEND_PROFILE` (`ROW_ID`)
+);
+
+
 select 'creating table dod_free_shipping_method' as ' ';
 CREATE TABLE `DOD_SHIPPING_METHODS` (
   `ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -54,6 +75,8 @@ CREATE TABLE `DOD_SHIPPING_METHODS` (
   `FLATRATETYPE` char(3) DEFAULT "ORD", 'PER ORDER - ORD, PER ITEM - ITM'
   `FLATRATEPRICE` decimal(7,2) DEFAULT NULL,   
   `RATETABLECSV` varchar(500) DEFAULT NULL,	   
+  `SHIPPARTNERKEY` varchar(50) DEFAULT NULL,
+  `SHIPPARTNERSECRET` varchar(50) DEFAULT NULL,	   
   `VENDOR_ID` mediumint(9) DEFAULT NULL, 
   `CREATED` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `DELETED_STATE` char(1) DEFAULT NULL,

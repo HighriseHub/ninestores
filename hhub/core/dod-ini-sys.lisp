@@ -85,6 +85,9 @@
 (defvar *HHUBWHATSAPPBUTTONIMG* "WhatsAppButtonGreenSmall.png")
 (defvar *HTMLRUPEESYMBOL* "&#8377;")
 (defvar *HHUBSHIPPINGZONES* nil)
+(defvar *HHUBDEFAULTSHIPRATETABLECSV* "defaultshipratetable.csv")
+(defvar *HHUBDEFAULTSHIPZONESCSV*  "defaultshipzonepincodes.csv")
+(defvar *HHUBSHIPPINGPARTNERSITE* "https://www.ithinklogistics.com/")
 
 
 (defun set-customer-page-title (name)
