@@ -22,7 +22,7 @@ let AUTH_SECRET = "highrisehub1234"; //process.env.AUTH_SECRET;
 //AWS.config.update({region: process.env.AWS_REGION});
 //var credentials = new AWS.SharedIniFileCredentials({profile: 'default'});
 //AWS.config.credentials = credentials;
-const filePath = "/data/www/public/img/temp/";
+const filePath = "/data/www/public/img/";
 
 
 app.get("/file/status", function(req, res) {
@@ -40,14 +40,15 @@ app.get('/file/upload', (req, res) => {
 
     const fileName = filePath + req.query.filename;
     console.log("fileName = " + fileName);
-    
+    const fileuploadpath = req.query.tenantid + '/' + req.query.vendorid + '/' + req.query.uuid;
+    console.log(fileuploadpath); 
     // Read content from the file
     const fileContent = fs.readFileSync(fileName);
 
     // Setting up S3 upload parameters
     const params = {
-        Bucket: 'com.hhub.storage.resources',
-        Key: req.query.filename, // File name you want to save as in S3
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: fileuploadpath, // File name you want to save as in S3
         Body: fileContent
     };
 
