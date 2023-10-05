@@ -174,7 +174,7 @@
 	 (headers nil) 
 	 (headers (acons "auth-secret" "highrisehub1234" headers)))
     ; Execution
-    (drakma:http-request "https://www.highrisehub.com/sms/sendsms"
+    (drakma:http-request (format nil "~A/sms/sendsms" *SITEURL*)
 			 :additional-headers headers
 			     :parameters param-alist)))
   
