@@ -35,6 +35,16 @@
 	(ratetablecsv (slot-value shippingmethod 'ratetablecsv)))
     (when tablerateshipenabled ratetablecsv)))
 
+(defun getflatrateprice (shippingmethod)
+  (let ((flatrateshipenabled (slot-value shippingmethod 'flatrateshipenabled))
+	(flatrateprice (slot-value shippingmethod 'flatrateprice)))
+    (when flatrateshipenabled flatrateprice)))
+
+(defun getflatratetype (shippingmethod)
+  (let ((flatrateshipenabled (slot-value shippingmethod 'flatrateshipenabled))
+	(flatratetype (slot-value shippingmethod 'flatratetype)))
+    (when flatrateshipenabled flatratetype)))
+
 
 
 (defun get-shipping-rate-from-table (pincode weight vendor company)
@@ -50,7 +60,7 @@
 					 (zone-c (float (read-from-string (nth 3 raterow))))
 					 (zone-d (float (read-from-string (nth 3 raterow))))
 					 (zone-e (float (read-from-string (nth 3 raterow)))))
-				     (when (and (> weight minkg) (< weight maxkg))
+				     (when (and (>= weight minkg) (<= weight maxkg))
 				       (cond ((equal zonename "ZONE-A") zone-a)
 					     ((equal zonename "ZONE-B") zone-b)
 					     ((equal zonename "ZONE-C") zone-c)

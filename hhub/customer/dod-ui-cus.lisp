@@ -1935,14 +1935,20 @@
 	   (defaultshipmethod (getdefaultshippingmethod vshipping-method))
 	   (freeshipminorderamt (getminorderamt (get-shipping-method-for-vendor (first vendor-list) custcomp)))
 	   (shipping-options nil)
-	   (shipping-cost 0.0))
+	   (shipping-cost nil))
 
 
 
-      (when (equal defaultshipmethod "TRS")
+      (when (and flatrateshipenabled (equal defaultshipmethod "FRS"))
+	(let ((flatratetype (getflatratetype vshipping-method))
+	      (flatrateprice (getflatrateprice vshipping-method)))
+	  (cond ((equal flatratetype "ORD") (setf shipping-cost flatrateprice))
+		((equal flatratetype "ITM") (setf shipping-cost (* flatrateprice (reduce #'+ (mapcar (lambda (item) (slot-value item 'prd-qty)) odts))))))))
+      
+      (when (and tablerateshipenabled (equal defaultshipmethod "TRS"))
 	(let ((total-weight(calculate-cartitems-weight-kgs odts shopcart-products)))
-	  (setf shipping-cost (get-shipping-rate-from-table shipzipcode total-weight (first vendor-list) custcomp))))
-      (when (equal defaultshipmethod "EXS")
+	  (setf shipping-cost (car (get-shipping-rate-from-table shipzipcode total-weight (first vendor-list) custcomp)))))
+      (when (and extshipenabled (equal defaultshipmethod "EXS"))
 	(setf shipping-options (when (and vshipping-enabled (< shopcart-total 1000)) (order-shipping-rate-check odts shopcart-products shipzipcode vendor-zipcode)))
 	(setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
 								(nth 9 elem)) shipping-options))
