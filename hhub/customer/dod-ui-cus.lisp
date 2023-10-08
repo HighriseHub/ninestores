@@ -1897,7 +1897,47 @@
       ))))
 
 
-      	
+
+(defun calculate-shipping-cost-for-order (shipzipcode shopcart-total shopping-cart products vendor company)
+  (let* ((vshipping-method (get-shipping-method-for-vendor vendor company))
+	 (vshipping-enabled (slot-value vendor 'shipping-enabled))
+	 (flatrateshipenabled (slot-value vshipping-method 'flatrateshipenabled))
+	 (tablerateshipenabled (slot-value vshipping-method 'tablerateshipenabled))
+	 (extshipenabled (slot-value vshipping-method 'extshipenabled))
+	 (defaultshipmethod (getdefaultshippingmethod vshipping-method))
+	 (freeshipminorderamt (getminorderamt vshipping-method))
+	 (vendor-zipcode (slot-value vendor 'zipcode))
+	 (total-items (reduce #'+ (mapcar (lambda (item) (slot-value item 'prd-qty)) shopping-cart)))
+	 (shipping-options nil)
+	 (shipping-cost 0.0)
+	 (saleproducts-p  (every #'(lambda (x) (if x T))
+				 (mapcar (lambda (product)
+					   (let ((prd-type (slot-value product 'prd-type)))
+					     (equal prd-type "SALE"))) products))))
+
+
+    ;; If we have a single service product or number of service products are more than 1 then do not calculate
+    ;; shipping cost. Or calculate shipping cost only for SALES products. 
+       
+    (when (and saleproducts-p
+	       (<= shopcart-total freeshipminorderamt))
+      (when (and flatrateshipenabled (equal defaultshipmethod "FRS"))
+	(let ((flatratetype (getflatratetype vshipping-method))
+	      (flatrateprice (getflatrateprice vshipping-method)))
+	  (cond ((equal flatratetype "ORD") (setf shipping-cost flatrateprice))
+		((equal flatratetype "ITM") (setf shipping-cost (* flatrateprice total-items))))))
+      (when (and tablerateshipenabled (equal defaultshipmethod "TRS"))
+	(let ((total-weight (calculate-cartitems-weight-kgs shopping-cart products)))
+	  (setf shipping-cost (get-shipping-rate-from-table shipzipcode total-weight vendor company))))
+      (when (and extshipenabled (equal defaultshipmethod "EXS"))
+	(setf shipping-options (when (and vshipping-enabled (< shopcart-total 1000)) (order-shipping-rate-check shopping-cart products shipzipcode vendor-zipcode)))
+	(setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
+								     (nth 9 elem)) shipping-options))
+				;; else
+				0.00))))
+      (list shipping-cost shipping-options)))
+    
+    
 
 (defun dod-controller-cust-show-shopcart-readonly()
   (with-cust-session-check 
@@ -1929,32 +1969,10 @@
 	   (company-type (slot-value custcomp 'cmp-type))
 	   (vendor-list (get-shopcart-vendorlist odts))
 	   (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id))
-	   (vendor-zipcode (slot-value (first vendor-list) 'zipcode))
-	   (vshipping-enabled (slot-value (first vendor-list) 'shipping-enabled))
-	   (vshipping-method (get-shipping-method-for-vendor (first vendor-list) custcomp))
-	   (defaultshipmethod (getdefaultshippingmethod vshipping-method))
 	   (freeshipminorderamt (getminorderamt (get-shipping-method-for-vendor (first vendor-list) custcomp)))
-	   (shipping-options nil)
-	   (shipping-cost nil))
-
-
-
-      (when (and flatrateshipenabled (equal defaultshipmethod "FRS"))
-	(let ((flatratetype (getflatratetype vshipping-method))
-	      (flatrateprice (getflatrateprice vshipping-method)))
-	  (cond ((equal flatratetype "ORD") (setf shipping-cost flatrateprice))
-		((equal flatratetype "ITM") (setf shipping-cost (* flatrateprice (reduce #'+ (mapcar (lambda (item) (slot-value item 'prd-qty)) odts))))))))
-      
-      (when (and tablerateshipenabled (equal defaultshipmethod "TRS"))
-	(let ((total-weight(calculate-cartitems-weight-kgs odts shopcart-products)))
-	  (setf shipping-cost (car (get-shipping-rate-from-table shipzipcode total-weight (first vendor-list) custcomp)))))
-      (when (and extshipenabled (equal defaultshipmethod "EXS"))
-	(setf shipping-options (when (and vshipping-enabled (< shopcart-total 1000)) (order-shipping-rate-check odts shopcart-products shipzipcode vendor-zipcode)))
-	(setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
-								(nth 9 elem)) shipping-options))
-			   ;; else
-			   0.00)))
-      
+	   (shiplst (calculate-shipping-cost-for-order shipzipcode shopcart-total odts shopcart-products (first vendor-list) custcomp))
+	   (shipping-cost (nth 0 shiplst))
+	   (shipping-options (nth 1 shiplst)))
 
 
       ;; if payment is made using UPI, then add the utrnum to the order parameters
@@ -2017,6 +2035,7 @@
 		      (cl-who:htm (:p (cl-who:str (format nil "Shipping: FREE!")))))
 		  (:p (cl-who:str (format nil "Sub-total: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
 		  (:hr)
+
 		  (:p (:h2 (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
 		  
 		  

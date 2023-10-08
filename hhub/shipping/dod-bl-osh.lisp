@@ -100,12 +100,13 @@ defaultshippingmethod))
 (defun get-zonename-from-pincode (pincode vendor company)
   (let* ((shipzones (get-ship-zones-for-vendor vendor company)))
     (car (remove nil (mapcar (lambda (shipzone)
-			  (let ((zipcodes (read-from-string (slot-value shipzone 'zipcoderangecsv))))
-			    (car (remove nil (mapcar (lambda (zipcode)
-						  (when (> (cl-ppcre:count-matches (format nil "^~A" zipcode) pincode) 0)
-						    ;;(format T "~A:~A~C" zipcode pincode #\newline)
-						    (slot-value shipzone 'zonename))) zipcodes))))) shipzones)))))
-	 
+			       (let ((zipcodes (read-from-string (slot-value shipzone 'zipcoderangecsv))))
+				 (when zipcodes
+				   (car (remove nil (mapcar (lambda (zipcode)
+							      (when (> (cl-ppcre:count-matches (format nil "^~A" zipcode) pincode) 0)
+								;;(format T "~A:~A~C" zipcode pincode #\newline)
+								(slot-value shipzone 'zonename))) zipcodes)))))) shipzones)))))
+  
 
 (defun persist-vendor-ship-zone (zonename zipcoderangecsv vendor-id tenant-id)
   (clsql:update-records-from-instance (make-instance 'dod-vendor-ship-zones
