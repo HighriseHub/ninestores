@@ -89,10 +89,17 @@
 	   (custcomp (get-login-customer-company))
 	   ;;(wallet-balance (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'balance))
 	   (order-cxt (format nil "hhubcustopy~A" (get-universal-time)))
+	  
+	   
 	   (orderparams-ht (make-hash-table :test 'equal))
 	   (shopcart-products (mapcar (lambda (odt)
 					(let ((prd-id (slot-value odt 'prd-id)))
-					  (search-prd-in-list prd-id products ))) lstshopcart)))
+					  (search-prd-in-list prd-id products ))) lstshopcart))
+	   (freeshipminorderamt (getminorderamt (get-shipping-method-for-vendor (first vendor-list) custcomp)))
+	   (shiplst (calculate-shipping-cost-for-order shipzipcode shopcart-total lstshopcart shopcart-products singlevendor custcomp))
+	   (shipping-cost (nth 0 shiplst))
+	   (shipping-options (nth 1 shiplst)))
+	   
 					; (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
 					; Save the email address to send a mail in future if this is a guest customer.
       (when (equal cust-type "GUEST") (setf (hunchentoot:session-value :guest-email-address) email))
@@ -120,6 +127,9 @@
       (setf (gethash "phone" orderparams-ht) phone)
       (setf (gethash "email" orderparams-ht) email)
       (setf (gethash "shopcartproducts" orderparams-ht) shopcart-products)
+      (setf (gethash "shipping-cost" orderparams-ht) shipping-cost)
+      (setf (gethash "shipping-info" orderparams-ht) shipping-options)
+    
       ;; Save the customer order parameters in a hashtable. 
       (save-cust-order-params-v2 orderparams-ht)
       
@@ -139,6 +149,17 @@
 		(:h5 :class "text-center"  "Choose Payment Method")
 		(:a :class "btn btn-primary"  :role "button" :href "/hhub/dodcustindex"  (:i :class "fa-solid fa-house"))))
 
+	(if (> shipping-cost 0)
+	    (cl-who:htm
+	     (:p (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total))))
+	     (:br)
+	     (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost))))
+	    ;;else
+	    (cl-who:htm (:p (cl-who:str (format nil "Shipping: FREE!")))))
+	(:p (cl-who:str (format nil "Sub-total: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
+	(:hr)
+	(:p (:h2 (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
+		  
 	(:hr)
 	(when (> lstcount 0)
 	  (cond ((equal cust-type "STANDARD") (standardcustpaymentmethods vendor-list customer custcomp))
@@ -1988,9 +2009,7 @@
 	(setf (gethash "paymentmode" orderparams-ht) "COD"))
 
       (logiamhere (format nil "shopcart total is ~d. Shipping cost is ~d" shopcart-total shipping-cost))
-      (setf (gethash "shipping-cost" orderparams-ht) shipping-cost)
-      (setf (gethash "shipping-info" orderparams-ht) shipping-options)
-      ;; Save the order params for further use. 
+        ;; Save the order params for further use. 
       (save-cust-order-params-v2 orderparams-ht)
 
             
@@ -2160,7 +2179,7 @@
     (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	   (company (hunchentoot:session-value :login-customer-company)))
       (with-cust-session-check
-	(with-standard-customer-page "Product Details"
+	(with-standard-customer-page-v2 "Product Details"
 	  (product-card-with-details-for-customer (select-product-by-id prd-id company) (get-login-customer) (prdinlist-p prd-id lstshopcart)))))))
 
     
@@ -2245,11 +2264,11 @@
 (defun dod-controller-cust-show-shopcart ()
     :documentation "This is a function to display the shopping cart."
     (with-cust-session-check 
-	(let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
-	       (lstcount (length lstshopcart))
-	       (prd-cache (hunchentoot:session-value :login-prd-cache))
-	       (total  (get-shop-cart-total lstshopcart))
-	       (products (mapcar (lambda (odt)
+      (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
+	     (lstcount (length lstshopcart))
+	     (prd-cache (hunchentoot:session-value :login-prd-cache))
+	     (total  (get-shop-cart-total lstshopcart))
+	     (products (mapcar (lambda (odt)
 				   (let ((prd-id (slot-value odt 'prd-id)))
 				     (search-prd-in-list prd-id prd-cache ))) lstshopcart)))
 	  (if (> lstcount 0)
