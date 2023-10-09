@@ -104,3 +104,25 @@
 (defun com-hhub-attribute-vendor-shipping-enabled (vendor)
   (let ((shipping-enabled (slot-value vendor 'shipping-enabled)))
     (if (equal shipping-enabled "Y") T NIL)))
+
+(defun com-hhub-attribute-vendor-freeship-enabled (vendor company)
+  (let* ((shipping-method (get-shipping-method-for-vendor vendor company))
+	(freeshipenabled (slot-value shipping-method 'freeshipenabled)))
+    (if (equal freeshipenabled "Y") T NIL)))
+
+
+(defun com-hhub-attribute-vendor-flatrateship-enabled (vendor company)
+  (let* ((shipping-method (get-shipping-method-for-vendor vendor company))
+	 (flatrateshipenabled (slot-value shipping-method 'flatrateshipenabled)))
+    (if (equal flatrateshipenabled "Y") T NIL)))
+
+(defun com-hhub-attribute-vendor-tablerateship-enabled (vendor company)
+  (let* ((shipping-method (get-shipping-method-for-vendor vendor company))
+	 (tablerateshipenabled (slot-value shipping-method 'tablerateshipenabled)))
+    (if (equal tablerateshipenabled "Y") T NIL)))
+
+(defun com-hhub-attribute-vendor-externalship-enabled (vendor company)
+  (let* ((shipping-method (get-shipping-method-for-vendor vendor company))
+	 (extshipenabled (slot-value shipping-method 'extshipenabled)))
+    (if (equal extshipenabled "Y") T NIL)))
+

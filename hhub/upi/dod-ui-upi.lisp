@@ -54,13 +54,16 @@
 
 (defun hhub-controller-upi-customer-order-payment-page ()
   (with-cust-session-check
-    (let* ((odts (hunchentoot:session-value :login-shopping-cart))
+    (let* ((orderparams-ht (get-cust-order-params-v2)) 
+	   (odts (gethash "shoppingcart" orderparams-ht))
+	   (shipping-cost (gethash "shipping-cost" orderparams-ht))
 	   (shopcart-total (get-shop-cart-total odts))
+	   (upitotal (+ shopcart-total shipping-cost))
 	   (order-cxt (format nil "#ORDER:UPI~A" (get-universal-time)))
 	   (vendor-list (get-shopcart-vendorlist odts))
 	   (vendor (first vendor-list))
-	   (upiurls (generateupiurlsforvendor vendor "ABC" order-cxt shopcart-total))
-	   (qrcodepath (generateqrcodeforvendor vendor "ABC" order-cxt shopcart-total)))
+	   (upiurls (generateupiurlsforvendor vendor "ABC" order-cxt upitotal))
+	   (qrcodepath (generateqrcodeforvendor vendor "ABC" order-cxt upitotal)))
 
       ;; If Vendor UPI ID is not defined, then redirect to the UPI ID not found page. 
       (unless (slot-value vendor 'upi-id) (hunchentoot:redirect "/hhub/vendorupinotfound"))
@@ -70,13 +73,13 @@
 	  (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address")))
 	
 	(with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
-	  (display-upi-widget shopcart-total qrcodepath upiurls)
+	  (display-upi-widget upitotal qrcodepath upiurls)
 	  (with-html-form "customerupipaymentform" "dodcustshopcartro" 
 	    (:div :class "row mb-3"
 		  (:div :class "col-sm-4" :style "text-align: center;"
 			(:label :for "utrnum" "UTR No")
 			(:input :class "form-control" :name "paymentmode" :value "UPI" :type "hidden")
-			(:input :class "form-control" :name "amount" :value shopcart-total :type "hidden")
+			(:input :class "form-control" :name "amount" :value upitotal :type "hidden")
 			(:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup "countChar(this, 12)" :max "999999999999" :maxlength "12"  :required T)))
 	    (:div :id "charcount" :class "form-group")
 	    (:div :class "row mb-3"
