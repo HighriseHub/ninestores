@@ -122,8 +122,6 @@
   (with-cust-session-check
     (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	   (lstcount (length lstshopcart))
-	   (customer (get-login-customer))
-	   (phone (phone customer))
 	   (cust-type (get-login-customer-type))
 	   (vendor-list (get-shopcart-vendorlist lstshopcart))
 	   (singlevendor-p (if (= (length vendor-list) 1) T NIL))
@@ -133,6 +131,7 @@
 	   ;;(wallet-balance (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'balance))
 	   (storepickup (hunchentoot:parameter "storepickup"))
 	   (orderparams-ht (get-cust-order-params-v2)) 
+	   (phone (gethash "phone" orderparams-ht))
 	   (vpayapikey-p (if singlevendor-p (when (slot-value singlevendor 'payment-api-key) t)))
 	   (vupiid-p (if singlevendor-p (when (slot-value singlevendor 'upi-id) t))))
 	   
