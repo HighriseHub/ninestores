@@ -54,124 +54,118 @@
     (setf (slot-value temp-customer 'phone) phone)
     (setf (slot-value temp-customer 'email) email)
     (setf (hunchentoot:session-value :temp-guest-customer) temp-customer)))
-    
+
+
+
+(defun display-cust-shipping-costs-widget (shopping-cart shopcart-products shopcart-total shipzipcode vendor company)
+  (let* ((vaddress (address vendor))
+	 (vcity (city vendor))
+	 (vzipcode (zipcode vendor))
+	 (phone (phone vendor))
+	 (vshipping-enabled (slot-value vendor 'shipping-enabled))
+	 (shiplst (calculate-shipping-cost-for-order shipzipcode shopcart-total shopping-cart shopcart-products vendor company))
+	 (shipping-cost (nth 0 shiplst))
+	 (freeshipminorderamt (nth 2 shiplst)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-form "form-custshippingmethod" "hhubcustpaymentmethodspage"
+	
+	(if (and (equal vshipping-enabled "Y") (> shipping-cost 0))
+	    (cl-who:htm
+	     (:div :class "custom-control custom-switch"
+		   (:input :type "checkbox" :class "custom-control-input" :id "storepickup" :name "storepickup" :value "Y" :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
+		   (:label :class "custom-control-label" :for "storepickup" "Pickup In Store"))))
+	
+	(with-html-div-row :id "costwithshipping" 
+	  (with-html-div-col-8
+	    (cond ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
+		   (cl-who:htm
+		    (:br)
+		    (:p (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
+		    (:p (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
+		    (:hr)
+		    (:p :id "costwithshipping" (:h3  :style "color: green;" (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
+		    (:p (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total))))))
+		  
+		  ((and (equal vshipping-enabled "Y") (= shipping-cost 0))
+		   (cl-who:htm (:p (cl-who:str (format nil "Shipping: FREE!")))))
+		  ((equal vshipping-enabled "N")
+		   (cl-who:htm (:p "Please pickup your items from our store")
+			       (:p (cl-who:str (format nil "Address: ~A, ~A, ~A" vaddress vcity vzipcode)))
+			       (:p (cl-who:str (format nil "Phone: ~A" phone))))))))
+      
+      (with-html-div-row :id "costwithoutshipping" :style "display: none;"
+	(with-html-div-col-8
+	  (:br)
+	  (:p (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
+	  (:p (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* 0.00)))
+	  (:hr)
+	  (:p :id "costwithoutshipping" (:h3 :style "color: green;" (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  shopcart-total)))))
+	  (:hr)))
+	(:input :type "submit"  :class "btn btn-primary" :tabindex "13" :value "Checkout")
+	(:script "function togglepickupinstore () {
+    const storepickup = document.getElementById('storepickup');
+    if( storepickup.checked ){
+	$('#costwithoutshipping').show();
+        $('#costwithshipping').hide();
+    }else
+    {
+       	$('#costwithoutshipping').hide();
+        $('#costwithshipping').show();
+    }
+}")
+
+
+	))))
+
+
 (defun dod-controller-customer-payment-methods-page ()
   (with-cust-session-check
     (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	   (lstcount (length lstshopcart))
+	   (customer (get-login-customer))
+	   (phone (phone customer))
 	   (cust-type (get-login-customer-type))
 	   (vendor-list (get-shopcart-vendorlist lstshopcart))
 	   (singlevendor-p (if (= (length vendor-list) 1) T NIL))
 	   (singlevendor (first vendor-list))
-	   (vpayapikey-p (if singlevendor-p (when (slot-value singlevendor 'payment-api-key) t)))
-	   (vupiid-p (if singlevendor-p (when (slot-value singlevendor 'upi-id) t)))
-	   (products (hunchentoot:session-value :login-prd-cache))
-	   (custname (hunchentoot:parameter "custname"))
-	   (shipaddress (hunchentoot:parameter "shipaddress"))
-	   (shipzipcode (hunchentoot:parameter "shipzipcode"))
-	   (shipcity (hunchentoot:parameter "shipcity"))
-	   (shipstate (hunchentoot:parameter "shipstate"))
-	   (billaddress (hunchentoot:parameter "billaddress"))
-	   (billzipcode (hunchentoot:parameter "billzipcode"))
-	   (billcity (hunchentoot:parameter "billcity"))
-	   (billstate (hunchentoot:parameter "billstate"))
-	   (billsameasshipchecked (hunchentoot:parameter "billsameasshipchecked"))
-	   (claimitcchecked (hunchentoot:parameter "claimitcchecked"))
-	   (gstnumber (hunchentoot:parameter "gstnumber"))
-	   (gstorgname (hunchentoot:parameter "gstorgname"))
-	   (phone  (hunchentoot:parameter "phone"))
-	   (email (hunchentoot:parameter "email"))
-	   (odate  (get-date-from-string (hunchentoot:parameter "orddate")))
-	   (reqdate (get-date-from-string (hunchentoot:parameter "reqdate")))
-	   (comments (if phone (format nil "~A, ~A, ~A, ~A, ~A, ~A" phone email shipaddress shipcity shipstate shipzipcode)))
-	   (shopcart-total (get-shop-cart-total lstshopcart))
 	   (customer (get-login-customer))
 	   (custcomp (get-login-customer-company))
 	   ;;(wallet-balance (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'balance))
-	   (order-cxt (format nil "hhubcustopy~A" (get-universal-time)))
-	  
-	   
-	   (orderparams-ht (make-hash-table :test 'equal))
-	   (shopcart-products (mapcar (lambda (odt)
-					(let ((prd-id (slot-value odt 'prd-id)))
-					  (search-prd-in-list prd-id products ))) lstshopcart))
-	   (freeshipminorderamt (getminorderamt (get-shipping-method-for-vendor (first vendor-list) custcomp)))
-	   (shiplst (calculate-shipping-cost-for-order shipzipcode shopcart-total lstshopcart shopcart-products singlevendor custcomp))
-	   (shipping-cost (nth 0 shiplst))
-	   (shipping-options (nth 1 shiplst)))
+	   (storepickup (hunchentoot:parameter "storepickup"))
+	   (orderparams-ht (get-cust-order-params-v2)) 
+	   (vpayapikey-p (if singlevendor-p (when (slot-value singlevendor 'payment-api-key) t)))
+	   (vupiid-p (if singlevendor-p (when (slot-value singlevendor 'upi-id) t))))
 	   
 					; (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
 					; Save the email address to send a mail in future if this is a guest customer.
-      (when (equal cust-type "GUEST") (setf (hunchentoot:session-value :guest-email-address) email))
-      (setf (gethash "orddate" orderparams-ht) odate)
-      (setf (gethash "reqdate" orderparams-ht) reqdate)
-      (setf (gethash "shoppingcart" orderparams-ht) lstshopcart)
-      (setf (gethash "shopcartproducts" orderparams-ht) shopcart-products)
-      (setf (gethash "shipaddress" orderparams-ht) shipaddress)
-      (setf (gethash "shipzipcode" orderparams-ht) shipzipcode)
-      (setf (gethash "shipcity" orderparams-ht) shipcity)
-      (setf (gethash "shipstate" orderparams-ht) shipstate)
-      (setf (gethash "billaddress" orderparams-ht) billaddress)
-      (setf (gethash "billzipcode" orderparams-ht) billzipcode)
-      (setf (gethash "billcity" orderparams-ht) billcity)
-      (setf (gethash "billstate" orderparams-ht) billstate)
-      (setf (gethash "billsameasshipchecked" orderparams-ht) billsameasshipchecked)
-      (setf (gethash "gstnumber" orderparams-ht) gstnumber)
-      (setf (gethash "gstorgname" orderparams-ht) gstorgname)
-      (setf (gethash "shopcart-total" orderparams-ht) shopcart-total)
-      (setf (gethash "comments" orderparams-ht) comments)
-      (setf (gethash "customer" orderparams-ht) customer)
-      (setf (gethash "custcomp" orderparams-ht) custcomp)
-      (setf (gethash "order-cxt" orderparams-ht) order-cxt)
-      (setf (gethash "custname" orderparams-ht) custname)
-      (setf (gethash "phone" orderparams-ht) phone)
-      (setf (gethash "email" orderparams-ht) email)
-      (setf (gethash "shopcartproducts" orderparams-ht) shopcart-products)
-      (setf (gethash "shipping-cost" orderparams-ht) shipping-cost)
-      (setf (gethash "shipping-info" orderparams-ht) shipping-options)
-    
-      ;; Save the customer order parameters in a hashtable. 
-      (save-cust-order-params-v2 orderparams-ht)
-      
-      
-      (save-cust-order-params (list lstshopcart shopcart-products nil  shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total comments customer custcomp order-cxt phone email custname))
-      ;; Save the Guest customer details so that we can use them within the session if required. 
-      (when (equal cust-type "GUEST")
-	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email))
 
+      (if (and storepickup (equal storepickup "Y"))
+	  (setf (gethash "shipping-cost" orderparams-ht) 0.00)
+	  (save-cust-order-params-v2 orderparams-ht)) 
+	   
       (with-standard-customer-page-v2 "Payment Methods Page"
 	(with-customer-breadcrumb
 	  (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
 	  (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address")))
 	
 	(with-html-div-row
-	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		(:h5 :class "text-center"  "Choose Payment Method")
-		(:a :class "btn btn-primary"  :role "button" :href "/hhub/dodcustindex"  (:i :class "fa-solid fa-house"))))
-
-	(if (> shipping-cost 0)
-	    (cl-who:htm
-	     (:p (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total))))
-	     (:br)
-	     (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost))))
-	    ;;else
-	    (cl-who:htm (:p (cl-who:str (format nil "Shipping: FREE!")))))
-	(:p (cl-who:str (format nil "Sub-total: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
-	(:hr)
-	(:p (:h2 (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
-		  
-	(:hr)
+	  (with-html-div-col
+	    (:h5 :class "text-center"  "Choose Payment Method")
+	    (:hr)))
 	(when (> lstcount 0)
 	  (cond ((equal cust-type "STANDARD") (standardcustpaymentmethods vendor-list customer custcomp))
 		((equal cust-type "GUEST") (guestcustpaymentmethods singlevendor-p vpayapikey-p vupiid-p phone))))))))
   
 
 
+
+
 (defun standardcustpaymentmethods (vendorlist customer company)
   (cl-who:with-html-output (*standard-output* nil)
     (:hr)
     (with-html-div-row
-      (:h5 (:u "Prepaid Wallet Balance")))
+      (with-html-div-col
+	(:h5 (:u "Prepaid Wallet Balance"))))
     (mapcar (lambda (vendor)
 	      (let* ((wallet (get-cust-wallet-by-vendor customer vendor company))
 		     (wallet-balance (slot-value wallet 'balance))
@@ -1411,7 +1405,7 @@
          (cust-email (if customer  (slot-value customer 'email))))
     
     (cl-who:with-html-output-to-string (*standard-output* nil)
-      (:form :class "form-standardcustorder" :role "form" :id "hhubordcustdetails"  :method "POST" :action "hhubcustpaymentmethodspage" :data-toggle "validator"
+      (:form :class "form-standardcustorder" :role "form" :id "hhubordcustdetails"  :method "POST" :action "hhubcustshippingmethodspage" :data-toggle "validator"
 	     (cl-who:str (display-orddatereqdate-text-widget))
 	     (cl-who:str (display-phone-text-widget cust-phone 1))
 	     (cl-who:str (display-name&email-widget cust-name cust-email 2))
@@ -1533,7 +1527,7 @@
          (temp-cust-email (if temp-customer  (slot-value temp-customer 'email))))
    
   (cl-who:with-html-output-to-string (*standard-output* nil)
-    (:form :class "form-guestcustorder" :role "form" :id "hhubordcustdetails"  :method "POST" :action "hhubcustpaymentmethodspage" :data-toggle "validator"
+    (:form :class "form-guestcustorder" :role "form" :id "hhubordcustdetails"  :method "POST" :action "hhubcustshippingmethodspage" :data-toggle "validator"
 	   (cl-who:str (display-orddatereqdate-text-widget))
 	   (cl-who:str (display-phone-text-widget temp-cust-phone 1))
 	   (cl-who:str (display-name&email-widget temp-cust-name temp-cust-email 2))
@@ -1875,47 +1869,88 @@
 
 (defun dod-controller-cust-shipping-methods-page ()
   (with-cust-session-check
-    (let* ((orderparams-ht (get-cust-order-params-v2))
-	   (company (get-login-customer-company))
-	   (odts (gethash "shoppingcart" orderparams-ht))
-	   (shopcart-products (gethash "shopcartproducts" orderparams-ht))
-	   (shopcart-total (gethash "shopcart-total" orderparams-ht))
-	   (shipzipcode (gethash "shipzipcode" orderparams-ht))
-	   (vendor-list (get-shopcart-vendorlist odts))
-	   (vendor-zipcode (slot-value (first vendor-list) 'zipcode))
-	   (vshipping-enabled (slot-value (first vendor-list) 'shipping-enabled))
-	   (vshipping-method (get-shipping-method-for-vendor (first vendor-list) company))
-	   (defaultshipmethod (getdefaultshippingmethod vshipping-method))
-	   (shipping-cost nil)
-	   (shipping-options nil))
+    (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
+	   (cust-type (get-login-customer-type))
+	   (vendor-list (get-shopcart-vendorlist lstshopcart))
+	   (singlevendor (first vendor-list))
+	   (products (hunchentoot:session-value :login-prd-cache))
+	   (custname (hunchentoot:parameter "custname"))
+	   (shipaddress (hunchentoot:parameter "shipaddress"))
+	   (shipzipcode (hunchentoot:parameter "shipzipcode"))
+	   (shipcity (hunchentoot:parameter "shipcity"))
+	   (shipstate (hunchentoot:parameter "shipstate"))
+	   (billaddress (hunchentoot:parameter "billaddress"))
+	   (billzipcode (hunchentoot:parameter "billzipcode"))
+	   (billcity (hunchentoot:parameter "billcity"))
+	   (billstate (hunchentoot:parameter "billstate"))
+	   (billsameasshipchecked (hunchentoot:parameter "billsameasshipchecked"))
+	   (claimitcchecked (hunchentoot:parameter "claimitcchecked"))
+	   (gstnumber (hunchentoot:parameter "gstnumber"))
+	   (gstorgname (hunchentoot:parameter "gstorgname"))
+	   (phone  (hunchentoot:parameter "phone"))
+	   (email (hunchentoot:parameter "email"))
+	   (odate  (get-date-from-string (hunchentoot:parameter "orddate")))
+	   (reqdate (get-date-from-string (hunchentoot:parameter "reqdate")))
+	   (comments (if phone (format nil "~A, ~A, ~A, ~A, ~A, ~A" phone email shipaddress shipcity shipstate shipzipcode)))
+	   (shopcart-total (get-shop-cart-total lstshopcart))
+	   (customer (get-login-customer))
+	   (custcomp (get-login-customer-company))
+	   ;;(wallet-balance (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'balance))
+	   (order-cxt (format nil "hhubcustopy~A" (get-universal-time)))
+	   (orderparams-ht (make-hash-table :test 'equal))
+	   (shopcart-products (mapcar (lambda (odt)
+					(let ((prd-id (slot-value odt 'prd-id)))
+					  (search-prd-in-list prd-id products ))) lstshopcart))
+	   (shiplst (calculate-shipping-cost-for-order shipzipcode shopcart-total lstshopcart shopcart-products singlevendor custcomp))
+	   (shipping-cost (nth 0 shiplst))
+	   (shipping-options (nth 1 shiplst)))
 
-      (when (equal defaultshipmethod "TRS")
-	(let ((total-weight(calculate-cartitems-weight-kgs odts shopcart-products)))
-	  (setf shipping-cost (car (get-shipping-rate-from-table shipzipcode total-weight (first vendor-list) company)))))
-      (when (equal defaultshipmethod "EXS")
-	(setf shipping-options (when (and vshipping-enabled (< shopcart-total 1000)) (order-shipping-rate-check odts shopcart-products shipzipcode vendor-zipcode)))
-	(setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
-								(nth 9 elem)) shipping-options))
-			   ;; else
-			   0.00)))
-      
+      (when (equal cust-type "GUEST") (setf (hunchentoot:session-value :guest-email-address) email))
+      (setf (gethash "orddate" orderparams-ht) odate)
+      (setf (gethash "reqdate" orderparams-ht) reqdate)
+      (setf (gethash "shoppingcart" orderparams-ht) lstshopcart)
+      (setf (gethash "shopcartproducts" orderparams-ht) shopcart-products)
+      (setf (gethash "shipaddress" orderparams-ht) shipaddress)
+      (setf (gethash "shipzipcode" orderparams-ht) shipzipcode)
+      (setf (gethash "shipcity" orderparams-ht) shipcity)
+      (setf (gethash "shipstate" orderparams-ht) shipstate)
+      (setf (gethash "billaddress" orderparams-ht) billaddress)
+      (setf (gethash "billzipcode" orderparams-ht) billzipcode)
+      (setf (gethash "billcity" orderparams-ht) billcity)
+      (setf (gethash "billstate" orderparams-ht) billstate)
+      (setf (gethash "billsameasshipchecked" orderparams-ht) billsameasshipchecked)
+      (setf (gethash "gstnumber" orderparams-ht) gstnumber)
+      (setf (gethash "gstorgname" orderparams-ht) gstorgname)
+      (setf (gethash "claimitcchecked" orderparams-ht) claimitcchecked)
+      (setf (gethash "shopcart-total" orderparams-ht) shopcart-total)
+      (setf (gethash "comments" orderparams-ht) comments)
+      (setf (gethash "customer" orderparams-ht) customer)
+      (setf (gethash "custcomp" orderparams-ht) custcomp)
+      (setf (gethash "order-cxt" orderparams-ht) order-cxt)
+      (setf (gethash "custname" orderparams-ht) custname)
+      (setf (gethash "phone" orderparams-ht) phone)
+      (setf (gethash "email" orderparams-ht) email)
+      (setf (gethash "shopcartproducts" orderparams-ht) shopcart-products)
       (setf (gethash "shipping-cost" orderparams-ht) shipping-cost)
       (setf (gethash "shipping-info" orderparams-ht) shipping-options)
-      ;; Save the order params for further use. 
+    
+      ;; Save the customer order parameters in a hashtable. 
       (save-cust-order-params-v2 orderparams-ht)
-      (with-standard-customer-page-v2 "Shopping cart finalize"
+      ;; Save the Guest customer details so that we can use them within the session if required. 
+      (when (equal cust-type "GUEST")
+	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email))
+	
+      (with-standard-customer-page-v2 "Shipping Methods"
 	(with-customer-breadcrumb
 	  (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
-	  (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address"))
-	  (:li :class "breadcrumb-item" (:a :href "hhubcustpaymentmethodspage" "Payment Methods")))
-
-      (if (> shipping-cost 0)
-	  (cl-who:htm
-	   (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
-	   (:p (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- 1000 shopcart-total)))))
-	  ;;else
-	  (cl-who:htm (:p (cl-who:str (format nil "Shipping: FREE!")))))
-      ))))
+	  (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address")))
+	
+	(:div :class "card" :style "width: 50rem;"
+	      (:div :class "card-body"
+		    (:h5 :class "card-title" "Shipping & Handling"
+			 (:hr)
+			 (display-cust-shipping-costs-widget lstshopcart shopcart-products shopcart-total shipzipcode singlevendor custcomp))))))))
+      
 
 
 
@@ -1940,7 +1975,8 @@
     ;; If we have a single service product or number of service products are more than 1 then do not calculate
     ;; shipping cost. Or calculate shipping cost only for SALES products. 
        
-    (when (and saleproducts-p
+    (when (and (equal vshipping-enabled "Y")
+	       saleproducts-p
 	       (<= shopcart-total freeshipminorderamt))
       (when (and flatrateshipenabled (equal defaultshipmethod "FRS"))
 	(let ((flatratetype (getflatratetype vshipping-method))
@@ -1951,12 +1987,12 @@
 	(let ((total-weight (calculate-cartitems-weight-kgs shopping-cart products)))
 	  (setf shipping-cost (get-shipping-rate-from-table shipzipcode total-weight vendor company))))
       (when (and extshipenabled (equal defaultshipmethod "EXS"))
-	(setf shipping-options (when (and vshipping-enabled (< shopcart-total 1000)) (order-shipping-rate-check shopping-cart products shipzipcode vendor-zipcode)))
+	(setf shipping-options (order-shipping-rate-check shopping-cart products shipzipcode vendor-zipcode))
 	(setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
 								     (nth 9 elem)) shipping-options))
 				;; else
 				0.00))))
-      (list shipping-cost shipping-options)))
+      (list shipping-cost shipping-options freeshipminorderamt)))
     
     
 
@@ -1980,6 +2016,7 @@
 	   (gstnumber (gethash "gstnumber" orderparams-ht))
 	   (gstorgname (gethash "gstorgname" orderparams-ht))
 	   (shopcart-total (gethash "shopcart-total" orderparams-ht))
+	   (shipping-cost (gethash "shipping-cost" orderparams-ht))
 	   (payment-mode (hunchentoot:parameter "paymentmode"))
 	   (utrnum (hunchentoot:parameter "utrnum"))
 	   (phone  (gethash "phone" orderparams-ht))
@@ -1989,11 +2026,9 @@
 	   (order-cxt (format nil "hhubcustopy~A" (get-universal-time)))
 	   (company-type (slot-value custcomp 'cmp-type))
 	   (vendor-list (get-shopcart-vendorlist odts))
-	   (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id))
-	   (freeshipminorderamt (getminorderamt (get-shipping-method-for-vendor (first vendor-list) custcomp)))
-	   (shiplst (calculate-shipping-cost-for-order shipzipcode shopcart-total odts shopcart-products (first vendor-list) custcomp))
-	   (shipping-cost (nth 0 shiplst))
-	   (shipping-options (nth 1 shiplst)))
+	   (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
+	   
+	  
 
 
       ;; if payment is made using UPI, then add the utrnum to the order parameters
@@ -2008,8 +2043,7 @@
 	(setf payment-mode "COD")
 	(setf (gethash "paymentmode" orderparams-ht) "COD"))
 
-      (logiamhere (format nil "shopcart total is ~d. Shipping cost is ~d" shopcart-total shipping-cost))
-        ;; Save the order params for further use. 
+      ;; Save the order params for further use. 
       (save-cust-order-params-v2 orderparams-ht)
 
             
@@ -2045,14 +2079,8 @@
 		     (:p (cl-who:str (format nil "GST Number: ~A/~A" gstnumber gstorgname)))))))
 	  (with-html-div-col-6
 	    (:div :class "place-order-details"
-		  (if (> shipping-cost 0)
-		      (cl-who:htm
-		       (:p (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total))))
-		       (:br)
-		       (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost))))
-		      ;;else
-		      (cl-who:htm (:p (cl-who:str (format nil "Shipping: FREE!")))))
 		  (:p (cl-who:str (format nil "Sub-total: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
+		  (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
 		  (:hr)
 
 		  (:p (:h2 (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
@@ -2284,6 +2312,8 @@
 		  (:div :class "col-6" :align "right"
 			    (cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping"  ))))
 		(:hr)
+		(:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6"
+		)
 		(with-html-div-row
 		  (:div :class "col-6"
 			(:h4 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total)))))
