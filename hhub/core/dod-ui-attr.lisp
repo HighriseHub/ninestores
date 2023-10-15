@@ -126,3 +126,8 @@
 	 (extshipenabled (slot-value shipping-method 'extshipenabled)))
     (if (equal extshipenabled "Y") T NIL)))
 
+(defun com-hhub-attribute-vendor-storepickup-enabled (vendor company)
+  (let* ((shipping-method (get-shipping-method-for-vendor vendor company))
+	 (storepickupenabled (slot-value shipping-method 'storepickupenabled)))
+    (if (equal storepickupenabled "Y") T NIL)))
+  
