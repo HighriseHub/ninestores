@@ -10,7 +10,7 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 * Product Management for Vendors. 
 * Multiple Vendors per order. 
 * Vendors have access to multiple groups/communities.
-* Shipping support - Free Shipping, 3rd Party Shipping providers support (iThinkLogistics), Flat rate & zone wise shipping rates (coming soon...)
+* Shipping support - Free Shipping, 3rd Party Shipping providers support (iThinkLogistics), Flat rate & zone wise shipping rates and in store pickup. 
 * Customer have access to multiple groups/communities. (coming soon...)  
 * Standalone Vendor support. Using this feature, you can promote online selling for your own website. Visitors from your website will be forwarded to www.highrisehub.com to create orders, make payments. You can copy the source code from this repository and create your own Digital Marketplace. 
 * Payment modes supported are Online Payment using Payment Gateway, Cash On Demand and Prepaid Wallet and UPI payments. (For Indian Subcontinent Customers) 
