@@ -213,8 +213,7 @@
 
 (defun reset-customer-password (customer)
   (let* ((confirmpassword (hhub-random-password 8))
-	(salt-octet (secure-random:bytes 56 secure-random:*generator*))
-	(salt (flexi-streams:octets-to-string  salt-octet))
+	 (salt (createciphersalt))
 	(encryptedpass (check&encrypt confirmpassword confirmpassword salt)))
 	  
     (setf (slot-value customer 'password) encryptedpass)

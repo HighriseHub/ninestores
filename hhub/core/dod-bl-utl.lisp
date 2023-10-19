@@ -284,6 +284,10 @@ corresponding universal time."
     
 	
 
+(defun createciphersalt ()
+  (let ((salt-octet (secure-random:bytes 28 secure-random:*generator*)))
+    (ironclad:byte-array-to-hex-string salt-octet)))
+
 (defun get-cipher (salt)
   (ironclad:make-cipher :blowfish
     :mode :ecb
@@ -292,9 +296,13 @@ corresponding universal time."
 (defun encrypt (plaintext salt)
   (let ((cipher (get-cipher salt))
         (msg (ironclad:ascii-string-to-byte-array plaintext)))
-    (ironclad:encrypt-in-place cipher msg)
-    (flexi-streams:octets-to-string  msg)))
+    (ironclad:byte-array-to-hex-string (ironclad:encrypt-message cipher msg))))
 
+(defun create-digest-sha1 (plaintext)
+  (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :sha1 (ironclad:ascii-string-to-byte-array plaintext)))) 
+
+(defun create-digest-md5 (plaintext)
+  (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :md5 (ironclad:ascii-string-to-byte-array plaintext)))) 
 
 (defun decrypt (ciphertext key)
   (let ((cipher (get-cipher key))
