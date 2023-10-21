@@ -88,7 +88,7 @@
 (defvar *HHUBDEFAULTSHIPRATETABLECSV* "defaultshipratetable.csv")
 (defvar *HHUBDEFAULTSHIPZONESCSV*  "defaultshipzonepincodes.csv")
 (defvar *HHUBSHIPPINGPARTNERSITE* "https://www.ithinklogistics.com/")
-
+(defvar *HHUBFREESHIPMINORDERAMT* 500.00)
 
 (defun set-customer-page-title (name)
   (setf *customer-page-title* (format nil "Welcome to HighriseHub - ~A." name))) 
