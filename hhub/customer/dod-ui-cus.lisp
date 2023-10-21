@@ -1026,8 +1026,10 @@
 		(email (slot-value vendor 'email)))
 	    (create-vendor-tenant vendor "Y" company)
 					; 2
+	    (create-free-shipping-method *HHUBFREESHIPMINORDERAMT*  vendor company)
+	    ;;3
 	    (send-registration-email name email))
-					;3
+				    ;;4
 	 (with-no-navbar-page "Welcome to HighriseHub platform"
 	   (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
 	   (:a :href "/hhub/vendor-login.html" "Login now"))))
