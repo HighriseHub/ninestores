@@ -523,6 +523,12 @@ $(".form-vendordercomplete").on('submit', function (e) {
       e.preventDefault();});
 
 $(".form-addproduct").on('submit', function (e) {
+    e.preventDefault();
+    var theForm = $(this);
+    submitformandredirect (theForm);
+});
+
+$(".form-addproduct1").on('submit', function (e) {
     // Stop form from submitting normally
     e.preventDefault();
     var theForm = $(this);
@@ -555,8 +561,13 @@ function submitformandredirect (theForm){
 	location.replace(data);});
 }
 
+$(".form-shopcart").on('submit', function (e){
+    e.preventDefault();
+    var theForm = $(this);
+    submitformandredirect (theForm);
+});
 
-$(".form-shopcart").on('submit', function (e) {
+$(".form-shopcart1").on('submit', function (e) {
     var theForm = $(this);
     $(theForm).find("button[type='submit']").hide(); //prop('disabled',true);
       $.ajax({

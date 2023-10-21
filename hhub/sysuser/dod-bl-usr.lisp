@@ -50,7 +50,17 @@
     (clsql:update-record-from-slot doduser 'deleted-state))) list ))
 
 
-  
+(defun reset-user-password (user &optional password)
+  :description "If a password is provided, then it is set otherwise returns a random password"
+  (let* ((randompassword (hhub-random-password 10))
+         (salt (createciphersalt))
+         (encryptedpass (if password (encrypt password salt) (encrypt randompassword salt))))
+    (setf (slot-value user 'password) encryptedpass)
+    (setf (slot-value user 'salt) salt)
+    (update-user user)
+    (unless password randompassword)))    
+
+
 (defun create-dod-user(name uname passwd salt email-address phone tenant-id )
  (clsql:update-records-from-instance (make-instance 'dod-users
 				    :name name

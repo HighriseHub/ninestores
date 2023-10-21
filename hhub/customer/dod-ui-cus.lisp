@@ -1026,8 +1026,10 @@
 		(email (slot-value vendor 'email)))
 	    (create-vendor-tenant vendor "Y" company)
 					; 2
+	    (create-free-shipping-method *HHUBFREESHIPMINORDERAMT*  vendor company)
+	    ;;3
 	    (send-registration-email name email))
-					;3
+				    ;;4
 	 (with-no-navbar-page "Welcome to HighriseHub platform"
 	   (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
 	   (:a :href "/hhub/vendor-login.html" "Login now"))))
@@ -2168,23 +2170,25 @@
 
 (defun dod-controller-cust-add-to-cart ()
     :documentation "This function is responsible for adding the product and product quantity to the shopping cart."
-    (with-cust-session-check
-	(let* ((prd-id (hunchentoot:parameter "prd-id"))
-	       (prdqty (parse-integer (hunchentoot:parameter "prdqty")))
-	       (productlist (hunchentoot:session-value :login-prd-cache))
-		  (myshopcart (hunchentoot:session-value :login-shopping-cart))
-		  (product (search-prd-in-list (parse-integer prd-id) productlist))
-		  (vendor (product-vendor product))
-		  (vendor-id (slot-value vendor 'row-id))
-		  (wallet (get-cust-wallet-by-vendor (get-login-customer) vendor (get-login-customer-company)))
-		  (odt (create-odtinst-shopcart nil product  prdqty (slot-value product 'unit-price) (hunchentoot:session-value :login-customer-company))))
+  (with-cust-session-check
+    (let* ((prd-id (hunchentoot:parameter "prd-id"))
+	   (prdqty (parse-integer (hunchentoot:parameter "prdqty")))
+	   (productlist (hunchentoot:session-value :login-prd-cache))
+	   (myshopcart (hunchentoot:session-value :login-shopping-cart))
+	   (product (search-prd-in-list (parse-integer prd-id) productlist))
+	   (vendor (product-vendor product))
+	   (vendor-id (slot-value vendor 'row-id))
+	   (wallet (get-cust-wallet-by-vendor (get-login-customer) vendor (get-login-customer-company)))
+	   (odt (create-odtinst-shopcart nil product  prdqty (slot-value product 'unit-price) (hunchentoot:session-value :login-customer-company)))
+	   (redirectlocation "/hhub/dodcustindex"))
 
-	  (if (and wallet (> prdqty 0)) 
-	      (progn (setf (hunchentoot:session-value :login-shopping-cart) (append myshopcart (list odt)))
-		     "success")
-	      ;;xb(if (length (hunchentoot:session-value :login-shopping-cart)) (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
-	      ;else if wallet is not defined, create wallet first
-	      (hunchentoot:redirect (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id))))))
+      (unless wallet (hunchentoot:redirect (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id)))
+      (when (and wallet (> prdqty 0)) 
+	(setf (hunchentoot:session-value :login-shopping-cart) (append myshopcart (list odt)))
+	(format nil "~A~A" *siteurl* redirectlocation)))))
+;;xb(if (length (hunchentoot:session-value :login-shopping-cart)) (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
+;;else if wallet is not defined, create wallet first
+
 
 
 
