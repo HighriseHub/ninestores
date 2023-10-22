@@ -18,9 +18,11 @@
       
       (:div :class "row" 
 	    (:div :class "col-md-4"
-		  (:a :href "dodvendindex?context=home" "Home")))
+		  (:a :href "dodvendindex?context=home" "Home"))
+	    (:div  :class "col-md-4"
+		   (:a :id "btnPushSubscriptionRemoveFromServer" :href "#" (:i :class "fa-regular fa-trash-can"))))
 	
-      (:script :src "https://www.highrisehub.com/js/pushsubscribe.js"))))
+      (:script :src (format nil "~A/js/pushsubscribe.js" *siteurl*)))))
 
 
 	    

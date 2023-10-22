@@ -15,6 +15,17 @@ var isSubscribed = false;
 var swRegistration = null;
 
 
+$(document).ready(function(){
+    $("#btnPushSubscriptionRemoveFromServer").click(function(e){
+	e.preventDefault();
+	//endpoint is nil here because we delete the push notification for the logged in vendor. 
+	removeSubscriptionFromServer(""); 
+	console.log("Removing the push subscription from server");
+    });
+});
+						 
+	
+
 $(document).ready(function() {
   $("#btnPushNotifications").click(function(event) {
     if (isSubscribed) {
@@ -183,30 +194,6 @@ function unsubscribe(){
 }
 
 
-function unsubscribe2() {
-    var endpoint = null;
-    var subs = null; 
-  swRegistration.pushManager
-    .getSubscription()
-    .then(function(subscription) {
-      if (subscription) {
-	  subs = subscription; 
-	  endpoint = subscription.endpoint;
-        return subscription.unsubscribe();
-      }
-    })
-    .catch(function(error) {
-      console.log("Error unsubscribing", error);
-    })
-	.then(function() {
-	    if (subs) {
-		removeSubscriptionFromServer(endpoint);
-		console.log("User is unsubscribed.");
-		isSubscribed = false;
-		makeButtonSubscribable(endpoint);
-	    }
-    });
-}
 
 function getCookie(k)
 {
