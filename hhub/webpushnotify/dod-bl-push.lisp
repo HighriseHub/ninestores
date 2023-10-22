@@ -13,9 +13,10 @@
   (let* ((vendor (vendor requestmodel))
 	 (webpushdbservice (make-instance 'WebPushNotifyDBService))
 	 (subscription (db-fetch-Vendor-WebPushNotifySubscriptions webpushdbservice vendor)))
-    (setf (dbobject webpushdbservice) subscription)
-    ;; Delete the record
-    (db-delete webpushdbservice)))
+    (when subscription 
+      (setf (dbobject webpushdbservice) subscription)
+      ;; Delete the record
+      (db-delete webpushdbservice))))
     	
 
 (defmethod ProcessCreateRequest ((adapter VendorWebPushNotifyAdapter)  (requestmodel RequestCreateWebPushNotifyVendor))
