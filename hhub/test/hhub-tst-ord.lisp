@@ -22,15 +22,17 @@
 
 
 (defun hhub-test-shipping-rate-check ()
-  (let* ((company (select-company-by-id 2))
-	 (NandiniBlue (select-product-by-id 1 company))
-	 (NandiniGreen (select-product-by-id 2 company))
-	 (prodlist (list NandiniBlue NandiniGreen))
-	 (oitem1 (create-odtinst-shopcart nil NandiniBlue 2 (slot-value NandiniBlue 'unit-price) company))
-	 (oitem2 (create-odtinst-shopcart nil NandiniGreen 2 (slot-value NandiniGreen 'unit-price) company))
-	 (odts (list oitem1 oitem2)))
-	 
-    (order-shipping-rate-check odts prodlist "560010" "560096")))
+  (let ((ratecheckfunction
+	  (lambda ()
+	    (let* ((company (select-company-by-id 2))
+		   (NandiniBlue (select-product-by-id 1 company))
+		   (NandiniGreen (select-product-by-id 2 company))
+		   (prodlist (list NandiniBlue NandiniGreen))
+		   (oitem1 (create-odtinst-shopcart nil NandiniBlue 2 (slot-value NandiniBlue 'unit-price) company))
+		   (oitem2 (create-odtinst-shopcart nil NandiniGreen 2 (slot-value NandiniGreen 'unit-price) company))
+		   (odts (list oitem1 oitem2)))
+	      (order-shipping-rate-check odts prodlist "560010" "560096")))))
+    ratecheckfunction))
 
 
 (defun hhub-test-shipping-rate-check-zonewise ()
