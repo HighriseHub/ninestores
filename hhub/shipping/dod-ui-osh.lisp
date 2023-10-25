@@ -56,13 +56,13 @@
 	 (param-alist (pairlis paramname paramvalue))
 	 (datajson nil))
 
-    (logiamhere (format nil "from ~A to ~A ~C " from-pincode to-pincode #\newline))
-    (logiamhere (format nil "Total items - ~d ~C" total-items #\newline))
-    (logiamhere (format nil  "Length - ~d ~C" dimension3  #\newline))
-    (logiamhere (format nil "width - ~d ~C" dimension1 #\newline))
-    (logiamhere (format nil "height - ~d ~C" dimension2 #\newline))
-    (logiamhere (format nil "total weight - ~d ~C" total-weight #\newline))
-    (logiamhere (format nil "volumetric weight - ~d ~C" (/ (expt final-lwh 3) 5000) #\newline))
+    ;;(logiamhere (format nil "from ~A to ~A ~C " from-pincode to-pincode #\newline))
+    ;;(logiamhere (format nil "Total items - ~d ~C" total-items #\newline))
+    ;;(logiamhere (format nil  "Length - ~d ~C" dimension3  #\newline))
+    ;;(logiamhere (format nil "width - ~d ~C" dimension1 #\newline))
+    ;;(logiamhere (format nil "height - ~d ~C" dimension2 #\newline))
+    ;;(logiamhere (format nil "total weight - ~d ~C" total-weight #\newline))
+    ;;(logiamhere (format nil "volumetric weight - ~d ~C" (/ (expt final-lwh 3) 5000) #\newline))
        
     (setf datajson (acons "data" param-alist datajson))
     (setf datajson (json:encode-json-to-string datajson))
@@ -93,9 +93,9 @@
 	     (uniqueshipproviders (remove-duplicates (mapcar (lambda (elem)
 							       (nth 0 elem)) shippingoptions) :test #'equal))
              (nearestweightslabs (find-nearest-shipping-options shippingoptions total-weight (length uniqueshipproviders))))
-	(logiamhere (format nil "shipping options: ~A" shippingoptions))
-	(logiamhere (format nil "nearest weight slabs : ~A" nearestweightslabs))
-	(logiamhere (format nil  "unique shipping providers = ~d" (length uniqueshipproviders)))
+	;;(logiamhere (format nil "shipping options: ~A" shippingoptions))
+	;;(logiamhere (format nil "nearest weight slabs : ~A" nearestweightslabs))
+	;;(logiamhere (format nil  "unique shipping providers = ~d" (length uniqueshipproviders)))
 	nearestweightslabs))))
 
 
