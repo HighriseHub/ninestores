@@ -1,7 +1,142 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 
-(clsql:def-view-class hhub-warehouse ()
+(defclass WarehouseAdapter (AdapterService)
+  ())
+
+(defclass WarehouseDBService (DBAdapterService)
+  ())
+
+(defclass WarehousePresenter (PresenterService)
+  ())
+
+(defclass WarehouseService (BusinessService)
+  ())
+(defclass WarehouseHTMLView (HTMLView)
+  ())
+
+
+(defclass WarehouseRequestModel (RequestModel)
+  ((row-id)
+   (w-name
+    :initarg :w-name
+    :accessor w-name)
+   (w-addr1
+    :initarg :w-addr1
+    :accessor w-addr1)
+   (w-addr2
+    :initarg :w-addr2
+    :accessor w-addr2)
+   (w-pin
+    :initarg :w-pin
+    :accessor w-pin)
+   (w-city
+    :initarg :w-city
+    :accessor w-city)
+   (w-state
+    :initarg :w-state
+    :accessor w-state)
+   (w-country
+    :accessor w-country
+    :initarg :w-country)
+   (w-manager
+    :accessor w-manager
+    :initarg :w-manager)
+   (w-phone
+    :accessor w-phone
+    :initarg :w-phone)
+   (w-alt-phone
+    :accessor w-alt-phone
+    :initarg :w-alt-phone)
+   (w-email
+    :accessor w-email
+    :initarg :w-email)
+   (company
+    :accessor company
+    :initarg :company)))
+
+(defclass WarehouseResponseModel (ResponseModel)
+  ((row-id)
+   (w-name
+    :initarg :w-name
+    :accessor w-name)
+   (w-addr1
+    :initarg :w-addr1
+    :accessor w-addr1)
+   (w-addr2
+    :initarg :w-addr2
+    :accessor w-addr2)
+   (w-pin
+    :initarg :w-pin
+    :accessor w-pin)
+   (w-city
+    :initarg :w-city
+    :accessor w-city)
+   (w-state
+    :initarg :w-state
+    :accessor w-state)
+   (w-country
+    :accessor w-country
+    :initarg :w-country)
+   (w-manager
+    :accessor w-manager
+    :initarg :w-manager)
+   (w-phone
+    :accessor w-phone
+    :initarg :w-phone)
+   (w-alt-phone
+    :accessor w-alt-phone
+    :initarg :w-alt-phone)
+   (w-email
+    :accessor w-email
+    :initarg :w-email)
+   (company
+    :accessor company
+    :initarg :company)))
+  
+
+(defclass Warehouse (BusinessObject)
+  ((row-id)
+   (w-name
+    :initarg :w-name
+    :accessor w-name)
+   (w-addr1
+    :initarg :w-addr1
+    :accessor w-addr1)
+   (w-addr2
+    :initarg :w-addr2
+    :accessor w-addr2)
+   (w-pin
+    :initarg :w-pin
+    :accessor w-pin)
+   (w-city
+    :initarg :w-city
+    :accessor w-city)
+   (w-state
+    :initarg :w-state
+    :accessor w-state)
+   (w-country
+    :accessor w-country
+    :initarg :w-country)
+   (w-manager
+    :accessor w-manager
+    :initarg :w-manager)
+   (w-phone
+    :accessor w-phone
+    :initarg :w-phone)
+   (w-alt-phone
+    :accessor w-alt-phone
+    :initarg :w-alt-phone)
+   (w-email
+    :accessor w-email
+    :initarg :w-email)
+   (company
+    :accessor company
+    :initarg :company)))
+
+   
+
+(clsql:def-view-class dod-warehouse ()
   ((row-id
     :db-kind :key
     :db-constraints :not-null
@@ -78,4 +213,4 @@
                           :SET T)))
 
    
-  (:BASE-TABLE dod_prd_master))
+  (:BASE-TABLE dod_warehouse))
