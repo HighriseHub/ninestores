@@ -67,13 +67,15 @@
 	   (subtotal (* prdqty unit-price)))
 
       (cl-who:with-html-output (*standard-output* nil)
-	(:div (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "50" :width "70" :alt prd-name " ")))
-	(:div (:p (cl-who:str (format nil "~A: ~A/~A" prd-name unit-price qty-per-unit))))
-	(:div (:p (cl-who:str (format nil "~A" prdqty))))
-	;;(:div (:p  (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor)))))
-	(:div (:p (:span :class "label label-success" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal)))))
 	(:a  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id) :data-toggle "tooltip" :title "Modify"  :href "#" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) (:i :class "fa-regular fa-pen-to-square"))
 	(modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-edit-html product-instance odt-instance))
+	(:div (:p (cl-who:str (format nil "~A" prdqty))))
+	(:div (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "50" :width "70" :alt prd-name " ")))
+	(:div (:p (cl-who:str (format nil "~A: ~A/~A" prd-name unit-price qty-per-unit))))
+	
+	;;(:div (:p  (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor)))))
+	(:div (:p (:span :class "label label-success" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal)))))
+	
 	(:div (:a :data-toggle "tooltip" :title "Remove from shopcart"  :href (format nil "dodcustremshctitem?action=remitem&id=~A" prd-id) (:i :style "width: 15px; height: 15px; font-size: 20px;"  :class "fa-solid fa-xmark"))))))
 
 (defun product-card-for-email (product-instance odt-instance)
@@ -104,13 +106,12 @@
 	 (prdqty (slot-value odt-instance 'prd-qty))
 	 (unit-price (slot-value product-instance 'unit-price))
 	 (prd-image-path (slot-value product-instance 'prd-image-path))
-	 (subtotal (* prdqty unit-price))
-	 (prd-vendor (product-vendor product-instance)))
-     (cl-who:with-html-output (*standard-output* nil)
+	 (subtotal (* prdqty unit-price)))
+    (cl-who:with-html-output (*standard-output* nil)
        (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
-       (:p  (cl-who:str prd-name))
-       (:p  (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor))))
-       (:div :class "txt-bg-success p3" (cl-who:str (format nil "Rs. ~$ X ~A = Rs. ~$"  unit-price prdqty subtotal))))))
+       (:p  (cl-who:str (format nil "~A-~A" prd-name qty-per-unit)))
+       (:p  (cl-who:str (format nil "~A" prdqty )))
+       (:div :class "txt-bg-success p3" (cl-who:str (format nil "~A ~$"  *HTMLRUPEESYMBOL* subtotal))))))
 
 
 

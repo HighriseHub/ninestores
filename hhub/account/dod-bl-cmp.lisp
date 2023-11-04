@@ -106,6 +106,13 @@
 		[like  [:name] (format NIL "%~a%"  name-like-clause)]]
 		:caching *dod-database-caching* :flatp t))
 
+(defun select-companies-by-pincode (name-like-clause)
+ (clsql:select 'dod-company :where [and
+		[= [:deleted-state] "N"]
+		[like  [:zipcode] (format NIL "%~a%"  name-like-clause)]]
+		:caching *dod-database-caching* :flatp t))
+
+
 
 
 (defun select-company-by-id (id)

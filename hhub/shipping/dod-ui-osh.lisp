@@ -66,7 +66,7 @@
        
     (setf datajson (acons "data" param-alist datajson))
     (setf datajson (json:encode-json-to-string datajson))
-    (format t "~A" datajson)
+    ;;(format t "~A" datajson)
     ;; There is a bug in the rate check API, where we are not getting response if the total weight is beyond 5 KG. 
     (unless (> total-weight 5.0)
       (let* ((json-response (json:decode-json-from-string  (map 'string 'code-char (drakma:http-request *HHUBLOGISTICSRATECHECKURL_PROD*

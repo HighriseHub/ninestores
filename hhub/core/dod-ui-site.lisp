@@ -1,35 +1,25 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 
-
 (defun hhub-html-page-footer ()
   (cl-who:with-html-output (*standard-output* nil)
     (:footer
         (:div :class "container"
 	      (:div :class "row"
 		    (:hr))
-	      (:div :class "row"
-                (:div :class "col-lg-12"
-                    (:ul :class "list-inline"
-			 (:li (:a :href *siteurl* "Home"))
-			 (:li :class "footer-menu-divider" "&sdot;")
-			 (:li (:a :href "/hhub/aboutuspage" "About"))
-			 (:li :class "footer-menu-divider" "&sdot;")
-			 (:li (:a :href "/hhub/contactuspage" "Contact Us"))
-			 ;;(:li :class "footer-menu-divider" "&sdot;")
-			 ;;(:li (:a :href "pricing" "Pricing"))
-			 (:li :class "footer-menu-divider" "&sdot;")
-			 (:li (:a :href "/hhub/tnc" "Terms and Conditions"))
-			 (:li :class "footer-menu-divider" "&sdot;")
-			 (:li (:a :href "/hhub/privacy" "Privacy Policy")))))
-			 ;;(:li :class "footer-menu-divider" "&sdot;"))))
-			 ;;(:li (:a :id "hhubcookiepolicylink" :data-toggle "modal" :data-target (format nil "#hhubcookiepolicy-modal")  :href "#"  "Cookie Policy")))))
+	      (:a :href *siteurl* "Home |")
+	      (:a :href "/hhub/aboutuspage" "About |")
+	      (:a :href "/hhub/contactuspage" "Contact Us |")
+	      (:a :href "/hhub/tnc" "Terms and Conditions |")
+	      (:a :href "/hhub/privacy" "Privacy Policy |")
+	      (:a  :data-bs-toggle "modal" :data-bs-target (format nil "#hhubcookiepolicy-modal")  :href "#"  "Cookie Policy")
+	      (modal-dialog-v2 (format nil "hhubcookiepolicy-modal") "Cookie Policy" (modal.hhub-cookie-policy)) 
 	      (:div :class "row"
 		    (:hr))
 	      (:div :class "row"
-		  (:div :class "col-lg-12" 
-			 (:p :class "copyright text-muted small" "Copyright &copy; HighriseHub 2023. All Rights Reserved")))))))
-      ;;  (modal-dialog (format nil "hhubcookiepolicy-modal") "Accept Cookies" (modal.hhub-cookie-policy))))
+		    (:div :class "col-lg-12" 
+			  (:p :class "copyright text-muted small" "Copyright &copy; HighriseHub 2023. All Rights Reserved")))))))
+;;  (modal-dialog (format nil "hhubcookiepolicy-modal") "Accept Cookies" (modal.hhub-cookie-policy))))
 
 
 
@@ -43,10 +33,7 @@
 
 (:p :class "small" "A cookie is a string of information that a website stores on a visitor's computer, and that the visitor's browser provides to the website each time the visitor returns. HighriseHub uses cookies to help HighriseHub identify and track visitors, their usage of https://www.highrisehub.com, and their website access preferences. HighriseHub visitors who do not wish to have cookies placed on their computers should set their browsers to refuse cookies before using HighriseHub's websites, with the drawback that certain features of HighriseHub's websites may not function properly without the aid of cookies.")
 
-(:p :class "small" "By continuing to navigate our website without changing your cookie settings, you hereby acknowledge and agree to HighriseHub's use of cookies.")))
-	  (with-html-form "hhubcookiesacceptform" "hhubcookiesacceptaction"
-	    (:div :class "form-group"
-		  	      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Accept and Continue")))))))
+(:p :class "small" "By continuing to navigate our website without changing your cookie settings, you hereby acknowledge and agree to HighriseHub's use of cookies.")))))))
 
 (defun hhub-controller-tnc-page ()
   :documentation "Terms and Conditions Page"

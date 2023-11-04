@@ -196,7 +196,7 @@
 
 		;; js files related to bootstrap and jquery. Jquery must come first.
 		(:script :src "https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js" :integrity "sha256-2Pmvv0kuTBOenSvLm6bvfBSSHrUJ+3A7x6P5Ebd07/g=" :crossorigin "anonymous")
-		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin="anonymous")
+		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin "anonymous")
 		(:script :src "/js/spin.min.js")
 		(:script :src "https://www.google.com/recaptcha/api.js")
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.9/validator.min.js"))
@@ -249,7 +249,7 @@
 		(:link :href "https://fonts.googleapis.com/css?family=Merriweather:400,900,900i" :rel "stylesheet")
 		;; js files related to bootstrap and jquery. Jquery must come first. 
 		(:script :src "https://code.jquery.com/jquery-3.5.1.min.js" :integrity "sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" :crossorigin "anonymous")
-		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin="anonymous")
+		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin "anonymous")
 		(:script :src "/js/spin.min.js")
 		(:script :src "/js/bs5.3/js/bootstrap.bundle.min.js")
 		(:script :src "https://www.google.com/recaptcha/api.js")
@@ -468,10 +468,10 @@ individual tiles. It also supports search functionality by including the searchr
     `(cl-who:with-html-output (*standard-output* nil ) 
        	 (:form :id "theForm" :name "theForm" :method "POST" :action ,search-form-action :onSubmit "return false"
 		(with-html-div-row
-		  (:div :class "col-xs-8 col-sm-8 col-md-8 col-lg-8 form-group" 
+		  (with-html-div-col-8
 			(:input :type "text" :name "livesearch" :id "livesearch"  :class "form-control search-query" :placeholder ,search-placeholder))
-		  (:div :class "col-xs-4 col-sm-4 col-md-4 col-lg-4 form-group" 
-			(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:span :class " glyphicon glyphicon-search") " Go!" ))))
+		  (with-html-div-col-4
+			(:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
        ,@body))))
 
 
@@ -489,6 +489,18 @@ individual tiles. It also supports search functionality by including the searchr
     `(cl-who:with-html-output (*standard-output* nil) 
        (:form :class ,form-name :id ,form-name :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
 	      ,@body))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-html-card (cardimage cardimagealt cardtitle cardtext  &body body)
+    :documentation "A HTML bootstrap 5.x card"
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "card" :style "width: 18rem;"
+	     (:img :src ,cardimage  :class "card-img-top" :alt ,cardimagealt)
+	     (:div :class "card-body"
+		   (:h5 :class "card-title" ,cardtitle)
+		   (:p :class "card-text" ,cardtext)
+		   ,@body)))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     

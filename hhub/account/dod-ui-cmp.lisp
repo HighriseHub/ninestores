@@ -93,23 +93,24 @@
  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
   (if company-list 
       (cl-who:htm
-       (:div :class "row-fluid"	  
-	     (mapcar (lambda (cmp)
-		       (let ((external-url (slot-value cmp 'external-url)))
-			 (cl-who:htm
-			  (:div :class "col-sm-4 col-lg-3 col-md-4"
-				(:form :method "POST" :action "custsignup1action" :id "custsignup1form" 
-				       (:div :class "form-group"
-					     (:input :class "form-control" :name "cname" :type "hidden" :value (cl-who:str (format nil "~A" (slot-value cmp 'name)))))
-				       (:div :class "form-group"
-					     (:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A - Sign Up" (slot-value cmp 'name))))))
-				(:a :target "_blank" :href (format nil "dascustloginasguest?tenant-id=~A" (slot-value cmp 'row-id)) (:span :class "glyphicon glyphicon-shopping-cart") " Shop Now")
-				(when external-url
-				  (cl-who:htm (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Copy External URL" 
-				      (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:span :class  "glyphicon glyphicon-share"))))))))) company-list)))
+       (mapcar (lambda (cmp)
+		 (let ((external-url (slot-value cmp 'external-url))
+		       (cname (slot-value cmp 'name)))
+		   (cl-who:htm
+		    (with-html-div-col-4
+		      (with-html-card nil "" cname ""
+			(with-html-form "custsignup1form" "custsignup1action" 
+			  (:div :class "form-group"
+				(:input :type "hidden" :name  "cname" :value (cl-who:str (format nil "~A" cname))))
+			  (:div :class "form-group"
+				(:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A - Sign Up" cname)))))
+			(:a :target "_blank" :href (format nil "dascustloginasguest?tenant-id=~A" (slot-value cmp 'row-id)) (:i :class "fa-solid fa-shopping-cart") " Shop Now")
+			(when external-url
+			  (cl-who:htm (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Copy External URL" 
+					    (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes")))))))))) company-list))
 					;else
-       (cl-who:htm (:div :class "col-sm-12 col-md-12 col-lg-12"
-			 (:h3 "Record Not Found."))))))
+      (cl-who:htm (with-html-div-col
+		    (:h3 "Record Not Found."))))))
   
 (defun get-login-user ()
   (hunchentoot:session-value :login-user))
