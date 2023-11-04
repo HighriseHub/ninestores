@@ -2,6 +2,7 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+
 (defmethod ProcessCreateRequest ((adapter UpiPaymentsAdapter) (requestmodel UpiPaymentsRequestModel))
   :description  "Adapter Service method to call the BusinessService Create method. Returns the created UPI object."
     ;; set the business service
@@ -34,7 +35,7 @@
 
 (defmethod CreateViewModel ((presenter UpiPaymentsPresenter) (responsemodel UpiPaymentsResponseModel))
   (let ((viewmodel (make-instance 'UpiPaymentsViewModel)))
-    (with-slots (vendor customer amount utrnum transaction-id status vendorconfirm company created) responsemodel
+    (with-slots (vendor customer amount utrnum transaction-id status vendorconfirm phone company created) responsemodel
       (setf (slot-value viewmodel 'vendor) vendor)
       (setf (slot-value viewmodel 'customer) customer)
       (setf (slot-value viewmodel 'amount) amount)
@@ -42,9 +43,10 @@
       (setf (slot-value viewmodel 'transaction-id) transaction-id)
       (setf (slot-value viewmodel 'status) status)
       (setf (slot-value viewmodel 'vendorconfirm) vendorconfirm)
+      (setf (slot-value viewmodel 'phone) phone)
       (setf (slot-value viewmodel 'company) company)
       (setf (slot-value viewmodel 'created) created)
-      responsemodel)))
+      viewmodel)))
 
 
 (defmethod ProcessResponseList ((adapter UpiPaymentsAdapter) upipaymentslist)
