@@ -14,41 +14,31 @@
 
 
 (defun dod-controller-OTP-request-page ()
-  (let ((phone (hunchentoot:parameter "phone"))
-	(context (hunchentoot:parameter "context")))
-    (with-no-navbar-page-v2  "New Store Request"   
-      (with-html-form  "form-hhubotppage" "hhubotpsubmitaction" 
-	(:img :class "profile-img" :src "/img/logo.png" :alt "")
-	(:div :id "withCountDownTimerExpired"
-	      (with-html-div-row
-		(with-html-div-col
-		  (with-html-input-text-hidden "phone" phone)
-		  (with-html-input-text-hidden "context" context)
-		  (with-html-input-password "otp" (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6)))) "OTP" nil T "Please enter OTP" "1")))
-	    (with-html-div-row
-	      (with-html-div-col
-		(:p :id "withCountDownTimer")))
-	    
-	    (with-html-div-row
-	      (with-html-div-col
+  (let ((phone (hunchentoot:parameter "phone")))
+    (with-no-navbar-page-v2  "OTP Page"
+      (:br)
+      (:div :class "account-wall" :align "center"
+      (with-html-card "/img/logo.png" "" "" (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6))))
+	(with-html-form  "form-hhubotppage" "hhubotpsubmitaction" 
+	  ;;(:img :class "profile-img" :src "/img/logo.png" :alt "")
+	  (:div :id "withCountDownTimerExpired"
+		(with-html-input-text-hidden "phone" phone)
+		(with-html-input-password "otp" "" "Enter OTP" nil T "Please enter OTP" "1")
+		(:p :id "withCountDownTimer" :style "color: crimson;")
 		(:div :class "form-group"
-		      (:button :class "submit center-block btn btn-primary btn-block" :type "submit" "Send OTP"))))))
-	
+		      (:button :class "submit center-block btn btn-primary btn-block" :type "submit" "Send OTP"))))
 	(with-html-form  "form-hhubotpresendpage" "hhubotpregenerateaction"
-	  (with-html-div-row
-	    (with-html-div-col
-	      (:div :class "form-group"
-		    (with-html-input-text-hidden "phone" phone)
-		    (with-html-input-text-hidden "context" context)
-		    (:button :class "submit center-block btn btn-primary btn-block" :type "submit" (cl-who:str  (format nil "Regenerate OTP for ~A " (concatenate 'string "xxxxx" (subseq phone 6)))))))))
+	  (:div :class "form-group"
+		(with-html-input-text-hidden "phone" phone)
+		(:button :class "submit center-block btn btn-primary btn-block" :type "submit" (cl-who:str  (format nil "Regenerate OTP for ~A " (concatenate 'string "xxxxx" (subseq phone 6))))))))
 	(hhub-html-page-footer)
-	(:script "window.onload = function() {countdowntimer(0,0,5,0);}"))))
+      (:script "window.onload = function() {countdowntimer(0,0,2,0);}")))))
 
 (defun dod-controller-otp-submit-action ()
   (let ((otp (hunchentoot:parameter "otp"))
-	(context (hunchentoot:parameter "context"))
+	(context (hunchentoot:session-value :sessioncontext))
 	(sessionotp (hunchentoot:session-value :genericotp)))
-   ;; (hunchentoot:log-message* :info (format nil "context is ~A otp is ~A sessionotp is ~A" context otp sessionotp))
+    ;;(hunchentoot:log-message* :info (format nil "context is ~A otp is ~A sessionotp is ~A" context otp sessionotp))
     (if (equal (parse-integer otp) sessionotp)
 	(hunchentoot:redirect (format nil "/hhub/~A" context))
 	;;else
@@ -57,7 +47,7 @@
 
 (defun dod-controller-otp-regenerate-action ()
   (let ((phone (hunchentoot:parameter "phone"))
-	(context (hunchentoot:parameter "context")))
+	(context (hunchentoot:session-value :sessioncontext)))
 	(generateotp&redirect phone context)))
    
 
@@ -66,13 +56,14 @@
   (let ((otp (random 99999)))
     ;; Set the otp to the session value 
     (setf (hunchentoot:session-value :genericotp ) otp)
+    (setf (hunchentoot:session-value :sessioncontext) context)
     ;; Send SMS to the phone with OTP template text 
     (if *HHUBOTPTESTING*
 	(hunchentoot:log-message* :info (format nil "sessionotp is ~A" otp))
 	;;else 
 	(send-sms-notification phone *HHUBAWSSNSSENDERID* (format nil *HHUBAWSSNSOTPTEMPLATETEXT* otp)))
     ;; redirect to the OTP page 
-    (hunchentoot:redirect (format nil "/hhub/otppage?phone=~A&context=~A" phone context))))
+    (hunchentoot:redirect (format nil "/hhub/otppage?phone=~A" phone))))
 
 (defun com-hhub-transaction-suspend-account ()
   :documentation "This is a controller method which will suspend an Account"
@@ -850,6 +841,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/permissiondenied" 'hhub-controller-permission-denied)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubnewcommstorerequest" 'hhub-controller-new-community-store-request-page)
 	
+	
 	;***************** COMPADMIN/COMPANYHELPDESK/COMPANYOPERATOR  RELATED ********************
      
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcadindex" 'com-hhub-transaction-compadmin-home)
@@ -944,7 +936,10 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubsearchmycustomer"   'hhub-controller-search-my-customer-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcarouseltest"   'hhub-controller-carousel-test)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustshippingmethodspage"   'dod-controller-cust-shipping-methods-page)
-
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginotpstep"  'dod-controller-cust-login-otpstep)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginwithotp"  'dod-controller-cust-login-with-otp)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginv2"  'dod-controller-customer-otploginpage)
+	
 
 
 ;;***************************************************************************************************************************
@@ -1012,6 +1007,9 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdatedefaultshipmethod"  'dod-controller-vendor-update-default-shipping-method)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdatflatrateshipmethodaction"  'dod-controller-vendor-update-flatrate-shpping-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdateshippartneraction"  'dod-controller-vendor-update-external-shipping-partner-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginotpstep"  'dod-controller-vend-login-otpstep)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginwithotp"  'dod-controller-vend-login-with-otp)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginv2"  'dod-controller-vendor-otploginpage)
 	
 			
 ))
