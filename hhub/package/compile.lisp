@@ -107,6 +107,11 @@
 		     "shipping/dod-dal-osh.lisp"
 		     "shipping/dod-bl-osh.lisp"
 		     "shipping/dod-ui-osh.lisp"
+
+		     ;; Warehouse
+		     "warehouse/dod-dal-wrh.lisp"
+		     "warehouse/dod-bl-wrh.lisp"
+		     "warehouse/dod-ui-wrh.lisp"
 		   
 		     ;; UNIT TESTS
 		     "test/hhub-tst-upi.lisp"
