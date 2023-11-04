@@ -55,6 +55,8 @@
     :accessor company
     :initarg :company)))
 
+  
+
 (defclass WarehouseResponseModel (ResponseModel)
   ((row-id)
    (w-name
