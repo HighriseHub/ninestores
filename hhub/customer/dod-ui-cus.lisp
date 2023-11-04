@@ -57,15 +57,14 @@
 
 
 
-(defun display-cust-shipping-costs-widget (shopping-cart shopcart-products shopcart-total shipzipcode vendor company)
+(defun display-cust-shipping-costs-widget (shopcart-total shipping-options vendor)
   (let* ((vaddress (address vendor))
 	 (vcity (city vendor))
 	 (vzipcode (zipcode vendor))
 	 (phone (phone vendor))
 	 (vshipping-enabled (slot-value vendor 'shipping-enabled))
-	 (shiplst (calculate-shipping-cost-for-order shipzipcode shopcart-total shopping-cart shopcart-products vendor company))
-	 (shipping-cost (nth 0 shiplst))
-	 (freeshipminorderamt (nth 2 shiplst)))
+	 (shipping-cost (nth 0 shipping-options))
+	 (freeshipminorderamt (nth 2 shipping-options)))
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-form "form-custshippingmethod" "hhubcustpaymentmethodspage"
 	
@@ -1079,28 +1078,27 @@
 (defun dod-controller-company-search-page ()
   (handler-case
       (progn  (if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)	      
-	      (with-standard-customer-page "Welcome to HighriseHub platform" 
-		(:div :class "row"
-		      (:h2 "Store Search.")
-		      (:div :id "custom-search-input"
-			    (:div :class "input-group col-xs-12 col-sm-12 col-md-12 col-lg-12"
-				  (with-html-search-form "companysearchaction" "Enter Pincode. For ex: 560001")))
-		(:div :id "searchresult"))
+	      (with-no-navbar-page-v2 "Welcome to HighriseHub platform" 
+		(:br)
+		(:h2 "Store Search.")
+		(:div :id "custom-search-input"
+		      (with-html-search-form "companysearchaction" "Enter Pincode. For ex: 560001"))
 		(:hr)
-		(:div :class "row"
-		      (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6"
-			    (:a :class "order-box"  :href "hhubnewcommstorerequest?cmp-type=COMMUNITY"  "Store Not Found? Create New Public Store For Your Pincode - FREE!"))
-		      (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6" :style "display: none;"
-			    (:a :class "order-box"  :href "pricing"  "New Grocery, Mobile, Apparel, Electronics Store.")))
-		
+		(:div :id "searchresult")
+		(:hr)
+		(with-html-div-row
+		  (with-html-div-col
+		    (:a :class "order-box"  :href "hhubnewcommstorerequest?cmp-type=COMMUNITY"  "Store Not Found? Create New Public Store For Your Pincode - FREE!"))
+		  (with-html-div-col :style "display: none;"
+		    (:a :class "order-box"  :href "pricing"  "New Grocery, Mobile, Apparel, Electronics Store.")))
 		(:hr)
 		(hhub-html-page-footer)))
-		      
+    
     (clsql:sql-database-data-error (condition)
-      (if (equal (clsql:sql-error-error-id condition) 2006 ) (progn
-							       (stop-das) 
-							       (start-das)
-							       )))))
+      (when (equal (clsql:sql-error-error-id condition) 2006 )
+	(stop-das) 
+	(start-das)))))
+
 
 (defun dod-controller-customer-password-reset-action ()
   (let* ((pwdresettoken (hunchentoot:parameter "token"))
@@ -1253,6 +1251,29 @@
 							       (hunchentoot:redirect "/hhub/customer-login.html"))))))
 
 
+(defun dod-controller-customer-otploginpage ()
+  (handler-case 
+      (progn  
+	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
+	(if (is-dod-cust-session-valid?)
+	    (hunchentoot:redirect "/hhub/dodcustindex")
+	    (with-standard-customer-page "Welcome Customer" 
+	      (:div :class "row" 
+		    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
+			   (:div :class "account-wall"
+				 (with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
+				   (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
+				   (:h1 :class "text-center login-title"  "Customer - Login")
+				   (:div :class "form-group"
+					 (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
+				   (:div :class "form-group"
+					 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
+				 
+    (clsql:sql-database-data-error (condition)
+      (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
+							       (stop-das) 
+							       (start-das)
+							       (hunchentoot:redirect "/hhub/customer-login.html"))))))
 
 (defun dod-controller-cust-add-orderpref-page ()
     (with-cust-session-check
@@ -1282,8 +1303,8 @@
 			    
 			    (:div :class "form-group" 
 			    (:input :type "submit"  :class "btn btn-primary" :value "Add      "))
-			    )))))
-	))
+			    )))))))
+       
 
 (defun product-qty-add-html (product)
   (let* ((prd-id (slot-value product 'row-id))
@@ -1295,7 +1316,7 @@
 	 (prd-name (slot-value product 'prd-name)))
     
   (cl-who:with-html-output (*standard-output* nil)
-    (:form :class "form-addproduct" :id (format nil "format-addproduct~A" prd-id) :method "POST" :action "dodcustaddtocart" 
+    (:form :class "form-addproduct" :id (format nil "form-addproduct~A" prd-id) :method "POST" :action "dodcustaddtocart" 
 	   (:input :type "hidden" :name "prd-id" :value (format nil "~A" prd-id))
 	   (:p :class "product-name"  (cl-who:str prd-name))
 	   (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) 
@@ -1698,6 +1719,31 @@
 		    (or (null password) (zerop (length password))))
 	    (if (equal (dod-cust-login  :phone phone :password password) NIL) (hunchentoot:redirect "/hhub/customer-login.html") (hunchentoot:redirect  "/hhub/dodcustindex")))))
 
+(defun dod-controller-cust-login-otpstep ()
+  (let* ((phone  (hunchentoot:parameter "phone"))
+	 (context (format nil "hhubcustloginwithotp?phone=~A" phone)))
+      (hunchentoot:start-session)
+      ;; Redirect to the OTP page 
+      (generateotp&redirect phone context)))
+
+(defun dod-controller-cust-login-with-otp ()
+  (let ((phone (hunchentoot:parameter "phone")))
+    (unless (or (null phone) (zerop (length phone)))
+      (unless (dod-cust-login-with-otp  :phone phone)
+	(hunchentoot:redirect "/hhub/customer-login.html"))
+      (hunchentoot:redirect  "/hhub/dodcustindex"))))
+
+(defun dod-controller-vend-login-with-otp ()
+  (let  ((phone (hunchentoot:parameter "phone")))
+    (unless ( or (null phone) (zerop (length phone)))
+      ;; remove the pre login session where we stored the otp and context.
+      ;;(hunchentoot:remove-session hunchentoot:*session*)
+      (unless (dod-vend-login-with-otp :phone phone)
+	(hunchentoot:redirect "/hhub/dodvendindex?context=home"))
+	(hunchentoot:redirect "/hhub/vendor-login.html"))))
+
+
+
 (defun dod-controller-cust-ordersuccess ()
   (with-cust-session-check 
     (let ((cust-type  (slot-value (get-login-customer) 'cust-type)))
@@ -1947,7 +1993,7 @@
 	      (:div :class "card-body"
 		    (:h5 :class "card-title" "Shipping & Handling"
 			 (:hr)
-			 (display-cust-shipping-costs-widget lstshopcart shopcart-products shopcart-total shipzipcode singlevendor custcomp))))))))
+			 (display-cust-shipping-costs-widget shopcart-total shiplst singlevendor))))))))
       
 
 
@@ -2452,8 +2498,60 @@
 	  (if (equal (clsql:sql-error-error-id condition) 2006 ) (progn
 								   (stop-das) 
 								   (start-das)
-;								   (clsql:reconnect :database *dod-db-instance*)
+								   ;;(clsql:reconnect :database *dod-db-instance*)
 								   (hunchentoot:redirect "/hhub/customer-login.html"))))))
+
+(defun dod-cust-login-with-otp (&key phone)
+  (handler-case 
+					;expression
+      (let* ((customer (car (clsql:select 'dod-cust-profile :where [and
+					  [= [:phone] phone]
+					  [= [:cust-type] "STANDARD"]
+					  [= [:deleted-state] "N"]]
+					  :caching nil :flatp t :database *dod-db-instance* )))
+	     (customer-id (if customer (slot-value customer 'row-id)))
+	     (customer-name (if customer (slot-value customer 'name)))
+	     (customer-company (if customer (customer-company customer)))
+	     (customer-tenant-id (if customer-company (slot-value customer-company 'row-id)))
+	     (customer-company-name (if customer-company (slot-value customer-company 'name)))
+	     (customer-company-website (if customer-company (slot-value customer-company 'website)))
+	     (customer-type (if customer (slot-value customer 'cust-type)))
+	     (login-shopping-cart '()))
+
+	(when (and customer
+		   (null (hunchentoot:session-value :login-customer-name))) ;; customer should not be logged-in in the first place.
+	  (hunchentoot:log-message* :info "Login successful for customer  ~A" customer-name)
+	  (hunchentoot:start-session)
+	  (setf hunchentoot:*session-max-time* (* 3600 8))
+	  (setf (hunchentoot:session-value :login-customer ) customer)
+	  (setf (hunchentoot:session-value :login-customer-name) customer-name)
+	  (setf (hunchentoot:session-value :login-customer-id) customer-id)
+	  (setf (hunchentoot:session-value :login-customer-type) customer-type)
+	  (setf (hunchentoot:session-value :login-customer-tenant-id) customer-tenant-id)
+	  (setf (hunchentoot:session-value :login-customer-company-name) customer-company-name)
+	  (setf (hunchentoot:session-value :login-customer-company-website) customer-company-website)
+	  (setf (hunchentoot:session-value :login-customer-company) customer-company)
+	  (setf (hunchentoot:session-value :login-shopping-cart) login-shopping-cart)
+	  (setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer  customer)) 
+	  (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company customer-company))
+	  (setf (hunchentoot:session-value :login-prdcatg-cache) (select-prdcatg-by-company customer-company))
+	  (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer))
+	  (hunchentoot:set-cookie "community-url" :value (format nil "https://www.highrisehub.com/hhub/dascustloginasguest?tenant-id=~A" (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
+	  1))
+    ;; Handle this condition
+    (clsql:sql-database-data-error (condition)
+      (when (equal (clsql:sql-error-error-id condition) 2006 )
+	(stop-das) 
+	(start-das)
+	(hunchentoot:redirect "/hhub/customer-login.html")))))
+
+
+
+
+
+
+
+
  ;     (clsql:sql-fatal-error (errorinst) (if (equal (clsql:sql-error-database-message errorinst) "Database is closed.") 
 ;					     (progn (clsql:stop-sql-recording :type :both)
 ;					            (clsql:disconnect) 
