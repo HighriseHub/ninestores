@@ -745,6 +745,30 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 							       (hunchentoot:redirect "/hhub/vendor-login.html"))))))
 
 
+(defun dod-controller-vendor-otploginpage ()
+  (handler-case
+      (progn
+	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)	      
+	(if (is-dod-vend-session-valid?)
+	    (hunchentoot:redirect "/hhub/dodvendindex?context=home")
+	    (with-standard-vendor-page  "Welcome to HighriseHub Platform - Vendor Login "
+	      (:div :class "row" 
+		    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
+			  (:div :class "account-wall"
+				      (with-html-form "form-vendorsignin" "hhubvendloginotpstep"
+					     (:a :href *siteurl*  (:img :class "profile-img" :src "/img/logo.png" :alt ""))
+					     (:h1 :class "text-center login-title"  "Vendor - Login to HighriseHub")
+					     (:div :class "form-group"
+						   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex:9999999990" :type "text" ))
+					(:div :class "form-group"
+					      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
+    (clsql:sql-database-data-error (condition)
+      (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
+							       (stop-das) 
+							       (start-das)
+							       (hunchentoot:redirect "/hhub/vendor-login.html"))))))
+
+
 (defun dod-controller-vendor-my-customers-page ()
   (with-vend-session-check
     (let* ((vendor (get-login-vendor))
@@ -886,9 +910,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    (:a :class "list-group-item" :href "dodvendortenants" "My Groups")
 	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupdate-modal")  :href "#"  "Contact Information")
 	    (modal-dialog (format nil "dodvendupdate-modal") "Update Vendor" (modal.vendor-update-details)) 
-		    
-	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendchangepin-modal")  :href "#"  "Change Password")
-	    (modal-dialog (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
+	    ;; Since we are enabling the OTP based login for Vendor, we do not need password. 
+	    ;;(:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendchangepin-modal")  :href "#"  "Change Password")
+	    ;;(modal-dialog (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
 	    ;; (:a :class "list-group-item" :href "/pushsubscribe.html" "Push Notifications")
 	    (:a :class "list-group-item" :href "/hhub/hhubvendpushsubscribepage" "Push Notifications")
 	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendsettings-modal")  :href "#"  "Payment Gateway")
@@ -1153,7 +1177,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			    ;; else
 			    (cl-who:htm
 			     (:input :type "checkbox" :id "extshipenabled" :name "extshipenabled" :value "Y" :onclick (parenscript:ps (enableextshipmethod)) :tabindex "1")))
-			(:label :class "form-check-label" :for "freeshipenabled" "&nbsp;&nbsp;Enable Store Pickup"))
+			(:label :class "form-check-label" :for "freeshipenabled" "&nbsp;&nbsp;Enable External Shipping"))
 		  
 		  (:div :class "form-group"
 			(:input :class "form-control" :name "shippartnerkey" :value shippartnerkey :placeholder "Shipping Partner API Key" :type "text"))
@@ -1300,13 +1324,47 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	  (hunchentoot:redirect "/hhub/dodvendindex?context=home")))))
 
 
-;(defun setup-domain-vendor (domain phone)
-;  (let ((vendor-repo (make-instance 'VendorRepository)))
- ;   (loadVendorByPhone vendor-repo phone)
-  ;  (let* ((vendor (getVendor vendor-repo phone))
-;	   (vendorctx (getBusinessContext domain "vendorsite"))
-;	   (company (getVendorCompany vendor))))))
+(defun dod-controller-vend-login-otpstep ()
+  (let* ((phone  (hunchentoot:parameter "phone"))
+	 (context (format nil "hhubvendloginwithotp?phone=~A" phone)))
+      (hunchentoot:start-session)
+      ;; Redirect to the OTP page 
+      (generateotp&redirect phone context)))
 
+(defun dod-controller-vend-login-with-otp ()
+  (let  ((phone (hunchentoot:parameter "phone")))
+    (unless ( or (null phone) (zerop (length phone)))
+      ;; remove the pre login session where we stored the otp and context.
+      ;;(hunchentoot:remove-session hunchentoot:*session*)
+      (unless (dod-vend-login-with-otp :phone phone)
+	(hunchentoot:redirect "/hhub/vendor-login.html"))
+      (hunchentoot:redirect "/hhub/dodvendindex?context=home"))))
+      
+
+(defun dod-vend-login-with-otp (&key phone)
+  (handler-case
+      (let* ((dbvendor (car (clsql:select 'dod-vend-profile :where [and
+					  [= [:phone] phone]
+					  [= [:approved-flag] "Y"]
+					  [= [:approval-status] "APPROVED"]
+					  [= [:deleted-state] "N"]]
+				   :caching nil :flatp t)))
+	     (vendor-company (if dbvendor  (vendor-company dbvendor))))
+	(when (and  dbvendor
+		    (null (hunchentoot:session-value :login-vendor-name))) ;; vendor should not be logged-in in the first place.
+	  (setf hunchentoot:*session-max-time* (* 3600 8))
+	  (set-vendor-session-params  vendor-company dbvendor)
+	  T))
+	    ;; Lets work on the domain objects here.
+	   ;; (setup-domain-vendor *HHUBBUSINESSDOMAIN* phone))))
+
+					;handle the exception. 
+    (clsql:sql-database-data-error (condition)
+      (if (equal (clsql:sql-error-error-id condition) 2006 ) 
+	  (progn
+	    (stop-das) 
+	    (start-das)
+	    (hunchentoot:redirect "/hhub/vendor-login.html"))))))
       
 (defun dod-vend-login (&key phone password )
   (handler-case
@@ -1327,9 +1385,6 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	  (progn
 	    (hunchentoot:start-session)
 	    (setf hunchentoot:*session-max-time* (* 3600 8))
-	    (if dbvendor (setf (hunchentoot:session-value :login-vendor ) dbvendor))
-	    (if dbvendor (setf (hunchentoot:session-value :login-vendor-name) (slot-value dbvendor 'name)))
-	    (if dbvendor (setf (hunchentoot:session-value :login-vendor-id) (slot-value dbvendor 'row-id)))
 	    (set-vendor-session-params  vendor-company dbvendor))))
 	    ;; Lets work on the domain objects here.
 	   ;; (setup-domain-vendor *HHUBBUSINESSDOMAIN* phone))))
@@ -1355,12 +1410,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun set-vendor-session-params ( company  vendor)
   ;; Add the vendor object and the tenant to the Business Session 
-       					;set vendor company related params 
+  ;;set vendor company related params 
+  (setf (hunchentoot:session-value :login-vendor ) vendor)
+  (setf (hunchentoot:session-value :login-vendor-name) (slot-value vendor 'name))
+  (setf (hunchentoot:session-value :login-vendor-id) (slot-value vendor 'row-id))
   (setf (hunchentoot:session-value :login-vendor-tenant-id) (slot-value company 'row-id ))
   (setf (hunchentoot:session-value :login-vendor-company-name) (slot-value company 'name))
   (setf (hunchentoot:session-value :login-vendor-company) company)
-					;(setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company company))
-					;set vendor related params 
+  ;;(setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company company))
+  ;;set vendor related params 
   (if vendor (setf (hunchentoot:session-value :login-vendor-tenants) (get-vendor-tenants-as-companies vendor)))
   (if vendor (setf (hunchentoot:session-value :order-func-list) (dod-gen-order-functions vendor company)))
   (if vendor (setf (hunchentoot:session-value :vendor-order-items-hashtable) (make-hash-table)))
@@ -1536,47 +1594,46 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	  (btnexpexl (hunchentoot:parameter "btnexpexl"))
 	  (context (hunchentoot:parameter "context")))
       (with-standard-vendor-page "Welcome Vendor"
-	  (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-vendor-name))))
-	  (:hr)
-	  (:form :class "form-venorders" :method "POST" :action "dodvendindex"
-		 (with-html-div-row :style "display: none"
-		       (:div :class "btn-group" :role "group" :aria-label "..."
-			     (:button  :name "btnpendord" :type "submit" :class "btn btn-default active" "Orders" )
-			     (:button  :name "btnordcomp" :type "submit" :class "btn btn-default" "Completed Orders")))
+	(:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-vendor-name))))
+	(:hr)
+	(with-html-form "form-venorders" "dodvendindex"
+	  (with-html-div-row :style "display: none"
+	    (:div :class "btn-group" :role "group" :aria-label "..."
+		  (:button  :name "btnpendord" :type "submit" :class "btn btn-default active" "Orders" )
+		  (:button  :name "btnordcomp" :type "submit" :class "btn btn-default" "Completed Orders")))
 					; (:hr)
-					(with-html-div-row :style "display: none"
-					      (:div :class "col-sm-12 col-xs-12 col-md-12 col-lg-12" 
-						    (:input :type "text" :name "reqdate" :placeholder "yyyy/mm/dd")
-						    (:button :class "btn btn-primary" :type "submit" :name "btnordprd" "Get Orders by Products")
-						    (:button :class "btn btn-primary" :type "submit" :name "btnordcus" "Get Orders by Customers")
-						    (if (and reqdate dodorders)
-			    (cl-who:htm (:a :href (format nil "/dodvenexpexl?reqdate=~A" (cl-who:escape-string reqdate)) :class "btn btn-primary" "Export To Excel")))
-						    (:button :class "btn btn-primary"  :type "submit" :name "btnprint" :onclick "javascript:window.print();" "Print") 
-						    )))
+	  (with-html-div-row :style "display: none"
+	    (:div :class "col-sm-12 col-xs-12 col-md-12 col-lg-12" 
+		  (:input :type "text" :name "reqdate" :placeholder "yyyy/mm/dd")
+		  (:button :class "btn btn-primary" :type "submit" :name "btnordprd" "Get Orders by Products")
+		  (:button :class "btn btn-primary" :type "submit" :name "btnordcus" "Get Orders by Customers")
+		  (if (and reqdate dodorders)
+		      (cl-who:htm (:a :href (format nil "/dodvenexpexl?reqdate=~A" (cl-who:escape-string reqdate)) :class "btn btn-primary" "Export To Excel")))
+		  (:button :class "btn btn-primary"  :type "submit" :name "btnprint" :onclick "javascript:window.print();" "Print")))) 
 					; (:hr)
-	  (cond ((equal context "ctxordprd") (ui-list-vendor-orders-by-products dodorders))
-		((and dodorders btnexpexl) (hunchentoot:redirect (format nil "/hhub/dodvenexpexl?reqdate=~A" reqdate)))
-		((equal context "ctxordcus") (ui-list-vendor-orders-by-customers dodorders))
-		((equal context "home")	(cl-who:htm (:div :class "list-group col-xs-6 col-sm-6 col-md-6 col-lg-6" 
+	(cond ((equal context "ctxordprd") (ui-list-vendor-orders-by-products dodorders))
+	      ((and dodorders btnexpexl) (hunchentoot:redirect (format nil "/hhub/dodvenexpexl?reqdate=~A" reqdate)))
+	      ((equal context "ctxordcus") (ui-list-vendor-orders-by-customers dodorders))
+	      ((equal context "home")	(cl-who:htm (:div :class "list-group col-xs-6 col-sm-6 col-md-6 col-lg-6" 
 							  (:a :class "list-group-item" :href "dodvendindex?context=pendingorders" " Orders " (:span :class "badge" (cl-who:str (format nil " ~d " (length dodorders)))))
 							  (:a :class "list-group-item" :href "dodvendindex?context=ctxordprd" "Todays Demand")
 							  (:a :class "list-group-item" :href (cl-who:str (format nil "dodvendrevenue"))  "Today's Revenue"))))  
-		
-				       ((equal context "pendingorders") 
-					(progn (cl-who:htm (cl-who:str "Pending Orders") (:span :class "badge" (cl-who:str (format nil " ~d " (length dodorders))))
-							   (:a :class "btn btn-primary btn-xs" :role "button" :href "dodrefreshpendingorders" (:span :class "glyphicon glyphicon-refresh"))
-							   (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvendindex?context=ctxordcus" "Printer Friendly View")
-							   (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvenexpexl?type=pendingorders" "Export To Excel")
-							   (:hr))
-					       (cl-who:str (display-as-tiles dodorders 'vendor-order-card "order-box"))))
-				       ((equal context "completedorders") (let* ((vorders (dod-get-cached-completed-orders))
-										 (lenorders (length vorders)))
-									    (progn
-									      (cl-who:htm (cl-who:str (format nil "Completed orders"))
-											  (:span :class "badge" (cl-who:str (format nil " ~d " lenorders))) 
-											  (when (> lenorders 0) (cl-who:htm (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvenexpexl?type=completedorders" "Export To Excel")))
-											  (:hr))
-									      (cl-who:str(display-as-tiles vorders 'vendor-order-card "order-box"))))))))))
+	      
+	      ((equal context "pendingorders") 
+	       (progn (cl-who:htm (cl-who:str "Pending Orders") (:span :class "badge" (cl-who:str (format nil " ~d " (length dodorders))))
+				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodrefreshpendingorders" (:span :class "glyphicon glyphicon-refresh"))
+				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvendindex?context=ctxordcus" "Printer Friendly View")
+				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvenexpexl?type=pendingorders" "Export To Excel")
+				  (:hr))
+		      (cl-who:str (display-as-tiles dodorders 'vendor-order-card "order-box"))))
+	      ((equal context "completedorders") (let* ((vorders (dod-get-cached-completed-orders))
+							(lenorders (length vorders)))
+						   (progn
+						     (cl-who:htm (cl-who:str (format nil "Completed orders"))
+								 (:span :class "badge" (cl-who:str (format nil " ~d " lenorders))) 
+								 (when (> lenorders 0) (cl-who:htm (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvenexpexl?type=completedorders" "Export To Excel")))
+								 (:hr))
+						     (cl-who:str(display-as-tiles vorders 'vendor-order-card "order-box"))))))))))
   
 
 
