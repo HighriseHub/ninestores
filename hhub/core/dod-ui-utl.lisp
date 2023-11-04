@@ -468,10 +468,10 @@ individual tiles. It also supports search functionality by including the searchr
     `(cl-who:with-html-output (*standard-output* nil ) 
        	 (:form :id "theForm" :name "theForm" :method "POST" :action ,search-form-action :onSubmit "return false"
 		(with-html-div-row
-		  (:div :class "col-xs-8 col-sm-8 col-md-8 col-lg-8 form-group" 
+		  (with-html-div-col-8
 			(:input :type "text" :name "livesearch" :id "livesearch"  :class "form-control search-query" :placeholder ,search-placeholder))
-		  (:div :class "col-xs-4 col-sm-4 col-md-4 col-lg-4 form-group" 
-			(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:span :class " glyphicon glyphicon-search") " Go!" ))))
+		  (with-html-div-col-4
+			(:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
        ,@body))))
 
 
@@ -489,6 +489,18 @@ individual tiles. It also supports search functionality by including the searchr
     `(cl-who:with-html-output (*standard-output* nil) 
        (:form :class ,form-name :id ,form-name :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
 	      ,@body))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-html-card (cardimage cardimagealt cardtitle cardtext  &body body)
+    :documentation "A HTML bootstrap 5.x card"
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "card" :style "width: 18rem;"
+	     (:img :src ,cardimage  :class "card-img-top" :alt ,cardimagealt)
+	     (:div :class "card-body"
+		   (:h5 :class "card-title" ,cardtitle)
+		   (:p :class "card-text" ,cardtext)
+		   ,@body)))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
