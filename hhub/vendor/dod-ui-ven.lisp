@@ -1354,11 +1354,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    (null (hunchentoot:session-value :login-vendor-name))) ;; vendor should not be logged-in in the first place.
 	  (setf hunchentoot:*session-max-time* (* 3600 8))
 	  (set-vendor-session-params  vendor-company dbvendor)
-	  T))
-	    ;; Lets work on the domain objects here.
-	   ;; (setup-domain-vendor *HHUBBUSINESSDOMAIN* phone))))
-
-					;handle the exception. 
+	  T)
+	(if dbvendor T NIL))
+    ;; Lets work on the domain objects here.
+    ;; (setup-domain-vendor *HHUBBUSINESSDOMAIN* phone))))
+    ;;handle the exception. 
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2006 ) 
 	  (progn
@@ -1497,6 +1497,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (with-vend-session-check 
     (let* ((vendor-products (hhub-get-cached-vendor-products))
 	   (vendor-company (get-login-vendor-company))
+	   (cmp-type (slot-value vendor-company 'cmp-type))
 	   (subscription-plan (slot-value vendor-company 'subscription-plan)))
 	
       (with-standard-vendor-page "Welcome to HighriseHub  - Vendor"
@@ -1505,7 +1506,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(:div :class "row" 
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
 		    (:a :class "btn btn-primary" :role "button" :href "dodvenaddprodpage" (:span :class "glyphicon glyphicon-shopping-cart") " Add New Product  "))
-	      (when (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan)
+	      (when (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan cmp-type)
 		(cl-who:htm   (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
 				    (:a :class "btn btn-primary" :role "button" :href "dodvenbulkaddprodpage" (:span :class "glyphicon glyphicon-shopping-cart") " Bulk Add Products "))))
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" :align "right"
