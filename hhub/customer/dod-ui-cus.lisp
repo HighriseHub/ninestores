@@ -364,9 +364,10 @@
       (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
 	    (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustupdate-modal")  :href "#"  "Contact Info")
 	    (modal-dialog-v2 (format nil "dodcustupdate-modal") "Update Customer" (modal.customer-update-details (get-login-customer))) 
-	    (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustchangepin-modal")  :href "#"  "Change Password")
-	    (modal-dialog-v2 (format nil "dodcustchangepin-modal") "Change Password" (modal.customer-change-pin)) 
-	    (:a :class "list-group-item" :href "#" "Settings")
+	    ;; We have OTP based login now, so will not support chanding password by customer.
+	    ;;(:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustchangepin-modal")  :href "#"  "Change Password")
+	    ;;(modal-dialog-v2 (format nil "dodcustchangepin-modal") "Change Password" (modal.customer-change-pin)) 
+	    ;;(:a :class "list-group-item" :href "#" "Settings")
 	    (:a :class "list-group-item" :href "https://goo.gl/forms/hI9LIM9ebPSFwOrm1" "Feature Wishlist")
 	    (:a :class "list-group-item" :href "https://goo.gl/forms/3iWb2BczvODhQiWW2" "Report Issues")))))
 
@@ -787,7 +788,10 @@
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defun with-customer-navigation-bar-v2 ()
     :documentation "this macro returns the html text for generating a navigation bar using bootstrap."
-    (let ((customer-type (get-login-customer-type)))
+    (let* ((customer-type (get-login-customer-type))
+	   (company (get-login-customer-company))
+	   (subs-plan (subscription-plan company))
+	   (cmp-type (cmp-type company)))
        (cl-who:with-html-output (*standard-output* nil)
 	 (:nav :class "navbar navbar-expand-sm  sticky-top navbar-dark bg-dark" :id "hhubcustnavbar"  
 	       (:div :class "container-fluid"
@@ -798,10 +802,12 @@
 			   (:ul :class "navbar-nav me-auto mb-2 mb-lg-0" 
 				(:li :class "nav-item" 	
 				     (:a :class "nav-link active" :aria-current "page" :href "/hhub/dodcustindex" (:i :class "fa-solid fa-house") "&nbsp;Home"))
+				(if (and (com-hhub-attribute-company-prdsubs-enabled subs-plan cmp-type) (equal customer-type "STANDARD"))
+				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustorderprefs" "Subscriptions"))))
 				(if (equal customer-type "STANDARD")
-				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustorderprefs" "Subscriptions"))
-						(:li :class "nav-item"  (:a :class "nav-link" :href "dodcustorderscal" "Orders"))
-						(:li :class "nav-item"  (:a :class "nav-link" :href "dodcustwallet" (:i :class "fa-solid fa-wallet")  "&nbsp;Wallets" ))))
+				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustorderscal" "Orders"))))
+				(if (and (com-hhub-attribute-company-wallets-enabled subs-plan cmp-type) (equal customer-type "STANDARD"))
+				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustwallet" (:i :class "fa-solid fa-wallet")  "&nbsp;Wallets" ))))
 				(:li :class "nav-item"  (:a :class "nav-link" :href "#" (cl-who:str (format nil "~a" (get-login-customer-company-name))))))
 
 
@@ -888,37 +894,32 @@
     ;; Need to logout of all logged in sessions if any
     (if hunchentoot:*session*  (hunchentoot:remove-session hunchentoot:*session*))
     ;; We need a page without a navbar. 
-    (with-no-navbar-page "Welcome to HighriseHub Platform- Your Demand And Supply destination."
+    (with-no-navbar-page-v2 "Welcome to HighriseHub Platform- Your Demand And Supply destination."
       	(:form :class "form-custregister" :role "form" :data-toggle "validator"  :method "POST" :action "custsignup1step2"
 	   (:div :class "row"
 		 (:img :class "profile-img" :src "/img/logo.png" :alt "")
 		 (:h1 :class "text-center login-title"  (cl-who:str (format nil "New Registration to ~A Store" cmpname)))
 		 (:hr)) 
-	   (:div :class "row" 
-		 (:div :class "col-lg-6 col-md-6 col-sm-6"
-		       (:div :class "form-group"
-			     (:input :class "form-control" :name "tenant-name" :value (format nil "~A" cname) :type "text" :readonly T ))
-		       (:div :class "form-group" 
-			     (:textarea :class "form-control" :name "address"   :rows "2" :readonly T (cl-who:str (format nil "~A" cmpaddress))))
-		       
-		       (:div  :class "form-group" (:label :for "reg-type" "Register as:" )
-				    (customer-vendor-dropdown))
-		       
-		       (:div :class "form-group"
-			     (:input :class "form-control" :name "name" :placeholder "Full Name (Required)" :type "text" :required T ))
-		       (:div :class "form-group"
-			     (:input :class "form-control" :name "email" :placeholder "Email (Required)" :type "text" :required T )))
-		       (:div :class "col-lg-6 col-md-6 col-sm-6"     
-		       (:div :class "form-group"
-			     (:input :class "form-control" :name "phone" :placeholder "Your Mobile Number (Required)" :type "text" :required T))
-		       (:div :class "form-group"
-			     (:input :class "form-control" :name "password" :id "inputpass"  :placeholder "Password" :type "password" :required T ))
-		       (:div :class "form-group"
-			     (:input :class "form-control" :name "confirmpass" :placeholder "Confirm Password" :type "password" :required T :data-match "#inputpass"  :data-match-error "Passwords dont match" ))
-		       (:div :class "form-group"
-			     (:div :class "g-recaptcha" :data-sitekey *HHUBRECAPTCHAV2KEY* )
-			     (:div :class "form-group"
-				   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))
+	   (with-html-div-row
+	     (with-html-div-col-8
+	     (:div :class "form-group"
+		   (:input :class "form-control" :name "tenant-name" :value (format nil "~A" cname) :type "text" :readonly T ))
+	     (:div :class "form-group" 
+		   (:textarea :class "form-control" :name "address"   :rows "2" :readonly T (cl-who:str (format nil "~A" cmpaddress))))
+	     
+	     (:div  :class "form-group" (:label :for "reg-type" "Register as:" )
+		    (customer-vendor-dropdown))
+	     
+	     (:div :class "form-group"
+		   (:input :class "form-control" :name "name" :placeholder "Full Name (Required)" :type "text" :required T ))
+	     (:div :class "form-group"
+		   (:input :class "form-control" :name "email" :placeholder "Email (Required)" :type "text" :required T ))
+	     (:div :class "form-group"
+		   (:input :class "form-control" :name "phone" :placeholder "Your Mobile Number (Required)" :type "text" :required T))
+	     (:div :class "form-group"
+		   (:div :class "g-recaptcha" :data-sitekey *HHUBRECAPTCHAV2KEY* )
+		   (:div :class "form-group"
+			 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))
       (hhub-html-page-footer))))
 
 
@@ -938,10 +939,12 @@
 	 (address (hunchentoot:parameter "address"))
 	 (fulladdress (concatenate 'string  groupname ", " address)) 
 	 (phone (hunchentoot:parameter "phone"))
-	 (password (hunchentoot:parameter "password"))
-	 (confirmpass (hunchentoot:parameter "confirmpass"))
-	 (salt (createciphersalt))
-	 (encryptedpass (check&encrypt password confirmpass salt))
+	 ;; We are not getting initial password from the customer or vendor as we have moved to OTP based authentication.
+	 ;; Customer & vendor passwords will still remain part of the system which can be used for impersonation. 
+	 ;;(password (hunchentoot:parameter "password"))
+	 ;;(confirmpass (hunchentoot:parameter "confirmpass"))
+	 ;;(salt (createciphersalt))
+	 ;;(encryptedpass (check&encrypt password confirmpass salt))
 	 (tenant-name (hunchentoot:parameter "tenant-name"))
 	 (company (select-company-by-name tenant-name))
 	 (tenant-id (slot-value company 'row-id))
@@ -953,19 +956,17 @@
     (setf hunchentoot:*session-max-time* (* 60 5))
     
     (cond
-      ((null encryptedpass) (dod-response-passwords-do-not-match-error))
+      ;;((null encryptedpass) (dod-response-passwords-do-not-match-error))
       ;; Check for duplicate customer
       ((and (equal reg-type "CUS") (duplicate-customerp phone company)) (hunchentoot:redirect "/hhub/duplicate-cust.html"))
       ;; Check whether captcha has been solved 
       ((null (cdr (car json-response))) (dod-response-captcha-error))
      
-      ((and encryptedpass (equal reg-type "VEN"))
+      ((equal reg-type "VEN")
        (let ((vendor (make-instance 'dod-vend-profile
 				    :name name
 				    :address fulladdress
 				    :email email 
-				    :password password 
-				    :salt salt
 				    :phone phone
 				    :city nil 
 				    :state nil 
@@ -977,13 +978,11 @@
 				    :push-notify-subs-flag "N"
 				    :deleted-state "N")))
 	 (setf (hunchentoot:session-value :newvendorcreate) vendor)))
-      ((and encryptedpass (equal reg-type "CUS"))
+      ((equal reg-type "CUS")
        (let ((customer (make-instance 'dod-cust-profile
 				      :name name
 				      :address fulladdress
 				      :email email 
-				      :password password 
-				      :salt salt
 				      :birthdate nil 
 				      :phone phone
 				      :city nil
@@ -1316,7 +1315,7 @@
 	 (prd-name (slot-value product 'prd-name)))
     
   (cl-who:with-html-output (*standard-output* nil)
-    (:form :class "form-addproduct" :id (format nil "form-addproduct~A" prd-id) :method "POST" :action "dodcustaddtocart" 
+    (with-html-form  (format nil "form-addproduct")  "dodcustaddtocart" 
 	   (:input :type "hidden" :name "prd-id" :value (format nil "~A" prd-id))
 	   (:p :class "product-name"  (cl-who:str prd-name))
 	   (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) 
@@ -2408,6 +2407,7 @@
 	      (customer-tenant-id (if customer-company (slot-value customer-company 'row-id)))
 	      (customer-company-name (if customer-company (slot-value customer-company 'name)))
 	      (customer-company-website (if customer-company (slot-value customer-company 'website)))
+	      (company-exturl (if customer-company (slot-value customer-company 'external-url)))
 	      (customer-type (if customer (slot-value customer 'cust-type)))
 	      (login-shopping-cart '()))
 
@@ -2433,9 +2433,8 @@
 	     (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company customer-company))
 	     (setf (hunchentoot:session-value :login-prdcatg-cache) (select-prdcatg-by-company customer-company))
 	     (unless (equal customer-tenant-id *HHUB-DEMO-TENANT-ID*)
-	       (progn
-		 (hunchentoot:set-cookie "community-url" :value (format nil "https://www.highrisehub.com/hhub/dascustloginasguest?tenant-id=~A" (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
-		 (hunchentoot:set-cookie "community-name" :value customer-company-name :path "/" :expires (+ (get-universal-time) 10000000)))))))
+	       (hunchentoot:set-cookie "community-url" :value company-exturl :expires (+ (get-universal-time) 10000000) :path "/")
+	       (hunchentoot:set-cookie "community-name" :value customer-company-name :path "/" :expires (+ (get-universal-time) 10000000))))))
      
      ;; Handle this condition
      (clsql:sql-database-data-error (condition)

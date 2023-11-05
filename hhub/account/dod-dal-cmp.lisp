@@ -36,7 +36,10 @@
     :type (string 256)
     :initarg :website)
 
-   (created                                                                                                                                                                                                             :accessor created                                                                                                                                                                                                  :type clsql:wall-time                                                                                                                                                                                              :initarg :created)     
+   (created
+    :accessor created
+    :type clsql:wall-time
+    :initarg :created)     
  
    (created-by
     :TYPE INTEGER
@@ -59,6 +62,7 @@
                           :FOREIGN-KEY row-id
                           :SET NIL))
    (cmp-type
+    :accessor cmp-type
     :type (string 30)
     :initarg :cmp-type)
    

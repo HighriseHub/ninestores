@@ -373,13 +373,18 @@
 
 
 (defun product-card (product-instance prdincart-p)
-    (let ((prd-name (slot-value product-instance 'prd-name))
-	  (unit-price (slot-value product-instance 'unit-price))
-	  (prd-image-path (slot-value product-instance 'prd-image-path))
-	  (qty-per-unit (slot-value product-instance 'qty-per-unit))
-	  (units-in-stock (slot-value product-instance 'units-in-stock))
-	  (description (slot-value product-instance 'description))
-	  (prd-id (slot-value product-instance 'row-id)))
+  (let* ((prd-name (slot-value product-instance 'prd-name))
+	 (unit-price (slot-value product-instance 'unit-price))
+	 (prd-image-path (slot-value product-instance 'prd-image-path))
+	 (qty-per-unit (slot-value product-instance 'qty-per-unit))
+	 (units-in-stock (slot-value product-instance 'units-in-stock))
+	 (description (slot-value product-instance 'description))
+	 (prd-id (slot-value product-instance 'row-id))
+	 (subscribe-flag (slot-value product-instance 'subscribe-flag))
+	 (customer-type (get-login-customer-type))
+	 (company (product-company product-instance))
+	 (subscription-plan (slot-value company 'subscription-plan))
+	 (cmp-type (slot-value company 'cmp-type)))
 	
       (cl-who:with-html-output (*standard-output* nil)
 	(:a  :href (format nil "dodprddetailsforcust?id=~A" prd-id) (:img :src  (format nil "~A" prd-image-path)  :alt prd-name " "))
@@ -387,7 +392,15 @@
 	      (:p :class "new-price" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit)))
 	      (:p :class "product-title" (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) (cl-who:str prd-name)))
 	      ;; Display the subscribe button only for standard customers.
-	      
+	      ;; Customers of APARTMENT/COMMUNITY do not have this feature. 
+	      (when (and
+		     (com-hhub-attribute-company-prdsubs-enabled subscription-plan cmp-type) 
+		     (equal subscribe-flag "Y") 
+		     (equal customer-type "STANDARD"))
+		  (cl-who:htm
+		   (:button :data-bs-toggle "modal" :data-bs-target (format nil "#productsubscribe-modal~A" prd-id)  :href "#"   :class "btn btn-sm btn-primary" :id (format nil "btnsubscribe~A" prd-id) :name (format nil "btnsubscribe~A" prd-id)  (:i :class "fa-solid fa-hand-point-up") "&nbsp;Subscribe")
+		   (modal-dialog-v2 (format nil "productsubscribe-modal~A" prd-id) "Subscribe Product/Service" (product-subscribe-html prd-id))))
+
 	      (if  prdincart-p 
 		   (cl-who:htm (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);")(:i :class "fa-solid fa-check")))
 		   ;; else 

@@ -49,54 +49,70 @@
   (equal suspend-flag "Y"))
 
 
-(defun com-hhub-attribute-company-maxvendorcount (subscription-plan)
-  (cond ((equal subscription-plan "BASIC") 5)
-	((equal subscription-plan "PROFESSIONAL") 10)
-	((equal subscription-plan "TRIAL") 1)))
+(defun com-hhub-attribute-company-maxvendorcount (subscription-plan cmp-type)
+  (cond
+    ((equal cmp-type "COMMUNITY") 999)
+    ((equal subscription-plan "BASIC") 5)
+    ((equal subscription-plan "PROFESSIONAL") 10)
+    ((equal subscription-plan "TRIAL") 1)))
 
-(defun com-hhub-attribute-company-maxproductcount (subscription-plan)
-  (cond ((equal subscription-plan "BASIC") 1000)
-	  ((equal subscription-plan "PROFESSIONAL") 3000)
-	  ((equal subscription-plan "TRIAL") 100)))
-
-
-(defun com-hhub-attribute-company-prdbulkupload-enabled (subscription-plan)
-  (cond ((equal subscription-plan "BASIC") T)
-	((equal subscription-plan "PROFESSIONAL") T)
-	((equal subscription-plan "TRIAL") NIL)))
+(defun com-hhub-attribute-company-maxproductcount (subscription-plan cmp-type)
+  (cond
+    ((equal cmp-type "COMMUNITY") 50)
+    ((equal subscription-plan "BASIC") 1000)
+    ((equal subscription-plan "PROFESSIONAL") 3000)
+    ((equal subscription-plan "TRIAL") 100)))
 
 
-(defun com-hhub-attribute-company-prdsubs-enabled (subscription-plan)
-  (cond ((equal subscription-plan "BASIC") T)
-	((equal subscription-plan "PROFESSIONAL") T)
-	((equal subscription-plan "TRIAL") NIL)))
+(defun com-hhub-attribute-company-prdbulkupload-enabled (subscription-plan cmp-type)
+  (cond
+    ((equal cmp-type "COMMUNITY") NIL)
+    ((equal subscription-plan "BASIC") T)
+    ((equal subscription-plan "PROFESSIONAL") T)
+    ((equal subscription-plan "TRIAL") NIL)))
 
 
-(defun com-hhub-attribute-company-wallets-enabled (subscription-plan)
-  (cond ((equal subscription-plan "BASIC") NIL)
-	((equal subscription-plan "PROFESSIONAL") T)
-	((equal subscription-plan "TRIAL") NIL)))
+(defun com-hhub-attribute-company-prdsubs-enabled (subscription-plan cmp-type)
+  (cond
+    ((equal cmp-type "COMMUNITY") NIL)
+    ((equal subscription-plan "BASIC") T)
+    ((equal subscription-plan "PROFESSIONAL") T)
+    ((equal subscription-plan "TRIAL") NIL)))
+
+
+(defun com-hhub-attribute-company-wallets-enabled (subscription-plan cmp-type)
+  (cond
+    ((equal cmp-type "COMMUNITY") T)
+    ((equal subscription-plan "BASIC") T)
+    ((equal subscription-plan "PROFESSIONAL") T)
+    ((equal subscription-plan "TRIAL") NIL)))
 
   
-(defun com-hhub-attribute-company-codorders-enabled (subscription-plan)
-  (cond ((equal subscription-plan "BASIC") NIL)
-	((equal subscription-plan "PROFESSIONAL") T)
-	((equal subscription-plan "TRIAL") NIL)))
+(defun com-hhub-attribute-company-codorders-enabled (subscription-plan cmp-type)
+  (cond
+    ((equal cmp-type "COMMUNITY") T)
+    ((equal subscription-plan "BASIC") NIL)
+    ((equal subscription-plan "PROFESSIONAL") T)
+    ((equal subscription-plan "TRIAL") NIL)))
 
 
-(defun com-hhub-attribute-company-maxcustomercount (subscription-plan)
-  (cond ((equal subscription-plan "BASIC") 500)
-	((equal subscription-plan "PROFESSIONAL") 1000)
-	((equal subscription-plan "TRIAL") 50)))
+(defun com-hhub-attribute-company-maxcustomercount (subscription-plan cmp-type)
+  (cond
+    ((equal cmp-type "COMMUNITY") 100)
+    ((equal subscription-plan "BASIC") 500)
+    ((equal subscription-plan "PROFESSIONAL") 1000)
+    ((equal subscription-plan "TRIAL") 50)))
 
   
 (defun com-hhub-attribute-company-subscription-plan (company)
   (slot-value company 'subscription-plan))
 
-(defun com-hhub-attribute-company-maxprodcatgcount  (subscription-plan)
-  (cond ((equal subscription-plan "BASIC") 20)
-	((equal subscription-plan "PROFESSIONAL") 30)
-	((equal subscription-plan "TRIAL") 10)))
+(defun com-hhub-attribute-company-maxprodcatgcount  (subscription-plan cmp-type)
+  (cond
+    ((equal cmp-type "COMMUNITY") 20)
+    ((equal subscription-plan "BASIC") 20)
+    ((equal subscription-plan "PROFESSIONAL") 50)
+    ((equal subscription-plan "TRIAL") 10)))
 
 (defun com-hhub-attribute-vendor-currentprodcatgcount (company)
   (length (select-prdcatg-by-company company)))
@@ -107,7 +123,7 @@
 
 (defun com-hhub-attribute-vendor-freeship-enabled (vendor company)
   (let* ((shipping-method (get-shipping-method-for-vendor vendor company))
-	(freeshipenabled (slot-value shipping-method 'freeshipenabled)))
+	 (freeshipenabled (slot-value shipping-method 'freeshipenabled)))
     (if (equal freeshipenabled "Y") T NIL)))
 
 
@@ -130,4 +146,4 @@
   (let* ((shipping-method (get-shipping-method-for-vendor vendor company))
 	 (storepickupenabled (slot-value shipping-method 'storepickupenabled)))
     (if (equal storepickupenabled "Y") T NIL)))
-  
+
