@@ -30,9 +30,10 @@
 
 (defun com-hhub-policy-prodcatg-add-action (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (subs-plan (subscription-plan company))
+	 (cmp-type (cmp-type company))
 	 (suspend-flag (slot-value company 'suspend-flag))
-         (subscription-plan (slot-value company 'subscription-plan))
-	 (maxcatgcount (com-hhub-attribute-company-maxprodcatgcount subscription-plan))
+         (maxcatgcount (com-hhub-attribute-company-maxprodcatgcount subs-plan cmp-type))
 	 (currentcatgcount (com-hhub-attribute-vendor-currentprodcatgcount company))
 	 (rolename (cdr (assoc "rolename" params :test 'equal))))
     (if (and
@@ -55,11 +56,13 @@
 
 (defun com-hhub-policy-customer&vendor-create (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (subs-plan (subscription-plan company))
+	 (cmp-type (cmp-type company))
 	 (company-name (slot-value company 'name))
 	 (currvendorcount (length (select-vendors-for-company company)))
 	 (currcustomercount (length (select-customers-for-company company)))
-	 (maxcustomercount (com-hhub-attribute-company-maxcustomercount (subscription-plan company)))
-	 (maxvendorcount (com-hhub-attribute-company-maxvendorcount (subscription-plan company)))
+	 (maxcustomercount (com-hhub-attribute-company-maxcustomercount subs-plan cmp-type))
+	 (maxvendorcount (com-hhub-attribute-company-maxvendorcount subs-plan cmp-type))
 	 (suspend-flag (slot-value company 'suspend-flag)))
     
     (when (<= (- maxvendorcount currvendorcount) 0 )
@@ -75,10 +78,11 @@
 
 (defun com-hhub-policy-vendor-add-product-action (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (subs-plan (subscription-plan company))
+	 (cmp-type (cmp-type company))
 	 (company-name (slot-value company 'name))
 	 (currproductcount (length (select-products-by-company company)))
-	 (subscription-plan (slot-value company 'subscription-plan))
-	 (maxproductcount (com-hhub-attribute-company-maxproductcount subscription-plan))
+	 (maxproductcount (com-hhub-attribute-company-maxproductcount subs-plan cmp-type))
 	 (suspend-flag (slot-value company 'suspend-flag)))
     (when (<= (- maxproductcount currproductcount) 0)
       (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. You have exceeded maximum number of Products allowed to be created." company-name)))  
@@ -88,8 +92,9 @@
 
 (defun com-hhub-policy-vendor-bulk-products-add (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
-	 (subscription-plan (slot-value company 'subscription-plan))
-	 (bulkuploadp (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan))
+	 (subs-plan (subscription-plan company))
+	 (cmp-type (cmp-type company))
+	 (bulkuploadp (com-hhub-attribute-company-prdbulkupload-enabled subs-plan cmp-type))
 	 (suspend-flag (slot-value company 'suspend-flag)))
     (when (com-hhub-attribute-company-issuspended suspend-flag)
       (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
@@ -111,10 +116,11 @@
 (defun com-hhub-policy-vendor-bulk-product-add (&optional  (params nil))
   :documentation "Vendor Add bulk products using CSV file. "
   (let* ((company (cdr (assoc "company" params :test 'equal)))
-	 (suspend-flag (slot-value company 'suspend-flag))
-	 (subscription-plan (slot-value company 'subscription-plan)))
+	 (subs-plan (subscription-plan company))
+	 (cmp-type (cmp-type company))
+	 (suspend-flag (slot-value company 'suspend-flag)))
     (cond
-      ((not (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan))  
+      ((not (com-hhub-attribute-company-prdbulkupload-enabled subs-plan cmp-type))
        ;; return false
        (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This feature is restricted." (slot-value company 'name))))
       ((com-hhub-attribute-company-issuspended suspend-flag)
