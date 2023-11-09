@@ -29,9 +29,6 @@
 		    catglist)))))
 
 
-
-  
-
 (defun ui-list-customer-products (data lstshopcart)
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
     (:div :id "searchresult" 
@@ -40,20 +37,29 @@
 (defun render-products-list (data lstshopcart)
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
     (:div :class "all-products" 
-	  (mapcar (lambda (product)
-		    (cl-who:htm
-		     (:div :class "product-card"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart)))))
-		  data))))
+	  (cl-who:str (display-product-cards data lstshopcart)))))
+
+     
 
 (defun ui-list-cust-products-horizontal (data lstshopcart)
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
     (:div :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
 	  (with-html-div-row :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
-	    (mapcar (lambda (product)
-		      (cl-who:htm
-		       (:div :class "product-card"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart)))))
-		    data)))))
+	    (cl-who:str (display-product-cards data lstshopcart))))))
 
+
+(defun display-product-cards (data lstshopcart)
+  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+    (mapcar (lambda (product)
+	      (let ((vendor-id (slot-value (product-vendor product) 'row-id))
+		    (active-vendor-id (hunchentoot:session-value :login-active-vendor-id)))
+		(if (or (null active-vendor-id) (equal vendor-id active-vendor-id))
+		    (cl-who:htm
+		     (:div :class "product-card"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart))))
+		    ;;else
+		    (cl-who:htm
+		     (:div :class "product-card" :style "display: none;"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart)))))))
+	    data)))
 
 
 (defun product-card-shopcart (product-instance odt-instance)
@@ -397,10 +403,9 @@
 		     (com-hhub-attribute-company-prdsubs-enabled subscription-plan cmp-type) 
 		     (equal subscribe-flag "Y") 
 		     (equal customer-type "STANDARD"))
-		  (cl-who:htm
-		   (:button :data-bs-toggle "modal" :data-bs-target (format nil "#productsubscribe-modal~A" prd-id)  :href "#"   :class "btn btn-sm btn-primary" :id (format nil "btnsubscribe~A" prd-id) :name (format nil "btnsubscribe~A" prd-id)  (:i :class "fa-solid fa-hand-point-up") "&nbsp;Subscribe")
-		   (modal-dialog-v2 (format nil "productsubscribe-modal~A" prd-id) "Subscribe Product/Service" (product-subscribe-html prd-id))))
-
+		(cl-who:htm
+		 (:button :data-bs-toggle "modal" :data-bs-target (format nil "#productsubscribe-modal~A" prd-id)  :href "#"   :class "btn btn-sm btn-primary" :id (format nil "btnsubscribe~A" prd-id) :name (format nil "btnsubscribe~A" prd-id)  (:i :class "fa-solid fa-hand-point-up") "&nbsp;Subscribe")
+		 (modal-dialog-v2 (format nil "productsubscribe-modal~A" prd-id) "Subscribe Product/Service" (product-subscribe-html prd-id))))
 	      (if  prdincart-p 
 		   (cl-who:htm (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);")(:i :class "fa-solid fa-check")))
 		   ;; else 
@@ -408,10 +413,11 @@
 		       (cl-who:htm (:button  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "add-to-cart-btn" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id)  "Add&nbsp; " (:i :class "fa-solid fa-plus"))
 				   (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-add-html product-instance)))
 		       ;; else
-		       (cl-who:htm (:div :class "col-6" 
-					 (:h5 (:span :class "label label-danger" "Out Of Stock"))))))
+		       (cl-who:htm
+			(:div :class "col-6" 
+			      (:h5 (:span :class "label label-danger" "Out Of Stock"))))))
 	      (:p :class "description"  (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))))))
-
+  
 
 (defun product-card-with-details-for-customer (product-instance customer  prdincart-p)
   (let* ((prd-name (slot-value product-instance 'prd-name))
@@ -424,6 +430,7 @@
 	 (subscribe-flag (slot-value product-instance 'subscribe-flag))
 	 (cust-type (slot-value customer 'cust-type))
 	 (prd-vendor (product-vendor product-instance))
+	 (vendor-name (slot-value prd-vendor 'name))
 	 (vendor-id (slot-value prd-vendor 'row-id)))
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "single-product-card"
@@ -432,8 +439,9 @@
 	    (:div :class "product-details"
 		  (:p :class "product-title" (cl-who:str prd-name))
 		  (:p (cl-who:str qty-per-unit))
-		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#vendordetails-modal~A" vendor-id)  :href "#"   :class "btn btn-sm btn-primary" :onclick "addtocartclick(this.id);" :name "btnvendormodal" (cl-who:str (name prd-vendor)))  
+		  (:p (:a :data-bs-toggle "modal" :data-bs-target (format nil "#vendordetails-modal~A" vendor-id)  :href "#"   :class "btn btn-sm btn-primary" :onclick "addtocartclick(this.id);" :name "btnvendormodal" (cl-who:str vendor-name)))  
 		  (modal-dialog-v2 (format nil "vendordetails-modal~A" vendor-id) (cl-who:str (format nil "Vendor Details")) (modal.vendor-details vendor-id))
+		  (:p (:a :href (format nil "hhubcustvendorstore?id=~A" vendor-id) (:i :class "fa-solid fa-store") (cl-who:str (format nil "&nbsp;~A Store" vendor-name))))
 		  (:hr)
 		  (:p :class "new-price" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit)))
 		  (:hr)
@@ -442,8 +450,9 @@
 		       (cl-who:htm (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);")(:i :class "fa-solid fa-check")))
 		       ;; else 
 		 (if (and units-in-stock (> units-in-stock 0))
-		     (cl-who:htm (:button  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "add-to-cart-btn" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id)  "Add&nbsp; " (:i :class "fa-solid fa-plus"))
-				 (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-add-html product-instance)))
+		     (cl-who:htm
+		      (:button  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "add-to-cart-btn" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id)  "Add&nbsp; " (:i :class "fa-solid fa-plus"))
+		      (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-add-html product-instance)))
 		     ;; else
 		     (cl-who:htm (:div :class "col-6" 
 				       (:h5 (:span :class "label label-danger" "Out Of Stock"))))))
