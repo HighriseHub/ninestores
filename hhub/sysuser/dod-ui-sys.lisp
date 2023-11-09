@@ -939,6 +939,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginotpstep"  'dod-controller-cust-login-otpstep)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginwithotp"  'dod-controller-cust-login-with-otp)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginv2"  'dod-controller-customer-otploginpage)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorstore"  'dod-controller-customer-products-by-vendor)
 	
 
 
