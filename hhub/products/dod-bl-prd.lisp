@@ -79,6 +79,10 @@
  (remove nil (mapcar (lambda (item)
 	    (if (equal category-id (slot-value item 'catg-id)) item)) list)))
 
+(defun filter-products-by-vendor (vendor-id list)
+ (remove nil (mapcar (lambda (item)
+	    (if (equal vendor-id (slot-value item 'vendor-id)) item)) list)))
+
 
 (defun prdinlist-p  (prd-id list)
   (if (member prd-id  (mapcar (lambda (item)
