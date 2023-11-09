@@ -3,7 +3,16 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
-
+(defun vendor-card (vendor)
+  (let* ((vname (slot-value vendor 'name))
+	 (vid (slot-value vendor 'row-id))
+	 (vpicture (slot-value vendor 'picture-path)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-card vpicture vname vname vname
+	(:p (:a :href (format nil "hhubcustvendorstore?id=~A" vid) (:i :class "fa-solid fa-store") (cl-who:str (format nil "&nbsp;~A Store" vname))))
+	
+	))))
+    
 
 (defun dod-controller-vendor-pushsubscribe-page ()
   (with-vend-session-check
@@ -439,28 +448,16 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(cl-who:htm (:div :class "col-sm-12 col-md-12 col-lg-12"
 	      (:h3 "No records found"))))))
 
-
-
 (defun dod-controller-vend-add-tenant-action ()
-  (if (is-dod-vend-session-valid?)
-      (let* ((cname (hunchentoot:parameter "cname"))
-	     (company (select-company-by-name cname)))
-	
-	(create-vendor-tenant (get-login-vendor) "N"  company)
-	(hunchentoot:redirect "/hhub/dodvendortenants"))
-      ;else
-      (hunchentoot:redirect "/hhub/vendor-login.html")))
-
-
-
-
-
-
+  (with-vend-session-check
+    (let* ((cname (hunchentoot:parameter "cname"))
+	   (company (select-company-by-name cname)))
+      (create-vendor-tenant (get-login-vendor) "N"  company))))
 
 (defun dod-controller-vendor-add-product-page ()
 (with-vend-session-check 
   (let ((catglist (hhub-get-cached-product-categories)))
-    (with-standard-vendor-page (:title "Welcome to DAS Platform- Your Demand And Supply destination.")
+    (with-standard-vendor-page "Welcome to DAS Platform- Your Demand And Supply destination."
       (:div :class "row" 
 	    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 		  (:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-toggle "validator" :enctype "multipart/form-data" 
@@ -1468,7 +1465,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (products (if (not (equal "" search-clause)) (search-products search-clause (get-login-vendor-company)))))
     (cl-who:with-html-output-to-string (*standard-output* nil)
       (:div :id "searchresult" 
-	    (cl-who:str (display-as-tiles products  'product-card-for-vendor "vendor-product-box"))))))
+	    (cl-who:str (display-as-tiles products  'product-card-for-vendor "vendor-product-card"))))))
 
 (defun dod-controller-vendor-product-categories-page ()
   (with-vend-session-check
@@ -1499,10 +1496,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (vendor-company (get-login-vendor-company))
 	   (cmp-type (slot-value vendor-company 'cmp-type))
 	   (subscription-plan (slot-value vendor-company 'subscription-plan)))
-	
       (with-standard-vendor-page "Welcome to HighriseHub  - Vendor"
 	(with-html-search-form "hhubvendsearchproduct" "Product Name")
-	  
+	
 	(:div :class "row" 
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
 		    (:a :class "btn btn-primary" :role "button" :href "dodvenaddprodpage" (:span :class "glyphicon glyphicon-shopping-cart") " Add New Product  "))
