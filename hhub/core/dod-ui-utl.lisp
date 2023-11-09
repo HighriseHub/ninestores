@@ -466,13 +466,12 @@ individual tiles. It also supports search functionality by including the searchr
   (defmacro  with-html-search-form (search-form-action search-placeholder &body body) 
     :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"  
     `(cl-who:with-html-output (*standard-output* nil ) 
-       	 (:form :id "theForm" :name "theForm" :method "POST" :action ,search-form-action :onSubmit "return false"
-		(with-html-div-row
-		  (with-html-div-col-8
-			(:input :type "text" :name "livesearch" :id "livesearch"  :class "form-control search-query" :placeholder ,search-placeholder))
-		  (with-html-div-col-4
-			(:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
-       ,@body))))
+       (with-html-div-col-8
+	 (:form :id "theForm" :name "theForm" :method "POST" :action ,search-form-action :onSubmit "return false"
+		(:div :class "input-group"
+		      (:input :type "text" :name "livesearch" :id "livesearch"  :class "form-control" :placeholder ,search-placeholder)
+		      (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" ))))
+		,@body))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
