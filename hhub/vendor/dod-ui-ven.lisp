@@ -9,9 +9,7 @@
 	 (vpicture (slot-value vendor 'picture-path)))
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-card vpicture vname vname vname
-	(:p (:a :href (format nil "hhubcustvendorstore?id=~A" vid) (:i :class "fa-solid fa-store") (cl-who:str (format nil "&nbsp;~A Store" vname))))
-	
-	))))
+	(:span (:a :href (format nil "hhubcustvendorstore?id=~A" vid) (:i :class "fa-solid fa-store") (cl-who:str (format nil "&nbsp;~A Store" vname))))))))
     
 
 (defun dod-controller-vendor-pushsubscribe-page ()
@@ -776,7 +774,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					 (cust-type (slot-value customer 'cust-type)))
 				    (when (equal cust-type "STANDARD") customer))) wallets))))
       (with-standard-vendor-page "My Customers"
-	(with-html-search-form "hhubsearchmycustomer" "Customer Name")
+	(with-html-search-form "idsearchmycustomer" "searchmycustomer" "idtxtsearchcustomer" "txtsearchcustomer" "hhubsearchmycustomer" "Customer Name")
 	(:div :id "searchresult"  :class "container"
 	      (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") mycustomers 'display-my-customers-row)))))))
 
@@ -1497,7 +1495,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (cmp-type (slot-value vendor-company 'cmp-type))
 	   (subscription-plan (slot-value vendor-company 'subscription-plan)))
       (with-standard-vendor-page "Welcome to HighriseHub  - Vendor"
-	(with-html-search-form "hhubvendsearchproduct" "Product Name")
+	(with-html-search-form "idvendsearchproduct" "vendsearchproduct" "idtxtvendsearchproduct" "txtvendsearchproduct" "hhubvendsearchproduct" "Product Name")
 	
 	(:div :class "row" 
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
