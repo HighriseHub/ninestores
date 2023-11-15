@@ -308,8 +308,16 @@
   (car (clsql:select 'dod-vend-profile :where [and
 		[= [:deleted-state] "N"]
 		[= [:tenant-id] tenant-id]
-		[like  [:name] name-like-clause]]
+		[like  [:name] (format nil "%~a%" name-like-clause)]]
 		:caching nil :flatp t))))
+
+(defun select-vendors-by-name (name-like-clause company)
+  (let ((tenant-id (slot-value company 'row-id)))
+    (clsql:select 'dod-vend-profile :where [and
+		  [= [:deleted-state] "N"]
+		  [= [:tenant-id] tenant-id]
+		  [like  [:name] (format nil "%~a%" name-like-clause)]]
+				    :caching nil :flatp t)))
 
 
 (defun reset-vendor-password (vendor)

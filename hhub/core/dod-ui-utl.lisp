@@ -463,16 +463,31 @@ individual tiles. It also supports search functionality by including the searchr
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro  with-html-search-form (search-form-action search-placeholder &body body) 
-    :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"  
+  (defmacro  with-html-search-form (form-id form-name txtctrlid txtctrlname  search-form-action search-placeholder &body body)
+    :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"
     `(cl-who:with-html-output (*standard-output* nil ) 
-       (with-html-div-col-8
-	 (:form :id "theForm" :name "theForm" :method "POST" :action ,search-form-action :onSubmit "return false"
-		(:div :class "input-group"
-		      (:input :type "text" :name "livesearch" :id "livesearch"  :class "form-control" :placeholder ,search-placeholder)
-		      (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" ))))
-		,@body))))
-
+       (let* ((jsfuncname (gensym ,txtctrlname))
+	      (jsfunc (parenscript:ps ((parenscript:lisp jsfuncname) event))))
+	 (with-html-div-col-8
+	   (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
+		  (:div :class "input-group"
+			(:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder :onkeyup jsfunc)
+			(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
+	   ,@body))
+	   (let ((jsfuncbody (format nil "function ~A {
+    let theForm = event.target.form; 
+    let element = document.querySelector('#~A');    
+     if (element.value.length == 3 ||
+         element.value.length == 5 ||
+         element.value.length == 8 ||
+         element.value.length == 13 ||
+         element.value.length == 21){
+          searchformsubmit(theForm,'#~Aresult');
+        }
+        return false;
+     }" (string-right-trim ";" jsfunc) ,txtctrlid ,txtctrlname)))
+	     (cl-who:htm
+	      (:script (cl-who:str jsfuncbody))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun WelcomeMessage (username)
@@ -494,8 +509,8 @@ individual tiles. It also supports search functionality by including the searchr
   (defmacro with-html-card (cardimage cardimagealt cardtitle cardtext  &body body)
     :documentation "A HTML bootstrap 5.x card"
     `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "card" :style "width: 18rem;"
-	     (:img :src ,cardimage  :class "card-img-top" :alt ,cardimagealt)
+       (:div :class "card" :style "width: 10rem;"
+	     (:img :src ,cardimage  :class "card-img-top" :alt ,cardimagealt :style "width: 100px; height: 100px; border-radius: 50%;")
 	     (:div :class "card-body"
 		   (:h5 :class "card-title" ,cardtitle)
 		   (:p :class "card-text" ,cardtext)

@@ -164,7 +164,7 @@
     (:div :class "row"
 	  (:div :id "custom-search-input"
 		(:div :class "input-group col-xs-12 col-sm-6 col-md-6 col-lg-6"
-		      (with-html-search-form "dodsyssearchtenantaction" "Search for an Apartment/Group"))))))
+		      (with-html-search-form "idsyssearchtenant" "syssearchtenant" "idaccountlivesearch" "accountlivesearch" "dodsyssearchtenantaction" "Search for an Apartment/Group"))))))
 
 (defun com-hhub-transaction-create-company-dialog (&optional id)
   (let* ((company (if id (select-company-by-id id)))
@@ -940,6 +940,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginwithotp"  'dod-controller-cust-login-with-otp)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginv2"  'dod-controller-customer-otploginpage)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorstore"  'dod-controller-customer-products-by-vendor)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorsearch"  'dod-controller-customer-search-vendor)
 	
 
 

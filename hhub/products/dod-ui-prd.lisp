@@ -31,7 +31,7 @@
 
 (defun ui-list-customer-products (data lstshopcart)
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-    (:div :id "searchresult" 
+    (:div :id "prdlivesearchresult" 
 	  (cl-who:str (render-products-list data lstshopcart)))))
 
 (defun render-products-list (data lstshopcart)
@@ -43,7 +43,7 @@
 
 (defun ui-list-cust-products-horizontal (data lstshopcart)
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-    (:div :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
+    (:div :id "idprd-catg-container" :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
 	  (with-html-div-row :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
 	    (cl-who:str (display-product-cards data lstshopcart))))))
 
@@ -51,9 +51,10 @@
 (defun display-product-cards (data lstshopcart)
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
     (mapcar (lambda (product)
-	      (let ((vendor-id (slot-value (product-vendor product) 'row-id))
-		    (active-vendor-id (hunchentoot:session-value :login-active-vendor-id)))
-		(if (or (null active-vendor-id) (equal vendor-id active-vendor-id))
+	      (let* ((vendor-id (slot-value (product-vendor product) 'row-id))
+		     (active-vendor (hunchentoot:session-value :login-active-vendor))
+		     (active-vendor-id (when active-vendor (slot-value active-vendor 'row-id))))
+		(if (or (null active-vendor) (equal vendor-id active-vendor-id))
 		    (cl-who:htm
 		     (:div :class "product-card"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart))))
 		    ;;else
@@ -73,16 +74,17 @@
 	   (subtotal (* prdqty unit-price)))
 
       (cl-who:with-html-output (*standard-output* nil)
-	(:a  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id) :data-toggle "tooltip" :title "Modify"  :href "#" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) (:i :class "fa-regular fa-pen-to-square"))
-	(modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-edit-html product-instance odt-instance))
-	(:div (:p (cl-who:str (format nil "~A" prdqty))))
-	(:div (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "50" :width "70" :alt prd-name " ")))
-	(:div (:p (cl-who:str (format nil "~A: ~A/~A" prd-name unit-price qty-per-unit))))
 	
+	(:span (cl-who:str (format nil "~A" prdqty)))
+	(:span (:p (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "50" :width "70" :alt prd-name " "))))
+	(:span (cl-who:str (format nil "~A: ~A/~A" prd-name unit-price qty-per-unit)))
 	;;(:div (:p  (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor)))))
-	(:div (:p (:span :class "label label-success" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal)))))
-	
-	(:div (:a :data-toggle "tooltip" :title "Remove from shopcart"  :href (format nil "dodcustremshctitem?action=remitem&id=~A" prd-id) (:i :style "width: 15px; height: 15px; font-size: 20px;"  :class "fa-solid fa-xmark"))))))
+	(:div
+	 (:span (:p (:span :class "label label-success" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal)))))
+	 (:span 
+	  (:a  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id) :data-toggle "tooltip" :title "Modify"  :href "#" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) (:i :style "width: 15px; height: 15px; font-size: 20px;" :class "fa-regular fa-pen-to-square") "&nbsp;&nbsp;")
+	(modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-edit-html product-instance odt-instance)))
+	 (:span (:a :data-toggle "tooltip" :title "Remove from shopcart"  :href (format nil "dodcustremshctitem?action=remitem&id=~A" prd-id) (:i :style "width: 15px; height: 15px; font-size: 20px;"  :class "fa-solid fa-trash-can")))))))
 
 (defun product-card-for-email (product-instance odt-instance)
   (let* ((prd-name (slot-value product-instance 'prd-name))

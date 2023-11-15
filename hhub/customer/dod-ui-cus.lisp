@@ -730,11 +730,11 @@
 
 
 (defun dod-controller-search-products ()
-  (let* ((search-clause (hunchentoot:parameter "livesearch"))
+  (let* ((search-clause (hunchentoot:parameter "prdlivesearch"))
 	 (products (if (not (equal "" search-clause)) (search-products search-clause (get-login-cust-company))))
 	 (shoppingcart (hunchentoot:session-value :login-shopping-cart)))
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-    (:div :id "searchresult" 
+    (:div :id "prdlivesearchresult" 
 	  (cl-who:str (render-products-list products shoppingcart))))))
     
 
@@ -1067,8 +1067,8 @@
   
     
 (defun dod-controller-company-search-action ()
-  (let*  ((qrystr (hunchentoot:parameter "livesearch"))
-	(company-list (if (not (equal "" qrystr)) (select-companies-by-name qrystr))))
+  (let*  ((qrystr (hunchentoot:parameter "accountlivesearch"))
+	  (company-list (if (not (equal "" qrystr)) (select-companies-by-name qrystr))))
     (ui-list-companies company-list)))
 
 
@@ -1081,9 +1081,8 @@
 		(:br)
 		(:h2 "Store Search.")
 		(:div :id "custom-search-input"
-		      (with-html-search-form "companysearchaction" "Enter Pincode. For ex: 560001"))
-		(:hr)
-		(:div :id "searchresult")
+		      (with-html-search-form "idcompanysearch" "companysearch" "idaccountlivesearch" "accountlivesearch"  "companysearchaction" "Enter Store Name..."))
+		(:div :id "accountlivesearchresult")
 		(:hr)
 		(with-html-div-row
 		  (with-html-div-col
@@ -2230,13 +2229,10 @@
       (unless wallet (hunchentoot:redirect (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id)))
       (when (and wallet (> prdqty 0)) 
 	(setf (hunchentoot:session-value :login-shopping-cart) (append myshopcart (list odt)))
-	(setf (hunchentoot:session-value :login-active-vendor-id) vendor-id)
+	(setf (hunchentoot:session-value :login-active-vendor) vendor)
 	(format nil "~A~A" *siteurl* redirectlocation)))))
 ;;xb(if (length (hunchentoot:session-value :login-shopping-cart)) (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
 ;;else if wallet is not defined, create wallet first
-
-
-
 
 (defun dod-controller-prd-details-for-guest-customer ()
   (let* ((parambase64 (hunchentoot:parameter "key"))
@@ -2256,10 +2252,6 @@
 	(with-standard-customer-page-v2 "Product Details"
 	  (product-card-with-details-for-customer (select-product-by-id prd-id company) (get-login-customer) (prdinlist-p prd-id lstshopcart)))))))
 
-    
-      
-	   
-
 (defun dod-controller-prd-details-for-customer ()
    (with-cust-session-check 
 	(with-standard-customer-page-v2 "Product Details"
@@ -2269,29 +2261,49 @@
 		 (product (select-product-by-id (parse-integer (hunchentoot:parameter "id")) company)))
 	      (product-card-with-details-for-customer product customer (prdinlist-p (slot-value product 'row-id)  lstshopcart))))))
 
+(defun dod-controller-customer-search-vendor ()
+  (with-cust-session-check
+    (let* ((company (get-login-customer-company))
+	   (search-clause (hunchentoot:parameter "vendorlivesearch"))
+	   (vendorlist (if (not (equal "" search-clause)) (select-vendors-by-name search-clause company))))
+      (cl-who:with-html-output (*standard-output* nil)
+	(logiamhere (format nil "I am in vendor search. Result = ~d vendors" (length vendorlist)))
+	(cl-who:str (display-vendors-widget vendorlist))))))
+          
 (defun dod-controller-cust-index () 
  (with-cust-session-check
    (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	  (lstcount (length lstshopcart))
 	  (lstprodcatg (hunchentoot:session-value :login-prdcatg-cache))
+	  (catgcount (length lstprodcatg))
+	  (selectedcatg (nth (random catgcount) lstprodcatg))
 	  (lstproducts (hunchentoot:session-value :login-prd-cache))
 	  (company (get-login-customer-company))
 	  (lstvendors (select-vendors-for-company company))
+	  (activevendor (hunchentoot:session-value :login-active-vendor))
 	  (prdcount (length lstproducts))
 	  (first100products (if (> prdcount 100) (subseq lstproducts 0 100))))
      ;;(sleep 5)
      (with-standard-customer-page-v2 "Welcome to HighriseHub - customer"
-       (display-products-carousel 4 (hunchentoot:session-value :login-prd-cache))
+       (unless activevendor
+	 (display-products-carousel 4 (hunchentoot:session-value :login-prd-cache)))
        (:hr)
        (shopping-cart-widget lstcount)
        (:span (:h5 "Product Categories"))
        (cl-who:str (ui-list-prod-catg lstprodcatg))
        (:hr)
-       (:span (:h5 (cl-who:str (format nil "~A" (slot-value (first lstprodcatg) 'catg-name)))))
-       (cl-who:str (display-products-by-category-widget (slot-value (first lstprodcatg) 'row-id)))
+       (:span (:h5 (cl-who:str (format nil "~A" (slot-value selectedcatg 'catg-name)))))
+       (cl-who:str (display-products-by-category-widget (slot-value selectedcatg 'row-id)))
        (:hr)
-       (:span (:h5 "Top Vendors"))
-       (cl-who:str (display-vendors-widget lstvendors))
+       (unless activevendor
+	 (cl-who:htm
+	  (:span (:h5 "Top Vendors"))
+	  (with-html-search-form "idsearchvendors" "searchvendors" "idvendorlivesearch" "vendorlivesearch" "hhubcustvendorsearch" "Vendor Store Search...") 
+	    (cl-who:str (display-vendors-widget lstvendors))))
+       (when activevendor
+	 (cl-who:htm
+	  (:span (:h5 (cl-who:str (format nil "~A Store" (slot-value activevendor 'name)))))
+	  (cl-who:str (display-vendors-widget (list activevendor)))))
        (:hr)
        (product-search-widget lstcount)
        (if (> prdcount 100)
@@ -2306,7 +2318,7 @@
 (defun product-search-widget (itemscount)
   (cl-who:with-html-output (*standard-output* nil) 
     (with-html-div-row
-      (with-html-search-form "dodsearchproducts" "Search Products...") 
+      (with-html-search-form "idsearchproducts" "searchproducts" "idprdlivesearch" "prdlivesearch" "dodsearchproducts" "Search Products...") 
       ;; Display the My Cart button.
       (with-html-div-col-1 :style "align: right;" 
 	(:a :class "btn btn-primary" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;" (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))))
@@ -2357,9 +2369,10 @@
   :documentation "This function displays all the vendors for the given customers account"
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
     (:div :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
+	  (:div :id "vendorlivesearchresult"
 	  (with-html-div-row :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
 	    (mapcar (lambda (vendor)
-		      (cl-who:htm (:div :class "vendor-card" (vendor-card vendor)))) vendorlist)))))
+		      (cl-who:htm (:div :class "vendor-card" (vendor-card vendor)))) vendorlist))))))
 
 (defun dod-controller-cust-show-shopcart ()
     :documentation "This is a function to display the shopping cart."
@@ -2418,7 +2431,7 @@
 	
 	(if (equal action "remitem" ) (setf (hunchentoot:session-value :login-shopping-cart) (remove (search-odt-by-prd-id  prd-id  myshopcart  ) myshopcart)))
 	(when (= (length (hunchentoot:session-value :login-shopping-cart)) 0)
-		 (setf (hunchentoot:session-value :login-active-vendor-id) nil))
+	  (setf (hunchentoot:session-value :login-active-vendor) nil))
 	(hunchentoot:redirect  "/hhub/dodcustshopcart"))))
 
 
