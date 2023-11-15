@@ -421,40 +421,42 @@ T)
 	  (:div :class "col-xs-12" 
 		(:h4 (cl-who:str (format nil "Currently linked policy:   ~A" (slot-value policy 'name))))))
 
-    (with-html-search-form "dassearchpolicies" "Enter Policy Name..." 
+    (with-html-search-form "idsearchpolicies" "searchpolicies" "idtxtsearchpolicies" "txtsearchpolicies" "dassearchpolicies" "Enter Policy Name..." 
       (:input :class "form-control" :name "trans-id" :type "hidden" :value trans-id))
-    (:div :id "searchresult"))))
+    (:div :id "txtsearchpoliciesresult"))))
 
     
 
 (defun dod-controller-policy-search-action ()
- (let* ((policysearch (hunchentoot:parameter "livesearch"))
-	(trans-id (hunchentoot:parameter "trans-id"))
-	(transaction (get-bus-transaction trans-id))
-       (policies (select-auth-policy-by-name (format nil "%~A%" policysearch) (get-login-company))))
- (ui-list-policies-for-linking policies transaction)))
+  (let* ((policysearch (hunchentoot:parameter "txtsearchpolicies"))
+	 (trans-id (hunchentoot:parameter "trans-id"))
+	 (transaction (get-bus-transaction trans-id))
+	 (policies (select-auth-policy-by-name (format nil "%~A%" policysearch) (get-login-company))))
+    (logiamhere (format nil "transaction id is ~d" (slot-value transaction 'row-id)))
+    (ui-list-policies-for-linking policies transaction)))
    
 
 
 (defun ui-list-policies-for-linking (policy-list transaction)
   (let ((trans-id (slot-value transaction 'row-id)))
-
- (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-  (if policy-list 
-      (cl-who:htm (:div :class "row-fluid"	  
-	    (mapcar (lambda (pol)
-		      (cl-who:htm (:form :method "POST" :action "transtopolicylinkaction" :id "transtopolicylinkform"  
-			   (:div :class "col-sm-4 col-lg-3 col-md-4"
-			    (:div :class "form-group"
-			     (:input :class "form-control" :name "trans-id" :type "hidden" :value trans-id ))
-			    (:div :class "form-group"
-			     (:input :class "form-control" :name "policy-id" :type "hidden" :value (slot-value pol 'row-id) ))
-			    
-			    (:div :class "form-group"
-				  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A" (slot-value pol 'name)))))))))  policy-list)))
+    (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+      (if policy-list 
+	  (cl-who:htm
+	   (:div :class "row-fluid"	  
+		 (mapcar (lambda (pol)
+			   (cl-who:htm
+			    (:form :method "POST" :action "transtopolicylinkaction" :id "transtopolicylinkform"  
+				   (:div :class "col-sm-4 col-lg-3 col-md-4"
+					 (:div :class "form-group"
+					       (:input :class "form-control" :name "trans-id" :type "hidden" :value trans-id ))
+					 (:div :class "form-group"
+					       (:input :class "form-control" :name "policy-id" :type "hidden" :value (slot-value pol 'row-id) ))
+					 
+					 (:div :class "form-group"
+					       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A" (string-left-trim "com.hhub.policy" (slot-value pol 'name))))))))))  policy-list)))
 					;else
-      (cl-who:htm (:div :class "col-sm-12 col-md-12 col-lg-12"
-		 (:h3 "No records found")))))))
+	  (cl-who:htm (:div :class "col-sm-12 col-md-12 col-lg-12"
+			    (:h3 "No records found")))))))
 
 (defun dod-controller-trans-to-policy-link-action ()
   (let* ((trans-id (hunchentoot:parameter "trans-id"))
