@@ -326,9 +326,9 @@ function fallbackCopyTextToClipboard(text) {
   textArea.value = text;
   
   // Avoid scrolling to bottom
-  textArea.style.top = "0";
-  textArea.style.left = "0";
-  textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
 
   document.body.appendChild(textArea);
   textArea.focus();
@@ -522,33 +522,46 @@ $(".form-vendordercomplete").on('submit', function (e) {
       });
       e.preventDefault();});
 
-$(".form-addproduct").on('submit', function (e) {
-    e.preventDefault();
-    var theForm = $(this);
-    submitformandredirect (theForm);
+//We are using event delegation here. #searchresult is 
+
+$(document).ready(function() {
+    const prdsearchresultelem = document.querySelector("#prdlivesearchresult");
+    if (null != prdsearchresultelem){
+	prdsearchresultelem.addEventListener('submit', (e) => {
+	    e.preventDefault();
+	    let targetform = e.target;
+	    submitformandredirect(targetform);
+	    console.log("A form got submitted in the search result");
+	});
+    }
 });
 
-$(".form-addproduct1").on('submit', function (e) {
-    // Stop form from submitting normally
-    e.preventDefault();
-    var theForm = $(this);
-    
-    $(theForm).find("button[type='submit']").hide();
-    ajaxCallParams.Type = "POST";
-    ajaxCallParams.Url = $(theForm).attr("action");
-    ajaxCallParams.DataType = "HTML"; // Return data type e-g Html, Json etc                                                                                                                                    
-    ajaxDataParams = $(theForm).serialize();
-    ajaxCall(ajaxCallParams, ajaxDataParams, function (data) { 
-	console.log("Added product to cart");
-	cartitemscount++;
-	location.reload();});
+
+$(document).ready(function() {
+    const prdsearchresultelem = document.querySelector("#idprd-catg-container");
+    if (null != prdsearchresultelem){
+	prdsearchresultelem.addEventListener('submit', (e) => {
+	    e.preventDefault();
+	    let targetform = e.target;
+	    submitformandredirect(targetform);
+	    console.log("A form got submitted in the search result");
+	});
+    }
 });
 
-$(".placeorderform").on('submit', function (e){
-    e.preventDefault();
-    var theForm = $(this);
-    submitformandredirect(theForm);
+
+$(document).ready(function(){
+    const placeorderformelem = document.querySelector("#placeorderform");
+    if(null != placeorderformelem){
+	placeorderformelem.addEventListener('submit', (e) => {
+	    e.preventDefault();
+	    let targetform = e.target;
+	    submitformandredirect(targetform);
+	    console.log("A place order form got submitted");
+	});
+    }
 });
+
 
 function submitformandredirect (theForm){
     $(theForm).find("button[type='submit']").hide();
@@ -567,20 +580,6 @@ $(".form-shopcart").on('submit', function (e){
     submitformandredirect (theForm);
 });
 
-$(".form-shopcart1").on('submit', function (e) {
-    var theForm = $(this);
-    $(theForm).find("button[type='submit']").hide(); //prop('disabled',true);
-      $.ajax({
-            type: 'POST',
-          url: $(theForm).attr("action"), 
-            data: $(theForm).serialize(),
-            success: function (response) {
-		console.log("Updated shopping cart");
-		location.reload();
-
-            }
-      });
-      e.preventDefault();});	
 	
 
 function goBack (){
@@ -597,38 +596,19 @@ function DeleteConfirm (){
     return confirm("Do you really want to Delete?");
 }
 
-
-
-
-
-$(document).ready(function(){
-    $("#livesearch").keyup(function(){
-	if (($("#livesearch").val().length ==3) || 
-	    ($("#livesearch").val().length == 5)||
-	    ($("#livesearch").val().length == 8)||
-	    ($("#livesearch").val().length == 13)||
-	    ($("#livesearch").val().length == 21)){
-	    $.ajax({
-		type: "post", 
-		cache: false,
-		url: $(theForm).attr("action"), 
-		data: $(theForm).serialize(),
-		success: function(response){
-		  
-		   //document.getElementById("livesearch").innerHTML=this.responseText;
-		//document.getElementById("livesearch").style.border="1px solid #A5ACB2";
-		    $("#searchresult").html(response); 
-		//	$("#finalResult").style.border = "1px solid #a5acb2";
-		}, 
-		error: function(){      
-		    alert('Error while request..');
-		}
-	    });
-	}
-	return  false;
+function searchformsubmit (theForm, resultdiv){
+    $(theForm).find("button[type='submit']").hide();
+    ajaxCallParams.Type = "POST";
+    ajaxCallParams.Cache = false;
+    ajaxCallParams.Url = $(theForm).attr("action");
+    ajaxCallParams.DataType = "HTML"; // Return data type e-g Html, Json etc                                                                                                                                    
+    ajaxDataParams = $(theForm).serialize();
+    ajaxCall(ajaxCallParams, ajaxDataParams, function (data) { 
+	console.log("Search Form submitted");
+	$(resultdiv).html(data);
     });
-});
-	
+}
+
 
 
 $(document).ready (function(){
@@ -647,10 +627,6 @@ $(document).ready (function(){
 	$('html, body').animate({scrollTop:0}, '300');
     });
 }); 
-
-
-
-
 
 
 $(document).ready (function(){
