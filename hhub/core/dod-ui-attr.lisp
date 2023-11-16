@@ -56,7 +56,7 @@
     ((equal subscription-plan "PROFESSIONAL") 10)
     ((equal subscription-plan "TRIAL") 1)))
 
-(defun com-hhub-attribute-company-maxproductcount (subscription-plan cmp-type)
+(defun com-hhub-attribute-vendor-maxproductcount (subscription-plan cmp-type)
   (cond
     ((equal cmp-type "COMMUNITY") 50)
     ((equal subscription-plan "BASIC") 1000)
