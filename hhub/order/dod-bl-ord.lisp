@@ -481,7 +481,7 @@
 		       ;; Send a push notification on the vendor's browser
 		       (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)
 	   (setf result 1)
-	   (as:trigger-notifier notifier)) :name (format nil "Order Thread: ~d" order-id ))))
+	   (as:trigger-notifier notifier)) :name (format T "Order Thread: ~d" order-id ))))
       ;; Return the order id
 	order-id))) 
 
