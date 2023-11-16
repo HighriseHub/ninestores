@@ -8,8 +8,9 @@
 	 (vid (slot-value vendor 'row-id))
 	 (vpicture (slot-value vendor 'picture-path)))
     (cl-who:with-html-output (*standard-output* nil)
-      (with-html-card vpicture vname vname vname
-	(:span (:a :href (format nil "hhubcustvendorstore?id=~A" vid) (:i :class "fa-solid fa-store") (cl-who:str (format nil "&nbsp;~A Store" vname))))))))
+      (:img :src vpicture :alt vname :style "align:center; width: 100px; height: 100px; border-radius: 50%;")
+      (:h5 vname)
+      (:span (:a :href (format nil "hhubcustvendorstore?id=~A" vid) (:i :class "fa-solid fa-store") (cl-who:str (format nil "&nbsp;~A Store" vname)))))))
     
 
 (defun dod-controller-vendor-pushsubscribe-page ()
@@ -550,7 +551,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (external-url (if product (generate-product-ext-url product)))
 	   (params nil))
 
+      (if product
+	  (setf params (acons "mode" "edit" params))
+	  ;;else
+	  (setf params (acons "mode" "add" params)))
       (setf params (acons "company" (get-login-vendor-company) params))
+      (setf params (acons "vendor" (get-login-vendor) params))
       (setf params (acons "uri" (hunchentoot:request-uri*)  params))
 	   
       (with-hhub-transaction "com-hhub-transaction-vendor-product-add-action" params 
@@ -1459,12 +1465,13 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun dod-controller-vendor-search-products ()
-  (let* ((search-clause (hunchentoot:parameter "livesearch"))
-	 (products (if (not (equal "" search-clause)) (search-products search-clause (get-login-vendor-company)))))
-    (cl-who:with-html-output-to-string (*standard-output* nil)
-      (:div :id "searchresult" 
-	    (cl-who:str (display-as-tiles products  'product-card-for-vendor "vendor-product-card"))))))
-
+  (with-vend-session-check
+    (let* ((search-clause (hunchentoot:parameter "txtvendsearchproduct"))
+	   (products (if (not (equal "" search-clause)) (search-products search-clause (get-login-vendor-company)))))
+      (cl-who:with-html-output-to-string (*standard-output* nil)
+	(:div :id "txtvendsearchproductresult" 
+	      (cl-who:str (display-as-tiles products  'product-card-for-vendor "vendor-product-card")))))))
+  
 (defun dod-controller-vendor-product-categories-page ()
   (with-vend-session-check
     (let* ((company (get-login-vendor-company))
@@ -1508,7 +1515,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" :align "right" 
 		    (:span :class "badge" (cl-who:str (format nil " ~d " (length vendor-products)))))) 
 	(:hr)
-	(:div :id "searchresult" 
+	(:div :id "txtvendsearchproductresult" 
 	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card")))))))
 
 

@@ -795,7 +795,7 @@
        (cl-who:with-html-output (*standard-output* nil)
 	 (:nav :class "navbar navbar-expand-sm  sticky-top navbar-dark bg-dark" :id "hhubcustnavbar"  
 	       (:div :class "container-fluid"
-		     (:a :class "navbar-brand" :href *siteurl* (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" ))
+		     (:a :class "navbar-brand" :href "/hhub/dodcustindex" (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" ))
 		     (:button :class "navbar-toggler" :type "button" :data-bs-toggle "collapse" :data-bs-target "#navbarSupportedContent" :aria-controls "navbarSupportedContent" :aria-expanded "false" :aria-label "Toggle navigation" 
 			      (:span :class "navbar-toggler-icon" ))
 		     (:div :class "collapse navbar-collapse justify-content-between" :id "navbarSupportedContent"
@@ -1457,7 +1457,8 @@
     (with-html-div-row
       (with-html-div-col-6 
 	(:div :class "form-group" (:label :for "custname" "Name" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "custname" :value name :placeholder "Name" :tabindex tabindex :required T)))
+	      (:input :class "form-control" :type "text" :class "form-control" :name "custname" :value name :placeholder "Name" :tabindex tabindex :required T))))
+    (with-html-div-row
       (with-html-div-col-6
 	(:div :class "form-group" (:label :for "email" "Email" )
 	      (:input :class "form-control" :type "email" :class "form-control" :name "email" :value email :placeholder "Email" :data-error "That email address is invalid" :tabindex (+ tabindex 1)))))))
@@ -1474,8 +1475,8 @@
 	      (:input :type "checkbox" :id "billsameasshipchecked" :name "billsameasshipchecked" :value  "billsameasshipchecked" :onclick "displaybillingaddress();" :tabindex "9"  :checked "true")
 	      (:label :class "form-check-label" :style "font-size: 0.7rem;" :for "billsameasshipchecked" "&nbsp;&nbsp;Same as Shipping Address"))))
     
-    (with-html-div-row 
-      (with-html-div-col-6
+    (with-html-div-row
+      (with-html-div-col-8
 	(:div :class "form-group" (:label :for "shipaddress" "Shipping Address" )
 	      (:textarea :class "form-control" :id "shipaddress" :name "shipaddress"  :rows "3" :onkeyup "countChar(this, 200)" :tabindex "5" (cl-who:str (format nil "~A" address))))
 	(:div :id "charcount" :class "form-group")
@@ -1486,19 +1487,18 @@
 	(:div :class "form-group" (:label :for "city" "City" )
 	      (:input :class "form-control" :type "text" :class "form-control" :name "shipcity" :value city :id "shipcity" :placeholder "City" :readonly T :required T))
 	(:div :class "form-group" (:label :for "state" "State" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "shipstate" :value state :id "shipstate"  :placeholder "State"  :readonly T :required T )))
-		 
-      (with-html-div-col-6
-      (:div :class "row"  :id "billingaddressrow" :style "display: none;"
-	    (:div :class "col"
-		  (:div :class "form-group" (:label :for "shipaddress" "Billing Address" )
-			(:textarea :class "form-control" :name "billaddress" :id "billaddress" :rows "3"  :tabindex "7"))
-		  (:div :class "form-group" (:label :for "zipcode" "Pincode" )
-			(:input :class "form-control" :type "text" :class "form-control" :inputmode "numeric" :maxlength "6" :id "billzipcode" :name "billzipcode" :tabindex "8" :placeholder "Pincode" ))
-		  (:div :class "form-group" (:label :for "city" "City" )
-			(:input :class "form-control" :type "text" :class "form-control" :name "billcity" :id "billcity"  :placeholder "City" ))
-		  (:div :class "form-group" (:label :for "state" "State" )
-			(:input :class "form-control" :type "text" :class "form-control" :name "billstate" :id "billstate" :placeholder "State" ))))))))
+	      (:input :class "form-control" :type "text" :class "form-control" :name "shipstate" :value state :id "shipstate"  :placeholder "State"  :readonly T :required T ))))
+      
+    (with-html-div-row :id "billingaddressrow" :style "display: none;" 
+      (with-html-div-col-8
+	(:div :class "form-group" (:label :for "shipaddress" "Billing Address" )
+	      (:textarea :class "form-control" :name "billaddress" :id "billaddress" :rows "3"  :tabindex "7"))
+	(:div :class "form-group" (:label :for "zipcode" "Pincode" )
+	      (:input :class "form-control" :type "text" :class "form-control" :inputmode "numeric" :maxlength "6" :id "billzipcode" :name "billzipcode" :tabindex "8" :placeholder "Pincode" ))
+	(:div :class "form-group" (:label :for "city" "City" )
+	      (:input :class "form-control" :type "text" :class "form-control" :name "billcity" :id "billcity"  :placeholder "City" ))
+	(:div :class "form-group" (:label :for "state" "State" )
+	      (:input :class "form-control" :type "text" :class "form-control" :name "billstate" :id "billstate" :placeholder "State" ))))))
 
 (defun display-gst-widget ()
   (cl-who:with-html-output-to-string (*standard-output* nil) 
@@ -1848,7 +1848,7 @@
 	    
 	    ;; If the payment mode is PREPAID, then check whether we have enough balance first. If not, then redirect to the low wallet balance. 
 	    ;; Redirecting to some other place is not a pure function behavior. Is there a better way to handle this? 
-	    (logiamhere (format nil "payment mode is ~A" payment-mode))
+	    ;;(logiamhere (format nil "payment mode is ~A" payment-mode))
 	    (setf (gethash "PRE" temp-ht) (symbol-function 'check-all-vendors-wallet-balance))
 	    (let ((func (gethash payment-mode temp-ht)))
 	      (when func (unless (funcall (gethash payment-mode temp-ht) vendor-list wallet-list odts)
@@ -2368,11 +2368,11 @@
 (defun display-vendors-widget (vendorlist)
   :documentation "This function displays all the vendors for the given customers account"
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-    (:div :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
-	  (:div :id "vendorlivesearchresult"
-	  (with-html-div-row :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
-	    (mapcar (lambda (vendor)
-		      (cl-who:htm (:div :class "vendor-card" (vendor-card vendor)))) vendorlist))))))
+    (:div :id "idprd-vendors-container" :class "prd-vendors-container" :style "width: 100%; display:flex; overflow:auto;"
+	  (:div :id "vendorlivesearchresult" 
+		(with-html-div-row  :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
+		  (mapcar (lambda (vendor)
+			    (cl-who:htm (:div :class "vendor-card" (vendor-card vendor)))) vendorlist))))))
 
 (defun dod-controller-cust-show-shopcart ()
     :documentation "This is a function to display the shopping cart."
@@ -2419,7 +2419,7 @@
     (with-html-div-row
       (with-html-div-col 
 	(:h4 "0 items in shopping cart") 
-	(:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "fa-solid fa-arrow-left"))))))
+	(:a :class "btn btn-primary"  :role "button" :href "/hhub/dodcustindex" (:i :class "fa-solid fa-arrow-left"))))))
 
 
 (defun dod-controller-remove-shopcart-item ()
