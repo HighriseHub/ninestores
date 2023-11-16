@@ -509,7 +509,7 @@ individual tiles. It also supports search functionality by including the searchr
   (defmacro with-html-card (cardimage cardimagealt cardtitle cardtext  &body body)
     :documentation "A HTML bootstrap 5.x card"
     `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "card" :style "width: 10rem;"
+       (:div :class "card" 
 	     (:img :src ,cardimage  :class "card-img-top" :alt ,cardimagealt :style "width: 100px; height: 100px; border-radius: 50%;")
 	     (:div :class "card-body"
 		   (:h5 :class "card-title" ,cardtitle)
