@@ -435,7 +435,7 @@
 	 (vendor-name (slot-value prd-vendor 'name))
 	 (vendor-id (slot-value prd-vendor 'row-id)))
     (cl-who:with-html-output (*standard-output* nil)
-      (:div :class "single-product-card"
+      (:div :id "idsingle-product-card" :class "single-product-card"
 	    ;; Product image only here
 	    (:img :src  (format nil "~A" prd-image-path) :height "200" :width "323" :alt prd-name " ")
 	    (:div :class "product-details"

@@ -536,6 +536,18 @@ $(document).ready(function() {
     }
 });
 
+$(document).ready(function() {
+    const prdsearchresultelem = document.querySelector("#idsingle-product-card");
+    if (null != prdsearchresultelem){
+	prdsearchresultelem.addEventListener('submit', (e) => {
+	    e.preventDefault();
+	    let targetform = e.target;
+	    submitformandredirect(targetform);
+	    console.log("A form got submitted in the search result");
+	});
+    }
+});
+
 
 $(document).ready(function() {
     const prdsearchresultelem = document.querySelector("#idprd-catg-container");
