@@ -21,12 +21,14 @@
 	   
 (defun ui-list-prod-catg (catglist)
   (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+    (:span (:h5 "Product Categories"))
     (:div :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
 	  (with-html-div-row :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
 	    (mapcar (lambda (prdcatg)
 		      (cl-who:htm
 		       (:div :class "prd-catg-card" (prdcatg-card prdcatg ))))
-		    catglist)))))
+		    catglist)))
+    (:hr)))
 
 
 (defun ui-list-customer-products (data lstshopcart)
