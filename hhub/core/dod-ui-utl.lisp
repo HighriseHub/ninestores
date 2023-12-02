@@ -192,8 +192,6 @@
 		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" :rel "stylesheet")
 		(:link :href "https://fonts.googleapis.com/css?family=Merriweather:400,900,900i" :rel "stylesheet")
 		(:link :href "/css/theme.css" :rel "stylesheet")
-
-
 		;; js files related to bootstrap and jquery. Jquery must come first.
 		(:script :src "https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js" :integrity "sha256-2Pmvv0kuTBOenSvLm6bvfBSSHrUJ+3A7x6P5Ebd07/g=" :crossorigin "anonymous")
 		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin "anonymous")
@@ -275,7 +273,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-standard-customer-page-v2 (title &body body)
-    `(with-standard-page-template-v2  ,title  with-customer-navigation-bar-v2 ,@body)))
+    `(with-standard-page-template-v2  ,title with-customer-navigation-bar-v2 ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-vendor-page-v2 ( title &body body)
@@ -283,11 +281,11 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-admin-page-v2 ( title &body body)
-    `(with-standard-page-template-v2 ,title   with-admin-navigation-bar-v2   ,@body)))
+    `(with-standard-page-template-v2 ,title with-admin-navigation-bar-v2   ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-compadmin-page-v2 (title &body body)
-    `(with-standard-page-template-v2  ,title  with-compadmin-navigation-bar-v2  ,@body)))
+    `(with-standard-page-template-v2  ,title with-compadmin-navigation-bar-v2  ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-no-navbar-page-v2 (title &body body)
@@ -300,7 +298,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-standard-customer-page (title &body body)
-    `(with-standard-page-template  ,title  with-customer-navigation-bar ,@body)))
+    `(with-standard-page-template  ,title with-customer-navigation-bar ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-vendor-page ( title  &body body)
@@ -308,11 +306,11 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-admin-page ( title &body body)
-    `(with-standard-page-template ,title   with-admin-navigation-bar   ,@body)))
+    `(with-standard-page-template ,title with-admin-navigation-bar   ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-compadmin-page (title &body body)
-    `(with-standard-page-template  ,title  with-compadmin-navigation-bar  ,@body)))
+    `(with-standard-page-template  ,title with-compadmin-navigation-bar  ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-no-navbar-page (title &body body)
@@ -345,13 +343,25 @@
 (defun print-web-session-timeout ()
     (let ((weseti ( get-web-session-timeout)))
 	(if weseti (format t "~2,'0d:~2,'0d"
+			   (nth 0  weseti)(nth 1 weseti)))))
+
+(defun print-vendor-web-session-timeout ()
+    (let ((weseti ( get-vendor-web-session-timeout)))
+	(if weseti (format t "~2,'0d:~2,'0d"
 		       (nth 0  weseti)(nth 1 weseti)))))
 
 
 (defun get-web-session-timeout ()
     (multiple-value-bind
 	(seconds minute hour)
-	(decode-universal-time (+ (get-universal-time) hunchentoot:*session-max-time*))
+	(decode-universal-time (+ (getloginvendorsessionstarttime) (hunchentoot:session-max-time hunchentoot:*session*)))
+      (logiamhere (format nil "Session max time is ~A" (hunchentoot:session-max-time hunchentoot:*session*)))
+       (list hour minute seconds)))
+
+(defun get-vendor-web-session-timeout ()
+    (multiple-value-bind
+	(seconds minute hour)
+	(decode-universal-time (+ (getloginvendorsessionstarttime) (hunchentoot:session-max-time hunchentoot:*session*)))
 	(list hour minute seconds)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -454,6 +464,18 @@ individual tiles. It also supports search functionality by including the searchr
 			  (cl-who:htm (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4" 
 					    (:div :class tile-css-class (funcall displayfunc item)))))  listdata)))))
 
+;; This function simply displays each widget containing the html, css, javascript code in the linear order.
+(defun display-customer-page-with-widgets (pagetitle widgets)
+  (with-standard-customer-page-v2 pagetitle
+    (loop for widget in widgets do 
+      (funcall widget))))
+
+(defun display-vendor-page-with-widgets (pagetitle widgets)
+  (with-standard-vendor-page pagetitle
+    (loop for widget in widgets do 
+      (funcall widget))))
+
+  
 (defun html-back-button ()
   :documentation "HTML Back button"
   `(cl-who:with-html-output-to-string (*standard-output* nil ) 
