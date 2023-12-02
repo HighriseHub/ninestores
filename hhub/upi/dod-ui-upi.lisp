@@ -50,7 +50,7 @@
       (:h5 "NOTE: Please scan the UPI QR code or click on any of the UPI payment app links given above. After making payment, you will not be redirected back to this app. After UPI payment, enter the 12 digit UTR number and click Submit to place the order.")
       (:script "window.onload = function() {countdowntimer(0,0,5,0);}"))))
 
-				
+
 
 (defun hhub-controller-upi-customer-order-payment-page ()
   (with-cust-session-check
@@ -63,30 +63,31 @@
 	   (vendor-list (get-shopcart-vendorlist odts))
 	   (vendor (first vendor-list))
 	   (upiurls (generateupiurlsforvendor vendor "ABC" order-cxt upitotal))
-	   (qrcodepath (generateqrcodeforvendor vendor "ABC" order-cxt upitotal)))
-
+	   (qrcodepath (generateqrcodeforvendor vendor "ABC" order-cxt upitotal))
+	   (widget1 (function (lambda ()
+		      (with-customer-breadcrumb
+			(:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
+			(:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address"))))))
+	   (widget2 (function (lambda ()
+		      (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
+			(display-upi-widget upitotal qrcodepath upiurls)))))
+	   (widget3 (function (lambda ()
+		      (with-html-form "customerupipaymentform" "dodcustshopcartro" 
+			(:div :class "row mb-3"
+			      (:div :class "col-sm-4" :style "text-align: center;"
+				    (:label :for "utrnum" "UTR No")
+				    (:input :class "form-control" :name "paymentmode" :value "UPI" :type "hidden")
+				    (:input :class "form-control" :name "amount" :value upitotal :type "hidden")
+				    (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup "countChar(this, 12)" :max "999999999999" :maxlength "12"  :required T)))
+			(:div :id "charcount" :class "form-group")
+			(:div :class "row mb-3"
+			      (:div :class "col-sm-4" :style "text-align: center;"
+				    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
       ;; If Vendor UPI ID is not defined, then redirect to the UPI ID not found page. 
       (unless (slot-value vendor 'upi-id) (hunchentoot:redirect "/hhub/vendorupinotfound"))
-      (with-standard-customer-page-v2 "HighriseHub - UPI Payment Page"
-	(with-customer-breadcrumb
-	  (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
-	  (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address")))
-	
-	(with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
-	  (display-upi-widget upitotal qrcodepath upiurls)
-	  (with-html-form "customerupipaymentform" "dodcustshopcartro" 
-	    (:div :class "row mb-3"
-		  (:div :class "col-sm-4" :style "text-align: center;"
-			(:label :for "utrnum" "UTR No")
-			(:input :class "form-control" :name "paymentmode" :value "UPI" :type "hidden")
-			(:input :class "form-control" :name "amount" :value upitotal :type "hidden")
-			(:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup "countChar(this, 12)" :max "999999999999" :maxlength "12"  :required T)))
-	    (:div :id "charcount" :class "form-group")
-	    (:div :class "row mb-3"
-		  (:div :class "col-sm-4" :style "text-align: center;"
-			(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
-  
-  
+      (display-customer-page-with-widgets "UPI Payment Page for Order" (list widget1 widget2 widget3)))))
+
+
 (defun hhub-controller-upi-recharge-wallet-page ()
   (with-cust-session-check
     (let* ((wallet-id (hunchentoot:parameter "wallet-id"))
@@ -96,26 +97,27 @@
 	   (vendor (get-vendor wallet))
 	   (transaction-id (format nil "#WAL:~A" (get-universal-time)))
 	   (upiurls (generateupiurlsforvendor vendor "ABC" transaction-id amount))
-	   (qrcodepath (generateqrcodeforvendor vendor "ABC" transaction-id amount)))
-	 	   
-      (with-standard-customer-page-v2 "HighriseHub - UPI Payment Page"
-	(if qrcodepath 
-	    (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
-	      (display-upi-widget amount qrcodepath upiurls)
-	      (with-html-form "customerupipaymentform" "hhubcustwalletrechargeaction"
-		(:div :class "row mb-3"
-		      (:div :class "col-sm-4" :style "text-align: center;"
-			    (:input :class "form-control" :name "wallet-id" :value wallet-id :type "hidden")
-			    (:input :class "form-control" :name "amount" :value amount :type "hidden")
-			    (:input :class "form-control" :name "transaction-id" :value transaction-id :type "hidden")
-			    (:label :for "utrnum" "UTR No")
-			    (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :max "999999999999" :maxlength "12"  :required T)))
-		(:div :class "row mb-3"
-		      (:div :class "col-sm-4" :style "text-align: center;"
-			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))
-	    ;;else
-	    (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
-	      (:h2 (cl-who:str "UPI Details for Vendor Missing"))))))))
+	   (qrcodepath (generateqrcodeforvendor vendor "ABC" transaction-id amount))
+	   (widget1 (function (lambda ()
+		      (if qrcodepath 
+			  (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
+			    (display-upi-widget amount qrcodepath upiurls)
+			    (with-html-form "customerupipaymentform" "hhubcustwalletrechargeaction"
+			      (:div :class "row mb-3"
+				    (:div :class "col-sm-4" :style "text-align: center;"
+					  (:input :class "form-control" :name "wallet-id" :value wallet-id :type "hidden")
+					  (:input :class "form-control" :name "amount" :value amount :type "hidden")
+					  (:input :class "form-control" :name "transaction-id" :value transaction-id :type "hidden")
+					  (:label :for "utrnum" "UTR No")
+					  (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :max "999999999999" :maxlength "12"  :required T)))
+			      (:div :class "row mb-3"
+				    (:div :class "col-sm-4" :style "text-align: center;"
+					  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))
+			  ;;else
+			  (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
+			    (:h2 (cl-who:str "UPI Details for Vendor Missing"))))))))
+      (display-customer-page-with-widgets "UPI Recharge Wallet" (list widget1)))))
+
   
   (defun hhub-controller-upi-recharge-wallet-action ()
     (with-cust-session-check
@@ -235,11 +237,13 @@
 	   (upipaymentobjlst (processreadallrequest upipaymentsadapter upipaymentrequestmodel))
 	   (upipaymentsresponsemodellist (processresponselist upipaymentsadapter upipaymentobjlst))
 	   (viewallmodel (CreateAllViewModel upipaymentspresenter upipaymentsresponsemodellist))
-	   (htmlview (make-instance 'UPIPaymentsHTMLView)))
-      (with-standard-vendor-page "Vendor UPI Transactions"
-	(with-html-div-row
-	  (:h4 "Showing records for last 60 Days"))
-	  (cl-who:str (RenderListViewHTML htmlview viewallmodel))))))
+	   (htmlview (make-instance 'UPIPaymentsHTMLView))
+	   (widget1 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil) 
+			(with-html-div-row
+			  (:h4 "Showing records for last 60 Days"))
+			(cl-who:str (RenderListViewHTML htmlview viewallmodel)))))))
+      (display-vendor-page-with-widgets "Vendor UPI Transactions" (list widget1)))))
 
 (defmethod RenderListViewHTML ((htmlview UPIPaymentsHTMLView) viewmodellist)
   (unless (= (length viewmodellist) 0)

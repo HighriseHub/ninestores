@@ -54,14 +54,9 @@
 	      (let* ((vendor-id (slot-value (product-vendor product) 'row-id))
 		     (active-vendor (hunchentoot:session-value :login-active-vendor))
 		     (active-vendor-id (when active-vendor (slot-value active-vendor 'row-id))))
-		(if (or (null active-vendor) (equal vendor-id active-vendor-id))
-		    (cl-who:htm
-		     (:div :class "product-card"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart))))
-		    ;;else
-		    (cl-who:htm
-		     (:div :class "product-card" :style "display: none;"   (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart)))))))
-	    data)))
-
+		(when (or (null active-vendor) (equal vendor-id active-vendor-id))
+		  (cl-who:htm
+		   (:div :class "product-card" (product-card product (prdinlist-p (slot-value product 'row-id)  lstshopcart))))))) data)))
 
 (defun product-card-shopcart (product-instance odt-instance)
     (let* ((prd-name (slot-value product-instance 'prd-name))
@@ -176,7 +171,7 @@
 		      (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
 			    (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
 		      (:div :class "form-group"
-			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save Product"))))))))
 
 (defun modal.vendor-product-shipping-html (product mode)
   (let* ((prd-id (slot-value product 'row-id))
@@ -433,6 +428,9 @@
 	 (cust-type (slot-value customer 'cust-type))
 	 (prd-vendor (product-vendor product-instance))
 	 (vendor-name (slot-value prd-vendor 'name))
+	 (company (product-company product-instance))
+	 (subscription-plan (slot-value company 'subscription-plan))
+	 (cmp-type (slot-value company 'cmp-type))
 	 (vendor-id (slot-value prd-vendor 'row-id)))
     (cl-who:with-html-output (*standard-output* nil)
       (:div :id "idsingle-product-card" :class "single-product-card"
@@ -458,7 +456,10 @@
 		     ;; else
 		     (cl-who:htm (:div :class "col-6" 
 				       (:h5 (:span :class "label label-danger" "Out Of Stock"))))))
-		  (when (and (equal subscribe-flag "Y") 
+		  
+		  ;; display the subscribe button under certain conditions. 
+		  (when (and (equal subscribe-flag "Y")
+			     (com-hhub-attribute-company-prdsubs-enabled subscription-plan cmp-type) 
 			     (equal cust-type "STANDARD"))
 	      (cl-who:htm
 	       (:button :data-bs-toggle "modal" :data-bs-target (format nil "#productsubscribe-modal~A" prd-id)  :href "#"   :class "subscription-btn" :id (format nil "btnsubscribe~A" prd-id) :name (format nil "btnsubscribe~A" prd-id) "Subscribe&nbsp;" (:i :class "fa-solid fa-hand-point-up"))

@@ -18,6 +18,10 @@
     :accessor ipadress
     :initform "127.0.0.1"
     :initarg :ipaddress)
+   (borepositories-ht
+    :accessor borepositories-ht
+    :initform (make-hash-table :test 'equal)
+    :initarg :borepositories-ht)
    (businessservices-ht
     :accessor businessservices-ht
     :initform (make-hash-table :test 'equal)
@@ -41,7 +45,6 @@
 		     :initform (make-hash-table :test 'equal)
 		     :initarg :businesssessions-ht)))
 
-
 ;; Level 3
 ;; A business session comes after the business context. Sessions are on an organization level or company level.  
 (defclass BusinessSession ()
@@ -50,19 +53,25 @@
        :initarg :id)
    (start-time
     :accessor start-time
-    :initform (get-universal-time))
-   (end-time)
-   (active-flag)
+    :initform (get-universal-time))))
+
+(defclass VendorSessionObject (BusinessSession)
+  ((vendor)
+   (vendor-id)
+   (vendor-tenant-id)
+   (vendor-name)
    (company)
-   (BusinessObjectRepos 
-    :accessor businessobjectrepos-ht 
-    :initform (make-hash-table :test 'equal)
-    :initarg :businessobjectrepos-ht)))
+   (companyname)
+   (vendortenants)
+   (vorderfunclist)
+   (vorderitems)
+   (vproductfunclist)
+   (vwebsession)))
+   
+  
 
-
-
-;; Level 4
-;; Under a business context there will be several business object repositories. Under each
+;; Level 2
+;; Under a business server there will  be several business object repositories. Under each
 ;; business object repository, there will be several business objects. 
 (defclass BusinessObjectRepository () ;; Equivalent of a business objects repository
   ((id :accessor id
@@ -75,12 +84,16 @@
     :initform (make-hash-table :test 'equal)
     :initarg :businessobjects-ht)))
 
-;; Level 5
+;; Level 3
 ;; Each business object will have an ID and several of its own fields/properties/slots. 
 (defclass BusinessObject ()  ;; This is the domain model entity in DDD
   ((id :accessor id
        :initform (format nil "~A" (uuid:make-v1-uuid))
-       :initarg :id)))
+       :initarg :id)
+   (ipaddress
+    :accessor ipadress
+    :initform "127.0.0.1"
+    :initarg :ipaddress)))
 
 
 
@@ -265,7 +278,7 @@
 
 
 ;;;;; Generic functions for Business Context
-(defgeneric createBusinessSession (BusinessContext)
+(defgeneric createBusinessSession (BusinessContext sessionobject)
   (:documentation "Creates a business session and returns the newly created session"))
 (defgeneric deleteBusinessSession (BusinessContext key)
   (:documentation "Deletes the business session"))
@@ -348,12 +361,11 @@
 
 ;;;;; Method implementations for Business Context
 
-(defmethod createBusinessSession ((bc BusinessContext))
+(defmethod createBusinessSession ((bc BusinessContext) sessionobject)
   :description  "Creates a business session and returns the newly created session"
-  (let ((newsession (make-instance 'BusinessSession))
-	(sessions-ht (businesssessions-ht bc)))
-    (setf (gethash (id newsession) sessions-ht) newsession) 
-    (format nil "~A" (id newsession))))
+  (let ((sessions-ht (businesssessions-ht bc)))
+    (setf (gethash (id sessionobject) sessions-ht) sessionobject) 
+    (id sessionobject)))
     
 (defmethod deleteBusinessSession ((bctx BusinessContext) key)
   :description "Deletes the business session"

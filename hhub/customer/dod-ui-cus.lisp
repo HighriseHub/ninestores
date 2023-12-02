@@ -56,7 +56,7 @@
     (setf (hunchentoot:session-value :temp-guest-customer) temp-customer)))
 
 
-
+;; This is a pure function. 
 (defun display-cust-shipping-costs-widget (shopcart-total shipping-options vendor)
   (let* ((vaddress (address vendor))
 	 (vcity (city vendor))
@@ -111,11 +111,7 @@
        	$('#costwithoutshipping').hide();
         $('#costwithshipping').show();
     }
-}")
-
-
-	))))
-
+}")))))
 
 (defun dod-controller-customer-payment-methods-page ()
   (with-cust-session-check
@@ -157,7 +153,7 @@
 
 
 
-
+;; This is pure function. 
 (defun standardcustpaymentmethods (vendorlist customer company)
   (cl-who:with-html-output (*standard-output* nil)
     (:hr)
@@ -179,7 +175,7 @@
       (with-html-input-text-hidden "paymentmode" "PRE")
       (:input :type "submit"  :class "btn btn-primary" :value "Checkout"))))
 	
-  
+;; This is a pure function.   
 (defun guestcustpaymentmethods (singlevendor-p vpayapi-p vupiid-p phone)
   (cl-who:with-html-output (*standard-output* nil)
     (cond  
@@ -202,7 +198,7 @@
 	(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
 	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")))))))
   
-		      
+;; This is a pure function. 		      
 (defun dod-controller-vendor-upi-notfound ()
   (with-cust-session-check
     (with-standard-customer-page "Vendor UPI ID Not Found"
@@ -266,7 +262,7 @@
 	  jsondata)))))
 
 
-
+;; This is a pure function
 (defun modal.customer-update-details (customer)
   (let* ((name (name customer))
 	 (address (address customer))
@@ -316,22 +312,22 @@
       
 (defun modal.customer-change-pin ()
   (cl-who:with-html-output (*standard-output* nil)
-    (:div :class "row" 
-	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		  (with-html-form "form-customerchangepin" "hhubcustomerchangepin"  
+    (with-html-div-row
+      (with-html-div-col
+	(with-html-form "form-customerchangepin" "hhubcustomerchangepin"  
 					;(:div :class "account-wall"
-			 (:h1 :class "text-center login-title"  "Change Password")
-			 (:div :class "form-group"
-			       (:label :for "password" "Password")
-			       (:input :class "form-control" :name "password" :value "" :placeholder "Old Password" :type "password" :required T))
-			 (:div :class "form-group"
-			       (:label :for "newpassword" "New Password")
-			       (:input :class "form-control" :id "newpassword" :data-minlength "8" :name "newpassword" :value "" :placeholder "New Password" :type "password" :required T))
-			 (:div :class "form-group"
-			       (:label :for "confirmpassword" "Confirm New Password")
-			       (:input :class "form-control" :name "confirmpassword" :value "" :data-minlength "8" :placeholder "Confirm New Password" :type "password" :required T :data-match "#newpassword"  :data-match-error "Passwords dont match"  ))
-			 (:div :class "form-group"
-			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))
+	  (:h1 :class "text-center login-title"  "Change Password")
+	  (:div :class "form-group"
+		(:label :for "password" "Password")
+		(:input :class "form-control" :name "password" :value "" :placeholder "Old Password" :type "password" :required T))
+	  (:div :class "form-group"
+		(:label :for "newpassword" "New Password")
+		(:input :class "form-control" :id "newpassword" :data-minlength "8" :name "newpassword" :value "" :placeholder "New Password" :type "password" :required T))
+	  (:div :class "form-group"
+		(:label :for "confirmpassword" "Confirm New Password")
+		(:input :class "form-control" :name "confirmpassword" :value "" :data-minlength "8" :placeholder "Confirm New Password" :type "password" :required T :data-match "#newpassword"  :data-match-error "Passwords dont match"  ))
+	  (:div :class "form-group"
+		(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))
 
 
 
@@ -382,11 +378,8 @@
 
 (defun get-login-cust-company ()
     :documentation "get the login customer company."
-    ( hunchentoot:session-value :login-customer-company))
+    (hunchentoot:session-value :login-customer-company))
 
-(defun is-dod-cust-session-valid? ()
-    :documentation "checks whether the current login session is valid or not."
-	 (if hunchentoot:*session* T))
 					;(if (null (get-login-cust-name)) nil t))
 
 ;    (handler-case 
@@ -443,11 +436,11 @@
 	(cl-who:str (display-as-table header wallets 'cust-wallet-as-row))))))
 					;     (cl-who:str (display-as-tiles wallets 'wallet-card))))))
 
-
+;; This is a pure function. 
 (defun wallet-card (wallet-instance custom-message)
   (let ((customer (get-customer wallet-instance))
 	(balance (slot-value wallet-instance 'balance)) 
-	  (lowbalancep (if (check-low-wallet-balance wallet-instance) t nil)))
+	(lowbalancep (if (check-low-wallet-balance wallet-instance) t nil)))
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "wallet-box"
 	    (:div :class "row"
@@ -468,7 +461,7 @@
 
 
 
-
+;; This is a pure function. 
 (defun cust-wallet-as-row (wallet)
   (let* ((vendor (slot-value wallet 'vendor))
 	 (balance (slot-value wallet 'balance))
@@ -488,7 +481,7 @@
       (:td :height "10px"
 	   (:a  :class "btn btn-primary" :role "button"  :href (format nil "/hhub/hhubcustwalletrechargepage?amount=2000.00&wallet-id=~A" wallet-id) "2000")))))
 
-
+;; This is a pure function. 
 (defun list-customer-low-wallet-balance (wallets order-items-totals)
   (let ((header (list "Vendor" "Phone" "Balance" "Order Items Total"  "Recharge")))
     (cl-who:with-html-output (*standard-output* nil)
@@ -513,7 +506,7 @@
 					    (cl-who:htm (:td :height "12px" (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* balance)))))
 					
 					(:td :height "12px" (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* order-item-total)))
-
+					
 					(:td :height "10px" 
 					     (:a  :class "btn btn-primary" :role "button"  :href (format nil "/hhub/hhubcustwalletrechargepage?amount=1000.00&wallet-id=~A" wallet-id)  "1000"))
 					(:td :height "10px" 
@@ -648,8 +641,8 @@
 
 
 (defun modal.vendor-details (id) 
-(let ((vendor (select-vendor-by-id id)))  
-  (vendor-details-card vendor)))
+  (let ((vendor (select-vendor-by-id id)))  
+    (vendor-details-card vendor)))
 
 
 
@@ -1127,26 +1120,26 @@
 
 (defun dod-controller-customer-password-reset-page ()
   (let ((token (hunchentoot:parameter "token")))
-(with-standard-customer-page (:title "Password Reset") 
-(:div :class "row" 
+    (with-standard-customer-page (:title "Password Reset") 
+      (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 		  (with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
-			 (:h1 :class "text-center login-title"  "Change Password")
-			 (:div :class "form-group"
+		    (:h1 :class "text-center login-title"  "Change Password")
+		    (:div :class "form-group"
 			  
-			       (:input :class "form-control" :name "token" :value token :type "hidden"))
-			 (:div :class "form-group"
-			       (:label :for "password" "Password")
-			       (:input :class "form-control" :name "password" :value "" :placeholder "Enter OTP from Email Old" :type "password" :required T))
-			 (:div :class "form-group"
-			       (:label :for "newpassword" "New Password")
-			       (:input :class "form-control" :id "newpassword" :data-minlength "8" :name "newpassword" :value "" :placeholder "New Password" :type "password" :required T))
-			 (:div :class "form-group"
-			       (:label :for "confirmpassword" "Confirm New Password")
-			       (:input :class "form-control" :name "confirmpassword" :value "" :data-minlength "8" :placeholder "Confirm New Password" :type "password" :required T :data-match "#newpassword"  :data-match-error "Passwords dont match"  ))
-			 (:div :class "form-group"
-			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+			  (:input :class "form-control" :name "token" :value token :type "hidden"))
+		    (:div :class "form-group"
+			  (:label :for "password" "Password")
+			  (:input :class "form-control" :name "password" :value "" :placeholder "Enter OTP from Email Old" :type "password" :required T))
+		    (:div :class "form-group"
+			  (:label :for "newpassword" "New Password")
+			  (:input :class "form-control" :id "newpassword" :data-minlength "8" :name "newpassword" :value "" :placeholder "New Password" :type "password" :required T))
+		    (:div :class "form-group"
+			  (:label :for "confirmpassword" "Confirm New Password")
+			  (:input :class "form-control" :name "confirmpassword" :value "" :data-minlength "8" :placeholder "Confirm New Password" :type "password" :required T :data-match "#newpassword"  :data-match-error "Passwords dont match"  ))
+		    (:div :class "form-group"
+			  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
 
 
 (defun dod-controller-customer-generate-temp-password ()
@@ -1156,20 +1149,20 @@
 	 (url (format nil "~A/hhub/hhubcustpassreset.html?token=~A" *siteurl* token))
 	 (email (if rstpassinst (slot-value rstpassinst 'email))))
     
-	 (cond 
-	   ((and (equal user-type "CUSTOMER")
-		 (clsql-sys:duration< (clsql-sys:time-difference (clsql-sys:get-time) (slot-value rstpassinst 'created))  (clsql-sys:make-duration :minute *HHUBPASSRESETTIMEWINDOW*)))
-	    (let* ((customer (select-customer-by-email email))
-		   (newpassword (reset-customer-password customer)))
+    (cond 
+      ((and (equal user-type "CUSTOMER")
+	    (clsql-sys:duration< (clsql-sys:time-difference (clsql-sys:get-time) (slot-value rstpassinst 'created))  (clsql-sys:make-duration :minute *HHUBPASSRESETTIMEWINDOW*)))
+       (let* ((customer (select-customer-by-email email))
+	      (newpassword (reset-customer-password customer)))
 					;send mail to the customer with new password 
-	      (send-temp-password customer newpassword url)
-	      (hunchentoot:redirect "/hhub/hhubpassresetmailsent.html")))	  
-	   ((and (equal user-type "CUSTOMER")
-		 (clsql-sys:duration> (clsql-sys:time-difference (clsql-sys:get-time) (slot-value rstpassinst 'created))  (clsql-sys:make-duration :minute *HHUBPASSRESETTIMEWINDOW*))) (hunchentoot:redirect "/hhub/hhubpassresettokenexpired.html"))
+	 (send-temp-password customer newpassword url)
+	 (hunchentoot:redirect "/hhub/hhubpassresetmailsent.html")))	  
+      ((and (equal user-type "CUSTOMER")
+	    (clsql-sys:duration> (clsql-sys:time-difference (clsql-sys:get-time) (slot-value rstpassinst 'created))  (clsql-sys:make-duration :minute *HHUBPASSRESETTIMEWINDOW*))) (hunchentoot:redirect "/hhub/hhubpassresettokenexpired.html"))
 	   ((equal user-type "VENDOR") ())
 	   ((equal user-type "EMPLOYEE") ()))))
 
-			   
+
 (defun dod-controller-customer-reset-password-action-link ()
   (let* ((email (hunchentoot:parameter "email"))
 	 (customer (select-customer-by-email email))
@@ -1221,7 +1214,7 @@
   (handler-case 
       (progn  
 	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
-	(if (is-dod-cust-session-valid?)
+	(if hunchentoot:*session*
 	    (hunchentoot:redirect "/hhub/dodcustindex")
 	    (with-standard-customer-page "Welcome Customer" 
 	      (:div :class "row" 
@@ -1239,9 +1232,8 @@
 				       
 				       (:div :class "form-group"
 					     (:a :data-toggle "modal" :data-target (format nil "#dascustforgotpass-modal")  :href "#"  "Forgot Password?"))
-				       (modal-dialog (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))
+				       (modal-dialog (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))))))))
 
-				       ))))))  
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
@@ -1273,37 +1265,39 @@
 							       (start-das)
 							       (hunchentoot:redirect "/hhub/customer-login.html"))))))
 
-(defun dod-controller-cust-add-orderpref-page ()
-    (with-cust-session-check
-	(let* ((prd-id (hunchentoot:parameter "prd-id"))
-	  (productlist (hunchentoot:session-value :login-prd-cache))
-	  (product (search-prd-in-list (parse-integer prd-id) productlist)))
-	(with-standard-customer-page (:title "Welcome to HighriseHub- Add Customer Order preference")
-	    (:div :class "row" 
-		(:div :class "col-sm-12  col-xs-12 col-md-12 col-lg-12"
-		   (:h1 :class "text-center login-title"  "Subscription - Add ")
-			(:form :class "form-oprefadd" :role "form" :method "POST" :action "dodcustaddopfaction"
-			    (:div :class "form-group row"  (:label :for "product-id" (cl-who:str (format nil  "Product: ~a" (slot-value product 'prd-name))) ))
-			         (:input :type "hidden" :name "product-id" :value (format nil "~a" (slot-value product 'row-id)))
-				 ; (products-dropdown "product-id"  (hunchentoot:session-value :login-prd-cache)))
-			    (:div :class "form-group row" (:label :for "prdqty" "Product Quantity")
-				(:input :class "form-control" :name "prdqty" :placeholder "Enter a number" :value "1" :min "1" :max "99"  :type "number"))
-			    (:div :class "form-group row" 
-			    (:label :class "checkbox-inline"  (:input :type "checkbox" :name "subs-sun"  :value "Sunday" :checked "" "Sunday" ))
-			    (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-mon" :value "Monday" :checked "" "Monday"))
-			    (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-tue" :value "Tuesday" :checked "" "Tuesday")))
-			    (:div :class "form-group row" 
-			    (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-wed" :value "Wednesday" :checked "" "Wednesday"))
-			    (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-thu" :value "Thursday" :checked "" "Thursday"))
-				(:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-fri" :value "Friday" :checked "" "Friday")))
-			    (:div :class "form-group row" 
-			    (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-sat" :value "Saturday" :checked "" "Saturday")))
-			    
-			    (:div :class "form-group" 
-			    (:input :type "submit"  :class "btn btn-primary" :value "Add      "))
-			    )))))))
-       
+(defun is-dod-cust-session-valid? ()
+  (if hunchentoot:*session* T NIL))
 
+(defun dod-controller-cust-add-orderpref-page ()
+  (with-cust-session-check
+    (let* ((prd-id (hunchentoot:parameter "prd-id"))
+	   (productlist (hunchentoot:session-value :login-prd-cache))
+	   (product (search-prd-in-list (parse-integer prd-id) productlist)))
+      (with-standard-customer-page (:title "Welcome to HighriseHub- Add Customer Order preference")
+	(:div :class "row" 
+	      (:div :class "col-sm-12  col-xs-12 col-md-12 col-lg-12"
+		    (:h1 :class "text-center login-title"  "Subscription - Add ")
+		    (:form :class "form-oprefadd" :role "form" :method "POST" :action "dodcustaddopfaction"
+			   (:div :class "form-group row"  (:label :for "product-id" (cl-who:str (format nil  "Product: ~a" (slot-value product 'prd-name))) ))
+			   (:input :type "hidden" :name "product-id" :value (format nil "~a" (slot-value product 'row-id)))
+					; (products-dropdown "product-id"  (hunchentoot:session-value :login-prd-cache)))
+			   (:div :class "form-group row" (:label :for "prdqty" "Product Quantity")
+				 (:input :class "form-control" :name "prdqty" :placeholder "Enter a number" :value "1" :min "1" :max "99"  :type "number"))
+			   (:div :class "form-group row" 
+				 (:label :class "checkbox-inline"  (:input :type "checkbox" :name "subs-sun"  :value "Sunday" :checked "" "Sunday" ))
+				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-mon" :value "Monday" :checked "" "Monday"))
+				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-tue" :value "Tuesday" :checked "" "Tuesday")))
+			   (:div :class "form-group row" 
+				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-wed" :value "Wednesday" :checked "" "Wednesday"))
+				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-thu" :value "Thursday" :checked "" "Thursday"))
+				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-fri" :value "Friday" :checked "" "Friday")))
+			   (:div :class "form-group row" 
+				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-sat" :value "Saturday" :checked "" "Saturday")))
+			   (:div :class "form-group" 
+				 (:input :type "submit"  :class "btn btn-primary" :value "Add      ")))))))))
+
+       
+;; This is pure function. 
 (defun product-qty-add-html (product)
   (let* ((prd-id (slot-value product 'row-id))
 	 (prd-image-path (slot-value product 'prd-image-path))
@@ -1312,22 +1306,20 @@
 	 (qty-per-unit (slot-value product 'qty-per-unit))
 	 (units-in-stock (slot-value product 'units-in-stock))
 	 (prd-name (slot-value product 'prd-name)))
-    
   (cl-who:with-html-output (*standard-output* nil)
     (with-html-form  (format nil "form-addproduct")  "dodcustaddtocart" 
-	   (:input :type "hidden" :name "prd-id" :value (format nil "~A" prd-id))
-	   (:p :class "product-name"  (cl-who:str prd-name))
-	   (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) 
-			     (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
-	   (:p (:span :class "label label-info" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit))))
-	   (:p (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))
-	   ;; Qty increment and decrement control.
-	   (html-range-control "prdqty" prd-id "1" (max (mod units-in-stock 20) 10) "1" "1")
-	   (:div :class "form-group" 
-		 (:input :type "submit"  :class "btn btn-primary" :value "Add To Cart"))))))
+      (:input :type "hidden" :name "prd-id" :value (format nil "~A" prd-id))
+      (:p :class "product-name"  (cl-who:str prd-name))
+      (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) 
+	  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
+      (:p (:span :class "label label-info" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit))))
+      (:p (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))
+      ;; Qty increment and decrement control.
+      (html-range-control "prdqty" prd-id "1" (max (mod units-in-stock 20) 10) "1" "1")
+      (:div :class "form-group" 
+	    (:input :type "submit"  :class "btn btn-primary" :value "Add To Cart"))))))
 
-
-
+;; This is a pure function. 
 (defun product-qty-edit-html (product oitem)
   (let* ((prd-id (slot-value product 'row-id))
 	 (prd-image-path (slot-value product 'prd-image-path))
@@ -1337,20 +1329,18 @@
 	 (units-in-stock (slot-value product 'units-in-stock))
 	 (prd-name (slot-value product 'prd-name))
 	 (itemqty (slot-value oitem 'prd-qty)))
-	 
-    
-  (cl-who:with-html-output (*standard-output* nil)
-    (:form :class "form-editproduct" :id (format nil "format-editproduct~A" prd-id) :method "POST" :action "dodcustupdatecart"
-	   (:input :type "hidden" :name "prd-id" :value (format nil "~A" prd-id))
-	   (:p :class "product-name"  (cl-who:str prd-name))
-	   (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) 
-			     (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
-	   (:p (:span :class "label label-info" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit))))
-	   (:p (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))
-	   ;; Qty increment and decrement control.
-	   (html-range-control "prdqty"  prd-id "1" (max (mod units-in-stock 20) 10) itemqty "1")
-	   (:div :class "form-group" 
-		 (:input :type "submit"  :class "btn btn-primary" :value "Update"))))))
+    (cl-who:with-html-output (*standard-output* nil)
+      (:form :class "form-editproduct" :id (format nil "format-editproduct~A" prd-id) :method "POST" :action "dodcustupdatecart"
+	     (:input :type "hidden" :name "prd-id" :value (format nil "~A" prd-id))
+	     (:p :class "product-name"  (cl-who:str prd-name))
+	     (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) 
+		 (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
+	     (:p (:span :class "label label-info" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit))))
+	     (:p (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))
+	     ;; Qty increment and decrement control.
+	     (html-range-control "prdqty"  prd-id "1" (max (mod units-in-stock 20) 10) itemqty "1")
+	     (:div :class "form-group" 
+		   (:input :type "submit"  :class "btn btn-primary" :value "Update"))))))
 
 
 (defun product-subscribe-html (prd-id) 
@@ -1397,8 +1387,8 @@
 				  (:label :class "checkbox-inline"  (:input :type "checkbox" :name "subs-sun"  :value "Sunday" :checked "" "Sunday" )))
 			    
 			    (:div :class "form-group" 
-			    (:input :type "submit"  :class "btn btn-primary" :value "Subscribe"))
-			    ))))))
+			    (:input :type "submit"  :class "btn btn-primary" :value "Subscribe"))))))))
+			    
 
 
 
@@ -1603,24 +1593,24 @@
 
 
 (defun dod-controller-cust-add-orderpref-action ()
-    (with-cust-session-check
-	(let ((product-id (hunchentoot:parameter "product-id"))
-		 (login-cust (hunchentoot:session-value :login-customer))
-		 (login-cust-comp (hunchentoot:session-value :login-customer-company  ))
-		 (prd-qty (parse-integer (hunchentoot:parameter "prdqty")))
-		 (subs-mon (hunchentoot:parameter "subs-mon"))
-		 (subs-tue (hunchentoot:parameter "subs-tue"))
-		 (subs-wed (hunchentoot:parameter "subs-wed"))
-		 (subs-thu (hunchentoot:parameter "subs-thu"))
-		 (subs-fri (hunchentoot:parameter "subs-fri"))
-		 (subs-sat (hunchentoot:parameter "subs-sat"))
-		 (subs-sun (hunchentoot:parameter "subs-sun"))		 )
+  (with-cust-session-check
+      (let ((product-id (hunchentoot:parameter "product-id"))
+	      (login-cust (hunchentoot:session-value :login-customer))
+	      (login-cust-comp (hunchentoot:session-value :login-customer-company  ))
+	      (prd-qty (parse-integer (hunchentoot:parameter "prdqty")))
+	      (subs-mon (hunchentoot:parameter "subs-mon"))
+	      (subs-tue (hunchentoot:parameter "subs-tue"))
+	      (subs-wed (hunchentoot:parameter "subs-wed"))
+	      (subs-thu (hunchentoot:parameter "subs-thu"))
+	      (subs-fri (hunchentoot:parameter "subs-fri"))
+	      (subs-sat (hunchentoot:parameter "subs-sat"))
+	      (subs-sun (hunchentoot:parameter "subs-sun"))		 )
 	  
-		(if (> prd-qty 0) 
-		(create-opref login-cust  (select-product-by-id product-id login-cust-comp )  prd-qty  (list subs-mon subs-tue subs-wed subs-thu subs-fri subs-sat subs-sun)  login-cust-comp))
-		(setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer login-cust))
-		(hunchentoot:redirect "/hhub/dodcustorderprefs"))
-	))
+	  (if (> prd-qty 0) 
+		    (create-opref login-cust  (select-product-by-id product-id login-cust-comp )  prd-qty  (list subs-mon subs-tue subs-wed subs-thu subs-fri subs-sat subs-sun)  login-cust-comp))
+	  (setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer login-cust))
+	  (hunchentoot:redirect "/hhub/dodcustorderprefs"))))
+	
 
   
 ;; This is products dropdown
@@ -1995,7 +1985,7 @@
       
 
 
-
+;; This is a pure function. 
 (defun calculate-shipping-cost-for-order (shipzipcode shopcart-total shopping-cart products vendor company)
   (let* ((vshipping-method (get-shipping-method-for-vendor vendor company))
 	 (vshipping-enabled (slot-value vendor 'shipping-enabled))
@@ -2302,7 +2292,7 @@
 	    (cl-who:str (display-vendors-widget lstvendors))))
        (when activevendor
 	 (cl-who:htm
-	  (:span (:h5 (cl-who:str (format nil "~A Store" (slot-value activevendor 'name)))))
+	  (:span (:h5 (cl-who:str (format nil "You are now in ~A Store" (slot-value activevendor 'name)))))
 	  (cl-who:str (display-vendors-widget (list activevendor)))))
        (:hr)
        (product-search-widget lstcount)
