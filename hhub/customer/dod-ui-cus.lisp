@@ -18,9 +18,10 @@
 			      (cl-who:htm
 			       (:a :href (format nil "/hhub/dodprddetailsforcust?id=~A" prd-id) :style "display: contents;" (:img :id (format nil "slide~d" i) :src image))))))
 		    (:div :class "hhubcarousel-nav"
-			      (loop for i from 1 to numitems  do
-				(cl-who:htm
-				 (:a :class "carousel-slide" :id (format nil "slidelink~A" i)  :href (format nil "#slide~A" i))))))))))
+			  (loop for i from 1 to numitems  do
+			    (cl-who:htm
+			     (:a :class "carousel-slide" :id (format nil "slidelink~A" i)  :href (format nil "#slide~A" i)))))))
+    (:hr))))
 
 (defun display-prdcatg-carousel (numitems categories)
   (let ((catgcount (length categories)))
@@ -57,7 +58,7 @@
 
 
 ;; This is a pure function. 
-(defun display-cust-shipping-costs-widget (shopcart-total shipping-options vendor)
+(defun display-cust-shipping-costs-widget (shopcart-total shipping-options storepickupenabled vendor)
   (let* ((vaddress (address vendor))
 	 (vcity (city vendor))
 	 (vzipcode (zipcode vendor))
@@ -68,7 +69,7 @@
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-form "form-custshippingmethod" "hhubcustpaymentmethodspage"
 	
-	(if (and (equal vshipping-enabled "Y") (> shipping-cost 0))
+	(if (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y") (> shipping-cost 0))
 	    (cl-who:htm
 	     (:div :class "custom-control custom-switch"
 		   (:input :type "checkbox" :class "custom-control-input" :id "storepickup" :name "storepickup" :value "Y" :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
@@ -1216,24 +1217,23 @@
 	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
 	(if hunchentoot:*session*
 	    (hunchentoot:redirect "/hhub/dodcustindex")
-	    (with-standard-customer-page "Welcome Customer" 
-	      (:div :class "row" 
-		    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-			   (:div :class "account-wall"
-				 (:form :class "form-custsignin" :role "form" :method "POST" :action "dodcustlogin" :data-toggle "validator"
-					(:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-				       (:h1 :class "text-center login-title"  "Customer - Login")
-				       (:div :class "form-group"
-					     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
-				       (:div :class "form-group"
-					     (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password"  :required "true" ))
-				       (:div :class "form-group"
-					     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))
-				       
-				       (:div :class "form-group"
-					     (:a :data-toggle "modal" :data-target (format nil "#dascustforgotpass-modal")  :href "#"  "Forgot Password?"))
-				       (modal-dialog (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))))))))
-
+	    (with-standard-customer-page-v2 "Welcome Customer" 
+	      (with-html-div-row
+		(with-html-div-col
+		  (:div :class "account-wall"
+			(:form :class "form-custsignin" :role "form" :method "POST" :action "dodcustlogin" :data-toggle "validator"
+			       (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
+			       (:h1 :class "text-center login-title"  "Customer - Login")
+			       (:div :class "form-group"
+				     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
+			       (:div :class "form-group"
+				     (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password"  :required "true" ))
+			       (:div :class "form-group"
+				     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))
+			(:div :class "form-group"
+			      (:a :data-toggle "modal" :data-target (format nil "#dascustforgotpass-modal")  :href "#"  "Forgot Password?"))
+			(modal-dialog (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))))))))
+    
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
@@ -1247,18 +1247,18 @@
 	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
 	(if (is-dod-cust-session-valid?)
 	    (hunchentoot:redirect "/hhub/dodcustindex")
-	    (with-standard-customer-page "Welcome Customer" 
-	      (:div :class "row" 
-		    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-			   (:div :class "account-wall"
-				 (with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
-				   (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-				   (:h1 :class "text-center login-title"  "Customer - Login")
-				   (:div :class "form-group"
-					 (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
-				   (:div :class "form-group"
-					 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
-				 
+	    (with-standard-customer-page-v2 "Welcome Customer" 
+	      (with-html-div-row
+		(with-html-div-col
+		  (:div :class "account-wall"
+			(with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
+			  (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
+			  (:h1 :class "text-center login-title"  "Customer - Login")
+			  (:div :class "form-group"
+				(:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
+			  (:div :class "form-group"
+				(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
+    
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
@@ -1933,6 +1933,8 @@
 	   (shopcart-products (mapcar (lambda (odt)
 					(let ((prd-id (slot-value odt 'prd-id)))
 					  (search-prd-in-list prd-id products ))) lstshopcart))
+	   (vshipping-method (get-shipping-method-for-vendor singlevendor custcomp))
+	   (storepickupenabled (slot-value vshipping-method 'storepickupenabled))
 	   (shiplst (calculate-shipping-cost-for-order shipzipcode shopcart-total lstshopcart shopcart-products singlevendor custcomp))
 	   (shipping-cost (nth 0 shiplst))
 	   (shipping-options (nth 1 shiplst)))
@@ -1981,7 +1983,7 @@
 	      (:div :class "card-body"
 		    (:h5 :class "card-title" "Shipping & Handling"
 			 (:hr)
-			 (display-cust-shipping-costs-widget shopcart-total shiplst singlevendor))))))))
+			 (display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor))))))))
       
 
 
@@ -2267,39 +2269,46 @@
 	  (lstprodcatg (hunchentoot:session-value :login-prdcatg-cache))
 	  (catgcount (length lstprodcatg))
 	  (selectedcatg (nth (random catgcount) lstprodcatg))
+	  (selectedcatgid (slot-value selectedcatg 'row-id))
+	  (selectedcatgname (slot-value selectedcatg 'catg-name))
 	  (lstproducts (hunchentoot:session-value :login-prd-cache))
 	  (company (get-login-customer-company))
 	  (lstvendors (select-vendors-for-company company))
 	  (activevendor (hunchentoot:session-value :login-active-vendor))
 	  (prdcount (length lstproducts))
-	  (first100products (if (> prdcount 100) (subseq lstproducts 0 100))))
-     ;;(sleep 5)
-     (with-standard-customer-page-v2 "Welcome to HighriseHub - customer"
-       (unless activevendor
-	 (display-products-carousel 4 (hunchentoot:session-value :login-prd-cache)))
-       (:hr)
-       (shopping-cart-widget lstcount)
-       (:span (:h5 "Product Categories"))
-       (cl-who:str (ui-list-prod-catg lstprodcatg))
-       (:hr)
-       (:span (:h5 (cl-who:str (format nil "~A" (slot-value selectedcatg 'catg-name)))))
-       (cl-who:str (display-products-by-category-widget (slot-value selectedcatg 'row-id)))
-       (:hr)
-       (unless activevendor
-	 (cl-who:htm
-	  (:span (:h5 "Top Vendors"))
-	  (with-html-search-form "idsearchvendors" "searchvendors" "idvendorlivesearch" "vendorlivesearch" "hhubcustvendorsearch" "Vendor Store Search...") 
-	    (cl-who:str (display-vendors-widget lstvendors))))
-       (when activevendor
-	 (cl-who:htm
-	  (:span (:h5 (cl-who:str (format nil "You are now in ~A Store" (slot-value activevendor 'name)))))
-	  (cl-who:str (display-vendors-widget (list activevendor)))))
-       (:hr)
-       (product-search-widget lstcount)
-       (if (> prdcount 100)
-	   (cl-who:str (ui-list-customer-products first100products lstshopcart))
-	   ;;else
-	   (cl-who:str (ui-list-customer-products lstproducts lstshopcart)))))))
+	  (first100products (if (> prdcount 100) (subseq lstproducts 0 100)))
+	  (widget1 (function (lambda ()
+		     (shopping-cart-widget lstcount))))
+	  (widget2 (function (lambda ()
+		     (unless activevendor
+		       (display-products-carousel 4 (hunchentoot:session-value :login-prd-cache))))))
+	  (widget3 (function (lambda ()
+		     (ui-list-prod-catg lstprodcatg))))
+	  (widget4 (function (lambda ()
+		     (display-products-by-category-widget selectedcatgid selectedcatgname))))
+	  (widget5 (function (lambda ()
+		     (unless activevendor
+		       (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+			 (:span (:h5 "Top Vendors"))
+			 (with-html-search-form "idsearchvendors" "searchvendors" "idvendorlivesearch" "vendorlivesearch" "hhubcustvendorsearch" "Vendor Store Search...") 
+			 (cl-who:str (display-vendors-widget lstvendors))
+			 (:hr)))
+		     (when activevendor
+		       (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+		       	 (:span (:h5 (cl-who:str (format nil "You are now in ~A Store" (slot-value activevendor 'name)))))
+			 (cl-who:str (display-vendors-widget (list activevendor)))
+			 (:hr))))))
+	  (widget6 (function (lambda ()
+		     (product-search-widget lstcount)
+		     (if (> prdcount 100)
+			 (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+			   (cl-who:str (ui-list-customer-products first100products lstshopcart)))
+			 ;;else
+			 (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+			   (cl-who:str (ui-list-customer-products lstproducts lstshopcart))))))))
+     (display-customer-page-with-widgets "Welcome to HighriseHub - Customer" (list widget1 widget2 widget3 widget4 widget5 widget6)))))
+	       
+       
 
 (defun shopping-cart-widget (itemscount)
   (cl-who:with-html-output (*standard-output* nil) 
@@ -2345,14 +2354,16 @@
 	(cl-who:str (ui-list-prod-catg lstprodcatg))
 	(cl-who:str (ui-list-customer-products lstprodbyvendor lstshopcart))))))
 
-(defun display-products-by-category-widget (catg-id)
+(defun display-products-by-category-widget (catg-id catg-name)
   :documentation "This function lists the customer products by category"
   (let* ((lstproducts (hunchentoot:session-value :login-prd-cache))
 	 (lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	 (lstprodbycatg (if lstproducts (filter-products-by-category catg-id lstproducts))))
       (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
 	(logiamhere (format nil "display-products-by-category-widget catg-id is ~d. Product count is ~d" catg-id (length lstprodbycatg)))
-	(cl-who:str (ui-list-cust-products-horizontal lstprodbycatg lstshopcart)))))
+	(:span (:h5 (cl-who:str (format nil "~A" catg-name))))
+	(cl-who:str (ui-list-cust-products-horizontal lstprodbycatg lstshopcart))
+	(:hr))))
 
 
 (defun display-vendors-widget (vendorlist)
