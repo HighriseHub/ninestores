@@ -484,7 +484,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			       (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
 				     (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
 			       (:div :class "form-group"
-				     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))))
+				     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save Product"))))))))))
 
 
 
@@ -1409,23 +1409,66 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 
-(defun set-vendor-session-params ( company  vendor)
+(defun set-vendor-session-params (company  vendor)
   ;; Add the vendor object and the tenant to the Business Session 
-  ;;set vendor company related params 
-  (setf (hunchentoot:session-value :login-vendor ) vendor)
-  (setf (hunchentoot:session-value :login-vendor-name) (slot-value vendor 'name))
-  (setf (hunchentoot:session-value :login-vendor-id) (slot-value vendor 'row-id))
-  (setf (hunchentoot:session-value :login-vendor-tenant-id) (slot-value company 'row-id ))
-  (setf (hunchentoot:session-value :login-vendor-company-name) (slot-value company 'name))
-  (setf (hunchentoot:session-value :login-vendor-company) company)
-  ;;(setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company company))
-  ;;set vendor related params 
-  (if vendor (setf (hunchentoot:session-value :login-vendor-tenants) (get-vendor-tenants-as-companies vendor)))
-  (if vendor (setf (hunchentoot:session-value :order-func-list) (dod-gen-order-functions vendor company)))
-  (if vendor (setf (hunchentoot:session-value :vendor-order-items-hashtable) (make-hash-table)))
-  (if vendor (setf (hunchentoot:session-value :login-vendor-products-functions) (dod-gen-vendor-products-functions vendor company))))
+  ;;set vendor company related params
+  (let ((vsessionobj (make-instance 'VendorSessionObject)))
+    (setf (slot-value vsessionobj 'vwebsession) hunchentoot:*session*)
+    (setf (hunchentoot:session-value :login-vendor ) vendor)
+    (setf (slot-value vsessionobj 'vendor) vendor)
+    (setf (hunchentoot:session-value :login-vendor-name) (slot-value vendor 'name))
+    (setf (slot-value vsessionobj 'vendor-name) (slot-value vendor 'name))
+    (setf (hunchentoot:session-value :login-vendor-id) (slot-value vendor 'row-id))
+    (setf (slot-value vsessionobj 'vendor-id) (slot-value vendor 'row-id))
+    (setf (hunchentoot:session-value :login-vendor-tenant-id) (slot-value company 'row-id ))
+    (setf (slot-value vsessionobj 'vendor-tenant-id) (slot-value company 'row-id))
+    (setf (hunchentoot:session-value :login-vendor-company-name) (slot-value company 'name))
+    (setf (slot-value vsessionobj 'companyname) (slot-value company 'name))
+    (setf (hunchentoot:session-value :login-vendor-company) company)
+    ;;(setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company company))
+    ;;set vendor related params 
+    (if vendor (setf (hunchentoot:session-value :login-vendor-tenants) (get-vendor-tenants-as-companies vendor)))
+    (if vendor (setf (hunchentoot:session-value :order-func-list) (dod-gen-order-functions vendor company)))
+    (if vendor (setf (hunchentoot:session-value :vendor-order-items-hashtable) (make-hash-table)))
+    (if vendor (setf (hunchentoot:session-value :login-vendor-products-functions) (dod-gen-vendor-products-functions vendor company)))
+    (let ((sessionkey (createBusinessSession (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite") vsessionobj)))
+      (setf (hunchentoot:session-value :login-vendor-business-session-id) sessionkey)
+      (logiamhere (format nil "web session is ~A" (slot-value vsessionobj 'vwebsession)))
+      (enforcesinglevendorsession sessionkey)
+      sessionkey)))
 
 
+(defun getloginvendorcount ()
+  (let* ((bcontext (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite"))
+	 (bsessions-ht (businesssessions-ht bcontext)))
+    (hash-table-count bsessions-ht)))
+
+(defun getloginvendorsessionstarttime ()
+  (let* ((bcontext (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite"))
+	 (sessionkey (hunchentoot:session-value :login-vendor-business-session-id))
+	 (bsession (getbusinesssession bcontext sessionkey))
+	 (start-time (start-time bsession)))
+    start-time))
+
+
+
+(defun enforcesinglevendorsession (sessionkey)
+  (let* ((bcontext (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite"))
+	 (bsessions-ht (businesssessions-ht bcontext))
+	 (bvendsession (gethash sessionkey bsessions-ht))
+	 (vendor (slot-value bvendsession 'vendor)))
+    (when (> (hash-table-count bsessions-ht) 1)
+      (loop for v being the hash-value in bsessions-ht using (hash-key k) do
+	(let ((currvendorid (slot-value v 'vendor-id))
+	      (currwebsession (slot-value v 'vwebsession))
+	      (loginvendorid (slot-value vendor 'row-id)))
+	  (when (and
+		 (not (equal k sessionkey)) ;; There are 2 separate sessions from same vendor. 
+		 (= currvendorid loginvendorid)) ;; Same vendor is login again. 
+	    (hunchentoot:remove-session currwebsession)
+	    (deleteBusinessSession bcontext k)))))))
+
+	
    
 (defun dod-controller-vendor-delete-product () 
  (if (is-dod-vend-session-valid?)
@@ -1706,7 +1749,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (let* ((vc (get-login-vendor-company))
 	   (company-website (if vc (slot-value vc 'website))))
       (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
-      ;;(deleteHHUBBusinessSession (hunchentoot:session-value :login-vendor-business-session-id)) 
+      (deleteBusinessSession (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite") (hunchentoot:session-value :login-vendor-business-session-id)) 
+      
       (if (> (length company-website) 0)  (hunchentoot:redirect (format nil "http://~A" company-website)) 
 	  ;;else
 	  (hunchentoot:redirect *siteurl*))))
