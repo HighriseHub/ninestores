@@ -2,6 +2,12 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+(defmethod (setf amount) (new-val (obj UpiPayment))
+  (if (> new-val  10000.00)
+      "Amount should be less than 10000.00"
+      ;;else
+      (setf (slot-value obj 'amount) new-val)))
+  
 
 (defmethod ProcessCreateRequest ((adapter UpiPaymentsAdapter) (requestmodel UpiPaymentsRequestModel))
   :description  "Adapter Service method to call the BusinessService Create method. Returns the created UPI object."
@@ -18,7 +24,7 @@
 
 
 (defmethod ProcessReadAllRequest ((adapter UpiPaymentsAdapter) (requestmodel UpiPaymentsRequestModel))
-  :description "Adapter service method to read the upi payments"
+  :description "Adapter service method to read UPI Payments"
   (setf (slot-value adapter 'businessservice) (find-class 'UpiPaymentsService))
   (call-next-method))
 
