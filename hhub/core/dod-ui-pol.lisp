@@ -84,7 +84,7 @@
 	 (cmp-type (cmp-type company))
 	 (company-name (slot-value company 'name))
 	 (currproductcount (length (select-products-by-vendor vendor company)))
-	 (maxproductcount (com-hhub-attribute-company-maxproductcount subs-plan cmp-type))
+	 (maxproductcount (com-hhub-attribute-vendor-maxproductcount subs-plan cmp-type))
 	 (suspend-flag (slot-value company 'suspend-flag)))
     (when (and (equal mode "add") (<= (- maxproductcount currproductcount) 0))
       (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. You have exceeded maximum number of Products allowed to be created. Max count = ~d, Current count = ~d" company-name maxproductcount currproductcount)))  
