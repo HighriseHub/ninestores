@@ -3,6 +3,43 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
+(defun hhub-register-network-function (name funcsymbol)
+:documentation "This function registers a new business function and adds it to the *HHUBGLOBALBUSINESSFUNCTIONS-HT* Hash Table. It should conform to naming convention com.hhub.businessfunction*"
+  (multiple-value-bind (fname) (ppcre:scan "com.hhub.businessfunction.*" name)
+    (when fname
+      (multiple-value-bind (fsymbol) (ppcre:scan "com-hhub-businessfunction-*" funcsymbol)
+	(when fsymbol
+	  (setf (gethash name  *HHUBGLOBALBUSINESSFUNCTIONS-HT*) funcsymbol))))))
+
+(defun hhub-init-network-functions ()
+  (hhub-register-business-function "com.hhub.nwfunc.bl.getpushnotifysubscriptionforvendor" "com-hhub-businessfunction-bl-getpushnotifysubscriptionforvendor")
+;;  (hhub-register-business-function "com.hhub.businessfunction.tempstorage.getpushnotifysubscriptionforvendor" "com-hhub-businessfunction-tempstorage-getpushnotifysubscriptionforvendor")
+  (hhub-register-business-function "com.hhub.businessfunction.db.getpushnotifysubscriptionforvendor" "com-hhub-businessfunction-db-getpushnotifysubscriptionforvendor")
+  ;; Business functions for Creating Push Notify Subscription for Vendor 
+  (hhub-register-business-function "com.hhub.businessfunction.bl.createpushnotifysubscriptionforvendor" "com-hhub-businessfunction-bl-createpushnotifysubscriptionforvendor")
+  (hhub-register-business-function "com.hhub.businessfunction.tempstorage.createpushnotifysubscriptionforvendor" "com-hhub-businessfunction-tempstorage-createpushnotifysubscriptionforvendor")
+  (hhub-register-business-function "com.hhub.businessfunction.db.createpushnotifysubscriptionforvendor" "com-hhub-businessfunction-db-createpushnotifysubscriptionforvendor"))
+
+(defun hhub-execute-network-function (name input-params outputparams) 
+  :documentation "This is a general business function adapter for HHub. It takes parameters in a association list"
+  (handler-case 
+      (let ((funcsymbol (gethash name *HHUBGLOBALBUSINESSFUNCTIONS-HT*)))
+	(if (null funcsymbol) (error 'hhub-business-function-error :errstring "Business function not registered"))
+	(multiple-value-bind (returnvalues exception) (funcall (intern (string-upcase funcsymbol) :hhub) input-params)
+					;Return a list of return values and exception as nil. 
+	  (list returnvalues exception)))
+    (hhub-business-function-error (condition)
+      (list nil (format nil "HHUB Business Function error triggered in Function - ~A. Error: ~A" (string-upcase name) (getExceptionStr condition))))
+					; If we get any general error we will not throw it to the upper levels. Instead set the exception and log it. 
+    (error (c)
+      (let ((exceptionstr (format nil  "HHUB General Business Function Error: ~A  ~a~%" (string-upcase name) c)))
+	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
+				:direction :output
+				:if-exists :supersede
+				:if-does-not-exist :create)
+	  (format stream "~A" exceptionstr))
+	(list nil (format nil "HHUB General Business Function Error. See logs for more details."))))))
+
 
 (defun max-item (list)
   (loop for item in list
@@ -107,7 +144,6 @@
 (defun get-ht-values (hashtable)
   (loop for v being the hash-value in hashtable
 	return (format nil "~A" v)))
-	     
 
 
 (defun parse-date-string (datestr)
