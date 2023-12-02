@@ -288,11 +288,11 @@ the hunchentoot server with ssl settings"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun hhub-register-business-function (name funcsymbol)
-:documentation "This function registers a new business function and adds it to the *HHUBGLOBALBUSINESSFUNCTIONS-HT* Hash Table."
-  (multiple-value-bind (ret1) (ppcre:scan "com.hhub.businessfunction.*" name)
-    (unless (null ret1)
-      (multiple-value-bind (ret1) (ppcre:scan "com-hhub-businessfunction-*" funcsymbol)
-	(unless (null ret1)
+:documentation "This function registers a new business function and adds it to the *HHUBGLOBALBUSINESSFUNCTIONS-HT* Hash Table. It should conform to naming convention com.hhub.businessfunction*"
+  (multiple-value-bind (fname) (ppcre:scan "com.hhub.businessfunction.*" name)
+    (when fname
+      (multiple-value-bind (fsymbol) (ppcre:scan "com-hhub-businessfunction-*" funcsymbol)
+	(when fsymbol
 	  (setf (gethash name  *HHUBGLOBALBUSINESSFUNCTIONS-HT*) funcsymbol))))))
 
 
