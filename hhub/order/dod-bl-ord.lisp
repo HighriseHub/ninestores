@@ -397,7 +397,7 @@
 			       (:span  :class "label label-default" (cl-who:str (format nil "Sub Total: ~A ~$" *HTMLRUPEESYMBOL* sub-total)))))
 		     (:tr (:td :align "right"
 			       (:h2  (:span  :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* (+ shipping-cost sub-total))))))))))
-      (hhub-log-message  (format nil "~A~A~A" headerstr datastr footer))
+      ;;(hhub-log-message  (format nil "~A~A~A" headerstr datastr footer))
       (format nil "~A~A~A" headerstr datastr footer))))
 
 (defun create-order-email-content-for-vendor (vproducts vitems customer order-id shipping-info total)
