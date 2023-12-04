@@ -1304,7 +1304,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			      (:li :class "active" :align "center" (:a :href "dodvendindex?context=home"  (:span :class "glyphicon glyphicon-home")  "Home"))
 			      (:li :align "center" (:a :href "dodvenproducts"  "My Products"))
 			      (:li :align "center" (:a :href "dodvendindex?context=completedorders"  "Completed Orders"))
-			      (:li :align "center" (:a :href "#" (print-web-session-timeout)))
+			      (:li :align "center" (:a :href "#" (print-vendor-web-session-timeout)))
 			      (:li :align "center" (:a :href "#" (cl-who:str (format nil "Group: ~A" (get-login-vendor-company-name))))))
 			 (:ul :class "nav navbar-nav navbar-right"
 			      (:li :align "center" (:a :href "dodvendprofile?context=home"   (:span :class "glyphicon glyphicon-user") "&nbsp;&nbsp;" )) 

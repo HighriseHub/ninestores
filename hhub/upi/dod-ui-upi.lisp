@@ -224,27 +224,35 @@
       (hhub-execute-pending-upi-task utrnum)
       (hunchentoot:redirect "/hhub/hhubvendorupitransactions"))))
 
+(defun createmodelforshowvendorupitransactions ()
+  (let* ((vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (upipaymentspresenter (make-instance 'UpiPaymentsPresenter))
+	 (upipaymentrequestmodel (make-instance 'UpiPaymentsRequestModel
+						:vendor vendor
+						:company company))
+	 (upipaymentsadapter (make-instance 'UpiPaymentsAdapter))
+	 (upipaymentobjlst (processreadallrequest upipaymentsadapter upipaymentrequestmodel))
+	 (upipaymentsresponsemodellist (processresponselist upipaymentsadapter upipaymentobjlst))
+	 (viewallmodel (CreateAllViewModel upipaymentspresenter upipaymentsresponsemodellist))
+	 (htmlview (make-instance 'UPIPaymentsHTMLView)))
+    (function (lambda ()
+      (values viewallmodel htmlview)))))
+
+(defun createwidgetsforshowvendorupitransactions (modelfunc)
+	   ;; this is the view. 
+  (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (with-html-div-row
+			 (:h4 "Showing records for last 60 Days"))
+		       (cl-who:str (RenderListViewHTML htmlview viewallmodel)))))))
+      (list widget1))))
+
 
 (defun hhub-controller-show-vendor-upi-transactions ()
-  (with-vend-session-check
-    (let* ((vend (get-login-vendor))
-	   (company (get-login-vendor-company))
-	   (upipaymentspresenter (make-instance 'UpiPaymentsPresenter))
-	   (upipaymentrequestmodel (make-instance 'UpiPaymentsRequestModel
-						  :vendor vend
-						  :company company))
-	   (upipaymentsadapter (make-instance 'UpiPaymentsAdapter))
-	   (upipaymentobjlst (processreadallrequest upipaymentsadapter upipaymentrequestmodel))
-	   (upipaymentsresponsemodellist (processresponselist upipaymentsadapter upipaymentobjlst))
-	   (viewallmodel (CreateAllViewModel upipaymentspresenter upipaymentsresponsemodellist))
-	   (htmlview (make-instance 'UPIPaymentsHTMLView))
-	   (widget1 (function (lambda ()
-		      (cl-who:with-html-output (*standard-output* nil) 
-			(with-html-div-row
-			  (:h4 "Showing records for last 60 Days"))
-			(cl-who:str (RenderListViewHTML htmlview viewallmodel)))))))
-      (display-vendor-page-with-widgets "Vendor UPI Transactions" (list widget1)))))
-
+  (with-hhub-mvc-ui "Vendor UPI Transactions" createmodelforshowvendorupitransactions createwidgetsforshowvendorupitransactions :role :vendor))
+  
 (defmethod RenderListViewHTML ((htmlview UPIPaymentsHTMLView) viewmodellist)
   (unless (= (length viewmodellist) 0)
     (display-as-table (list "Date" "Customer" "Phone" "Amount" "UTR Number" "Status" "Action") viewmodellist 'display-upi-transaction-row)))
@@ -260,7 +268,7 @@
       (cl-who:with-html-output (*standard-output* nil)
 	(:td  :height "10px" (cl-who:str (get-date-string created)))
 	(:td  :height "10px" (cl-who:str (slot-value customer  'name)))
-	(:td  :height "10px" (cl-who:str (if phone phone)))
+	(:td  :height "10px" (cl-who:str (if phone phone))
 	(:td  :height "10px" (cl-who:str amount))
 	(:td  :height "10px" (cl-who:str utrnum))
 	(:td  :height "10px" (cl-who:str status))
@@ -279,7 +287,6 @@
 	       (cl-who:htm
 		(:td :height "10px" (:i :class "fa fa-inr" :aria-hidden "true") " Received"))))))))
 
-
 (defun modal.vendor-upi-payment-confirm (upiviewmodel)
   (with-slots (utrnum status) upiviewmodel
     (cl-who:with-html-output (*standard-output* nil)
@@ -288,7 +295,7 @@
 	      (:h3 (cl-who:str (format nil "UTR Number - ~A." utrnum)))
 	      (:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipayconfirm" :enctype "multipart/form-data"
 		     (:div :class "form-group" :style "display: none"
-			    (:input :class "form-control" :name "utrnum" :value utrnum :placeholder "UTR Number" :type "text" :readonly T ))
+			    (:input :class "form-control":name "utrnum" :value utrnum :placeholder "UTR Number" :type "text" :readonly T ))
 		     (:div :class "form-group"
 			   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Payment Received")))))
 	(with-html-div-row
