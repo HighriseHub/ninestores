@@ -2,8 +2,6 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
-
-
 (defun display-products-carousel (numitems products)
  (let ((prdcount (length products)))
   (cl-who:with-html-output (*standard-output* nil)      
@@ -115,46 +113,54 @@
 }")))))
 
 (defun dod-controller-customer-payment-methods-page ()
-  (with-cust-session-check
-    (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
-	   (lstcount (length lstshopcart))
-	   (cust-type (get-login-customer-type))
-	   (vendor-list (get-shopcart-vendorlist lstshopcart))
-	   (singlevendor-p (if (= (length vendor-list) 1) T NIL))
-	   (singlevendor (first vendor-list))
-	   (customer (get-login-customer))
-	   (custcomp (get-login-customer-company))
-	   ;;(wallet-balance (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'balance))
-	   (storepickup (hunchentoot:parameter "storepickup"))
-	   (orderparams-ht (get-cust-order-params-v2)) 
-	   (phone (gethash "phone" orderparams-ht))
-	   (vpayapikey-p (if singlevendor-p (when (slot-value singlevendor 'payment-api-key) t)))
-	   (vupiid-p (if singlevendor-p (when (slot-value singlevendor 'upi-id) t))))
-	   
-					; (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
-					; Save the email address to send a mail in future if this is a guest customer.
-
-      (if (and storepickup (equal storepickup "Y"))
-	  (setf (gethash "shipping-cost" orderparams-ht) 0.00)
-	  (save-cust-order-params-v2 orderparams-ht)) 
-	   
-      (with-standard-customer-page-v2 "Payment Methods Page"
-	(with-customer-breadcrumb
-	  (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
-	  (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address")))
-	
-	(with-html-div-row
-	  (with-html-div-col
-	    (:h5 :class "text-center"  "Choose Payment Method")
-	    (:hr)))
-	(when (> lstcount 0)
-	  (cond ((equal cust-type "STANDARD") (standardcustpaymentmethods vendor-list customer custcomp))
-		((equal cust-type "GUEST") (guestcustpaymentmethods singlevendor-p vpayapikey-p vupiid-p phone))))))))
-  
+  (with-hhub-mvc-ui "Customer Payment Methods" createmodelforcustomerpaymentmethodspage createwidgetsforcustomerpaymentmethodspage :role :customer))
 
 
+(defun createwidgetsforcustomerpaymentmethodspage (modelfunc)
+  (multiple-value-bind
+	(cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone)
+      (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (with-customer-breadcrumb
+		       (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
+		       (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address"))))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)  
+		       (with-html-div-row
+			 (with-html-div-col
+			    (:h5 :class "text-center"  "Choose Payment Method")
+			   (:hr)))))))
+	  (widget3 (function (lambda ()
+		     (if (> lstcount 0)
+		       (cond ((equal cust-type "STANDARD") (standardcustpaymentmethods vendor-list customer custcomp))
+			     ((equal cust-type "GUEST") (guestcustpaymentmethods singlevendor-p vpayapikey-p vupiid-p phone))))))))
+      (list widget1 widget2 widget3))))
 
-;; This is pure function. 
+
+(defun createmodelforcustomerpaymentmethodspage ()
+  (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
+	 (lstcount (length lstshopcart))
+	 (cust-type (get-login-customer-type))
+	 (vendor-list (get-shopcart-vendorlist lstshopcart))
+	 (singlevendor-p (if (= (length vendor-list) 1) T NIL))
+	 (singlevendor (first vendor-list))
+	 (customer (get-login-customer))
+	 (custcomp (get-login-customer-company))
+	 ;;(wallet-balance (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'balance))
+	 (storepickup (hunchentoot:parameter "storepickup"))
+	 (orderparams-ht (get-cust-order-params-v2)) 
+	 (phone (gethash "phone" orderparams-ht))
+	 (vpayapikey-p (if singlevendor-p (when (slot-value singlevendor 'payment-api-key) t)))
+	 (vupiid-p (if singlevendor-p (when (slot-value singlevendor 'upi-id) t))))
+    (if (and storepickup (equal storepickup "Y"))
+	(setf (gethash "shipping-cost" orderparams-ht) 0.00)
+	(save-cust-order-params-v2 orderparams-ht)) 
+    ;; create a list of all the required data points or create a model and return it. 
+    (function (lambda ()
+      (values cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone)))))
+	 
+
+;; This is not a pure function as it talks to the database.  
 (defun standardcustpaymentmethods (vendorlist customer company)
   (cl-who:with-html-output (*standard-output* nil)
     (:hr)
@@ -1781,7 +1787,7 @@
   (every #'(lambda (x) (if x T))
 	 (mapcar (lambda (vendor wallet)
 		   (let ((total (get-order-items-total-for-vendor vendor shopcart)))
-		     (logiamhere (format nil "Shopcart total is  ~A. Wallet balance is ~A" total (slot-value wallet 'balance)))
+		     ;;(logiamhere (format nil "Shopcart total is  ~A. Wallet balance is ~A" total (slot-value wallet 'balance)))
 		     (check-wallet-balance total wallet))) vendor-list wallet-list)))
 
 
@@ -1823,7 +1829,7 @@
 	   (redirectlocation "/hhub/dodcustordsuccess"))
   
       (declare (ignore billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname order-cxt shipzipcode shipcity shipstate custname ))
-      (logiamhere (format nil "payment mode is ~A" payment-mode))
+      ;;(logiamhere (format nil "payment mode is ~A" payment-mode))
       (setf params (acons "uri" (hunchentoot:request-uri*)  params))
       (setf params (acons "company" custcomp  params))
       (with-hhub-transaction "com-hhub-transaction-create-order" params
@@ -2259,57 +2265,68 @@
 	   (search-clause (hunchentoot:parameter "vendorlivesearch"))
 	   (vendorlist (if (not (equal "" search-clause)) (select-vendors-by-name search-clause company))))
       (cl-who:with-html-output (*standard-output* nil)
-	(logiamhere (format nil "I am in vendor search. Result = ~d vendors" (length vendorlist)))
+	;;(logiamhere (format nil "I am in vendor search. Result = ~d vendors" (length vendorlist)))
 	(cl-who:str (display-vendors-widget vendorlist))))))
-          
-(defun dod-controller-cust-index () 
- (with-cust-session-check
-   (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
-	  (lstcount (length lstshopcart))
-	  (lstprodcatg (hunchentoot:session-value :login-prdcatg-cache))
-	  (catgcount (length lstprodcatg))
-	  (selectedcatg (nth (random catgcount) lstprodcatg))
-	  (selectedcatgid (slot-value selectedcatg 'row-id))
-	  (selectedcatgname (slot-value selectedcatg 'catg-name))
-	  (lstproducts (hunchentoot:session-value :login-prd-cache))
-	  (company (get-login-customer-company))
-	  (lstvendors (select-vendors-for-company company))
-	  (activevendor (hunchentoot:session-value :login-active-vendor))
-	  (prdcount (length lstproducts))
-	  (first100products (if (> prdcount 100) (subseq lstproducts 0 100)))
-	  (widget1 (function (lambda ()
-		     (shopping-cart-widget lstcount))))
-	  (widget2 (function (lambda ()
-		     (unless activevendor
-		       (display-products-carousel 4 (hunchentoot:session-value :login-prd-cache))))))
-	  (widget3 (function (lambda ()
-		     (ui-list-prod-catg lstprodcatg))))
-	  (widget4 (function (lambda ()
-		     (display-products-by-category-widget selectedcatgid selectedcatgname))))
-	  (widget5 (function (lambda ()
-		     (unless activevendor
-		       (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
-			 (:span (:h5 "Top Vendors"))
-			 (with-html-search-form "idsearchvendors" "searchvendors" "idvendorlivesearch" "vendorlivesearch" "hhubcustvendorsearch" "Vendor Store Search...") 
-			 (cl-who:str (display-vendors-widget lstvendors))
-			 (:hr)))
-		     (when activevendor
-		       (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
-		       	 (:span (:h5 (cl-who:str (format nil "You are now in ~A Store" (slot-value activevendor 'name)))))
-			 (cl-who:str (display-vendors-widget (list activevendor)))
-			 (:hr))))))
-	  (widget6 (function (lambda ()
-		     (product-search-widget lstcount)
-		     (if (> prdcount 100)
-			 (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
-			   (cl-who:str (ui-list-customer-products first100products lstshopcart)))
-			 ;;else
-			 (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
-			   (cl-who:str (ui-list-customer-products lstproducts lstshopcart))))))))
-     (display-customer-page-with-widgets "Welcome to HighriseHub - Customer" (list widget1 widget2 widget3 widget4 widget5 widget6)))))
-	       
-       
 
+
+(defun createmodelforcustomerindexpage ()
+  (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
+	 (lstcount (length lstshopcart))
+	 (lstprodcatg (hunchentoot:session-value :login-prdcatg-cache))
+	 (catgcount (length lstprodcatg))
+	 (selectedcatg (nth (random catgcount) lstprodcatg))
+	 (selectedcatgid (slot-value selectedcatg 'row-id))
+	 (selectedcatgname (slot-value selectedcatg 'catg-name))
+	 (lstproducts (hunchentoot:session-value :login-prd-cache))
+	 (company (get-login-customer-company))
+	 (lstvendors (select-vendors-for-company company))
+	 (activevendor (hunchentoot:session-value :login-active-vendor))
+	 (prdcount (length lstproducts))
+	 (first100products (if (> prdcount 100) (subseq lstproducts 0 100))))
+    (function (lambda ()
+      (values lstshopcart lstproducts lstcount lstprodcatg  selectedcatgid selectedcatgname  lstvendors activevendor prdcount first100products)))))
+    
+	 
+(defun createwidgetsforcustomerindexpage (modelfunc)
+  (multiple-value-bind
+	(lstshopcart lstproducts lstcount lstprodcatg  selectedcatgid selectedcatgname  lstvendors activevendor prdcount first100products)
+      (funcall modelfunc)
+    (let* ((widget1 (function (lambda ()
+		     (shopping-cart-widget lstcount))))
+	   (widget2 (function (lambda ()
+		      (unless activevendor
+			(display-products-carousel 4 (hunchentoot:session-value :login-prd-cache))))))
+	   (widget3 (function (lambda ()
+		      (unless activevendor
+			(cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+			  (:span (:h5 "Top Vendors"))
+			  (with-html-search-form "idsearchvendors" "searchvendors" "idvendorlivesearch" "vendorlivesearch" "hhubcustvendorsearch" "Vendor Store Search...") 
+			  (cl-who:str (display-vendors-widget lstvendors))
+			  (:hr)))
+		      (when activevendor
+			(cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+		       	  (:span (:h5 (cl-who:str (format nil "You are now in ~A Store" (slot-value activevendor 'name)))))
+			  (cl-who:str (display-vendors-widget (list activevendor)))
+			  (:hr))))))
+	   (widget4 (function (lambda ()
+		      (ui-list-prod-catg lstprodcatg))))
+	   (widget5 (function (lambda ()
+		      (display-products-by-category-widget selectedcatgid selectedcatgname))))
+	   
+	   (widget6 (function (lambda ()
+		      (product-search-widget lstcount)
+		      (if (> prdcount 100)
+			  (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+			    (cl-who:str (ui-list-customer-products first100products lstshopcart)))
+			  ;;else
+			  (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+			    (cl-who:str (ui-list-customer-products lstproducts lstshopcart))))))))
+      (list widget1 widget2 widget3 widget4 widget5 widget6))))
+
+
+(defun dod-controller-cust-index ()
+  (with-hhub-mvc-ui "Welcome Customer" createmodelforcustomerindexpage createwidgetsforcustomerindexpage :role :customer))
+   
 (defun shopping-cart-widget (itemscount)
   (cl-who:with-html-output (*standard-output* nil) 
     (:a :id "floatingcheckoutbutton" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;"  (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))
@@ -2359,8 +2376,8 @@
   (let* ((lstproducts (hunchentoot:session-value :login-prd-cache))
 	 (lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	 (lstprodbycatg (if lstproducts (filter-products-by-category catg-id lstproducts))))
-      (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-	(logiamhere (format nil "display-products-by-category-widget catg-id is ~d. Product count is ~d" catg-id (length lstprodbycatg)))
+      (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+	;;(logiamhere (format nil "display-products-by-category-widget catg-id is ~d. Product count is ~d" catg-id (length lstprodbycatg)))
 	(:span (:h5 (cl-who:str (format nil "~A" catg-name))))
 	(cl-who:str (ui-list-cust-products-horizontal lstprodbycatg lstshopcart))
 	(:hr))))
