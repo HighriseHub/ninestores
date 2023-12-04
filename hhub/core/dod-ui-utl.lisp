@@ -352,11 +352,11 @@
 
 
 (defun get-web-session-timeout ()
-    (multiple-value-bind
-	(seconds minute hour)
-	(decode-universal-time (+ (getloginvendorsessionstarttime) (hunchentoot:session-max-time hunchentoot:*session*)))
-      (logiamhere (format nil "Session max time is ~A" (hunchentoot:session-max-time hunchentoot:*session*)))
-       (list hour minute seconds)))
+  (multiple-value-bind
+	  (seconds minute hour)
+	(decode-universal-time (+ (get-universal-time) (hunchentoot:session-max-time hunchentoot:*session*)))
+      ;;(logiamhere (format nil "Session max time is ~A" (hunchentoot:session-max-time hunchentoot:*session*)))
+      (list hour minute seconds)))
 
 (defun get-vendor-web-session-timeout ()
     (multiple-value-bind
@@ -463,6 +463,17 @@ individual tiles. It also supports search functionality by including the searchr
 		(mapcar (lambda (item)
 			  (cl-who:htm (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4" 
 					    (:div :class tile-css-class (funcall displayfunc item)))))  listdata)))))
+
+;; This macro will be used for the MVC pattern on the UI display of pages. We need
+;; to pass the model generating and view generating functions and specify for which persona this request is for.
+;; currently we support customer and vendor roles.
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-hhub-mvc-ui (pagetitle createmodelfunc createwidgetsfunc &key role)
+    `(let* ((modelfunc (,createmodelfunc))
+	    (widgets (,createwidgetsfunc modelfunc)))
+       (case ,role
+	 (:customer (display-customer-page-with-widgets ,pagetitle widgets))
+	 (:vendor (display-vendor-page-with-widgets ,pagetitle widgets))))))
 
 ;; This function simply displays each widget containing the html, css, javascript code in the linear order.
 (defun display-customer-page-with-widgets (pagetitle widgets)
