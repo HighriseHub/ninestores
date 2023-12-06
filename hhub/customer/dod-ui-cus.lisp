@@ -113,7 +113,8 @@
 }")))))
 
 (defun dod-controller-customer-payment-methods-page ()
-  (with-hhub-mvc-ui "Customer Payment Methods" createmodelforcustomerpaymentmethodspage createwidgetsforcustomerpaymentmethodspage :role :customer))
+  (with-cust-session-check
+    (with-hhub-mvc-ui "Customer Payment Methods" createmodelforcustomerpaymentmethodspage createwidgetsforcustomerpaymentmethodspage :role :customer)))
 
 
 (defun createwidgetsforcustomerpaymentmethodspage (modelfunc)
@@ -2325,7 +2326,8 @@
 
 
 (defun dod-controller-cust-index ()
-  (with-hhub-mvc-ui "Welcome Customer" createmodelforcustomerindexpage createwidgetsforcustomerindexpage :role :customer))
+  (with-cust-session-check
+    (with-hhub-mvc-ui "Welcome Customer" createmodelforcustomerindexpage createwidgetsforcustomerindexpage :role :customer)))
    
 (defun shopping-cart-widget (itemscount)
   (cl-who:with-html-output (*standard-output* nil) 
