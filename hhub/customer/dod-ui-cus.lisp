@@ -1728,17 +1728,6 @@
 	(hunchentoot:redirect "/hhub/customer-login.html"))
       (hunchentoot:redirect  "/hhub/dodcustindex"))))
 
-(defun dod-controller-vend-login-with-otp ()
-  (let  ((phone (hunchentoot:parameter "phone")))
-    (unless ( or (null phone) (zerop (length phone)))
-      ;; remove the pre login session where we stored the otp and context.
-      ;;(hunchentoot:remove-session hunchentoot:*session*)
-      (unless (dod-vend-login-with-otp :phone phone)
-	(hunchentoot:redirect "/hhub/dodvendindex?context=home"))
-	(hunchentoot:redirect "/hhub/vendor-login.html"))))
-
-
-
 (defun dod-controller-cust-ordersuccess ()
   (with-cust-session-check 
     (let ((cust-type  (slot-value (get-login-customer) 'cust-type)))
