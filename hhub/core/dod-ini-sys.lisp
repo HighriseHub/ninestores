@@ -69,8 +69,8 @@
 (defvar *HHUBGLOBALROLES* NIL) 
 (defvar *HHUBFEATURESWISHLISTURL* "https://goo.gl/forms/hI9LIM9ebPSFwOrm1")
 (defvar *HHUBBUGSURL* "https://goo.gl/forms/3iWb2BczvODhQiWW2") 
-(defvar *HHUBCUSTLOGINPAGEURL* "/hhub/customer-login.html")
-(defvar *HHUBVENDLOGINPAGEURL* "/hhub/vendor-login.html")
+(defvar *HHUBCUSTLOGINPAGEURL* "/hhub/hhubcustloginv2")
+(defvar *HHUBVENDLOGINPAGEURL* "/hhub/hhubvendloginv2")
 (defvar *HHUBOPRLOGINPAGEURL* "/hhub/opr-login.html")
 (defvar *HHUBCADLOGINPAGEURL* "/hhub/cad-login.html")
 (defvar *HHUBPASSRESETTIMEWINDOW* 20) ; 20 minutes. Depicts the reset password time window. 
@@ -89,6 +89,7 @@
 (defvar *HHUBDEFAULTSHIPZONESCSV*  "defaultshipzonepincodes.csv")
 (defvar *HHUBSHIPPINGPARTNERSITE* "https://www.ithinklogistics.com/")
 (defvar *HHUBFREESHIPMINORDERAMT* 500.00)
+(defvar *HHUBMAXVENDORLOGINS* 4)
 
 (defun set-customer-page-title (name)
   (setf *customer-page-title* (format nil "Welcome to HighriseHub - ~A." name))) 
