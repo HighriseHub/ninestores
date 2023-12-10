@@ -42,7 +42,10 @@
     (if (equal (parse-integer otp) sessionotp)
 	(hunchentoot:redirect (format nil "/hhub/~A" context))
 	;;else
-	(hunchentoot:redirect *siteurl*))))
+	;; before redirecting we need to reset the web session. 
+	(progn
+	  (hunchentoot:remove-session hunchentoot:*session*)
+	  (hunchentoot:redirect *siteurl*)))))
   
 
 (defun dod-controller-otp-regenerate-action ()
