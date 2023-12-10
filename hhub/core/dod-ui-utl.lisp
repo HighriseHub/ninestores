@@ -346,9 +346,10 @@
 			   (nth 0  weseti)(nth 1 weseti)))))
 
 (defun print-vendor-web-session-timeout ()
+  (with-vend-session-check 
     (let ((weseti ( get-vendor-web-session-timeout)))
-	(if weseti (format t "~2,'0d:~2,'0d"
-		       (nth 0  weseti)(nth 1 weseti)))))
+      (if weseti (format t "~2,'0d:~2,'0d"
+			 (nth 0  weseti)(nth 1 weseti))))))
 
 
 (defun get-web-session-timeout ()
