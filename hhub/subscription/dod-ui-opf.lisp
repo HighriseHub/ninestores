@@ -2,20 +2,44 @@
 (in-package :hhub)
 
 
+
+
 (defun dod-controller-my-orderprefs ()
- :documentation "a callback function which prints daily order preferences for a logged in customer in html format." 
-    (let (( dodorderprefs (hunchentoot:session-value :login-cusopf-cache))
-	   (header (list  "Product"  "Day"  "Qty" "Qty Per Unit" "Actions")))
-      (with-cust-session-check
-	(with-standard-customer-page-v2  "Customer Order Subscriptions"
-	  (with-html-div-row
-	    (with-html-div-col (:h3 "My Subscriptions."))      
-	    (with-html-div-col (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustindex") "Shop Now")))
-	  (with-html-div-row
-	    (cl-who:str (display-as-table header dodorderprefs 'cust-opf-as-row)))))))
-;; (das-cust-page-with-tiles 'ui-list-cust-orderprefs "customer order preferences" header dodorderprefs)))
+  (with-cust-session-check
+    (with-hhub-mvc-ui "Customer Order Subscriptions" createmodelforcustordersubs createwidgetsforcustordersubs :role :customer)))
 
 
+(defun createmodelforcustordersubs ()
+  (let ((dodorderprefs (hunchentoot:session-value :login-cusopf-cache))
+	(header (list  "Product"  "Day"  "Qty" "Qty Per Unit" "Actions")))
+    (function (lambda ()
+      (values dodorderprefs header)))))
+
+(defun createwidgetsforcustordersubs (modelfunc)
+  (multiple-value-bind
+	(dodorderprefs header)
+      (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)  
+		       (with-html-div-row
+			 (with-html-div-col (:h3 "My Subscriptions."))      
+			 (with-html-div-col (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustindex") "Shop Now")))
+		       (with-html-div-row :id "idcustsubscriptions"
+			 (cl-who:str (display-as-table header dodorderprefs 'cust-opf-as-row)))))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:script "$(document).ready(function(){
+    const custsubscriptionformelem = document.querySelector(\"#idcustsubscriptions\");
+    if(null != custsubscriptionformelem){
+	custsubscriptionformelem.addEventListener('submit', (e) => {
+	    e.preventDefault();
+	    let targetform = e.target;
+	    submitformandredirect(targetform);
+	    console.log(\"A Customer Subscription form got submitted\");
+	});
+    }
+});"))))))
+    (list widget1 widget2))))
 
 
 (defun cust-opf-as-row (orderpref)
@@ -23,6 +47,7 @@
 	 (opf-product (get-opf-product orderpref))
 	 (prd-name (slot-value opf-product  'prd-name)))
     (cl-who:with-html-output (*standard-output* nil)
+      
       (:td  :height "12px" (cl-who:str prd-name))
       (:td :height "12px"    (cl-who:str (if (equal (slot-value orderpref 'sun) "Y") "Su, "))
 	       (cl-who:str (if (equal (slot-value orderpref 'mon) "Y") "Mo, "))
@@ -31,9 +56,20 @@
 	       (cl-who:str (if (equal (slot-value orderpref 'thu) "Y")  "Th, "))
 	       (cl-who:str (if (equal (slot-value orderpref 'fri) "Y") "Fr, "))
 	       (cl-who:str (if (equal (slot-value orderpref 'sat) "Y")  "Sa ")))
-      (:td  :height "12px" (cl-who:str (slot-value orderpref 'prd-qty)))
-      (:td  :height "12px" (cl-who:str (slot-value opf-product  'qty-per-unit)))
-      (:td :height "12px" (:a  :onclick "return DeleteConfirm();" :href  (format nil  "delopref?id=~A" opf-id ) (:i :class "fa-regular fa-trash-can"))))))
-  
+      (:td  :height "12px" (cl-who:str (slot-value orderpref 'prd-qty)))      (:td  :height "12px" (cl-who:str (slot-value opf-product  'qty-per-unit)))
+      (:td :height "12px"
+	   (:a  :data-bs-toggle "modal" :data-bs-target (format nil "#productsubsdelete-modal~A" opf-id) :data-toggle "tooltip" :title "Delete Subscription"  :href "#"  :id (format nil "btndeletesubs_~A" opf-id) :name (format nil "btndeletesubs~A" opf-id) (:i :class "fa-regular fa-trash-can"))
+	   (modal-dialog-v2 (format nil "productsubsdelete-modal~A" opf-id) (cl-who:str (format nil "Delete Product Subscription")) (modal.delete-subscription orderpref))))))
+	    
+
+(defun modal.delete-subscription (subscription)
+  (let* ((id (slot-value subscription 'row-id))
+	(opf-product (get-opf-product subscription))
+        (prd-name (slot-value opf-product  'prd-name)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (:span  :height "12px" (cl-who:str prd-name))
+      (with-html-form "deletesubscriptionform" "dodcustdelopfaction" 
+	(with-html-input-text-hidden "id" id)
+	(:input :type "submit" :class "btn btn-lg btn-danger"  :value "Delete")))))
   
 
