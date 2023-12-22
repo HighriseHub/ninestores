@@ -85,8 +85,9 @@
 
 
 (defun prdinlist-p  (prd-id list)
-  (if (member prd-id  (mapcar (lambda (item)
-				(slot-value item 'prd-id)) list)) T))
+  (if (member prd-id (mapcar (lambda (item)
+			       (slot-value item 'prd-id)) list) :test #'equal) T NIL))
+
 
 
 (defun select-product-by-id (id company-instance ) 

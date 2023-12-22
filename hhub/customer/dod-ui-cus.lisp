@@ -434,15 +434,25 @@
 
 
 (defun dod-controller-cust-wallet-display ()
-:documentation "a callback function which displays the wallets for a customer" 
+  :documentation "a callback function which displays the wallets for a customer" 
+  (with-cust-session-check
+    (with-hhub-mvc-ui "Customer Wallets" createmodelforcustwalletdisplay createwidgetsforcustwalletdisplay :role :customer)))    
+  
+
+(defun createmodelforcustwalletdisplay ()
   (let* ((company (hunchentoot:session-value :login-customer-company))
 	 (customer (hunchentoot:session-value :login-customer))
 	 (header (list "Vendor" "Phone" "Balance" "Recharge"))
 	 (wallets (get-cust-wallets customer company)))
-    (with-cust-session-check
-      (with-standard-customer-page-v2 "HighriseHub - Customer Wallets"
-	(cl-who:str (display-as-table header wallets 'cust-wallet-as-row))))))
-					;     (cl-who:str (display-as-tiles wallets 'wallet-card))))))
+    (function (lambda ()
+      (values header wallets)))))
+ 
+(defun createwidgetsforcustwalletdisplay (modelfunc)
+  (multiple-value-bind (header wallets) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (cl-who:str (display-as-table header wallets 'cust-wallet-as-row)))))))
+      (list widget1))))
 
 ;; This is a pure function. 
 (defun wallet-card (wallet-instance custom-message)
@@ -524,36 +534,54 @@
 
 
 
+(defun createmodelforcustdeleteordersubscription ()
+  (let ((ordpref-id (parse-integer (hunchentoot:parameter "id")))
+	(cust (hunchentoot:session-value :login-customer))
+	(company (hunchentoot:session-value :login-customer-company))
+	(redirectlocation "/hhub/dodcustorderprefs"))
+    
+    (delete-opref (get-opref-by-id ordpref-id company))
+    (setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer cust))
+    (function (lambda ()
+      (values redirectlocation)))))
 
-(defun dod-controller-del-opref ()
+
+(defun createwidgetsforcustdeleteordersubscription (modelfunc)
+  (multiple-value-bind (redirectlocation) (funcall modelfunc)
+    (let ((widget1 (function (lambda () redirectlocation))))
+      (list widget1))))
+
+(defun dod-controller-cust-del-orderpref-action ()
     :documentation "delete order preference"
-    (with-cust-session-check
-	(let ((ordpref-id (parse-integer (hunchentoot:parameter "id")))
-		     (cust (hunchentoot:session-value :login-customer))
-		 (company (hunchentoot:session-value :login-customer-company)))
-	    (delete-opref (get-opref-by-id ordpref-id company))
-	    (setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer cust))
-	(hunchentoot:redirect "/hhub/dodcustorderprefs"))
-					;else
-	))
+  (with-cust-session-check
+    (let ((uri (with-hhub-mvc-redirect-ui createmodelforcustdeleteordersubscription createwidgetsforcustdeleteordersubscription)))
+      (format nil "~A" uri))))
 
-
+(defun createmodelforcustorders ()
+  (let ((dodorders (hunchentoot:session-value :login-cusord-cache))
+	(header (list  "Order #" "Order Date" "Request Date"  "Actions")))
+    (function (lambda ()
+      (values dodorders header)))))
+    
+(defun createwidgetsforcustorders (modelfunc)
+  (multiple-value-bind (dodorders header) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:br)
+		       (:ul :class "nav nav-pills" 
+			    (:li  :class "nav-item" (:a :class "nav-link active" :href "dodmyorders" (:i :class "fa-solid fa-list")))
+			    (:li  :class "nav-item" (:a :class "nav-link" :href "dodcustorderscal" (:i :class "fa-regular fa-calendar-days")))
+			    (:li  :class "nav-item" (:a :class "nav-link" :href "dodcustindex" "Shop Now")))
+		       (:br)))))
+	  (widget2 (function (lambda ()
+		     (if dodorders (ui-list-customer-orders header dodorders) "No Orders")))))
+      (list widget1 widget2))))
 
 
 (defun dod-controller-my-orders ()
     :documentation "a callback function which prints orders for a logged in customer in html format."
-    (with-cust-session-check
-      (with-standard-customer-page-v2 "Customer Orders"
-	(:br)
-	(:ul :class "nav nav-pills" 
-	     (:li  :class "nav-item" (:a :class "nav-link active" :href "dodmyorders" (:i :class "fa-solid fa-list")))
-	     (:li  :class "nav-item" (:a :class "nav-link" :href "dodcustorderscal" (:i :class "fa-regular fa-calendar-days")))
-	     (:li  :class "nav-item" (:a :class "nav-link" :href "dodcustindex" "Shop Now")))
-	(:br)
-	(let ((dodorders (hunchentoot:session-value :login-cusord-cache))
-	      (header (list  "Order #" "Order Date" "Request Date"  "Actions")))
-	  (if dodorders (ui-list-customer-orders header dodorders) "No Orders")))))
-
+  (with-cust-session-check
+    (with-hhub-mvc-ui "Customer Orders" createmodelforcustorders createwidgetsforcustorders :role :customer)))
 
 (defun dod-controller-cust-order-data-json ()
  (with-cust-session-check
@@ -634,25 +662,21 @@
 
 
 
+
 (defun dod-controller-del-order()
     (with-cust-session-check
-	    (let* ((order-id (parse-integer (hunchentoot:parameter "id")))
-		  (cust (hunchentoot:session-value :login-customer))
-		  (company (hunchentoot:session-value :login-customer-company))
-		  (dodorder (get-order-by-id order-id company)))
-
-		(delete-order dodorder)
-		(setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer cust))
-		(hunchentoot:redirect "/hhub/dodmyorders"))
-					;else
-	))
-
+      (let* ((order-id (parse-integer (hunchentoot:parameter "id")))
+	     (cust (hunchentoot:session-value :login-customer))
+	     (company (hunchentoot:session-value :login-customer-company))
+	     (dodorder (get-order-by-id order-id company)))
+	
+	(delete-order dodorder)
+	(setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer cust))
+	(hunchentoot:redirect "/hhub/dodmyorders"))))
 
 (defun modal.vendor-details (id) 
   (let ((vendor (select-vendor-by-id id)))  
     (vendor-details-card vendor)))
-
-
 
 (defun dod-controller-del-cust-ord-item ()
   (with-cust-session-check
@@ -715,11 +739,6 @@
       (display-order-header-for-customer  dodorder))))
 
 
-(defun modal.customer-my-orderdetails ()
- (with-cust-session-check (cl-who:with-html-output-to-string (*standard-output* nil) 
-    (let* ((order-id (parse-integer (hunchentoot:parameter "id"))))
-      (customer-my-order-details order-id)))))
-
 
 (defun hhub-controller-customer-my-orderdetails ()
   (with-cust-session-check
@@ -730,14 +749,28 @@
 									  
 
 
-(defun dod-controller-search-products ()
+(defun cretemodelforsearchproducts ()
   (let* ((search-clause (hunchentoot:parameter "prdlivesearch"))
 	 (products (if (not (equal "" search-clause)) (search-products search-clause (get-login-cust-company))))
 	 (shoppingcart (hunchentoot:session-value :login-shopping-cart)))
-  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-    (:div :id "prdlivesearchresult" 
-	  (cl-who:str (render-products-list products shoppingcart))))))
-    
+    (function (lambda ()
+      (values products shoppingcart)))))
+
+(defun createwidgetsforsearchproducts (modelfunc)
+  (multiple-value-bind (products shoppingcart) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+		       (:div :id "prdlivesearchresult" 
+			     (render-products-list products shoppingcart)))))))
+      
+      (list widget1))))
+		     
+(defun dod-controller-search-products ()
+  (let* ((modelfunc (cretemodelforsearchproducts))
+	(widgets (createwidgetsforsearchproducts modelfunc)))
+    (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+      (loop for widget in widgets do
+	(cl-who:str (funcall widget))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defun with-customer-navigation-bar ()
@@ -1046,35 +1079,21 @@
 	   (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
 	   (:a :href "/hhub/customer-login.html" "Login now"))))))))
   
-
-
-
-
 (defun dod-response-passwords-do-not-match-error ()
    (with-standard-customer-page (:title "Passwords do not match error.")
     (:h2 "Passwords do not match. Please try again. ")
     	(:a :class "btn btn-primary" :role "button" :onclick "goBack();"  :href "#" (:i :class "fa-solid fa-arrow-left" "Go Back"))))
-
-
 (defun dod-response-captcha-error ()
   (with-standard-customer-page (:title "Captcha response error from Google")
     (:h2 "Captcha response error from Google. Looks like some unusual activity. Please try again later")))
-
-
 (defun dod-controller-duplicate-customer ()
      (with-standard-customer-page (:title "Welcome to HighriseHub platform")
 	 (:h3 (cl-who:str(format nil "Customer record has already been created" )))
 	 (:a :href "cust-register.html" "Register new customer")))
-  
-    
 (defun dod-controller-company-search-action ()
   (let*  ((qrystr (hunchentoot:parameter "accountlivesearch"))
 	  (company-list (if (not (equal "" qrystr)) (select-companies-by-name qrystr))))
     (ui-list-companies company-list)))
-
-
-
-
 (defun dod-controller-company-search-page ()
   (handler-case
       (progn  (if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)	      
@@ -1222,7 +1241,7 @@
   (handler-case 
       (progn  
 	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
-	(if hunchentoot:*session*
+	(if (is-dod-cust-session-valid?)  
 	    (hunchentoot:redirect "/hhub/dodcustindex")
 	    (with-standard-customer-page-v2 "Welcome Customer" 
 	      (with-html-div-row
@@ -1275,35 +1294,6 @@
 (defun is-dod-cust-session-valid? ()
   (if hunchentoot:*session* T NIL))
 
-(defun dod-controller-cust-add-orderpref-page ()
-  (with-cust-session-check
-    (let* ((prd-id (hunchentoot:parameter "prd-id"))
-	   (productlist (hunchentoot:session-value :login-prd-cache))
-	   (product (search-prd-in-list (parse-integer prd-id) productlist)))
-      (with-standard-customer-page (:title "Welcome to HighriseHub- Add Customer Order preference")
-	(:div :class "row" 
-	      (:div :class "col-sm-12  col-xs-12 col-md-12 col-lg-12"
-		    (:h1 :class "text-center login-title"  "Subscription - Add ")
-		    (:form :class "form-oprefadd" :role "form" :method "POST" :action "dodcustaddopfaction"
-			   (:div :class "form-group row"  (:label :for "product-id" (cl-who:str (format nil  "Product: ~a" (slot-value product 'prd-name))) ))
-			   (:input :type "hidden" :name "product-id" :value (format nil "~a" (slot-value product 'row-id)))
-					; (products-dropdown "product-id"  (hunchentoot:session-value :login-prd-cache)))
-			   (:div :class "form-group row" (:label :for "prdqty" "Product Quantity")
-				 (:input :class "form-control" :name "prdqty" :placeholder "Enter a number" :value "1" :min "1" :max "99"  :type "number"))
-			   (:div :class "form-group row" 
-				 (:label :class "checkbox-inline"  (:input :type "checkbox" :name "subs-sun"  :value "Sunday" :checked "" "Sunday" ))
-				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-mon" :value "Monday" :checked "" "Monday"))
-				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-tue" :value "Tuesday" :checked "" "Tuesday")))
-			   (:div :class "form-group row" 
-				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-wed" :value "Wednesday" :checked "" "Wednesday"))
-				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-thu" :value "Thursday" :checked "" "Thursday"))
-				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-fri" :value "Friday" :checked "" "Friday")))
-			   (:div :class "form-group row" 
-				 (:label :class "checkbox-inline" (:input :type "checkbox" :name "subs-sat" :value "Saturday" :checked "" "Saturday")))
-			   (:div :class "form-group" 
-				 (:input :type "submit"  :class "btn btn-primary" :value "Add      ")))))))))
-
-       
 ;; This is pure function. 
 (defun product-qty-add-html (product)
   (let* ((prd-id (slot-value product 'row-id))
@@ -1408,9 +1398,8 @@
 ;;;;;;; 2) Read only shopping cart for COD orders,
 ;;;;;;;  which could be for both Standard & Guest customers.
 
-(defun standard-cust-information-page ()
-  (let* ((customer (get-login-customer))
-	 (cust-name (if customer (slot-value customer 'name)))
+(defun standard-cust-information-page (customer)
+  (let* ((cust-name (if customer (slot-value customer 'name)))
          (cust-address (if customer (slot-value customer 'address) ""))
 	 (cust-city (if customer (slot-value customer 'city)))
 	 (cust-state (if customer (slot-value customer 'state)))
@@ -1530,9 +1519,8 @@
 	      (:div :class "g-recaptcha" :required T  :data-sitekey *HHUBRECAPTCHAV2KEY* ))))))
 
 
-(defun guest-cust-information-page ()
-  (let* ((temp-customer (hunchentoot:session-value :temp-guest-customer))
-	 (temp-cust-name (if temp-customer (slot-value temp-customer 'name)))
+(defun guest-cust-information-page (temp-customer)
+  (let* ((temp-cust-name (if temp-customer (slot-value temp-customer 'name)))
          (temp-cust-address (if temp-customer (slot-value temp-customer 'address) ""))
 	 (temp-cust-city (if temp-customer (slot-value temp-customer 'city)))
 	 (temp-cust-state (if temp-customer (slot-value temp-customer 'state)))
@@ -1564,7 +1552,6 @@
 	  (with-standard-customer-page-v2  "Add Customer Order"
 	    (with-customer-breadcrumb
 	      (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart")))
-
 	    (cl-who:str (cust-information-page cust-type))))))
 
 ;;; This function has been separated from the controller function because it is independently testable.
@@ -1573,51 +1560,48 @@
   ;; We are using a hash table to store the function references to call them later.
   ;; This is a good practice to avoid IF condition.
   (let ((temp-ht (make-hash-table :test 'equal)))
-    (setf (gethash "STANDARD"  temp-ht) (symbol-function 'standard-cust-information-page))
-    (setf (gethash "GUEST" temp-ht) (symbol-function 'guest-cust-information-page))
-    (funcall (gethash cust-type temp-ht))))
+    (setf (gethash "STANDARD"  temp-ht) (list (symbol-function 'standard-cust-information-page) (get-login-customer)))
+    (setf (gethash "GUEST" temp-ht) (list (symbol-function 'guest-cust-information-page) (hunchentoot:session-value :temp-guest-customer)))
+    (let* ((htentry (gethash cust-type temp-ht))
+	   (funcname (nth 0 htentry))
+	   (funcparams (nth 1 htentry)))
+      (funcall funcname funcparams))))
 
 
-(defun dod-controller-cust-add-order-detail-page ()
-    (with-cust-session-check
-	(with-standard-customer-page  "Welcome to HighriseHub- Add Customer Order"
-	    (:div :class "row background-image: url(resources/login-background.png);background-color:lightblue;" 
-		(:div :class "col-sm-6 col-md-4 col-md-offset-4"
-		    (:div :class "orderpref"
-			(:h1 :class "text-center login-title"  "Customer - Add order preference")
-			(:form :class "form-order" :role "form" :method "POST" :action "dodcustaddorderaction"
-			    (:div :class "form-group" (:label :for "orddate" "Order Date" )
-				(:input :class "form-control" :name "orddate" :placeholder "DD/MM/YYYY" :type "text"))
-			    (:div :class "form-group" (:label :for "reqdate" "Required On" )
-				(:input :class "form-control" :name "reqdate" :placeholder "DD/MM/YYYY" :type "text"))
-			    (:div :class "form-group" (:label :for "shipaddress" "Required On" )
-				(:input :class "form-control" :name "shipaddress" :type "text"))
-			    (products-dropdown "product-id" (select-products-by-company (hunchentoot:session-value :login-customer-company ))))
-			(:div :class "form-group" (:label :for "prdqty" "Product Quantity")
-			    (:input :class "form-control" :name "prdqty" :placeholder "Enter a number" :type "text"))
-			(:input :type "submit"  :class "btn btn-primary" :value "Add      ")))))))
+(defun createmodelforcustaddordersubs ()
+  (let ((product-id (hunchentoot:parameter "product-id"))
+	(login-cust (hunchentoot:session-value :login-customer))
+	(login-cust-comp (hunchentoot:session-value :login-customer-company))
+	(prd-qty (parse-integer (hunchentoot:parameter "prdqty")))
+	(subs-mon (hunchentoot:parameter "subs-mon"))
+	(subs-tue (hunchentoot:parameter "subs-tue"))
+	(subs-wed (hunchentoot:parameter "subs-wed"))
+	(subs-thu (hunchentoot:parameter "subs-thu"))
+	(subs-fri (hunchentoot:parameter "subs-fri"))
+	(subs-sat (hunchentoot:parameter "subs-sat"))
+	(subs-sun (hunchentoot:parameter "subs-sun"))
+	(redirectlocation "/hhub/dodcustorderprefs"))
+    (when (> prd-qty 0) 
+	(create-opref login-cust  (select-product-by-id product-id login-cust-comp )  prd-qty  (list subs-mon subs-tue subs-wed subs-thu subs-fri subs-sat subs-sun)  login-cust-comp))
+    ;;before returning the newly created subscription list, save it in customer session. 
+    (setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer login-cust))
+    ;; we are returning nothing here.
+    (function (lambda ()
+      (values redirectlocation)))))
 
+    
+(defun createwidgetsforcustaddordersubs (modelfunc)
+  (multiple-value-bind (redirectlocation) (funcall modelfunc)
+    (let ((widget1 (function (lambda () redirectlocation))))
+      (list widget1))))
 
-
+      
 (defun dod-controller-cust-add-orderpref-action ()
   (with-cust-session-check
-      (let ((product-id (hunchentoot:parameter "product-id"))
-	      (login-cust (hunchentoot:session-value :login-customer))
-	      (login-cust-comp (hunchentoot:session-value :login-customer-company  ))
-	      (prd-qty (parse-integer (hunchentoot:parameter "prdqty")))
-	      (subs-mon (hunchentoot:parameter "subs-mon"))
-	      (subs-tue (hunchentoot:parameter "subs-tue"))
-	      (subs-wed (hunchentoot:parameter "subs-wed"))
-	      (subs-thu (hunchentoot:parameter "subs-thu"))
-	      (subs-fri (hunchentoot:parameter "subs-fri"))
-	      (subs-sat (hunchentoot:parameter "subs-sat"))
-	      (subs-sun (hunchentoot:parameter "subs-sun"))		 )
-	  
-	  (if (> prd-qty 0) 
-		    (create-opref login-cust  (select-product-by-id product-id login-cust-comp )  prd-qty  (list subs-mon subs-tue subs-wed subs-thu subs-fri subs-sat subs-sun)  login-cust-comp))
-	  (setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer login-cust))
-	  (hunchentoot:redirect "/hhub/dodcustorderprefs"))))
-	
+    ;; create the model and return back the url to redirect to.
+    (let ((uri (with-hhub-mvc-redirect-ui createmodelforcustaddordersubs createwidgetsforcustaddordersubs)))
+     (format nil "~A" uri))))
+    
 
   
 ;; This is products dropdown
@@ -1728,17 +1712,6 @@
 	(hunchentoot:redirect "/hhub/customer-login.html"))
       (hunchentoot:redirect  "/hhub/dodcustindex"))))
 
-(defun dod-controller-vend-login-with-otp ()
-  (let  ((phone (hunchentoot:parameter "phone")))
-    (unless ( or (null phone) (zerop (length phone)))
-      ;; remove the pre login session where we stored the otp and context.
-      ;;(hunchentoot:remove-session hunchentoot:*session*)
-      (unless (dod-vend-login-with-otp :phone phone)
-	(hunchentoot:redirect "/hhub/dodvendindex?context=home"))
-	(hunchentoot:redirect "/hhub/vendor-login.html"))))
-
-
-
 (defun dod-controller-cust-ordersuccess ()
   (with-cust-session-check 
     (let ((cust-type  (slot-value (get-login-customer) 'cust-type)))
@@ -1793,86 +1766,98 @@
 
 
 
+(defun createmodelforcustordercreate ()
+  (let* ((params nil)
+	 (orderparams-ht (get-cust-order-params-v2))
+	 (odts (gethash "shoppingcart" orderparams-ht))
+	 (shopcart-products (gethash "shopcartproducts" orderparams-ht))
+	 (shipaddress (gethash "shipaddress" orderparams-ht))
+	 (shipzipcode (gethash "shipzipcode" orderparams-ht))
+	 (shipcity (gethash "shipcity" orderparams-ht))
+	 (shipstate (gethash "shipstate" orderparams-ht))
+	 (billaddress (gethash "billaddress" orderparams-ht))
+	 (billzipcode (gethash "billzipcode" orderparams-ht))
+	 (billcity (gethash "billcity" orderparams-ht))
+	 (billstate (gethash "billstate" orderparams-ht))
+	 (billsameasshipchecked (gethash "billsameasshipchecked" orderparams-ht))
+	 (claimitcchecked (gethash "claimitcchecked" orderparams-ht))
+	 (gstnumber (gethash "gstnumber" orderparams-ht))
+	 (gstorgname (gethash "gstorgname" orderparams-ht))
+	 (shopcart-total (gethash "shopcart-total" orderparams-ht))
+	 (shipping-cost (gethash "shipping-cost" orderparams-ht))
+	 (shipping-info (gethash "shipping-info" orderparams-ht))
+	 (phone  (gethash "phone" orderparams-ht))
+	 (email (gethash "email" orderparams-ht))
+	 (odate (gethash "orddate" orderparams-ht))
+	 (reqdate (gethash "reqdate" orderparams-ht))
+	 (ship-date (gethash "shipdate" orderparams-ht))
+	 (utrnum (gethash "utrnum" orderparams-ht))
+	 (payment-mode (gethash "paymentmode" orderparams-ht))
+	 (comments (gethash "comments" orderparams-ht))
+	 (order-cxt (gethash "order-cxt" orderparams-ht))
+	 (cust (get-login-customer))
+	 (custcomp (get-login-customer-company))
+	 (custname (slot-value cust 'name))
+	 (lowwalletbalanceflag nil)
+	 (redirectlocation "/hhub/dodcustordsuccess"))
+	 
+  
+    (declare (ignore billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname order-cxt shipzipcode shipcity shipstate custname ))
+    ;;(logiamhere (format nil "payment mode is ~A" payment-mode))
+    (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+    (setf params (acons "company" custcomp  params))
+    (with-hhub-transaction "com-hhub-transaction-create-order" params
+      (let* ((temp-ht (make-hash-table :test 'equal))
+	     (vendor-list (get-shopcart-vendorlist odts))
+	     (wallet-list (mapcar (lambda (vendor) (get-cust-wallet-by-vendor cust vendor custcomp)) vendor-list))
+	     (cust-type (slot-value cust 'cust-type))
+	     (temp-customer (hunchentoot:session-value :temp-guest-customer)))
+	
+	;; This function call is not pure. Try to make it pure. 
+	;; (guest-email (hunchentoot:session-value :guest-email-address)))
+	
+	;; If the payment mode is PREPAID, then check whether we have enough balance first. If not, then redirect to the low wallet balance. 
+	;; Redirecting to some other place is not a pure function behavior. Is there a better way to handle this? 
+	;;(logiamhere (format nil "payment mode is ~A" payment-mode))
+	(setf (gethash "PRE" temp-ht) (symbol-function 'check-all-vendors-wallet-balance))
+	(let ((func (gethash payment-mode temp-ht)))
+	  (when func (unless (funcall (gethash payment-mode temp-ht) vendor-list wallet-list odts)
+		       (setf redirectlocation "/hhub/dodcustlowbalanceshopcarts")
+		       (setf lowwalletbalanceflag T))))
+	;; If everything gets through, create order. 
+	(unless lowwalletbalanceflag
+	  (let ((order-id (create-order-from-shopcart  odts shopcart-products odate reqdate ship-date  shipaddress shopcart-total shipping-cost shipping-info  payment-mode comments cust custcomp temp-customer utrnum)))
+	    (setf (gethash "GUEST-EMAIL" temp-ht) (symbol-function 'send-order-email-guest-customer))
+	    (setf (gethash "GUEST-SMS" temp-ht) (symbol-function 'send-order-sms-guest-customer))
+	    (setf (gethash "STANDARD-EMAIL" temp-ht) (symbol-function 'send-order-email-standard-customer))
+	    (setf (gethash "STANDARD-SMS" temp-ht) (symbol-function 'send-order-sms-standard-customer))
+	    
+	    ;; Send order SMS to guest customer if phone is provided. (Phone is required field for Guest customer, hence SMS will always be sent)
+	    (when (and (equal cust-type "GUEST") phone) (funcall (gethash (format nil "~A-SMS" cust-type) temp-ht) order-id  phone))
+	    ;; Send order email to guest customer if email is provided. 
+	    (when (and (equal cust-type "GUEST") (> (length email) 0))  (funcall (gethash (format nil "~A-EMAIL" cust-type) temp-ht) order-id email temp-customer  shopcart-products odts shipping-cost))
+	    ;; If STANDARD customer has email, then send order email 
+	    (when (and (equal cust-type "STANDARD") (> (length email) 0)) (funcall (gethash (format nil "~A-EMAIL" cust-type) temp-ht) order-id email shopcart-products odts shipping-cost))
+	    ;; If standard customer has phone, then send SMS 
+	    (when (and (equal cust-type "STANDARD") phone) (funcall (gethash (format nil "~A-SMS" cust-type) temp-ht) order-id phone))
+	    (reset-cust-order-params)
+	    (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer cust))
+	    (setf (hunchentoot:session-value :login-shopping-cart ) nil)))
+	(function (lambda ()
+	  (values redirectlocation)))))))
+	
+  
+
+(defun createwidgetsforcustordercreate (modelfunc)
+  (multiple-value-bind
+   (redirectlocation) (funcall modelfunc)
+   (let ((widget1 (function (lambda () redirectlocation))))
+     (list widget1))))
+
 (defun com-hhub-transaction-create-order ()
   (with-cust-session-check
-    (let* ((params nil)
-	   (orderparams-ht (get-cust-order-params-v2))
-	   (odts (gethash "shoppingcart" orderparams-ht))
-	   (shopcart-products (gethash "shopcartproducts" orderparams-ht))
-	   (shipaddress (gethash "shipaddress" orderparams-ht))
-	   (shipzipcode (gethash "shipzipcode" orderparams-ht))
-	   (shipcity (gethash "shipcity" orderparams-ht))
-	   (shipstate (gethash "shipstate" orderparams-ht))
-	   (billaddress (gethash "billaddress" orderparams-ht))
-	   (billzipcode (gethash "billzipcode" orderparams-ht))
-	   (billcity (gethash "billcity" orderparams-ht))
-	   (billstate (gethash "billstate" orderparams-ht))
-	   (billsameasshipchecked (gethash "billsameasshipchecked" orderparams-ht))
-	   (claimitcchecked (gethash "claimitcchecked" orderparams-ht))
-	   (gstnumber (gethash "gstnumber" orderparams-ht))
-	   (gstorgname (gethash "gstorgname" orderparams-ht))
-	   (shopcart-total (gethash "shopcart-total" orderparams-ht))
-	   (shipping-cost (gethash "shipping-cost" orderparams-ht))
-	   (shipping-info (gethash "shipping-info" orderparams-ht))
-	   (phone  (gethash "phone" orderparams-ht))
-	   (email (gethash "email" orderparams-ht))
-	   (odate (gethash "orddate" orderparams-ht))
-	   (reqdate (gethash "reqdate" orderparams-ht))
-	   (ship-date (gethash "shipdate" orderparams-ht))
-	   (utrnum (gethash "utrnum" orderparams-ht))
-	   (payment-mode (gethash "paymentmode" orderparams-ht))
-	   (comments (gethash "comments" orderparams-ht))
-	   (order-cxt (gethash "order-cxt" orderparams-ht))
-	   (cust (get-login-customer))
-	   (custcomp (get-login-customer-company))
-	   (custname (slot-value cust 'name))
-	   (lowwalletbalanceflag nil)
-	   (redirectlocation "/hhub/dodcustordsuccess"))
-  
-      (declare (ignore billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname order-cxt shipzipcode shipcity shipstate custname ))
-      ;;(logiamhere (format nil "payment mode is ~A" payment-mode))
-      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-      (setf params (acons "company" custcomp  params))
-      (with-hhub-transaction "com-hhub-transaction-create-order" params
-	(let* ((temp-ht (make-hash-table :test 'equal))
-		 (vendor-list (get-shopcart-vendorlist odts))
-		 (wallet-list (mapcar (lambda (vendor) (get-cust-wallet-by-vendor cust vendor custcomp)) vendor-list))
-		 (cust-type (slot-value cust 'cust-type))
-		 (temp-customer (hunchentoot:session-value :temp-guest-customer)))
-	    
-	    ;; This function call is not pure. Try to make it pure. 
-	    ;; (guest-email (hunchentoot:session-value :guest-email-address)))
-	    
-	    ;; If the payment mode is PREPAID, then check whether we have enough balance first. If not, then redirect to the low wallet balance. 
-	    ;; Redirecting to some other place is not a pure function behavior. Is there a better way to handle this? 
-	    ;;(logiamhere (format nil "payment mode is ~A" payment-mode))
-	    (setf (gethash "PRE" temp-ht) (symbol-function 'check-all-vendors-wallet-balance))
-	    (let ((func (gethash payment-mode temp-ht)))
-	      (when func (unless (funcall (gethash payment-mode temp-ht) vendor-list wallet-list odts)
-			   (setf redirectlocation "/hhub/dodcustlowbalanceshopcarts")
-			   (setf lowwalletbalanceflag T))))
-	    ;; If everything gets through, create order. 
-	  (unless lowwalletbalanceflag
-	    (let ((order-id (create-order-from-shopcart  odts shopcart-products odate reqdate ship-date  shipaddress shopcart-total shipping-cost shipping-info  payment-mode comments cust custcomp temp-customer utrnum)))
-	      (setf (gethash "GUEST-EMAIL" temp-ht) (symbol-function 'send-order-email-guest-customer))
-	      (setf (gethash "GUEST-SMS" temp-ht) (symbol-function 'send-order-sms-guest-customer))
-	      (setf (gethash "STANDARD-EMAIL" temp-ht) (symbol-function 'send-order-email-standard-customer))
-	      (setf (gethash "STANDARD-SMS" temp-ht) (symbol-function 'send-order-sms-standard-customer))
-	      
-	      ;; Send order SMS to guest customer if phone is provided. (Phone is required field for Guest customer, hence SMS will always be sent)
-	      (when (and (equal cust-type "GUEST") phone) (funcall (gethash (format nil "~A-SMS" cust-type) temp-ht) order-id  phone))
-	      ;; Send order email to guest customer if email is provided. 
-	      (when (and (equal cust-type "GUEST") (> (length email) 0))  (funcall (gethash (format nil "~A-EMAIL" cust-type) temp-ht) order-id email temp-customer  shopcart-products odts shipping-cost))
-	      ;; If STANDARD customer has email, then send order email 
-	      (when (and (equal cust-type "STANDARD") (> (length email) 0)) (funcall (gethash (format nil "~A-EMAIL" cust-type) temp-ht) order-id email shopcart-products odts shipping-cost))
-	      ;; If standard customer has phone, then send SMS 
-	      (when (and (equal cust-type "STANDARD") phone) (funcall (gethash (format nil "~A-SMS" cust-type) temp-ht) order-id phone))
-	      (reset-cust-order-params)
-	      (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer cust))
-	      (setf (hunchentoot:session-value :login-shopping-cart ) nil)))
-	    ;; We will create a JSON string for redirect here.
-	    (format nil "~A~A" *siteurl* redirectlocation))))))
-
+    (let ((uri (with-hhub-mvc-redirect-ui createmodelforcustordercreate createwidgetsforcustordercreate)))
+      (format nil "~A" uri))))
 
 (defun save-cust-order-params-v2 (ht)
   (setf (hunchentoot:session-value :customer-clipboard2) ht))
@@ -1891,24 +1876,31 @@
 (defun reset-cust-order-params()
   (setf (hunchentoot:session-value :customer-clipboard) nil))
 
+(defun createmodelforcustaddorderotpstep ()
+  (let* ((phone  (hunchentoot:parameter "phone"))
+	 (context (hunchentoot:parameter "context"))
+	 (paymentmode (hunchentoot:parameter "paymentmode"))
+	 (cust-type (get-login-customer-type))
+	 (redirectlocation (format nil "/hhub/~A&paymentmode=~A" context paymentmode)))
+    ;; Redirect to the OTP page only for Guest customer. 
+    (if (equal cust-type "GUEST") (generateotp&redirect phone context)
+	;;else for standard customer, redirect to final checkout page. 
+	(function (lambda ()
+	  (values redirectlocation))))))
 
+(defun createwidgetsforcustaddorderotpstep (modelfunc)
+  (multiple-value-bind (redirectlocation) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     redirectlocation))))
+      (list widget1))))
+  
 (defun dod-controller-cust-add-order-otpstep ()
   (with-cust-session-check 
-    (let* ((phone  (hunchentoot:parameter "phone"))
-	   (context (hunchentoot:parameter "context"))
-	   (paymentmode (hunchentoot:parameter "paymentmode"))
-	   (cust-type (get-login-customer-type)))
+    (let ((uri (with-hhub-mvc-redirect-ui createmodelforcustaddorderotpstep createwidgetsforcustaddorderotpstep)))
+      (format nil "~A" uri))))
 
-      ;; Redirect to the OTP page only for Guest customer. 
-      (if (equal cust-type "GUEST") (generateotp&redirect phone context)
-	  ;;else for standard customer, redirect to final checkout page. 
-	  (hunchentoot:redirect (format nil "/hhub/~A&paymentmode=~A" context paymentmode))))))
-
-
-
-(defun dod-controller-cust-shipping-methods-page ()
-  (with-cust-session-check
-    (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
+(defun createmodelforcustshipmethodspage ()
+  (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	   (cust-type (get-login-customer-type))
 	   (vendor-list (get-shopcart-vendorlist lstshopcart))
 	   (singlevendor (first vendor-list))
@@ -1980,17 +1972,30 @@
       ;; Save the Guest customer details so that we can use them within the session if required. 
       (when (equal cust-type "GUEST")
 	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email))
-	
-      (with-standard-customer-page-v2 "Shipping Methods"
-	(with-customer-breadcrumb
-	  (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
-	  (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address")))
-	
-	(:div :class "card" :style "width: 50rem;"
-	      (:div :class "card-body"
-		    (:h5 :class "card-title" "Shipping & Handling"
-			 (:hr)
-			 (display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor))))))))
+    (function (lambda ()
+      (values shopcart-total shiplst storepickupenabled singlevendor)))))
+
+(defun createwidgetsforcustshipmethodspage (modelfunc)
+  (multiple-value-bind (shopcart-total shiplst storepickupenabled singlevendor)
+      (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (with-customer-breadcrumb
+		       (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
+		       (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address"))))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:div :class "card" :style "width: 50rem;"
+			     (:div :class "card-body"
+				   (:h5 :class "card-title" "Shipping & Handling"
+					(:hr)
+					(display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor)))))))))
+      (list widget1 widget2))))
+
+
+(defun dod-controller-cust-shipping-methods-page ()
+  (with-cust-session-check
+    (with-hhub-mvc-ui "Customer Shipping Methods" createmodelforcustshipmethodspage createwidgetsforcustshipmethodspage :role :customer)))
+
       
 
 
@@ -2011,11 +2016,8 @@
 				 (mapcar (lambda (product)
 					   (let ((prd-type (slot-value product 'prd-type)))
 					     (equal prd-type "SALE"))) products))))
-
-
     ;; If we have a single service product or number of service products are more than 1 then do not calculate
     ;; shipping cost. Or calculate shipping cost only for SALES products. 
-       
     (when (and (equal vshipping-enabled "Y")
 	       saleproducts-p
 	       (<= shopcart-total freeshipminorderamt))
@@ -2037,113 +2039,113 @@
     
     
 
+(defun createmodelforcustshowshopcartreadonly ()
+  (let* ((orderparams-ht (get-cust-order-params-v2)) 
+	 (odts (gethash "shoppingcart" orderparams-ht))
+	 (odate (gethash "orddate" orderparams-ht))
+	 (reqdate (gethash "reqdate" orderparams-ht))
+	 (shopcart-products (gethash "shopcartproducts" orderparams-ht))
+	 (shipaddress (gethash "shipaddress" orderparams-ht))
+	 (shipcity (gethash "shipcity" orderparams-ht))
+	 (shipstate (gethash "shipstate" orderparams-ht))
+	 (shipzipcode (gethash "shipzipcode" orderparams-ht))
+	 (billaddress (gethash "billaddress" orderparams-ht))
+	 (billzipcode (gethash "billzipcode" orderparams-ht))
+	 (billcity (gethash "billcity" orderparams-ht))
+	 (billstate (gethash "billstate" orderparams-ht))
+	 (billsameasshipchecked (gethash "billsameasshipchecked" orderparams-ht))
+	 (claimitcchecked (gethash "claimitcchecked" orderparams-ht))
+	 (gstnumber (gethash "gstnumber" orderparams-ht))
+	 (gstorgname (gethash "gstorgname" orderparams-ht))
+	 (shopcart-total (gethash "shopcart-total" orderparams-ht))
+	 (shipping-cost (gethash "shipping-cost" orderparams-ht))
+	 (payment-mode (hunchentoot:parameter "paymentmode"))
+	 (utrnum (hunchentoot:parameter "utrnum"))
+	 (phone  (gethash "phone" orderparams-ht))
+	 (email (gethash "email" orderparams-ht))
+	 (customer (get-login-customer))
+	 (custcomp (get-login-customer-company))
+	 (order-cxt (format nil "hhubcustopy~A" (get-universal-time)))
+	 (company-type (slot-value custcomp 'cmp-type))
+	 (vendor-list (get-shopcart-vendorlist odts))
+	 (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
+    ;; if payment is made using UPI, then add the utrnum to the order parameters
+    (when (and (equal payment-mode "UPI") utrnum)
+      (setf (gethash "utrnum" orderparams-ht) utrnum)
+      (setf (gethash "paymentmode" orderparams-ht) "UPI"))
+    
+    (when payment-mode
+      (setf (gethash "paymentmode" orderparams-ht) payment-mode))
+    
+    (unless payment-mode
+      (setf payment-mode "COD")
+      (setf (gethash "paymentmode" orderparams-ht) "COD"))
+    
+    ;; Save the order params for further use. 
+    (save-cust-order-params-v2 orderparams-ht)
+    ;; return the variables in a function. 
+    (function (lambda ()
+      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts)))))
+
+(defun createwidgetsforcustshowshopcartreadonly (modelfunc)
+  (multiple-value-bind
+	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts)
+      (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (with-customer-breadcrumb
+		       (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
+		       (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address"))))))
+	 (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col-6
+			   (:div :class "place-order-header"
+				 (:p (cl-who:str (format nil "Order Date: ~A" (get-date-string odate))))
+				 (:p (cl-who:str (format nil "Request Date: ~A" (get-date-string reqdate))))
+				 (:p (cl-who:str (format nil "Payment Mode: ~A" payment-mode)))
+				 (:p (when (and (equal payment-mode "UPI") utrnum)
+				       (cl-who:str (format nil "UTR Number: ~A" utrnum))))
+				 (:p (cl-who:str (format nil "Phone: ~A" phone)))
+				 ;;If email is given by the guest customer during shopping
+				 (when (> (length email) 0)
+				   (cl-who:htm
+				    (:p (cl-who:str (format nil "Email: ~A" email)))))
+				 ;; Shipping address
+				 (:p (cl-who:str (format nil "Shipping Address: ~A ~A ~A ~A" shipaddress shipcity shipstate shipzipcode)))
+				 ;; billing address
+				 (when (not billsameasshipchecked)
+				   (cl-who:htm
+				    (:p (cl-who:str (format nil "Billing Address: ~A, ~A, ~A, ~A" billaddress billcity billstate billzipcode)))))
+		  		 ;; GST Number and Organization
+				 (when (and claimitcchecked (> (length gstnumber) 0))
+				   (cl-who:htm
+				    (:p (cl-who:str (format nil "GST Number: ~A/~A" gstnumber gstorgname)))))))
+			 (with-html-div-col-6
+			   (:div :class "place-order-details"
+				 (:p (cl-who:str (format nil "Sub-total: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
+				 (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
+				 (:hr)
+				 (:p (:h2 (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
+		  		  
+				 (cond
+				   ((and (equal payment-mode "OPY") (or (equal company-type "COMMUNITY")
+									(equal company-type "BASIC")
+									(equal company-type "PROFESSIONAL")))
+				    (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "live" order-cxt)))
+				   ((and (equal payment-mode "OPY")
+					 (equal company-type "TRIAL"))
+				    (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "test" order-cxt)))
+				   (T (with-html-form "placeorderform" "dodmyorderaddaction"  
+					(:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary" :type "submit" "Place Order" ))))))))
+		       (:hr)))))
+	  (widget3 (function (lambda () (cl-who:with-html-output (*standard-output* nil)
+					  (cl-who:str (ui-list-shopcart-readonly shopcart-products odts)))))))
+      (list widget1 widget2 widget3))))
+	
+
 (defun dod-controller-cust-show-shopcart-readonly()
-  (with-cust-session-check 
-    (let* ((orderparams-ht (get-cust-order-params-v2)) 
-	   (odts (gethash "shoppingcart" orderparams-ht))
-	   (odate (gethash "orddate" orderparams-ht))
-	   (reqdate (gethash "reqdate" orderparams-ht))
-	   (shopcart-products (gethash "shopcartproducts" orderparams-ht))
-	   (shipaddress (gethash "shipaddress" orderparams-ht))
-	   (shipcity (gethash "shipcity" orderparams-ht))
-	   (shipstate (gethash "shipstate" orderparams-ht))
-	   (shipzipcode (gethash "shipzipcode" orderparams-ht))
-	   (billaddress (gethash "billaddress" orderparams-ht))
-	   (billzipcode (gethash "billzipcode" orderparams-ht))
-	   (billcity (gethash "billcity" orderparams-ht))
-	   (billstate (gethash "billstate" orderparams-ht))
-	   (billsameasshipchecked (gethash "billsameasshipchecked" orderparams-ht))
-	   (claimitcchecked (gethash "claimitcchecked" orderparams-ht))
-	   (gstnumber (gethash "gstnumber" orderparams-ht))
-	   (gstorgname (gethash "gstorgname" orderparams-ht))
-	   (shopcart-total (gethash "shopcart-total" orderparams-ht))
-	   (shipping-cost (gethash "shipping-cost" orderparams-ht))
-	   (payment-mode (hunchentoot:parameter "paymentmode"))
-	   (utrnum (hunchentoot:parameter "utrnum"))
-	   (phone  (gethash "phone" orderparams-ht))
-	   (email (gethash "email" orderparams-ht))
-	   (customer (get-login-customer))
-	   (custcomp (get-login-customer-company))
-	   (order-cxt (format nil "hhubcustopy~A" (get-universal-time)))
-	   (company-type (slot-value custcomp 'cmp-type))
-	   (vendor-list (get-shopcart-vendorlist odts))
-	   (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
-	   
-	  
-
-
-      ;; if payment is made using UPI, then add the utrnum to the order parameters
-      (when (and (equal payment-mode "UPI") utrnum)
-	(setf (gethash "utrnum" orderparams-ht) utrnum)
-	(setf (gethash "paymentmode" orderparams-ht) "UPI"))
-
-      (when payment-mode
-	(setf (gethash "paymentmode" orderparams-ht) payment-mode))
-      
-      (unless payment-mode
-	(setf payment-mode "COD")
-	(setf (gethash "paymentmode" orderparams-ht) "COD"))
-
-      ;; Save the order params for further use. 
-      (save-cust-order-params-v2 orderparams-ht)
-
-            
-      (with-standard-customer-page-v2 "Shopping cart finalize"
-	(with-customer-breadcrumb
-	  (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
-	  (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address")))
-
-	(with-html-div-row
-	  (with-html-div-col-6
-	    (:div :class "place-order-header"
-		  (:p (cl-who:str (format nil "Order Date: ~A" (get-date-string odate))))
-		  (:p (cl-who:str (format nil "Request Date: ~A" (get-date-string reqdate))))
-		  (:p (cl-who:str (format nil "Payment Mode: ~A" payment-mode)))
-		  (:p (when (and (equal payment-mode "UPI") utrnum)
-			(cl-who:str (format nil "UTR Number: ~A" utrnum))))
-		  (:p (cl-who:str (format nil "Phone: ~A" phone)))
-		  ;;If email is given by the guest customer during shopping
-		  (when (> (length email) 0)
-		    (cl-who:htm
-		     (:p (cl-who:str (format nil "Email: ~A" email)))))
-		  ;; Shipping address
-		  (:p (cl-who:str (format nil "Shipping Address: ~A ~A ~A ~A" shipaddress shipcity shipstate shipzipcode)))
-		
-		  ;; billing address
-		  (when (not billsameasshipchecked)
-		    (cl-who:htm
-		     (:p (cl-who:str (format nil "Billing Address: ~A, ~A, ~A, ~A" billaddress billcity billstate billzipcode)))))
-		  
-		  ;; GST Number and Organization
-		  (when (and claimitcchecked (> (length gstnumber) 0))
-		    (cl-who:htm
-		     (:p (cl-who:str (format nil "GST Number: ~A/~A" gstnumber gstorgname)))))))
-	  (with-html-div-col-6
-	    (:div :class "place-order-details"
-		  (:p (cl-who:str (format nil "Sub-total: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
-		  (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
-		  (:hr)
-
-		  (:p (:h2 (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
-		  
-		  
-		  (cond
-		    ((and (equal payment-mode "OPY") (or (equal company-type "COMMUNITY")
-						 (equal company-type "BASIC")
-						 (equal company-type "PROFESSIONAL")))
-		     (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "live" order-cxt)))
-		    ((and (equal payment-mode "OPY")
-			  (equal company-type "TRIAL"))
-		     (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "test" order-cxt)))
-		    (T (with-html-form "placeorderform" "dodmyorderaddaction"  
-			 (:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary" :type "submit" "Place Order" ))))))))
-	    (:hr)
-	(cl-who:str (ui-list-shopcart-readonly shopcart-products odts))
-	(:hr)))))
-
-
-
-
+  (with-cust-session-check
+    (with-hhub-mvc-ui "Customer Shopping Cart Final" createmodelforcustshowshopcartreadonly createwidgetsforcustshowshopcartreadonly :role :customer)))
 			   
 ; This is a pure function. 
 (defun get-order-items-total-for-vendor (vendor order-items) 
@@ -2191,18 +2193,27 @@
 		     :test #'equal
 		     :key (lambda (vendor) (slot-value vendor 'row-id))))
 
+(defun createmodelforcustupdatecart ()
+  (let* ((prd-id (hunchentoot:parameter "prd-id"))
+	 (prd-qty (hunchentoot:parameter "prdqty"))
+	 (myshopcart (hunchentoot:session-value :login-shopping-cart))
+	 (odt (if myshopcart (search-odt-by-prd-id  (parse-integer prd-id)  myshopcart )))
+	 (redirectlocation "/hhub/dodcustshopcart"))
+    (setf (slot-value odt 'prd-qty) (parse-integer prd-qty))
+    (function (lambda ()
+      (values redirectlocation)))))
+ 
+(defun createwidgetsforcustupdatecart (modelfunc)
+  (multiple-value-bind (redirectlocation) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     redirectlocation))))
+      (list widget1))))
+
 (defun dod-controller-cust-update-cart ()
     :documentation "update the shopping cart by modifying the product quantity"
-    (with-cust-session-check
-	(let* ((prd-id (hunchentoot:parameter "prd-id"))
-		 (prd-qty (hunchentoot:parameter "prdqty"))
-		 (myshopcart (hunchentoot:session-value :login-shopping-cart))
-		 (odt (if myshopcart (search-odt-by-prd-id  (parse-integer prd-id)  myshopcart ))))
-	    (progn  ;(remove odt  myshopcart)
-		(setf (slot-value odt 'prd-qty) (parse-integer prd-qty))
-		;(setf (hunchentoot:session-value :login-shopping-cart) (append (list odt)  myshopcart  ))
-		(hunchentoot:redirect "/hhub/dodcustshopcart")))
-	))
+  (with-cust-session-check
+    (let ((uri (with-hhub-mvc-redirect-ui createmodelforcustupdatecart createwidgetsforcustupdatecart)))
+      (format nil "~A" uri))))
 		 
 (defun dod-controller-create-cust-wallet ()
   :documentation "If the customer wallet is not defined, then define it now"
@@ -2211,54 +2222,85 @@
     (if vendor (hunchentoot:log-message* :info "Created wallet for vendor ~A" (slot-value vendor 'name)))
     (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
 
+(defun createmodelforcustaddtocart ()
+  (let* ((prd-id (hunchentoot:parameter "prd-id"))
+	 (prdqty (parse-integer (hunchentoot:parameter "prdqty")))
+	 (productlist (hunchentoot:session-value :login-prd-cache))
+	 (myshopcart (hunchentoot:session-value :login-shopping-cart))
+	 (product (search-prd-in-list (parse-integer prd-id) productlist))
+	 (vendor (product-vendor product))
+	 (vendor-id (slot-value vendor 'row-id))
+	 (wallet (get-cust-wallet-by-vendor (get-login-customer) vendor (get-login-customer-company)))
+	 (odt (create-odtinst-shopcart nil product  prdqty (slot-value product 'unit-price) (hunchentoot:session-value :login-customer-company)))
+	 (redirectlocation (format nil "/hhub/hhubcustvendorstore?id=~A" vendor-id)))
+
+    ;;(unless wallet (hunchentoot:redirect (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id)))
+    (unless wallet (setf redirectlocation (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id)))
+    (when (and wallet (> prdqty 0)) 
+      (setf (hunchentoot:session-value :login-shopping-cart) (append myshopcart (list odt)))
+      (setf (hunchentoot:session-value :login-active-vendor) vendor))
+    (function (lambda ()
+      (values redirectlocation)))))
+
+(defun createwidgetsforcustaddtocart (modelfunc)
+  (multiple-value-bind (redirectlocation) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     redirectlocation))))
+      (list widget1))))
+
 (defun dod-controller-cust-add-to-cart ()
-    :documentation "This function is responsible for adding the product and product quantity to the shopping cart."
+  :documentation "This function is responsible for adding the product and product quantity to the shopping cart."
   (with-cust-session-check
-    (let* ((prd-id (hunchentoot:parameter "prd-id"))
-	   (prdqty (parse-integer (hunchentoot:parameter "prdqty")))
-	   (productlist (hunchentoot:session-value :login-prd-cache))
-	   (myshopcart (hunchentoot:session-value :login-shopping-cart))
-	   (product (search-prd-in-list (parse-integer prd-id) productlist))
-	   (vendor (product-vendor product))
-	   (vendor-id (slot-value vendor 'row-id))
-	   (wallet (get-cust-wallet-by-vendor (get-login-customer) vendor (get-login-customer-company)))
-	   (odt (create-odtinst-shopcart nil product  prdqty (slot-value product 'unit-price) (hunchentoot:session-value :login-customer-company)))
-	   (redirectlocation (format nil "/hhub/hhubcustvendorstore?id=~A" vendor-id)))
+    (let ((uri (with-hhub-mvc-redirect-ui createmodelforcustaddtocart createwidgetsforcustaddtocart)))
+      (format nil "~A" uri))))
 
-      (unless wallet (hunchentoot:redirect (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id)))
-      (when (and wallet (> prdqty 0)) 
-	(setf (hunchentoot:session-value :login-shopping-cart) (append myshopcart (list odt)))
-	(setf (hunchentoot:session-value :login-active-vendor) vendor)
-	(format nil "~A~A" *siteurl* redirectlocation)))))
-;;xb(if (length (hunchentoot:session-value :login-shopping-cart)) (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
-;;else if wallet is not defined, create wallet first
-
-(defun dod-controller-prd-details-for-guest-customer ()
+(defun createmodelforprddetailsforguestcustomer ()
   (let* ((parambase64 (hunchentoot:parameter "key"))
 	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
 	 (paramslist (first (cl-csv:read-csv param-csv
-				  :skip-first-p T
-				  :map-fn #'(lambda (row)
-					      row))))
+					     :skip-first-p T
+					     :map-fn #'(lambda (row)
+							 row))))
 	 (tenant-id (nth 0 paramslist))
 	 (prd-id (nth 1 paramslist)))
-    
     ;; login as guest customer. 
     (dod-cust-login-as-guest :tenant-id tenant-id :session-time-limit 300)
     (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
-	   (company (hunchentoot:session-value :login-customer-company)))
-      (with-cust-session-check
-	(with-standard-customer-page-v2 "Product Details"
-	  (product-card-with-details-for-customer (select-product-by-id prd-id company) (get-login-customer) (prdinlist-p prd-id lstshopcart)))))))
+	   (company (hunchentoot:session-value :login-customer-company))
+	   (product (select-product-by-id prd-id company))
+	   (customer (get-login-customer))
+	   (prdinshopcart (prdinlist-p prd-id lstshopcart)))
+      (function (lambda ()
+	(values product customer prdinshopcart))))))
+
+(defun createwidgetsforprddetailsforguestcustomer (modelfunc)
+  (multiple-value-bind (product customer prdinshopcart) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (product-card-with-details-for-customer product customer prdinshopcart)))))
+      (list widget1))))
+
+
+(defun dod-controller-prd-details-for-guest-customer ()
+  (with-hhub-mvc-ui "Product Details" createmodelforprddetailsforguestcustomer createwidgetsforprddetailsforguestcustomer :role :customer))
+
+(defun createmodelforprddetailsforcustomer ()
+  (let* ((company (get-login-customer-company))
+	 (customer (get-login-customer))
+	 (lstshopcart (hunchentoot:session-value :login-shopping-cart))
+	 (product (select-product-by-id (parse-integer (hunchentoot:parameter "id")) company)))
+    (function (lambda ()
+      (values product customer lstshopcart)))))
+
+
+(defun createwidgetsforprddetailsforcustomer (modelfunc)
+  (multiple-value-bind (product customer lstshopcart) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (product-card-with-details-for-customer product customer (prdinlist-p (slot-value product 'row-id)  lstshopcart))))))
+      (list widget1))))
 
 (defun dod-controller-prd-details-for-customer ()
    (with-cust-session-check 
-	(with-standard-customer-page-v2 "Product Details"
-	  (let* ((company (get-login-customer-company))
-		 (customer (get-login-customer))
-		 (lstshopcart (hunchentoot:session-value :login-shopping-cart))
-		 (product (select-product-by-id (parse-integer (hunchentoot:parameter "id")) company)))
-	      (product-card-with-details-for-customer product customer (prdinlist-p (slot-value product 'row-id)  lstshopcart))))))
+     (with-hhub-mvc-ui "Product Details" createmodelforprddetailsforcustomer createwidgetsforprddetailsforcustomer :role :customer)))
 
 (defun dod-controller-customer-search-vendor ()
   (with-cust-session-check
@@ -2299,13 +2341,13 @@
 			(display-products-carousel 4 (hunchentoot:session-value :login-prd-cache))))))
 	   (widget3 (function (lambda ()
 		      (unless activevendor
-			(cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+			(cl-who:with-html-output (*standard-output* nil)
 			  (:span (:h5 "Top Vendors"))
 			  (with-html-search-form "idsearchvendors" "searchvendors" "idvendorlivesearch" "vendorlivesearch" "hhubcustvendorsearch" "Vendor Store Search...") 
 			  (cl-who:str (display-vendors-widget lstvendors))
 			  (:hr)))
 		      (when activevendor
-			(cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+			(cl-who:with-html-output (*standard-output* nil)
 		       	  (:span (:h5 (cl-who:str (format nil "You are now in ~A Store" (slot-value activevendor 'name)))))
 			  (cl-who:str (display-vendors-widget (list activevendor)))
 			  (:hr))))))
@@ -2321,8 +2363,10 @@
 			    (cl-who:str (ui-list-customer-products first100products lstshopcart)))
 			  ;;else
 			  (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
-			    (cl-who:str (ui-list-customer-products lstproducts lstshopcart))))))))
-      (list widget1 widget2 widget3 widget4 widget5 widget6))))
+			    (cl-who:str (ui-list-customer-products lstproducts lstshopcart)))))))
+	   (widget7 (function (lambda ()
+		      (when activevendor (whatsapp-widget (slot-value activevendor 'phone)))))))
+      (list widget1 widget2 widget3 widget4 widget5 widget6 widget7))))
 
 
 (defun dod-controller-cust-index ()
@@ -2335,50 +2379,81 @@
 
 (defun product-search-widget (itemscount)
   (cl-who:with-html-output (*standard-output* nil) 
+    (:br)
     (with-html-div-row
       (with-html-search-form "idsearchproducts" "searchproducts" "idprdlivesearch" "prdlivesearch" "dodsearchproducts" "Search Products...") 
       ;; Display the My Cart button.
       (with-html-div-col-1 :style "align: right;" 
 	(:a :class "btn btn-primary" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;" (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))))
 
+(defun createmodelforcustprodbycatg()
+  (let* ((catg-id (parse-integer (hunchentoot:parameter "id")))
+	 (lstshopcart (hunchentoot:session-value :login-shopping-cart))
+	 (lstproducts (hunchentoot:session-value :login-prd-cache))
+	 (lstprodcatg (hunchentoot:session-value :login-prdcatg-cache))
+	 (lstprodbycatg (if lstproducts (filter-products-by-category catg-id lstproducts))))
+    (function (lambda()
+      (values lstshopcart lstprodcatg lstprodbycatg)))))
+
+(defun createwidgetsforcustprodbycatg (modelfunc)
+  (multiple-value-bind (lstshopcart lstprodcatg lstprodbycatg) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (shopping-cart-widget (length lstshopcart)))))
+	  (widget2 (function (lambda ()
+		     (product-search-widget (length lstshopcart)))))
+	  (widget3 (function (lambda ()
+		     (ui-list-prod-catg lstprodcatg))))
+	  (widget4 (function (lambda ()
+		     (ui-list-customer-products lstprodbycatg lstshopcart)))))
+      (list widget1 widget2 widget3 widget4)))) 
 
 (defun dod-controller-customer-products-by-category ()
   :documentation "This function lists the customer products by category"
   (with-cust-session-check
-    (let* ((catg-id (parse-integer (hunchentoot:parameter "id")))
-	   (lstshopcart (hunchentoot:session-value :login-shopping-cart))
-	   (lstproducts (hunchentoot:session-value :login-prd-cache))
-	   (lstprodcatg (hunchentoot:session-value :login-prdcatg-cache))
-	   (lstprodbycatg (if lstproducts (filter-products-by-category catg-id lstproducts))))
-      (with-standard-customer-page-v2 "Products By Category."
-	(:br)
-	(shopping-cart-widget (length lstshopcart))
-	(product-search-widget (length lstshopcart))
-	(cl-who:str (ui-list-prod-catg lstprodcatg))
-	(cl-who:str (ui-list-customer-products lstprodbycatg lstshopcart))))))
+    (with-hhub-mvc-ui "Products by Category" createmodelforcustprodbycatg createwidgetsforcustprodbycatg :role :customer)))
+    	
 
+
+(defun createmodelforcustprodbyvendor ()
+  (let* ((vendor-id (parse-integer (hunchentoot:parameter "id")))
+	 (vendor (select-vendor-by-id vendor-id))
+	 (vphone (slot-value vendor 'phone))
+	 (vname (slot-value vendor 'name))
+	 (lstshopcart (hunchentoot:session-value :login-shopping-cart))
+	 (lstproducts (hunchentoot:session-value :login-prd-cache))
+	 (lstprodcatg (hunchentoot:session-value :login-prdcatg-cache))
+	 (lstprodbyvendor (if lstproducts (filter-products-by-vendor vendor-id lstproducts))))
+    (function (lambda ()
+      (values vphone vname lstshopcart lstprodcatg lstprodbyvendor)))))
+  
+(defun createwidgetsforcustprodbyvendor (modelfunc)
+  (multiple-value-bind (vphone vname lstshopcart lstprodcatg lstprodbyvendor) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (:span (:h5 (cl-who:str (format nil "You are now in ~A Store" vname))))))))
+	  (widget2 (function (lambda ()
+		     (shopping-cart-widget (length lstshopcart)))))
+	  (widget3 (function (lambda ()
+		     (product-search-widget (length lstshopcart)))))
+	  (widget4 (function (lambda ()
+		     (ui-list-prod-catg lstprodcatg))))
+	  (widget5 (function (lambda ()
+		     (ui-list-customer-products lstprodbyvendor lstshopcart))))
+	  (widget6 (function (lambda()
+		     (whatsapp-widget vphone)))))
+      (list widget1 widget2 widget3 widget4 widget5 widget6))))
 
 (defun dod-controller-customer-products-by-vendor ()
   :documentation "This function lists the customer products by category"
   (with-cust-session-check
-    (let* ((vendor-id (parse-integer (hunchentoot:parameter "id")))
-	   (lstshopcart (hunchentoot:session-value :login-shopping-cart))
-	   (lstproducts (hunchentoot:session-value :login-prd-cache))
-	   (lstprodcatg (hunchentoot:session-value :login-prdcatg-cache))
-	   (lstprodbyvendor (if lstproducts (filter-products-by-vendor vendor-id lstproducts))))
-      (with-standard-customer-page-v2 "Products By Vendor."
-	(:br)
-	(shopping-cart-widget (length lstshopcart))
-	(product-search-widget (length lstshopcart))
-	(cl-who:str (ui-list-prod-catg lstprodcatg))
-	(cl-who:str (ui-list-customer-products lstprodbyvendor lstshopcart))))))
+    (with-hhub-mvc-ui "Products by vendor" createmodelforcustprodbyvendor createwidgetsforcustprodbyvendor :role :customer)))
 
 (defun display-products-by-category-widget (catg-id catg-name)
   :documentation "This function lists the customer products by category"
   (let* ((lstproducts (hunchentoot:session-value :login-prd-cache))
 	 (lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	 (lstprodbycatg (if lstproducts (filter-products-by-category catg-id lstproducts))))
-      (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+      (cl-who:with-html-output (*standard-output* nil)
 	;;(logiamhere (format nil "display-products-by-category-widget catg-id is ~d. Product count is ~d" catg-id (length lstprodbycatg)))
 	(:span (:h5 (cl-who:str (format nil "~A" catg-name))))
 	(cl-who:str (ui-list-cust-products-horizontal lstprodbycatg lstshopcart))
@@ -2394,66 +2469,97 @@
 		  (mapcar (lambda (vendor)
 			    (cl-who:htm (:div :class "vendor-card" (vendor-card vendor)))) vendorlist))))))
 
+(defun createmodelforcustshowshopcart ()
+  (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
+	 (lstcount (length lstshopcart))
+	 (prd-cache (hunchentoot:session-value :login-prd-cache))
+	 (total  (get-shop-cart-total lstshopcart))
+	 (products (mapcar (lambda (odt)
+				   (let ((prd-id (slot-value odt 'prd-id)))
+				     (search-prd-in-list prd-id prd-cache ))) lstshopcart)))
+    (function (lambda ()
+      (values lstshopcart lstcount  total products)))))
+
+(defun createwidgetsforcustshowshopcart (modelfunc)
+  (multiple-value-bind (lstshopcart lstcount  total products) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (with-customer-breadcrumb))))
+	  (widget2 (function (lambda ()
+		     (when (> lstcount 0)
+		       ;; Need to select the order details instance here instead of product instance. Also, ui-list-shop-cart should be based on order details instances. 
+		       ;; This function is responsible for displaying the shopping cart. 
+		       (cl-who:with-html-output (*standard-output* nil)
+			 (with-html-div-row (:br))
+			 (with-html-div-row
+			   (:div :class "col-6"
+				 (:p (cl-who:str (format nil "Shopping Cart (~A Items)" (length products)))))
+			   (:div :class "col-6" :align "right"
+				 (cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping"  ))))
+			   (:hr)
+			 (with-html-div-row
+			   (:div :class "col-6"
+				 (:h4 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total)))))
+			   (:div :class "col-6" :align "right"
+				   (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustorderaddpage") "Checkout"
+				       (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+					      (cl-who:str lstcount))))))))))
+	  (widget3 (function (lambda ()
+		     (if (> lstcount 0)
+			 (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)   
+			   (cl-who:str (ui-list-shopcart products lstshopcart)))
+			 ;;else
+			 (show-empty-shopping-cart)))))
+	  (widget4 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:script "$(document).ready(function(){
+    const custshoppingcartitems = document.querySelector(\"#idcustshoppingcartitems\");
+    if(null != custshoppingcartitems){
+	custshoppingcartitems.addEventListener('submit', (e) => {
+	    e.preventDefault();
+	    let targetform = e.target;
+	    submitformandredirect(targetform);
+	    console.log(\"A Customer Subscription form got submitted\");
+	});
+    }
+});"))))))
+      (list widget1 widget2 widget3 widget4))))
+	    
 (defun dod-controller-cust-show-shopcart ()
     :documentation "This is a function to display the shopping cart."
     (with-cust-session-check 
-      (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
-	     (lstcount (length lstshopcart))
-	     (prd-cache (hunchentoot:session-value :login-prd-cache))
-	     (total  (get-shop-cart-total lstshopcart))
-	     (products (mapcar (lambda (odt)
-				   (let ((prd-id (slot-value odt 'prd-id)))
-				     (search-prd-in-list prd-id prd-cache ))) lstshopcart)))
-	  (if (> lstcount 0)
-	      (with-standard-customer-page-v2 "My Shopping Cart"
-		(with-customer-breadcrumb)
-	    	;; Need to select the order details instance here instead of product instance. Also, ui-list-shop-cart should be based on order details instances. 
-		;; This function is responsible for displaying the shopping cart. 
-		
-		(with-html-div-row (:br))
-		(with-html-div-row
-		  (:div :class "col-6"
-			(:p (cl-who:str (format nil "Shopping Cart (~A Items)" (length products)))))
-		  (:div :class "col-6" :align "right"
-			    (cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping"  ))))
-		(:hr)
-		(:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-6"
-		)
-		(with-html-div-row
-		  (:div :class "col-6"
-			(:h4 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total)))))
-		  (:div :class "col-6" :align "right"
-			(:a :class "btn btn-primary" :role "button" :href (format nil "dodcustorderaddpage") "Checkout"
-			    (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-				   (cl-who:str lstcount)
-				   ;;(:span :class "visually-hidden" "Checkout")
-				   ))))
-		(cl-who:str (ui-list-shopcart products lstshopcart)))
-	  	
-	      ;; else
-	      (show-empty-shopping-cart)))))
-   
+      (with-hhub-mvc-ui "Customer Shopcart" createmodelforcustshowshopcart createwidgetsforcustshowshopcart :role :customer)))
+     
 
 (defun show-empty-shopping-cart ()
-  (with-standard-customer-page-v2  "My Shopping Cart"
+  (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)   
     (with-html-div-row
       (with-html-div-col 
 	(:h4 "0 items in shopping cart") 
 	(:a :class "btn btn-primary"  :role "button" :href "/hhub/dodcustindex" (:i :class "fa-solid fa-arrow-left"))))))
 
 
+(defun createmodelforremoveshopcartitem ()
+  (let ((action (hunchentoot:parameter "action"))
+	(prd-id (parse-integer (hunchentoot:parameter "id")))
+	(myshopcart (hunchentoot:session-value :login-shopping-cart))
+	(redirectlocation "/hhub/dodcustshopcart"))
+    (if (equal action "remitem" ) (setf (hunchentoot:session-value :login-shopping-cart) (remove (search-odt-by-prd-id  prd-id  myshopcart  ) myshopcart)))
+    (when (= (length (hunchentoot:session-value :login-shopping-cart)) 0)
+      (setf (hunchentoot:session-value :login-active-vendor) nil))
+    (function (lambda ()
+      (values redirectlocation)))))
+
+(defun createwidgetsforremoveshopcartitem (modelfunc)
+  (multiple-value-bind (redirectlocation) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     redirectlocation))))
+      (list widget1))))
+
 (defun dod-controller-remove-shopcart-item ()
     :documentation "This is a function to remove an item from shopping cart."
     (with-cust-session-check
-      (let ((action (hunchentoot:parameter "action"))
-	    (prd-id (parse-integer (hunchentoot:parameter "id")))
-	    (myshopcart (hunchentoot:session-value :login-shopping-cart)))
-	
-	(if (equal action "remitem" ) (setf (hunchentoot:session-value :login-shopping-cart) (remove (search-odt-by-prd-id  prd-id  myshopcart  ) myshopcart)))
-	(when (= (length (hunchentoot:session-value :login-shopping-cart)) 0)
-	  (setf (hunchentoot:session-value :login-active-vendor) nil))
-	(hunchentoot:redirect  "/hhub/dodcustshopcart"))))
-
+      (let ((uri (with-hhub-mvc-redirect-ui createmodelforremoveshopcartitem createwidgetsforremoveshopcartitem)))
+	(format nil "~A" uri))))
 
 (defun dod-cust-login-as-guest (&key tenant-id (session-time-limit 600))
    (handler-case 

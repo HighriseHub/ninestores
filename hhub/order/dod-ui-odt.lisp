@@ -101,17 +101,18 @@
 (defun ui-list-shopcart (products shopcart)
     :documentation "A function used for rendering the shopping cart data in HTML format."
     (cl-who:with-html-output-to-string (*standard-output* nil)
-      (:div :class "all-products-row"
+      (:div :id "idcustshoppingcartitems" :class "all-products-row"
 	    (mapcar (lambda (product odt)
 		      (cl-who:htm (:div :class "product-card-row" (product-card-shopcart product odt))))  products shopcart))))
 
 
 (defun ui-list-shopcart-readonly (products shopcart)
     :documentation "A function used for rendering the shopping cart data in HTML format."
-    (cl-who:with-html-output-to-string (*standard-output* nil)
+    (cl-who:with-html-output (*standard-output* nil)
       (:div :class "all-products-row"
 	    (mapcar (lambda (product odt)
-		      (cl-who:htm (:div :class "product-card-row" (product-card-shopcart-readonly product odt))))  products shopcart))))
+		      (cl-who:htm (:div :class "product-card-row" (product-card-shopcart-readonly product odt))))  products shopcart))
+      (:hr)))
 
 
 

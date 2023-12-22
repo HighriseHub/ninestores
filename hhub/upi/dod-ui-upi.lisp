@@ -126,7 +126,8 @@
 					 (:input :class "form-control" :name "amount" :value amount :type "hidden")
 					 (:input :class "form-control" :name "transaction-id" :value transaction-id :type "hidden")
 					 (:label :for "utrnum" "UTR No")
-					 (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :max "999999999999" :maxlength "12"  :required T)))
+					 (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup "countChar(this,12)" :max "999999999999" :maxlength "12"  :required T)))
+			     (:div :id "charcount" :class "form-group")
 			     (:div :class "row mb-3"
 				   (:div :class "col-sm-4" :style "text-align: center;"
 					 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))

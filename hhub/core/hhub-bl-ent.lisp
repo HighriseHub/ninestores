@@ -281,7 +281,7 @@
 (defgeneric createBusinessSession (BusinessContext sessionobject)
   (:documentation "Creates a business session and returns the newly created session"))
 (defgeneric deleteBusinessSession (BusinessContext key)
-  (:documentation "Deletes the business session"))
+  (:documentation "Deletes the business session on a given key"))
 (defgeneric getBusinessSession (BusinessContext key)
   (:documentation "Get the business session"))
 

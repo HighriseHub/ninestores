@@ -158,6 +158,49 @@ body {
 
 
 
+#floatingwhatsappbutton {
+    display: inline-block;
+    background-size: 60%;
+    align-items: center;
+    width: 37px;
+    height: 37px;
+    text-align: center;
+    border-radius: 5px;
+    position: fixed;
+    color: #FFFFFF;
+    top: 130px;
+    right: 18px;
+    transition: background-color .3s, 
+		opacity .5s, visibility .5s;
+    opacity: 1;
+    visibility: visible;
+    z-index: 100;
+    font-size:0.8rem;
+    vertical-align:-0.75em;
+}
+#floatingwhatsappbutton::after {
+  content: "";
+  font-family: FontAwesome;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 2em;
+  line-height: 40px;
+  color: #ffffff;
+}
+#floatingwhatsappbutton:hover {
+  cursor: pointer;
+  background-color: #ffffff;
+}
+#floatingwhatsappbutton:active {
+  background-color:#ffffff;
+}
+#floatingwhatsappbutton.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+
+
 
 .form-inline span {
   display:block;

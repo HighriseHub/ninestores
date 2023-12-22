@@ -90,8 +90,10 @@
 												    :method :GET
 												    :parameters param-alist  ))))
 	 (locality (cdr (assoc :OFFICENAME (nth 1 (nth 24 json-response)) :test 'equal)))
-	 (city (cdr (assoc :DISTRICT (nth 1 (nth 24 json-response)) :test 'equal)))
+	 (city (cdr (assoc :DISTRICTNAME (nth 1 (nth 24 json-response)) :test 'equal)))
+	 (division (cdr (assoc :DIVISIONNAME (nth 1 (nth 24 json-response)) :test 'equal)))
 	 (state (cdr (assoc :STATENAME (nth 1 (nth 24 json-response)) :test 'equal))))
+    (format t "locality = ~A, city= ~A, state = ~A" locality city state)
     ;; Send the Area, City and State values back.
     (if (and 
 	     (not (null locality))
@@ -106,7 +108,7 @@
 	  (setf (slot-value address 'longitude) "")
 	  (setf (slot-value address 'latitude) "")
 	  (setf (slot-value address 'locality) (string-trim "S.O" locality))
-	  (setf (slot-value address 'city) city)
+	  (setf (slot-value address 'city) (format nil "~A, ~A" division city))
 	  (setf (slot-value address 'state) state))
 	
 	;;else

@@ -21,25 +21,42 @@
                           :FOREIGN-KEY row-id
                           :SET nil))
 
-(prd-id
+   (prd-id
     :accessor get-opf-prd-id
     :DB-CONSTRAINTS :NOT-NULL
     :TYPE integer
     :initarg :prd-id)
-(productobject
- :ACCESSOR get-opf-product
- :db-kind :join
- :db-info (:join-class dod-prd-master
-		       :home-key prd-id
-		       :foreign-key row-id
-		       :set nil))
+   (productobject
+    :ACCESSOR get-opf-product
+    :db-kind :join
+    :db-info (:join-class dod-prd-master
+	      :home-key prd-id
+	      :foreign-key row-id
+	      :set nil))
 
-(prd-qty
+   (prd-qty
     :accessor get-product-qty
     :DB-CONSTRAINTS :NOT-NULL
     :TYPE integer
     :initarg :prd-qty)
 
+   (start-date
+    :accessor start-date
+    :DB-CONSTRAINTS :NOT-NULL
+    :TYPE clsql:date
+    :initarg :start-date)
+   (end-date
+    :accessor end-date
+    :DB-CONSTRAINTS :NOT-NULL
+    :TYPE clsql:date
+    :initarg :end-date)
+
+   (frequency
+    :accessor frequency
+    :type (string 10)
+    :void-value "WEEKLY"
+    :initarg :frequency)
+   
    (sun
     :type (string 1)
     :void-value "N"
@@ -81,7 +98,7 @@
                           :FOREIGN-KEY row-id
                           :SET nil))
 
-
+   
 
    (deleted-state
     :type (string 1)

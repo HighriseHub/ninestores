@@ -42,7 +42,10 @@
     (if (equal (parse-integer otp) sessionotp)
 	(hunchentoot:redirect (format nil "/hhub/~A" context))
 	;;else
-	(hunchentoot:redirect *siteurl*))))
+	;; before redirecting we need to reset the web session. 
+	(progn
+	  (hunchentoot:remove-session hunchentoot:*session*)
+	  (hunchentoot:redirect *siteurl*)))))
   
 
 (defun dod-controller-otp-regenerate-action ()
@@ -840,7 +843,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/createwhatsapplinkwithmessage" 'hhub-controller-create-whatsapp-link-with-message)
 	(hunchentoot:create-regex-dispatcher "^/hhub/permissiondenied" 'hhub-controller-permission-denied)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubnewcommstorerequest" 'hhub-controller-new-community-store-request-page)
-	
+	(hunchentoot:create-regex-dispatcher "^/hhub/list-companies" 'dod-controller-list-companies)
 	
 	;***************** COMPADMIN/COMPANYHELPDESK/COMPANYOPERATOR  RELATED ********************
      
@@ -868,30 +871,26 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustlogout" 'dod-controller-customer-logout)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodguestcustlogout" 'dod-controller-guest-customer-logout)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodmyorders" 'dod-controller-my-orders)
-	(hunchentoot:create-regex-dispatcher "^/hhub/delorder" 'dod-controller-del-order)
+	(hunchentoot:create-regex-dispatcher "^/hhub/delorder" 'dod-controller-del-order) ;; not used. 
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustordsuccess" 'dod-controller-cust-ordersuccess)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustorderprefs" 'dod-controller-my-orderprefs)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustmyorderdetails" 'hhub-controller-customer-my-orderdetails)
-	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustmyorderdtls.modal" 'modal.customer-my-orderdetails)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustaddorderpref" 'dod-controller-cust-add-orderpref-page)
+	;;(hunchentoot:create-regex-dispatcher "^/hhub/dodcustaddorderpref" 'dod-controller-cust-add-orderpref-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustaddopfaction" 'dod-controller-cust-add-orderpref-action)
-	(hunchentoot:create-regex-dispatcher "^/hhub/delopref" 'dod-controller-del-opref)
+	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustdelopfaction" 'dod-controller-cust-del-orderpref-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustorderaddpage" 'dod-controller-cust-add-order-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustshopcartotpstep" 'dod-controller-cust-add-order-otpstep)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodmyorderaddaction" 'com-hhub-transaction-create-order)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodmyorderdetailaddpage" 'dod-controller-cust-add-order-detail-page)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodmyorderdetailaddaction" 'dod-controller-cust-add-order-detail-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustaddtocart" 'dod-controller-cust-add-to-cart)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustupdatecart" 'dod-controller-cust-update-cart)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustshopcartro" 'dod-controller-cust-show-shopcart-readonly)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustshopcart" 'dod-controller-cust-show-shopcart)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustremshctitem" 'dod-controller-remove-shopcart-item )
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustplaceorder" 'dod-controller-cust-placeorder )
-	(hunchentoot:create-regex-dispatcher "^/hhub/list-companies" 'dod-controller-list-companies)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendordetails" 'dod-controller-vendor-details)
+	;;(hunchentoot:create-regex-dispatcher "^/hhub/dodcustplaceorder" 'dod-controller-cust-placeorder )
+	;;(hunchentoot:create-regex-dispatcher "^/hhub/dodvendordetails" 'dod-controller-vendor-details)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodprddetailsforcust" 'dod-controller-prd-details-for-customer)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubprddetailsforguestcust" 'dod-controller-prd-details-for-guest-customer)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodprodsubscribe" 'dod-controller-cust-add-orderpref-page)
+	;;(hunchentoot:create-regex-dispatcher "^/hhub/dodprodsubscribe" 'dod-controller-cust-add-orderpref-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodproductsbycatg" 'dod-controller-customer-products-by-category)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodsearchproducts" 'dod-controller-search-products)
 	(hunchentoot:create-regex-dispatcher "^/hhub/doddelcustorditem" 'dod-controller-del-cust-ord-item)
