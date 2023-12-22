@@ -20,7 +20,7 @@
 		(:option :value "N" "NO"))))))
 	   
 (defun ui-list-prod-catg (catglist)
-  (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+  (cl-who:with-html-output (*standard-output* nil)
     (:span (:h5 "Product Categories"))
     (:div :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
 	  (with-html-div-row :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
@@ -32,26 +32,26 @@
 
 
 (defun ui-list-customer-products (data lstshopcart)
-  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+  (cl-who:with-html-output (*standard-output* nil)
     (:div :id "prdlivesearchresult" 
 	  (cl-who:str (render-products-list data lstshopcart)))))
 
 (defun render-products-list (data lstshopcart)
-  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+  (cl-who:with-html-output (*standard-output* nil)
     (:div :class "all-products" 
-	  (cl-who:str (display-product-cards data lstshopcart)))))
+	  (display-product-cards data lstshopcart))))
 
      
 
 (defun ui-list-cust-products-horizontal (data lstshopcart)
-  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+  (cl-who:with-html-output (*standard-output* nil)
     (:div :id "idprd-catg-container" :class "prd-catg-container" :style "width: 100%; display:flex; overflow:auto;"
 	  (with-html-div-row :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
-	    (cl-who:str (display-product-cards data lstshopcart))))))
+	    (display-product-cards data lstshopcart)))))
 
 
 (defun display-product-cards (data lstshopcart)
-  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+  (cl-who:with-html-output (*standard-output* nil)
     (mapcar (lambda (product)
 	      (let* ((vendor-id (slot-value (product-vendor product) 'row-id))
 		     (active-vendor (hunchentoot:session-value :login-active-vendor))
@@ -69,9 +69,7 @@
 	   (prd-image-path (slot-value product-instance 'prd-image-path))
 	   (prd-id (slot-value product-instance 'row-id))
 	   (subtotal (* prdqty unit-price)))
-
       (cl-who:with-html-output (*standard-output* nil)
-	
 	(:span (cl-who:str (format nil "~A" prdqty)))
 	(:span (:p (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "50" :width "70" :alt prd-name " "))))
 	(:span (cl-who:str (format nil "~A: ~A/~A" prd-name unit-price qty-per-unit)))
@@ -80,8 +78,23 @@
 	 (:span (:p (:span :class "label label-success" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal)))))
 	 (:span 
 	  (:a  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id) :data-toggle "tooltip" :title "Modify"  :href "#" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) (:i :style "width: 15px; height: 15px; font-size: 20px;" :class "fa-regular fa-pen-to-square") "&nbsp;&nbsp;")
-	(modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-edit-html product-instance odt-instance)))
-	 (:span (:a :data-toggle "tooltip" :title "Remove from shopcart"  :href (format nil "dodcustremshctitem?action=remitem&id=~A" prd-id) (:i :style "width: 15px; height: 15px; font-size: 20px;"  :class "fa-solid fa-trash-can")))))))
+	  (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-edit-html product-instance odt-instance)))
+
+	 (:span 
+	  (:a  :data-bs-toggle "modal" :data-bs-target (format nil "#productremoveshopcart-modal~A" prd-id) :data-toggle "tooltip" :title "Remove From Shopcart"  :href "#" :id (format nil "btnremoveproduct_~A" prd-id) :name (format nil "btnremoveproduct~A" prd-id) (:i :style "width: 15px; height: 15px; font-size: 20px;" :class "fa-solid fa-trash-can") "&nbsp;&nbsp;")
+	  (modal-dialog-v2 (format nil "productremoveshopcart-modal~A" prd-id) (cl-who:str (format nil "Remove Product From Shopcart"))  (modal.product-remove-from-shopcart product-instance)))))))
+
+(defun modal.product-remove-from-shopcart (product)
+  (let ((id (slot-value product 'row-id))
+	(prd-name (slot-value product 'prd-name))
+	(prd-image-path (slot-value product 'prd-image-path)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (:span (:p (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "50" :width "70" :alt prd-name " "))))
+      (with-html-form "removeproductfromshopcart" "dodcustremshctitem" 
+	(with-html-input-text-hidden "id" id)
+	(with-html-input-text-hidden "action" "remitem")
+	(:input :type "submit" :class "btn btn-lg btn-danger"  :value "Remove")))))
+  
 
 (defun product-card-for-email (product-instance odt-instance)
   (let* ((prd-name (slot-value product-instance 'prd-name))
@@ -451,22 +464,22 @@
 		  (if  prdincart-p 
 		       (cl-who:htm (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);")(:i :class "fa-solid fa-check")))
 		       ;; else 
-		 (if (and units-in-stock (> units-in-stock 0))
-		     (cl-who:htm
-		      (:button  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "add-to-cart-btn" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id)  "Add&nbsp; " (:i :class "fa-solid fa-plus"))
-		      (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-add-html product-instance)))
-		     ;; else
-		     (cl-who:htm (:div :class "col-6" 
-				       (:h5 (:span :class "label label-danger" "Out Of Stock"))))))
+		       (if (and units-in-stock (> units-in-stock 0))
+			   (cl-who:htm
+			    (:button  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "add-to-cart-btn" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id)  "Add&nbsp; " (:i :class "fa-solid fa-plus"))
+			    (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-add-html product-instance)))
+			   ;; else
+			   (cl-who:htm (:div :class "col-6" 
+					     (:h5 (:span :class "label label-danger" "Out Of Stock"))))))
 		  
 		  ;; display the subscribe button under certain conditions. 
 		  (when (and (equal subscribe-flag "Y")
 			     (com-hhub-attribute-company-prdsubs-enabled subscription-plan cmp-type) 
 			     (equal cust-type "STANDARD"))
-	      (cl-who:htm
-	       (:button :data-bs-toggle "modal" :data-bs-target (format nil "#productsubscribe-modal~A" prd-id)  :href "#"   :class "subscription-btn" :id (format nil "btnsubscribe~A" prd-id) :name (format nil "btnsubscribe~A" prd-id) "Subscribe&nbsp;" (:i :class "fa-solid fa-hand-point-up"))
-	       (modal-dialog-v2 (format nil "productsubscribe-modal~A" prd-id) "Subscribe Product/Service" (product-subscribe-html prd-id)))))))))
-  
+		    (cl-who:htm
+		     (:button :data-bs-toggle "modal" :data-bs-target (format nil "#productsubscribe-modal~A" prd-id)  :href "#"   :class "subscription-btn" :id (format nil "btnsubscribe~A" prd-id) :name (format nil "btnsubscribe~A" prd-id) "Subscribe&nbsp;" (:i :class "fa-solid fa-hand-point-up"))
+		     (modal-dialog-v2 (format nil "productsubscribe-modal~A" prd-id) "Subscribe Product/Service" (product-subscribe-html prd-id)))))))))
+
 
 
 
