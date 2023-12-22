@@ -149,8 +149,72 @@
   (:BASE-TABLE dod_prd_master))
 
 
-; Product category
+;; PRODUCT PRICING
 
+
+(clsql:def-view-class dod-product-pricing ()
+  ((row-id
+    :db-kind :key
+    :db-constraints :not-null
+    :type integer
+    :initarg row-id)
+
+   (product-id
+    :accessor product-id
+    :DB-CONSTRAINTS :NOT-NULL
+    :TYPE integer
+    :INITARG :product-id)
+
+   (price
+    :type float
+    :initarg :price)
+
+   (discount
+    :type float
+    :initarg :discount)
+   
+   (currency
+    :type (string 3)
+    :void-value "INR"
+    :initarg :currency)
+
+   (start-date
+    :accessor start-date
+    :DB-CONSTRAINTS :NOT-NULL
+    :TYPE clsql:date
+    :initarg :start-date)
+   (end-date
+    :accessor end-date
+    :DB-CONSTRAINTS :NOT-NULL
+    :TYPE clsql:date
+    :initarg :end-date)
+      
+   (active-flag
+    :type (string 1)
+    :void-value "N"
+    :initarg :active-flag)
+
+
+   (deleted-state
+    :type (string 1)
+    :void-value "N"
+    :initarg :deleted-state)
+
+   (tenant-id
+    :type integer
+    :initarg :tenant-id)
+   (COMPANY
+    :ACCESSOR product-company
+    :DB-KIND :JOIN
+    :DB-INFO (:JOIN-CLASS dod-company
+	                  :HOME-KEY tenant-id
+                          :FOREIGN-KEY row-id
+                          :SET T)))
+
+   
+  (:BASE-TABLE dod_product_pricing))
+
+; Product category
 
 (clsql:def-view-class dod-prd-catg ()
   ((row-id
