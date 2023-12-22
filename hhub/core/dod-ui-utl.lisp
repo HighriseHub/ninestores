@@ -34,6 +34,12 @@
 		  (:li :class "breadcrumb-item" (:a :href "/hhub/dodcustindex" "Home"))
 		  ,@body)))))
 
+
+(defun whatsapp-widget (phone)
+  :description "This function returns the HTML required for the floating whatsapp button"
+  (cl-who:with-html-output (*standard-output* nil) 
+    (:a :id "floatingwhatsappbutton" :target "_blank"  :href (format nil "createwhatsapplinkwithmessage?phone=~A&message=Hi" phone) :style "font-weight: bold; font-size: 30px !important;"  (:i :class "fa-brands fa-whatsapp" :style "color: #39dd30;"))))
+
 (defun hhub-controller-create-whatsapp-link-with-message ()
   (let* ((phone (hunchentoot:parameter "phone"))
 	 (message (hunchentoot:parameter "message"))
@@ -476,6 +482,13 @@ individual tiles. It also supports search functionality by including the searchr
 	 (:customer (display-customer-page-with-widgets ,pagetitle widgets))
 	 (:vendor (display-vendor-page-with-widgets ,pagetitle widgets))))))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-hhub-mvc-redirect-ui (createmodelfunc createwidgetsfunc)
+    `(let* ((modelfunc (,createmodelfunc))
+	    (widgets (,createwidgetsfunc modelfunc)))
+       (funcall (nth 0 widgets)))))
+
+
 ;; This function simply displays each widget containing the html, css, javascript code in the linear order.
 (defun display-customer-page-with-widgets (pagetitle widgets)
   (with-standard-customer-page-v2 pagetitle
@@ -487,7 +500,10 @@ individual tiles. It also supports search functionality by including the searchr
     (loop for widget in widgets do 
       (funcall widget))))
 
-  
+
+
+
+
 (defun html-back-button ()
   :documentation "HTML Back button"
   `(cl-who:with-html-output-to-string (*standard-output* nil ) 
