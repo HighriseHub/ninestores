@@ -143,10 +143,8 @@
     :DB-INFO (:JOIN-CLASS dod-company
 	                  :HOME-KEY tenant-id
                           :FOREIGN-KEY row-id
-                          :SET NIL)))
-
-   
-  (:BASE-TABLE dod_prd_master))
+              :SET NIL)))
+   (:BASE-TABLE dod_prd_master))
 
 
 ;; PRODUCT PRICING
