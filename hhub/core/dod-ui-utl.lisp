@@ -2,6 +2,45 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun text-editor-control (idtextarea value)
+    (let ((editorid (format nil "~AEditor" (gensym "hhub")))
+	  (editorparentid (format nil "~AEditor" (gensym "hhub"))))
+	 
+      (cl-who:with-html-output (*standard-output* nil)
+	(:div :id editorparentid 
+	      (with-html-div-row
+		(with-html-div-col-8
+		  (:div :id editorid :contenteditable "true" :role "textbox" :style "display: none;text-align: left; margin-top: 10px; border: 1px solid gray; padding: 10px; border-radius: 5px;"
+			(cl-who:str value))))
+	      (with-html-div-row
+		(with-html-div-col-6
+		  (:a :id "btnpreview"  :href "" :data-toggle "tooltip" :title "HTML Preview" (:i :class "fa-regular fa-eye")"&nbsp;")
+		  (:a :id "btncode"  :href "" :data-toggle "tooltip" :title "HTML Code"  (:i :class "fa-solid fa-code")"&nbsp;"))))
+	(:script (cl-who:str (format nil "$(document).ready(function() {
+    const editorparentelem  = document.querySelector('#~A');
+    if (null != editorparentelem){
+	editorparentelem.addEventListener('click', (e) => {
+	    e.preventDefault();
+            const btnclicked = e.target.parentElement.id;
+            if (btnclicked == 'btncode'){
+            document.getElementById('~A').value = document.getElementById('~A').innerHTML;
+            document.getElementById('~A').style.display = 'block';
+            document.getElementById('~A').style.display = 'none'; 
+            }
+            if (btnclicked == 'btnpreview'){
+            document.getElementById('~A').innerHTML = document.getElementById('~A').value;
+            document.getElementById('~A').style.display = 'block';
+            document.getElementById('~A').style.display = 'none';
+            }
+            
+	});
+    }
+});" editorparentid idtextarea editorid idtextarea editorid editorid idtextarea editorid idtextarea )))))))
+
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun display-csv-as-html-table (csvstringwithheader)
     (let* ((data (cl-csv:read-csv csvstringwithheader))
@@ -475,7 +514,7 @@ individual tiles. It also supports search functionality by including the searchr
 ;; to pass the model generating and view generating functions and specify for which persona this request is for.
 ;; currently we support customer and vendor roles.
 (eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-hhub-mvc-ui (pagetitle createmodelfunc createwidgetsfunc &key role)
+  (defmacro with-mvc-ui-page (pagetitle createmodelfunc createwidgetsfunc &key role)
     `(let* ((modelfunc (,createmodelfunc))
 	    (widgets (,createwidgetsfunc modelfunc)))
        (case ,role
@@ -483,10 +522,18 @@ individual tiles. It also supports search functionality by including the searchr
 	 (:vendor (display-vendor-page-with-widgets ,pagetitle widgets))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-hhub-mvc-redirect-ui (createmodelfunc createwidgetsfunc)
+  (defmacro with-mvc-redirect-ui (createmodelfunc createwidgetsfunc)
     `(let* ((modelfunc (,createmodelfunc))
 	    (widgets (,createwidgetsfunc modelfunc)))
        (funcall (nth 0 widgets)))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-mvc-ui-component (createwidgetsfunc createmodelfunc &rest modelargs)
+    `(let* ((modelfunc (,createmodelfunc ,@modelargs))
+	    (widgets (,createwidgetsfunc modelfunc)))
+       (loop for widget in widgets do 
+	 (funcall widget)))))
+ 
 
 
 ;; This function simply displays each widget containing the html, css, javascript code in the linear order.
