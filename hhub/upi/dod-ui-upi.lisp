@@ -52,7 +52,7 @@
 
 
 (defun createmodelforcustorderpaymentpage  ()
-  (let* ((orderparams-ht (get-cust-order-params-v2)) 
+  (let* ((orderparams-ht (get-cust-order-params)) 
 	 (odts (gethash "shoppingcart" orderparams-ht))
 	 (shipping-cost (gethash "shipping-cost" orderparams-ht))
 	 (shopcart-total (get-shop-cart-total odts))
@@ -95,7 +95,7 @@
 
 (defun hhub-controller-upi-customer-order-payment-page ()
   (with-cust-session-check
-    (with-hhub-mvc-ui "Customer UPI Payment Page" createmodelforcustorderpaymentpage createwidgetsforcustorderpaymentpage :role :customer)))
+    (with-mvc-ui-page "Customer UPI Payment Page" createmodelforcustorderpaymentpage createwidgetsforcustorderpaymentpage :role :customer)))
 
 
 
@@ -138,7 +138,7 @@
   
 (defun hhub-controller-upi-recharge-wallet-page ()
   (with-cust-session-check
-    (with-hhub-mvc-ui "Customer Recharge Wallet - UPI Payment Page" createmodelforupirechargewalletpage createwidgetsforupirechargewalletpage :role :customer)))
+    (with-mvc-ui-page "Customer Recharge Wallet - UPI Payment Page" createmodelforupirechargewalletpage createwidgetsforupirechargewalletpage :role :customer)))
 
 
 
@@ -276,7 +276,7 @@
 
 (defun hhub-controller-show-vendor-upi-transactions ()
   (with-vend-session-check
-    (with-hhub-mvc-ui "Vendor UPI Transactions" createmodelforshowvendorupitransactions createwidgetsforshowvendorupitransactions :role :vendor)))
+    (with-mvc-ui-page "Vendor UPI Transactions" createmodelforshowvendorupitransactions createwidgetsforshowvendorupitransactions :role :vendor)))
   
 (defmethod RenderListViewHTML ((htmlview UPIPaymentsHTMLView) viewmodellist)
   (unless (= (length viewmodellist) 0)

@@ -217,7 +217,8 @@ the hunchentoot server with ssl settings"
 	(abacattributes (get-system-abac-attributes))
 	(transactions-ht (get-system-bus-transactions-ht))
 	(policies-ht (get-system-auth-policies-ht))
-	(companies (get-system-companies)))
+	(companies (get-system-companies))
+	(currencies-ht (get-system-currencies-ht)))
     (list (function (lambda () policies)) ;0
 	  (function (lambda () roles)) ;1
 	  (function (lambda () transactions)) ;2
@@ -226,7 +227,8 @@ the hunchentoot server with ssl settings"
  	  (function (lambda () abacattributes)) ;5
 	  (function (lambda () companies)) ;6
 	  (function (lambda () transactions-ht)) ;7
-	  (function (lambda () policies-ht))))) ;8
+	  (function (lambda () policies-ht)) ;8
+	  (function (lambda () currencies-ht))))) ;9
 
 
 (defun hhub-get-cached-auth-policies()
@@ -277,6 +279,11 @@ the hunchentoot server with ssl settings"
   :documentation "This function gets a list of all the globally cached ABAC policies in a hashtable."
   (let ((policiesfunc-ht (nth 8 *HHUBGLOBALLYCACHEDLISTSFUNCTIONS*)))
     (funcall policiesfunc-ht)))
+
+(defun hhub-get-cached-currencies-ht ()
+  :documentation "This function gets a list of all the globally cached currencies."
+  (let ((currencies-ht (nth 9 *HHUBGLOBALLYCACHEDLISTSFUNCTIONS*)))
+    (funcall currencies-ht)))
 
 
 (defun hhub-init-business-function-registrations ()

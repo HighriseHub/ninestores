@@ -139,45 +139,48 @@
   
 
   
-(defun persist-order-items(order-id product-id vendor-id unit-price product-qty  tenant-id )
- (clsql:update-records-from-instance (make-instance 'dod-order-items
+(defun persist-order-items(order-id product-id vendor-id unit-price discount product-qty  tenant-id )
+  (hhub-log-message (format nil "discount just before saving is ~A" discount))
+  (clsql:update-records-from-instance (make-instance 'dod-order-items
 						    :order-id order-id
 						    :prd-id product-id
-					 :vendor-id vendor-id
-					 :unit-price unit-price
-					 :status "PEN"
-					 :fulfilled "N"
+						    :vendor-id vendor-id
+						    :unit-price unit-price
+						    :disc-rate discount
+						    :status "PEN"
+						    :fulfilled "N"
 						    :prd-qty product-qty
 						    :tenant-id tenant-id
-					 :deleted-state "N")))
+						    :deleted-state "N")))
 
 
 
 
 
  ;This is a clean function with no side effect.
-(defun create-order-items (order product  product-qty unit-price company-instance)
+(defun create-order-items (order product  product-qty unit-price discount company-instance)
   (let ((order-id (slot-value order 'row-id))
 	(product-id (slot-value product 'row-id))
 	(vendor-id (slot-value (product-vendor product) 'row-id))
 	(tenant-id (slot-value company-instance 'row-id)))
-    (persist-order-items order-id product-id vendor-id unit-price product-qty tenant-id)))
+    (persist-order-items order-id product-id vendor-id unit-price discount product-qty tenant-id)))
 
 
  ;This is a clean function with no side effect.
-(defun create-odtinst-shopcart (order product product-qty unit-price company-instance)
+(defun create-odtinst-shopcart (order product product-qty unit-price discount-rate company-instance)
   (let ((product-id (slot-value product 'row-id))
        	(vendor-id (slot-value (product-vendor product) 'row-id)) 
 	(tenant-id (slot-value company-instance 'row-id))
-	   (order-id (if order (slot-value order 'row-id) nil)))
+	(order-id (if order (slot-value order 'row-id) nil)))
     (make-instance 'dod-order-items
-						    :order-id order-id
-						    :vendor-id vendor-id
-						    :prd-id product-id
-						    :unit-price unit-price
-						    :prd-qty product-qty
-						    :tenant-id tenant-id
-						    :deleted-state "N")))
+		   :order-id order-id
+		   :vendor-id vendor-id
+		   :prd-id product-id
+		   :unit-price unit-price
+		   :disc-rate discount-rate
+		   :prd-qty product-qty
+		   :tenant-id tenant-id
+		   :deleted-state "N")))
 
 (defun search-odt-by-prd-id (prd-id list)
     (if (not (equal prd-id (slot-value (car list) 'prd-id))) (search-odt-by-prd-id prd-id (cdr list))

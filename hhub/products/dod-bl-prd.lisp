@@ -98,8 +98,35 @@
 		[= [:tenant-id] tenant-id]
 		[=[:row-id] id]]    :caching *dod-database-caching* :flatp t ))))
 
+(defun select-product-pricing-by-id (id company-instance ) 
+  (let ((tenant-id (slot-value company-instance 'row-id)))
+    (car (clsql:select 'dod-product-pricing  :where
+		       [and
+		       [= [:active-flag] "Y"]
+		       [= [:deleted-state] "N"]
+		       [= [:tenant-id] tenant-id]
+		       [=[:row-id] id]]    :caching *dod-database-caching* :flatp t ))))
 
+(defun select-product-pricing-by-product-id (product-id company-instance ) 
+  (let ((tenant-id (slot-value company-instance 'row-id)))
+    (car (clsql:select 'dod-product-pricing  :where
+		       [and
+		       [= [:active-flag] "Y"]
+		       [= [:deleted-state] "N"]
+		       [= [:product-id] product-id]
+		       [= [:tenant-id] tenant-id]]
+		        :caching *dod-database-caching* :flatp t ))))
 
+(defun select-product-pricing-by-startdate (product-id start-date company-instance ) 
+  (let ((tenant-id (slot-value company-instance 'row-id)))
+    (car (clsql:select 'dod-product-pricing  :where
+		       [and
+		       [= [:active-flag] "Y"]
+		       [= [:deleted-state] "N"]
+		       [= [:start-date] start-date]
+		       [= [:product-id] product-id]
+		       [= [:tenant-id] tenant-id]]
+		        :caching *dod-database-caching* :flatp t ))))
 
 (defun select-products-by-category (catg-id company-instance )
     (let ((tenant-id (slot-value company-instance 'row-id)))
@@ -134,21 +161,20 @@
 		  :caching *dod-database-caching* :flatp t)))
 
 
-
-
-
-
-
 (defun update-prd-details (prd-instance); This function has side effect of modifying the database record.
   (clsql:update-records-from-instance prd-instance))
 
 (defun delete-product( id company-instance)
-    (let ((tenant-id (slot-value company-instance 'row-id)))
-  (let ((dodproduct (car (clsql:select 'dod-prd-master :where [and [= [:row-id] id] [= [:tenant-id] tenant-id]] :flatp t :caching *dod-database-caching*))))
+  (let* ((tenant-id (slot-value company-instance 'row-id))
+	 (dodproduct (car (clsql:select 'dod-prd-master :where [and [= [:row-id] id] [= [:tenant-id] tenant-id]] :flatp t :caching *dod-database-caching*))))
     (setf (slot-value dodproduct 'deleted-state) "Y")
-    (clsql:update-record-from-slot dodproduct 'deleted-state))))
+    (clsql:update-record-from-slot dodproduct 'deleted-state)))
 
-
+(defun delete-product-pricing (id company-instance)
+  (let* ((tenant-id (slot-value company-instance 'row-id))
+	 (prdpricing (car (clsql:select 'dod-product-pricing :where [and [= [:row-id] id] [= [:tenant-id] tenant-id]] :flatp t :caching *dod-database-caching*))))
+    (setf (slot-value prdpricing 'deleted-state) "Y")
+    (clsql:update-record-from-slot prdpricing 'deleted-state)))
 
 (defun delete-products ( list company-instance)
     (let ((tenant-id (slot-value company-instance 'row-id)))
@@ -175,7 +201,23 @@
   (update-prd-details product))
 
    
+(defun persist-product-pricing (product-id price discount currency start-date end-date tenant-id)
+  (clsql:update-records-from-instance (make-instance 'dod-product-pricing
+						     :product-id product-id
+						     :price price
+						     :discount discount
+						     :currency currency
+						     :start-date start-date
+						     :end-date end-date
+						     :active-flag "Y"
+						     :tenant-id tenant-id
+						     :deleted-state "N")))
 
+(defun create-product-pricing (product price discount currency start-date end-date company)
+  (let ((product-id (slot-value product 'row-id))
+	(tenant-id (slot-value company 'row-id)))
+    (persist-product-pricing product-id price discount currency start-date end-date tenant-id)))
+						     
   
 (defun persist-product(prdname description vendor-id catg-id qtyperunit unitprice units-in-stock img-file-path subscribe-flag tenant-id )
  (clsql:update-records-from-instance (make-instance 'dod-prd-master

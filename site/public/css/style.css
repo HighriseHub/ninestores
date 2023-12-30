@@ -695,6 +695,13 @@ body {
   font-weight: bold;
 }
 
+.product-details .discount-price {
+    font-size: 0.7rem;
+    color: #333;
+    font-weight: bold;
+    background-color: #ff5722;
+    border-radius: 5px;
+}
 
 
 
@@ -825,8 +832,8 @@ margin: 10px;
     border-color: #0080fd;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
     width: 350px; 
-    height: 280px;
-
+    height: 320px;
+    margin-bottom: 10px;
 }
 
 
