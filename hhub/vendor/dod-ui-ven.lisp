@@ -3,6 +3,38 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
+(defun createmodelforvendorprodpricingaction ()
+  (let* ((company (get-login-vendor-company))
+	 (prd-price (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
+			     (read in))))
+	 (prd-discount (float (with-input-from-string (in (hunchentoot:parameter "prddiscount"))
+			       (read in))))
+	 (start-date (get-date-from-string (hunchentoot:parameter "startdate")))
+	 (end-date (get-date-from-string (hunchentoot:parameter "enddate")))
+	 (prd-id (parse-integer (hunchentoot:parameter "prdid")))
+	 (product (select-product-by-id prd-id company))
+	 (prdpricing (select-product-pricing-by-product-id prd-id company))
+	 (redirectlocation "/hhub/dodvenproducts"))
+    (unless prdpricing
+      (create-product-pricing product prd-price prd-discount "INR" start-date end-date company))
+    (when prdpricing
+      (setf (slot-value prdpricing 'price) prd-price)
+      (setf (slot-value prdpricing 'discount) prd-discount)
+      (setf (slot-value prdpricing 'start-date) start-date)
+      (setf (slot-value prdpricing 'end-date) end-date)
+      (update-prd-details prdpricing))
+    (function (lambda ()
+      redirectlocation))))
+
+(defun createwidgetsforvendorprodpricingaction (modelfunc)
+  (multiple-value-bind (redirectlocation) (funcall modelfunc)
+    (let ((widget1 (function (lambda () redirectlocation))))
+      (list widget1))))
+
+(defun dod-controller-vendor-product-pricing-action ()
+  (let ((url (with-mvc-redirect-ui createmodelforvendorprodpricingaction createwidgetsforvendorprodpricingaction)))
+    (format nil "~A" url)))
+
 (defun vendor-card (vendor)
   (let* ((vname (slot-value vendor 'name))
 	 (vid (slot-value vendor 'row-id))
@@ -536,16 +568,18 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (with-vend-session-check
     (let* ((prodname (hunchentoot:parameter "prdname"))
 	   (id (hunchentoot:parameter "id"))
-	   (product (if id (select-product-by-id id (get-login-vendor-company))))
+	   (vendor (get-login-vendor))
+	   (company (get-login-vendor-company))
+	   (product (if id (select-product-by-id id company)))
 	   (description (hunchentoot:parameter "description"))
 	   (prodprice (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
-			(read in))))
+			       (read in))))
 	   (qtyperunit (hunchentoot:parameter "qtyperunit"))
 	   (units-in-stock (parse-integer (hunchentoot:parameter "unitsinstock")))
 	   (catg-id (parse-integer (hunchentoot:parameter "prodcatg")))
 	   (subscriptionflag (hunchentoot:parameter "yesno"))
 	   (prodimageparams (hunchentoot:post-parameter "prodimage"))
-					;(destructuring-bind (path file-name content-type) prodimageparams))
+	   ;;(destructuring-bind (path file-name content-type) prodimageparams))
 	   (tempfilewithpath (first prodimageparams))
 	   (file-name (format nil "~A" (second prodimageparams)))
 	   (external-url (if product (generate-product-ext-url product)))
@@ -584,8 +618,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		 	       
 		(update-prd-details product))
 					;else
-	      (create-product prodname description (get-login-vendor) (select-prdcatg-by-id catg-id (get-login-vendor-company)) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag  (get-login-vendor-company)))
-	  (dod-reset-vendor-products-functions (get-login-vendor) (get-login-vendor-company))
+	      (create-product prodname description vendor (select-prdcatg-by-id catg-id company) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag  company))
+	
+		  (dod-reset-vendor-products-functions vendor company)
 	  (hunchentoot:redirect "/hhub/dodvenproducts"))))))
   
 
@@ -1021,9 +1056,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(:br)
 	(unless shipzones
 	  (cl-who:str (display-csv-as-html-table zipcoderanges)))
+	(:p
+	 (:h5 "Note: You can find more information on how Indian Pincode system works "
+	      (:a :target "_blank" :href "https://en.wikipedia.org/wiki/Postal_Index_Number" "Click Here")))
 	(when shipzones
 	  (cl-who:str (display-as-tiles shipzones 'zonezipcodesdisplayfunc "product-card" )))
-		
+	 	
 	;; Zone 
 	(:script "function enableratetableshipping() {
     const tablerateshipenabled = document.getElementById('tablerateshipenabled');
@@ -1229,7 +1267,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
 
 
-(defun dod-controller-vendor-update-flatrate-shpping-action ()
+(defun dod-controller-vendor-update-flatrate-shipping-action ()
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (shippingmethod (get-shipping-method-for-vendor vendor company))
@@ -1882,11 +1920,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				   (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
 			  (:tbody
 			   (mapcar (lambda (odt)
-				     (let ((odt-product  (get-odt-product odt))
-					   (unit-price (slot-value odt 'unit-price))
-					   (prd-qty (slot-value odt 'prd-qty)))
+				     (let* ((odt-product  (get-odt-product odt))
+					    (pricewith-discount (calculate-order-item-cost odt))
+					    (prd-qty (slot-value odt 'prd-qty)))
 				       (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value odt-product 'prd-name)))
 						 (:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
-						 (:td  :height "12px" (cl-who:str (format nil  "Rs. ~$" unit-price)))
+						 (:td  :height "12px" (cl-who:str (format nil  "Rs. ~$" pricewith-discount)))
 						 (:td  :height "12px" (cl-who:str (format nil "Rs. ~$" (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty)))))
 						 )))) (if (not (typep data 'list)) (list data) data))))))))
