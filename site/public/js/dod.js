@@ -396,6 +396,22 @@ function addtocartclick (id){
 
 }
 
+
+function orderitemeditclick (id){                                                                                                                                              
+    event.preventDefault();
+    const editorderitembtn = document.querySelector("#"+id);
+    const prdrowid = id.substring(id.indexOf("_") + 1);
+    const range = document.querySelector('#range_' + prdrowid);
+    const rangeV = document.querySelector('#rangeV_' + prdrowid);
+    range.addEventListener('input', setRangeValue);
+    const
+    newValue = Number( (range.value - range.min) * 100 / (range.max - range.min) ),
+    newPosition = 10 - (newValue * 0.2);
+    rangeV.innerHTML = `<span>${range.value}</span>`;
+    rangeV.style.left = `calc(${newValue}% + (${newPosition}px))`;
+}
+
+
 function plusbtnclick (id){
     event.preventDefault();
     const plusbutton = document.querySelector("#"+id);
