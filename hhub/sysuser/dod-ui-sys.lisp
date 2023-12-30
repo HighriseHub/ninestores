@@ -39,13 +39,12 @@
 	(context (hunchentoot:session-value :sessioncontext))
 	(sessionotp (hunchentoot:session-value :genericotp)))
     ;;(hunchentoot:log-message* :info (format nil "context is ~A otp is ~A sessionotp is ~A" context otp sessionotp))
+    ;; before redirecting we need to reset the web session. 
+    (hunchentoot:remove-session hunchentoot:*session*)
     (if (equal (parse-integer otp) sessionotp)
-	(hunchentoot:redirect (format nil "/hhub/~A" context))
-	;;else
-	;; before redirecting we need to reset the web session. 
-	(progn
-	  (hunchentoot:remove-session hunchentoot:*session*)
-	  (hunchentoot:redirect *siteurl*)))))
+        (hunchentoot:redirect (format nil "/hhub/~A" context))
+	;; else
+	(hunchentoot:redirect *siteurl*))))
   
 
 (defun dod-controller-otp-regenerate-action ()
@@ -1006,11 +1005,12 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendshipzoneratetablepage"  'dod-controller-vendor-shipzone-ratetable-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvenduploadshipratetableaction"  'dod-controller-vendor-upload-shipping-ratetable-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdatedefaultshipmethod"  'dod-controller-vendor-update-default-shipping-method)
-	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdatflatrateshipmethodaction"  'dod-controller-vendor-update-flatrate-shpping-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdatflatrateshipmethodaction"  'dod-controller-vendor-update-flatrate-shipping-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdateshippartneraction"  'dod-controller-vendor-update-external-shipping-partner-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginotpstep"  'dod-controller-vend-login-otpstep)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginwithotp"  'dod-controller-vend-login-with-otp)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginv2"  'dod-controller-vendor-otploginpage)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendprodpricingsaveaction"  'dod-controller-vendor-product-pricing-action)
 	
 			
 ))
