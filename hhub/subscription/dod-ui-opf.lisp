@@ -1,12 +1,9 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 
-
-
-
 (defun dod-controller-my-orderprefs ()
   (with-cust-session-check
-    (with-hhub-mvc-ui "Customer Order Subscriptions" createmodelforcustordersubs createwidgetsforcustordersubs :role :customer)))
+    (with-mvc-ui-page "Customer Order Subscriptions" createmodelforcustordersubs createwidgetsforcustordersubs :role :customer)))
 
 
 (defun createmodelforcustordersubs ()
