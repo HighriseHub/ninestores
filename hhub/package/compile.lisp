@@ -71,6 +71,7 @@
 
 		     ;; Sysuser
 		     "sysuser/dod-dal-usr.lisp"
+		     "sysuser/dod-dal-sys.lisp"
 		     "sysuser/dod-bl-usr.lisp"
 		     "sysuser/dod-bl-cad.lisp"
 		     "sysuser/dod-ui-cad.lisp"
