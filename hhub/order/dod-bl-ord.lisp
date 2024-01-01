@@ -180,7 +180,7 @@
   (car (clsql:select 'dod-order  :where
 		     [and [= [:deleted-state] "N"]
 		     [= [:tenant-id] tenant-id]
-		     [=[:row-id] id]]    :caching *dod-debug-mode* :flatp t ))))
+		     [=[:row-id] id]]    :caching nil :flatp t ))))
 
 (defun get-all-vendor-orders-by-orderid (id company-instance)
   (let ((tenant-id (slot-value company-instance 'row-id)))
