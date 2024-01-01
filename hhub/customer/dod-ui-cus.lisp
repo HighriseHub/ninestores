@@ -748,7 +748,7 @@
 	 (total (if shipping-cost (+ order-amt shipping-cost) order-amt)))
 
     (function (lambda ()
-      (values odtlst header order-amt shipping-cost total dodorder order-id)))))
+      (values odtlst header order-amt shipping-cost total dodorder)))))
 
 
 (defun createwidgetsforcustmyorderdetails (modelfunc)
@@ -2203,12 +2203,7 @@
 
 (defun get-shop-cart-total (odts)
   (let* ((total (reduce #'+  (mapcar (lambda (odt)
-				       (let* ((discount (slot-value odt 'disc-rate))
-					      (unit-price (slot-value odt 'unit-price))
-					      (pricewith-discount (if discount
-								      (- unit-price (/ (* unit-price discount) 100))
-								      ;;else
-								      unit-price)) 
+				       (let* ((pricewith-discount (calculate-order-item-cost odt)) 
 					      (prdqty (slot-value odt 'prd-qty)))
 					 (* pricewith-discount prdqty))) odts))))
     total ))
