@@ -32,6 +32,13 @@
 		  (setf redirectlocation (format nil "/hhub/dodcustlowbalanceorderitems?item-id=~A&prd-qty=~A" item-id prdqty)))))
 	(update-order-item order-item)
 	(update-prd-details product)
+	;; update the order as well^M
+	(let* ((oitems (get-order-items order))
+               (newtotal (get-shop-cart-total oitems)))
+          (setf (slot-value order 'order-amt) newtotal)
+          (update-order order)
+          (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer)))
+   
 	(function (lambda ()
 	  (values redirectlocation)))))))
 
