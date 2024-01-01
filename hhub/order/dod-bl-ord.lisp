@@ -342,7 +342,7 @@
 
 
 
-(defun create-order-from-pref (order-pref-list order-date request-date ship-date ship-address order-amt shipping-cost customer-instance company-instance)
+(defun create-order-from-pref (order-pref-list order-date request-date ship-date ship-address order-amt discount shipping-cost customer-instance company-instance)
   (let ((uuid (uuid:make-v1-uuid ))
 	(tenant-id (slot-value company-instance 'row-id)))
       (progn  (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost "PRE" nil  company-instance)
@@ -353,7 +353,7 @@
 			  (let* ((prd (get-opf-product preference))
 				 (unit-price (slot-value prd 'unit-price))
 				 (prd-qty (slot-value preference 'prd-qty)))
-			    (if (prefpresent-p preference (clsql-sys:date-dow request-date)) (create-order-items order prd  prd-qty unit-price company-instance)))) order-pref-list)
+			    (if (prefpresent-p preference (clsql-sys:date-dow request-date)) (create-order-items order prd  prd-qty unit-price discount company-instance)))) order-pref-list)
 		
 					; Create one row per vendor in the vendor_orders table. 
 		(mapcar (lambda (vendor) 
@@ -526,7 +526,7 @@
 										 (if (equal (slot-value preference 'sat) "Y") 6))))
 								(if (member (clsql-sys:date-dow requestdate) lst) t nil)))
 							    (get-opreflist-for-customer customer))))
-			    (if custopflist  (create-order-from-pref custopflist orderdate requestdate nil (slot-value customer 'address) nil 0 customer dodcompany)) )) customers)))
+			    (if custopflist  (create-order-from-pref custopflist orderdate requestdate nil (slot-value customer 'address) nil 0 0 customer dodcompany)) )) customers)))
 
 
 
