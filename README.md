@@ -3,7 +3,7 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 
 * Order Management & Fulfillment
 * Product Subscriptions 
-* Product listings 
+* Product listings, Product Discounts, Bundled Products (coming soon...)
 * Basic Inventory control with Stock Management. 
 * Warehouses (coming soon...) 
 * Order Management for Vendors.
