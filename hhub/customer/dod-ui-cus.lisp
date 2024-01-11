@@ -1123,6 +1123,7 @@
   (let*  ((qrystr (hunchentoot:parameter "accountlivesearch"))
 	  (company-list (if (not (equal "" qrystr)) (select-companies-by-name qrystr))))
     (ui-list-companies company-list)))
+
 (defun dod-controller-company-search-page ()
   (handler-case
       (progn  (if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)	      
@@ -2166,8 +2167,11 @@
 					(:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary" :type "submit" "Place Order" ))))))))
 		       (:hr)))))
 	  (widget3 (function (lambda () (cl-who:with-html-output (*standard-output* nil)
-					  (cl-who:str (ui-list-shopcart-readonly shopcart-products odts)))))))
-      (list widget1 widget2 widget3))))
+					  (cl-who:str (ui-list-shopcart-readonly shopcart-products odts))))))
+
+	  (widget4 (function (lambda () (cl-who:with-html-output (*standard-output* nil)
+					  (submitformevent-js "#placeorderform"))))))
+      (list widget1 widget2 widget3 widget4))))
 	
 
 (defun dod-controller-cust-show-shopcart-readonly()
@@ -2544,18 +2548,7 @@
 			 ;;else
 			 (show-empty-shopping-cart)))))
 	  (widget4 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil)
-		       (:script "$(document).ready(function(){
-    const custshoppingcartitems = document.querySelector(\"#idcustshoppingcartitems\");
-    if(null != custshoppingcartitems){
-	custshoppingcartitems.addEventListener('submit', (e) => {
-	    e.preventDefault();
-	    let targetform = e.target;
-	    submitformandredirect(targetform);
-	    console.log(\"A Customer Subscription form got submitted\");
-	});
-    }
-});"))))))
+		     (submitformevent-js "#idcustshoppingcartitems")))))
       (list widget1 widget2 widget3 widget4))))
 	    
 (defun dod-controller-cust-show-shopcart ()
