@@ -2,7 +2,41 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitformevent-js (id-bind-element)
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str
+		(parenscript:ps
+		 (parenscript:chain ($ "document") 
+				     (ready (lambda ()
+					      (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
+					      (if (not (null element))
+						  (parenscript:chain element (add-event-listener "submit" (lambda (e)
+													    (parenscript:chain e (prevent-default))
+													    (let ((target-form (parenscript:@ e target)))
+													      (submitformandredirect target-form)))))))))))))))
 
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitsearchformevent-js (id-bind-element searchresultid)
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str
+		(parenscript:ps
+		  (defun onkeyupsearchformevent ()   
+		    (let ((the-form (parenscript:@ event target form))))
+		    (let ((element (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
+		    (if (or
+			 (= (parenscript:@ element value length) 3)
+			 (= (parenscript:@ element value length) 5)
+			 (= (parenscript:@ element value length) 8)
+			 (= (parenscript:@ element value length) 13)
+			 (= (parenscript:@ element value length) 21))
+			(searchformsubmit the-form (parenscript:lisp searchresultid))))))))))
+		    
+			 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun text-editor-control (idtextarea value)
     (let ((editorid (format nil "~AEditor" (gensym "hhub")))
@@ -519,7 +553,8 @@ individual tiles. It also supports search functionality by including the searchr
 	    (widgets (,createwidgetsfunc modelfunc)))
        (case ,role
 	 (:customer (display-customer-page-with-widgets ,pagetitle widgets))
-	 (:vendor (display-vendor-page-with-widgets ,pagetitle widgets))))))
+	 (:vendor (display-vendor-page-with-widgets ,pagetitle widgets))
+	 (:compadmin (display-compadmin-page-with-widgets ,pagetitle widgets))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-mvc-redirect-ui (createmodelfunc createwidgetsfunc)
@@ -534,8 +569,6 @@ individual tiles. It also supports search functionality by including the searchr
        (loop for widget in widgets do 
 	 (funcall widget)))))
  
-
-
 ;; This function simply displays each widget containing the html, css, javascript code in the linear order.
 (defun display-customer-page-with-widgets (pagetitle widgets)
   (with-standard-customer-page-v2 pagetitle
@@ -545,11 +578,13 @@ individual tiles. It also supports search functionality by including the searchr
 (defun display-vendor-page-with-widgets (pagetitle widgets)
   (with-standard-vendor-page pagetitle
     (loop for widget in widgets do 
+      (funcall widget)))
+)
+
+(defun display-compadmin-page-with-widgets (pagetitle widgets)
+  (with-standard-compadmin-page-v2 pagetitle
+    (loop for widget in widgets do 
       (funcall widget))))
-
-
-
-
 
 (defun html-back-button ()
   :documentation "HTML Back button"
@@ -563,28 +598,13 @@ individual tiles. It also supports search functionality by including the searchr
   (defmacro  with-html-search-form (form-id form-name txtctrlid txtctrlname  search-form-action search-placeholder &body body)
     :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"
     `(cl-who:with-html-output (*standard-output* nil ) 
-       (let* ((jsfuncname (gensym ,txtctrlname))
-	      (jsfunc (parenscript:ps ((parenscript:lisp jsfuncname) event))))
-	 (with-html-div-col-8
-	   (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
-		  (:div :class "input-group"
-			(:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder :onkeyup jsfunc)
-			(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
-	   ,@body))
-	   (let ((jsfuncbody (format nil "function ~A {
-    let theForm = event.target.form; 
-    let element = document.querySelector('#~A');    
-     if (element.value.length == 3 ||
-         element.value.length == 5 ||
-         element.value.length == 8 ||
-         element.value.length == 13 ||
-         element.value.length == 21){
-          searchformsubmit(theForm,'#~Aresult');
-        }
-        return false;
-     }" (string-right-trim ";" jsfunc) ,txtctrlid ,txtctrlname)))
-	     (cl-who:htm
-	      (:script (cl-who:str jsfuncbody))))))))
+       (with-html-div-col-8
+	 (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
+		(:div :class "input-group"
+		      (:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder :onkeyup "onkeyupsearchformevent ();")
+		      (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
+		,@body))
+	 (submitsearchformevent-js  (format nil "#~A" ,txtctrlid) (format nil "#~Aresult" ,txtctrlname)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun WelcomeMessage (username)

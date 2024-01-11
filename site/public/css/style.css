@@ -1173,9 +1173,8 @@ input[type=range]::-webkit-slider-runnable-track {
   width: 100%;
   height: 4px;
   cursor: pointer;
-  animate: 0.2s;
   background: #03a9f4;
-  border-radius: 25px;
+  border-radius: 5px;
 }
 
 input[type=range]::-webkit-slider-thumb {
@@ -1192,6 +1191,46 @@ input[type=range]::-webkit-slider-thumb {
 input[type=range]:focus::-webkit-slider-runnable-track {
   background: #03a9f4;
 }
+
+
+/* This is for Firefox range slider */
+input[type=range] {
+    /* fix for FF unable to apply focus style bug  */
+    border: 1px solid white; 
+
+    /*required for proper track sizing in FF*/
+    width: 300px;
+}
+
+input[type=range]::-moz-range-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: #03a9f4;
+    border-radius: 5px;
+}
+
+input[type=range]::-moz-range-thumb {
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 4px 0 rgba(0,0,0, 1);
+      cursor: pointer;
+      -webkit-appearance: none;
+      margin-top: -8px;
+}
+
+/*hide the outline behind the border*/
+input[type=range]:-moz-focusring{
+    outline: 1px solid white;
+    outline-offset: -1px;
+}
+
+input[type=range]:focus::-moz-range-track {
+    background: #03a9f4;
+}
+
 
 .hhub-range-wrap{
   width: 80%;

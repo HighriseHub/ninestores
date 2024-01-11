@@ -24,19 +24,8 @@
 		       (with-html-div-row :id "idcustsubscriptions"
 			 (cl-who:str (display-as-table header dodorderprefs 'cust-opf-as-row)))))))
 	  (widget2 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil)
-		       (:script "$(document).ready(function(){
-    const custsubscriptionformelem = document.querySelector(\"#idcustsubscriptions\");
-    if(null != custsubscriptionformelem){
-	custsubscriptionformelem.addEventListener('submit', (e) => {
-	    e.preventDefault();
-	    let targetform = e.target;
-	    submitformandredirect(targetform);
-	    console.log(\"A Customer Subscription form got submitted\");
-	});
-    }
-});"))))))
-    (list widget1 widget2))))
+		     (submitformevent-js "#idcustsubscriptions")))))
+      (list widget1 widget2))))
 
 
 (defun cust-opf-as-row (orderpref)

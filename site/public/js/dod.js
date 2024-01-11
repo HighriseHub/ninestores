@@ -541,55 +541,29 @@ $(".form-vendordercomplete").on('submit', function (e) {
 //We are using event delegation here. #searchresult is 
 
 $(document).ready(function() {
-    const prdsearchresultelem = document.querySelector("#prdlivesearchresult");
-    if (null != prdsearchresultelem){
-	prdsearchresultelem.addEventListener('submit', (e) => {
-	    e.preventDefault();
-	    let targetform = e.target;
-	    submitformandredirect(targetform);
-	    console.log("A form got submitted in the search result");
-	});
-    }
-});
-
-$(document).ready(function() {
-    const prdsearchresultelem = document.querySelector("#idsingle-product-card");
-    if (null != prdsearchresultelem){
-	prdsearchresultelem.addEventListener('submit', (e) => {
-	    e.preventDefault();
-	    let targetform = e.target;
-	    submitformandredirect(targetform);
-	    console.log("A form got submitted in the search result");
-	});
-    }
+    registerforsubmitformevent ("#prdlivesearchresult");
 });
 
 
 $(document).ready(function() {
-    const prdsearchresultelem = document.querySelector("#idprd-catg-container");
-    if (null != prdsearchresultelem){
-	prdsearchresultelem.addEventListener('submit', (e) => {
-	    e.preventDefault();
-	    let targetform = e.target;
-	    submitformandredirect(targetform);
-	    console.log("A form got submitted in the search result");
-	});
-    }
+    registerforsubmitformevent ("#idsingle-product-card");
 });
 
 
-$(document).ready(function(){
-    const placeorderformelem = document.querySelector("#placeorderform");
-    if(null != placeorderformelem){
-	placeorderformelem.addEventListener('submit', (e) => {
+$(document).ready(function() {
+    registerforsubmitformevent ("#idprd-catg-container");
+});
+
+const registerforsubmitformevent = (component) => {
+    const element = document.querySelector(component);
+    if (null != element){
+	element.addEventListener('submit', (e) => {
 	    e.preventDefault();
 	    let targetform = e.target;
 	    submitformandredirect(targetform);
-	    console.log("A place order form got submitted");
 	});
     }
-});
-
+};
 
 
 function submitformandredirect (theForm){
