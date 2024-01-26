@@ -131,7 +131,7 @@
 
 (defun get-all-orders-for-vendor (vendor-instance &optional (rowcount "NULL"))
   (let* ((tenant-id (slot-value vendor-instance 'tenant-id))
-	 (company (car (vendor-company vendor-instance)))
+	 (company (car (get-vendor-company vendor-instance)))
 	 (vendor-id (slot-value vendor-instance 'row-id))
 	 (ordidlist     (clsql:select  [order-id] :from  'dod-vendor-orders :where
 	    [and [= [:tenant-id] tenant-id]
@@ -360,7 +360,7 @@
 			  (let* ((vitems (filter-opref-items-by-vendor vendor order-pref-list))
 				 (total (get-opref-items-total-for-vendor vendor vitems))) 
 			    
-			    (persist-vendor-orders (slot-value order 'row-id) cust-id (slot-value vendor 'row-id) tenant-id order-date request-date ship-date ship-address "PREPAID"  total shipping-cost )))  vendors)
+			    (persist-vendor-orders (slot-value order 'row-id) cust-id (slot-value vendor 'row-id) tenant-id order-date request-date ship-date ship-address "PREPAID"  total shipping-cost "Y")))  vendors)
       
 		))))
 
@@ -434,7 +434,7 @@
 		  (:td (cl-who:str (nth 11 shipinfo)))))) shipping-info))))
   
 
-(defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt shipping-cost shipping-info payment-mode  comments customer-instance company-instance guest-customer utrnum)
+(defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt shipping-cost shipping-info payment-mode  comments customer-instance company-instance guest-customer utrnum storepickupenabled)
   (let ((uuid (uuid:make-v1-uuid )))
       ;; Create an order in the database. 
     (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments  company-instance)
@@ -474,7 +474,7 @@
 			    (order-disp-str (create-order-email-content vproducts vitems custinst order-id shipping-cost total))
 			    (shipstr (process-shipping-information-for-email shipping-info))) 
       		       
-		       (persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost)
+		       (persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost storepickupenabled)
 		       ;; Save the UPI Transaction 
 		       (when utrnum (save-upi-transaction total utrnum (format nil "#ORD:~A" order-id) custinst vendor company-instance (slot-value custinst 'phone)))
 		       ;;Send a mail to the vendor
@@ -488,7 +488,7 @@
 
 
 
-(defun persist-vendor-orders(order-id cust-id vendor-id tenant-id ord-date req-date ship-date ship-address payment-mode order-amt shipping-cost )
+(defun persist-vendor-orders(order-id cust-id vendor-id tenant-id ord-date req-date ship-date ship-address payment-mode order-amt shipping-cost storepickupenabled)
  (clsql:update-records-from-instance (make-instance 'dod-vendor-orders
 					 :order-id order-id
 					 :cust-id cust-id
@@ -502,6 +502,7 @@
 					 :payment-mode payment-mode 
 					 :order-amt order-amt
 					 :shipping-cost shipping-cost
+					 :storepickupenabled storepickupenabled
 					 :deleted-state "N"
 					 :tenant-id tenant-id )))
 
