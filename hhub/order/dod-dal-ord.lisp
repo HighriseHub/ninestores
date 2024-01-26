@@ -278,6 +278,10 @@
     :type (string 3)
     :initarg :payment-mode)
    
+   (storepickupenabled
+     :type (string 1)
+     :initarg :storepickupenabled)
+    
    (fulfilled
     :type (string 1)
     :void-value "N"
