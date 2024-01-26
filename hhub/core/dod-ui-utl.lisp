@@ -563,6 +563,13 @@ individual tiles. It also supports search functionality by including the searchr
        (funcall (nth 0 widgets)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defun createwidgetsforgenericredirect (modelfunc)
+    (multiple-value-bind (redirectlocation) (funcall modelfunc)
+      (let ((widget1 (function (lambda ()
+		       redirectlocation))))
+	(list widget1)))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-mvc-ui-component (createwidgetsfunc createmodelfunc &rest modelargs)
     `(let* ((modelfunc (,createmodelfunc ,@modelargs))
 	    (widgets (,createwidgetsfunc modelfunc)))
@@ -762,6 +769,20 @@ individual tiles. It also supports search functionality by including the searchr
        (:div :class "form-check"
 	     (:input  :type "checkbox" :name ,name :checked ,bchecked :required ,brequired :value ,value)
 	     ,@body))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-custom-checkbox (name value placeholder bchecked onclickfunc &body body)
+    (let ((id (format nil "id~A" name)))
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:div :class "custom-control custom-switch"
+	     (if ,onclickfunc 
+		 (cl-who:htm
+		  (:input  :type "checkbox" :class "custom-control-input" :id ,id :name ,name :onclick ,onclickfunc :checked ,bchecked :value ,value))
+		 ;;else
+		 (cl-who:htm
+		  (:input  :type "checkbox" :class "custom-control-input" :id ,id :name ,name :checked ,bchecked :value ,value)))
+		 (:label :class "custom-control-label" :for ,id  ,placeholder)
+	     ,@body)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-panel (panel-class panel-header-text &body body)
