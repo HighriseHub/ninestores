@@ -68,11 +68,8 @@
       (with-html-form "form-custshippingmethod" "hhubcustpaymentmethodspage"
 	
 	(if (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y") (> shipping-cost 0))
-	    (cl-who:htm
-	     (:div :class "custom-control custom-switch"
-		   (:input :type "checkbox" :class "custom-control-input" :id "storepickup" :name "storepickup" :value "Y" :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
-		   (:label :class "custom-control-label" :for "storepickup" "Pickup In Store"))))
-	
+	    (with-html-custom-checkbox "storepickup" "Y" "Pickup In Store" NIL (parenscript:ps (togglepickupinstore))))
+		
 	(with-html-div-row :id "costwithshipping" 
 	  (with-html-div-col-8
 	    (cond ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
@@ -101,7 +98,7 @@
 	  (:hr)))
 	(:input :type "submit"  :class "btn btn-primary" :tabindex "13" :value "Checkout")
 	(:script "function togglepickupinstore () {
-    const storepickup = document.getElementById('storepickup');
+    const storepickup = document.getElementById('idstorepickup');
     if( storepickup.checked ){
 	$('#costwithoutshipping').show();
         $('#costwithshipping').hide();
@@ -153,9 +150,10 @@
 	 (phone (gethash "phone" orderparams-ht))
 	 (vpayapikey-p (if singlevendor-p (when (slot-value singlevendor 'payment-api-key) t)))
 	 (vupiid-p (if singlevendor-p (when (slot-value singlevendor 'upi-id) t))))
-    (if (and storepickup (equal storepickup "Y"))
-	(setf (gethash "shipping-cost" orderparams-ht) 0.00)
-	(save-cust-order-params orderparams-ht)) 
+    (when (and storepickup (equal storepickup "Y"))
+      (setf (gethash "shipping-cost" orderparams-ht) 0.00)
+      (setf (gethash "storepickupenabled" orderparams-ht) "Y")
+      (save-cust-order-params orderparams-ht)) 
     ;; create a list of all the required data points or create a model and return it. 
     (function (lambda ()
       (values cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone)))))
@@ -1833,6 +1831,7 @@
 	 (payment-mode (gethash "paymentmode" orderparams-ht))
 	 (comments (gethash "comments" orderparams-ht))
 	 (order-cxt (gethash "order-cxt" orderparams-ht))
+	 (storepickupenabled (gethash "storepickupenabled" orderparams-ht))
 	 (cust (get-login-customer))
 	 (custcomp (get-login-customer-company))
 	 (custname (slot-value cust 'name))
@@ -1864,7 +1863,7 @@
 		       (setf lowwalletbalanceflag T))))
 	;; If everything gets through, create order. 
 	(unless lowwalletbalanceflag
-	  (let ((order-id (create-order-from-shopcart  odts shopcart-products odate reqdate ship-date  shipaddress shopcart-total shipping-cost shipping-info  payment-mode comments cust custcomp temp-customer utrnum)))
+	  (let ((order-id (create-order-from-shopcart  odts shopcart-products odate reqdate ship-date  shipaddress shopcart-total shipping-cost shipping-info  payment-mode comments cust custcomp temp-customer utrnum storepickupenabled)))
 	    (setf (gethash "GUEST-EMAIL" temp-ht) (symbol-function 'send-order-email-guest-customer))
 	    (setf (gethash "GUEST-SMS" temp-ht) (symbol-function 'send-order-sms-guest-customer))
 	    (setf (gethash "STANDARD-EMAIL" temp-ht) (symbol-function 'send-order-email-standard-customer))
