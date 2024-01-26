@@ -563,3 +563,28 @@
     ;; Call the doupdate method on the BusinessService.
     (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
   
+
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-entity-create (adaptername requestmodel &body body)
+    :description "Creates a business entity when provided with a adapter name and requestmodel"
+    `(let* ((adapter (make-instance ,adaptername)))
+       ;; create the entity in the Database and return back the business object. 
+       (ProcessCreateRequest adapter ,requestmodel)
+       ,@body)))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-entity-readall (adaptername requestmodel &body body)
+    `(let* ((adapter (make-instance ,adaptername)))
+      ;; Read the entity from the database and return back a list of business objects
+      (ProcessReadallRequest adapter ,requestmodel)
+      ,@body)))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-entity-read (adaptername requestmodel &body body)
+    `(let* ((adapter (make-instance ,adaptername)))
+       ;; Read the entity from the database adn return back a single business object.
+       (ProcessReadRequest adapter ,requestmodel)
+       ,@body)))
+
