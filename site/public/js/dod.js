@@ -540,6 +540,11 @@ $(".form-vendordercomplete").on('submit', function (e) {
 
 //We are using event delegation here. #searchresult is 
 
+/*$(document).ready(function() {
+    registerforsubmitformevent ("#hhubmaincontent");
+});*/
+
+
 $(document).ready(function() {
     registerforsubmitformevent ("#prdlivesearchresult");
 });
