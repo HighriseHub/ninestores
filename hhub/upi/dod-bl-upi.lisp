@@ -32,8 +32,7 @@
   (let* ((vend (vendor requestmodel))
 	 (comp (company requestmodel))
 	 (upitranslst (select-upi-transactions-by-vendor vend comp)))
-	
-    ;; return back a list of upi payments response model
+    ;; return back a list of upi payments
     (mapcar (lambda (upitran)
 	      (let ((upipayment (make-instance 'UpiPayment)))
 		(copyupipayment-dbtodomain upitran upipayment))) upitranslst)))
