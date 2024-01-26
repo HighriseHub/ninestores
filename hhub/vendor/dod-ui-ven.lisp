@@ -276,7 +276,43 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (hunchentoot:redirect "/hhub/dodvendprofile"))))
 
       
+(defun modal.vendor-payment-methods-page (vpaymentmethods)
+  (let* ((codenabled (slot-value vpaymentmethods 'codenabled))
+	 (upienabled (slot-value vpaymentmethods 'upienabled))
+	 (walletenabled (slot-value vpaymentmethods 'walletenabled))
+	 (payprovidersenabled (slot-value vpaymentmethods 'payprovidersenabled))
+	 (paylaterenabled (slot-value vpaymentmethods 'paylaterenabled)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :class "row" 
+	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		  (with-html-form "form-vendpaymentmethodsupdate" "hhubvpmupdateaction"
+		    (if (equal codenabled "Y")
+			(with-html-custom-checkbox "codenabled" codenabled "Cash On Demand" T nil)
+			;;else
+			(with-html-custom-checkbox "codenabled" codenabled "Cash On Demand" NIL nil))
 
+		    (if (equal upienabled "Y")
+			(with-html-custom-checkbox "upienabled" upienabled "UPI" T nil)
+			;;else
+			(with-html-custom-checkbox "upienabled" upienabled "UPI" nil nil))
+		 
+		    (if (equal walletenabled "Y")
+			(with-html-custom-checkbox "walletenabled" walletenabled "Wallet Enabled" T nil)
+			;;else
+			(with-html-custom-checkbox "walletenabled" walletenabled "Wallet Enabled" NIL nil))
+			
+		    (if (equal payprovidersenabled "Y")
+			(with-html-custom-checkbox "payprovidersenabled" payprovidersenabled "Pay Providers" T nil)
+			;;else
+			(with-html-custom-checkbox "payprovidersenabled" payprovidersenabled "Pay Providers" nil nil))
+		    
+		    (if (equal paylaterenabled "Y")
+			(with-html-custom-checkbox "paylaterenabled" paylaterenabled "Pay Later" T nil)
+			;;else
+			(with-html-custom-checkbox "paylaterenabled" paylaterenabled "Pay Later" nil nil))
+		    
+			 (:div :class "form-group"
+			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
 
 (defun modal.vendor-update-payment-gateway-settings-page ()
   (let* ((vendor (get-login-vendor))
@@ -287,7 +323,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		  (:form :id (format nil "form-customerupdate")  :role "form" :method "POST" :action "hhubvendupdatepgsettings" :enctype "multipart/form-data" 
+		  (:form :id (format nil "form-vendorpaymentgatewayupdate")  :role "form" :method "POST" :action "hhubvendupdatepgsettings" :enctype "multipart/form-data" 
 					;(:div :class "account-wall"
 			 (:div :class "form-group"
 			       (:label :for "payment-api-key" "Payment API Key")
@@ -937,7 +973,14 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     
    
 (defun dod-controller-vend-profile ()
-  (with-vend-session-check 
+  (with-vend-session-check
+    (let* ((company (get-login-vendor-company))
+	   (vendor (get-login-vendor))
+	   (adapter (make-instance 'VPaymentMethodsAdapter))
+	   (requestmodel (make-instance 'VPaymentMethodsRequestModel
+					:company company
+					:vendor vendor))
+	   (vpaymentmethods (processreadrequest adapter requestmodel)))
     (with-standard-vendor-page "HighriseHub - Vendor Profile"
        (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-vendor-name))))
        (:hr)
@@ -951,12 +994,14 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    ;;(modal-dialog (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
 	    ;; (:a :class "list-group-item" :href "/pushsubscribe.html" "Push Notifications")
 	    (:a :class "list-group-item" :href "/hhub/hhubvendpushsubscribepage" "Push Notifications")
+	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendpaymentmethods-modal")  :href "#"  "Payment Methods")
+	    (modal-dialog (format nil "dodvendpaymentmethods-modal") "Payment Methods " (modal.vendor-payment-methods-page vpaymentmethods))
 	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendsettings-modal")  :href "#"  "Payment Gateway")
 	    (modal-dialog (format nil "dodvendsettings-modal") "Payment Gateway Settings" (modal.vendor-update-payment-gateway-settings-page))
 	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupisettings-modal") :href "#" "UPI Settings")
 	    (modal-dialog (format nil "dodvendupisettings-modal") "UPI Payment Settings" (modal.vendor-update-UPI-payment-settings-page))
 	    (:a :class "list-group-item" :href "hhubvendorupitransactions" "UPI Transactions")
-	    (:a :class "list-group-item" :href "hhubvendorshipmethods" "Shipping Methods")))))
+	    (:a :class "list-group-item" :href "hhubvendorshipmethods" "Shipping Methods"))))))
 
 (defun dod-controller-vend-shipping-methods ()
   (let* ((vendor (get-login-vendor))
@@ -1386,7 +1431,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					  [= [:approval-status] "APPROVED"]
 					  [= [:deleted-state] "N"]]
 				   :caching nil :flatp t)))
-	     (vendor-company (if dbvendor  (vendor-company dbvendor))))
+	     (vendor-company (if dbvendor  (get-vendor-company dbvendor))))
 	(when (and  dbvendor
 		    (null (hunchentoot:session-value :login-vendor-name))) ;; vendor should not be logged-in in the first place.
 	  (hunchentoot:start-session)  
@@ -1415,7 +1460,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	     (pwd (if dbvendor (slot-value dbvendor 'password)))
 	     (salt (if dbvendor (slot-value dbvendor 'salt)))
 	     (password-verified (if dbvendor  (check-password password salt pwd)))
-	     (vendor-company (if dbvendor  (vendor-company dbvendor))))
+	     (vendor-company (if dbvendor  (get-vendor-company dbvendor))))
 					;(log (if password-verified (hunchentoot:log-message* :info (format nil  "phone : ~A password : ~A" phone password)))))
 	(when (and  dbvendor
 		    password-verified
@@ -1839,6 +1884,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (odtlst (if mainorder (dod-get-cached-order-items-by-order-id (slot-value mainorder 'row-id) (hunchentoot:session-value :order-func-list) )) )
 	 (order-amt (slot-value vorder-instance 'order-amt))
 	 (shipping-cost (slot-value vorder-instance 'shipping-cost))
+	 (storepickupenabled (slot-value vorder-instance 'storepickupenabled))
 	 (total (if shipping-cost (+ order-amt shipping-cost) order-amt))
 	 (lowwalletbalance (< balance total)))
     
@@ -1846,6 +1892,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 	  (with-html-div-row
 	    (:div :class "col" :align "right"
+		  (when (and (equal storepickupenabled "Y") (= shipping-cost 0.00))
+		    (cl-who:htm (:span :class "label label-info" "STORE PICKUP")))
 		  (when (and shipping-cost (> shipping-cost 0))
                     (cl-who:htm
 		     (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
