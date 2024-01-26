@@ -3,6 +3,24 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
+(defun createentity (entityname fieldnames destfile)
+  :description "This function will create a set of business layer functions based on the business object / entity name"
+  (let* ((filecontent (hhub-read-file "~/hhubplatform/hhub/core/hhub-bl-egn.lisp")))
+    
+    (setf filecontent (cl-ppcre:regex-replace-all "field1" filecontent (nth 0 fieldnames)))
+    (setf filecontent (cl-ppcre:regex-replace-all "field2" filecontent (nth 1 fieldnames)))
+    (setf filecontent (cl-ppcre:regex-replace-all "field3" filecontent (nth 2 fieldnames)))
+    (setf filecontent (cl-ppcre:regex-replace-all "field4" filecontent (nth 3 fieldnames)))
+    (setf filecontent (cl-ppcre:regex-replace-all "field5" filecontent (nth 4 fieldnames)))
+    (setf filecontent (cl-ppcre:regex-replace-all "field6" filecontent (nth 5 fieldnames)))
+    (setf filecontent (cl-ppcre:regex-replace-all "field7" filecontent (nth 6 fieldnames)))
+    (setf filecontent (cl-ppcre:regex-replace-all "field8" filecontent (nth 7 fieldnames)))
+    (setf filecontent (cl-ppcre:regex-replace-all "field9" filecontent (nth 8 fieldnames)))
+    (let ((temp-str (cl-ppcre:regex-replace-all "xxxx" filecontent entityname)))
+      (with-open-file (stream destfile :if-exists :append :direction :output)
+	(print (format stream temp-str))
+	(terpri stream)))))
+
 (defun hhub-register-network-function (name funcsymbol)
 :documentation "This function registers a new business function and adds it to the *HHUBGLOBALBUSINESSFUNCTIONS-HT* Hash Table. It should conform to naming convention com.hhub.businessfunction*"
   (multiple-value-bind (fname) (ppcre:scan "com.hhub.businessfunction.*" name)
