@@ -279,6 +279,15 @@ function displaygstdetails () {
 
 }
 
+function togglecheckboxvalueyn(id){
+    const checkboxtoggle  = document.getElementById(id);
+    if(checkboxtoggle.checked ){
+         checkboxtoggle.value = "Y";
+    }else
+    {
+         checkboxtoggle.value = "N";
+    }
+}
 
 function clearbilltoaddress(){
     var billaddress = document.getElementById("billaddress");
