@@ -277,42 +277,85 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
       
 (defun modal.vendor-payment-methods-page (vpaymentmethods)
-  (let* ((codenabled (slot-value vpaymentmethods 'codenabled))
-	 (upienabled (slot-value vpaymentmethods 'upienabled))
-	 (walletenabled (slot-value vpaymentmethods 'walletenabled))
-	 (payprovidersenabled (slot-value vpaymentmethods 'payprovidersenabled))
-	 (paylaterenabled (slot-value vpaymentmethods 'paylaterenabled)))
-    (cl-who:with-html-output (*standard-output* nil)
-      (:div :class "row" 
-	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		  (with-html-form "form-vendpaymentmethodsupdate" "hhubvpmupdateaction"
-		    (if (equal codenabled "Y")
-			(with-html-custom-checkbox "codenabled" codenabled "Cash On Demand" T nil)
+  (when vpaymentmethods
+    (let* ((codenabled (slot-value vpaymentmethods 'codenabled))
+	   (upienabled (slot-value vpaymentmethods 'upienabled))
+	   (walletenabled (slot-value vpaymentmethods 'walletenabled))
+	   (payprovidersenabled (slot-value vpaymentmethods 'payprovidersenabled))
+	   (paylaterenabled (slot-value vpaymentmethods 'paylaterenabled)))
+      (cl-who:with-html-output (*standard-output* nil)
+	(:div :class "row" 
+	      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		    (with-html-form "form-vendpaymentmethodsupdate" "hhubvpmupdateaction"
+		      (if (equal codenabled "Y")
+			  (with-html-custom-checkbox "codenabled" codenabled "Cash On Demand" T )
+			  ;;else
+			  (with-html-custom-checkbox "codenabled" "N" "Cash On Demand" NIL))
+		      
+		      (if (equal upienabled "Y")
+			  (with-html-custom-checkbox "upienabled" upienabled "UPI" T)
 			;;else
-			(with-html-custom-checkbox "codenabled" codenabled "Cash On Demand" NIL nil))
+			  (with-html-custom-checkbox "upienabled" "N" "UPI" nil))
+		      
+		      (if (equal walletenabled "Y")
+			  (with-html-custom-checkbox "walletenabled" walletenabled "Prepaid Wallet" T)
+			;;else
+			  (with-html-custom-checkbox "walletenabled" "N" "Prepaid Wallet" NIL))
+		      
+		      (if (equal payprovidersenabled "Y")
+			  (with-html-custom-checkbox "payprovidersenabled" payprovidersenabled "Pay Providers" T)
+			  ;;else
+			(with-html-custom-checkbox "payprovidersenabled" "N" "Pay Providers" nil))
+		      
+		      (if (equal paylaterenabled "Y")
+			  (with-html-custom-checkbox "paylaterenabled" paylaterenabled "Pay Later" T)
+			  ;;else
+			  (with-html-custom-checkbox "paylaterenabled" "N" "Pay Later" nil))
+		      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save Settings")))))))
+  ;; If Vendor payment methods are not found then create one
+  (unless vpaymentmethods
+    (cl-who:with-html-output (*standard-output* nil)                                                                                                                                                              
+      (:div :class "row"
+            (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"                                                                                                                                                
+                  (with-html-form "form-vendpaymentmethodscreate" "hhubvpmupdateaction"                                                                                                                           
+     		    (:div :class "form-group"
+			  (with-html-input-text-hidden "createvpaymentmethods" "Y")
+			  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Create Vendor Payment Methods"))))))))
 
-		    (if (equal upienabled "Y")
-			(with-html-custom-checkbox "upienabled" upienabled "UPI" T nil)
-			;;else
-			(with-html-custom-checkbox "upienabled" upienabled "UPI" nil nil))
-		 
-		    (if (equal walletenabled "Y")
-			(with-html-custom-checkbox "walletenabled" walletenabled "Wallet Enabled" T nil)
-			;;else
-			(with-html-custom-checkbox "walletenabled" walletenabled "Wallet Enabled" NIL nil))
-			
-		    (if (equal payprovidersenabled "Y")
-			(with-html-custom-checkbox "payprovidersenabled" payprovidersenabled "Pay Providers" T nil)
-			;;else
-			(with-html-custom-checkbox "payprovidersenabled" payprovidersenabled "Pay Providers" nil nil))
-		    
-		    (if (equal paylaterenabled "Y")
-			(with-html-custom-checkbox "paylaterenabled" paylaterenabled "Pay Later" T nil)
-			;;else
-			(with-html-custom-checkbox "paylaterenabled" paylaterenabled "Pay Later" nil nil))
-		    
-			 (:div :class "form-group"
-			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+
+(defun dod-controller-vendor-payment-methods-update-action ()
+  (let* ((codenbld (hunchentoot:parameter "codenabled"))
+	 (upienbld (hunchentoot:parameter "upienabled"))
+	 (walletenbld (hunchentoot:parameter "walletenabled"))
+	 (payprovidersenbld (hunchentoot:parameter "payprovidersenabled"))
+	 (paylaterenbld (hunchentoot:parameter "paylaterenabled"))
+	 (createvpaymentmethods (hunchentoot:parameter "createvpaymentmethods"))
+	 (company (get-login-vendor-company))
+	 (vendor (get-login-vendor))
+	 (requestmodel (make-instance 'VPaymentMethodsRequestModel
+				   :vendor vendor
+				   :company company
+				   :codenabled "Y"
+				   :upienabled "Y"
+				   :payprovidersenabled "Y"
+				   :walletenabled "Y"
+				   :paylaterenabled "Y")))
+    (when (equal createvpaymentmethods "Y")
+      (with-entity-create 'VPaymentMethodsAdapter requestmodel
+	(if entity (hunchentoot:redirect "/hhub/dodvendprofile"))))
+    (unless createvpaymentmethods
+      ;; we are in update case now.
+      (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) requestmodel
+	(if codenbld (setf codenabled codenbld) (setf codenabled "N"))
+	(logiamhere (format nil "value of codenabled is ~A" codenbld))
+	(if upienbld (setf upienabled upienbld) (setf upienabled "N")) 
+	(if payprovidersenbld (setf payprovidersenabled payprovidersenbld) (setf payprovidersenabled "N"))
+	(if walletenbld (setf walletenabled walletenbld) (setf walletenabled "N"))
+	(if paylaterenbld (setf paylaterenabled paylaterenbld) (setf paylaterenabled "N"))
+	(with-entity-update 'VPaymentMethodsAdapter requestmodel
+	  (if entity (hunchentoot:redirect "/hhub/dodvendprofile")))))))
+
+
 
 (defun modal.vendor-update-payment-gateway-settings-page ()
   (let* ((vendor (get-login-vendor))
@@ -1027,8 +1070,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (modal-dialog (format nil "dodvendextshipping-modal") "External Shipping Partners Configuration" (modal.vendor-external-shipping-partners-config shippartnerkey shippartnersecret extshipenabled))
 	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvenddefaultshipmethod-modal")  :href "#"  "Select Default Shipping Method")
 	      (modal-dialog (format nil "dodvenddefaultshipmethod-modal") "Default Shipping Method Configuration" (modal.vendor-default-shipping-method-config shippingmethod vendor)))
-	     
-	      
+	     	      
 	(:script "function enableminorderamt() {
     const freeshipenabled = document.getElementById('freeshipenabled');
     if( freeshipenabled.checked ){
