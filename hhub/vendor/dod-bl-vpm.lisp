@@ -109,8 +109,8 @@
     
     (setcompany vpaymentmethodsdbservice comp)
     (db-save vpaymentmethodsdbservice)
-    ;; Return the newly created UPI domain object
-    (copyupipayment-dbtodomain vpaymentmethodsdbobj vpaymentmethodsobj)))
+    ;; Return the newly created vendor payment methods domain object
+    (copyvpaymentmethods-dbtodomain vpaymentmethodsdbobj vpaymentmethodsobj)))
 
 
 ;; PROCESS READ ALL REQUEST.
@@ -140,7 +140,8 @@
 	 (vpaymentmethodsobj (make-instance 'VPaymentMethods)))
     ;; return back a Vpaymentmethod  response model
     (setf (slot-value vpaymentmethodsobj 'company) comp)
-    (copyvpaymentmethods-dbtodomain dbvpaymentmethods vpaymentmethodsobj)))
+    (when dbvpaymentmethods
+      (copyvpaymentmethods-dbtodomain dbvpaymentmethods vpaymentmethodsobj))))
 
 (defun copyvpaymentmethods-dbtodomain (source destination)
   (let* ((comp (select-company-by-id (slot-value source 'tenant-id)))
