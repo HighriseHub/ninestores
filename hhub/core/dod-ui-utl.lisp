@@ -771,18 +771,13 @@ individual tiles. It also supports search functionality by including the searchr
 	     ,@body))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-custom-checkbox (name value placeholder bchecked onclickfunc &body body)
+  (defmacro with-html-custom-checkbox (name value placeholder bchecked &body body)
     (let ((id (format nil "id~A" name)))
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "custom-control custom-switch"
-	     (if ,onclickfunc 
-		 (cl-who:htm
-		  (:input  :type "checkbox" :class "custom-control-input" :id ,id :name ,name :onclick ,onclickfunc :checked ,bchecked :value ,value))
-		 ;;else
-		 (cl-who:htm
-		  (:input  :type "checkbox" :class "custom-control-input" :id ,id :name ,name :checked ,bchecked :value ,value)))
-		 (:label :class "custom-control-label" :for ,id  ,placeholder)
-	     ,@body)))))
+		(:input  :type "checkbox" :class "custom-control-input" :id ,id :name ,name :checked (if ,bchecked "true") :value ,value :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp ,id))))
+		(:label :class "custom-control-label" :for ,id  ,placeholder)
+		,@body)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-panel (panel-class panel-header-text &body body)
