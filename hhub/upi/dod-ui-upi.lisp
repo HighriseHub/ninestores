@@ -30,7 +30,7 @@
     (cl-who:with-html-output (*standard-output* nil)
       (:hr)
       (:h5 (cl-who:str (format nil "Complete Your Payment")))
-      (:h4 (cl-who:str (format nil "Amount = &#8377 ~d" amount)))
+      (:h4 (cl-who:str (format nil "Amount = &#8377 ~$" amount)))
       (:hr)
       (:div :id "withCountDownTimerExpired" 
 	    (with-html-div-row 
