@@ -3,6 +3,47 @@
 (clsql:file-enable-sql-reader-syntax)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun displaystorepickupwidget (address)
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-div-row 
+	(:div :align "right" :class "stampbox rotated" "Store Pickup")
+	(:p (:strong "NOTE: This order needs to be picked up from store."))
+	(if address (cl-who:htm (:div (:span (cl-who:str (format nil "&nbsp;Store Address:~A" address ))))))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun with-html-collapse (collapseid listcollapseitemsfuncs) 
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :id collapseid :class "collapse" 
+	    (loop for collapse-item-func  in listcollapseitemsfuncs do 
+	      (multiple-value-bind (id buttontext itembodyhtml) (funcall collapse-item-func) 
+		(cl-who:htm
+		 (:div :class "card card-body" :id id  (format nil "~A" itembodyhtml)))))))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun with-html-accordion (accordionid listaccordionitemsfuncs) 
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :id accordionid :class "accordion" 
+	    (loop for accordion-item-func  in listaccordionitemsfuncs do 
+	      (multiple-value-bind (id buttontext itembodyhtml) (funcall accordion-item-func) 
+		(cl-who:htm
+		 (:div :class "accordion-item"
+		       (:h2 :class "accordion-header"
+			    (:button :class "accordion-button" :data-bs-toggle "collapse" :data-bs-target (format nil "#~A" id) :aria-expanded "true" :aria-controls (format nil "~A" id) :type "button" "test button" ))
+		       (:div  :class "accordion-collapse collapse" :id id :data-bs-parent (format nil "#~A" accordionid)
+			      (:div :class "accordion-body"
+				    (:strong "This is test")))))))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun with-modal-dialog-link (name linktext dialogheadertext modalfunc)
+    (cl-who:with-html-output (*standard-output* nil)
+      (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#~A-modal" name)  :href "#" linktext)
+      (modal-dialog-v2 (format nil "~A-modal" name) dialogheadertext (funcall modalfunc)))))
+
+
+	  
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defun submitformevent-js (id-bind-element)
     (cl-who:with-html-output (*standard-output* nil)
       (:script :type "text/javascript"
@@ -318,6 +359,7 @@
 					; Link to the app manifest for PWA. 
 		(:link :rel "manifest" :href "/manifest.json")
 		;; Bootstrap CSS
+		;;(:link :href "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" :rel "stylesheet")
 		(:link :href "/css/bootstrap5.3.css" :rel "stylesheet" )
 
 		(:link :href "/css/style.css" :rel "stylesheet")
@@ -328,6 +370,7 @@
 		(:script :src "https://code.jquery.com/jquery-3.5.1.min.js" :integrity "sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" :crossorigin "anonymous")
 		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin "anonymous")
 		(:script :src "/js/spin.min.js")
+		;;(:script :src "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js")
 		(:script :src "/js/bs5.3/js/bootstrap.bundle.min.js")
 		(:script :src "https://www.google.com/recaptcha/api.js")
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
@@ -563,6 +606,13 @@ individual tiles. It also supports search functionality by including the searchr
        (funcall (nth 0 widgets)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defun createwidgetsforgenericredirect (modelfunc)
+    (multiple-value-bind (redirectlocation) (funcall modelfunc)
+      (let ((widget1 (function (lambda ()
+		       redirectlocation))))
+	(list widget1)))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-mvc-ui-component (createwidgetsfunc createmodelfunc &rest modelargs)
     `(let* ((modelfunc (,createmodelfunc ,@modelargs))
 	    (widgets (,createwidgetsfunc modelfunc)))
@@ -762,6 +812,20 @@ individual tiles. It also supports search functionality by including the searchr
        (:div :class "form-check"
 	     (:input  :type "checkbox" :name ,name :checked ,bchecked :required ,brequired :value ,value)
 	     ,@body))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-custom-checkbox (name value placeholder bchecked &body body)
+    (let ((id (format nil "id~A" name)))
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:div :class "custom-control custom-switch"
+	     (if ,bchecked
+		 (cl-who:htm 
+		  (:input  :type "checkbox" :class "custom-control-input" :id ,id :name ,name :checked "true" :value ,value :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp ,id)))))
+		 ;;else
+		 (cl-who:htm 
+		  (:input  :type "checkbox" :class "custom-control-input" :id ,id :name ,name :value ,value :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp ,id))))))
+		(:label :class "custom-control-label" :for ,id  ,placeholder)
+		,@body)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-panel (panel-class panel-header-text &body body)

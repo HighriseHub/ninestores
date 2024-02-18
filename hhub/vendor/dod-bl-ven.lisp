@@ -17,7 +17,7 @@
 	 (companyadmin (slot-value requestmodel 'companyadmin))
 	 (approved-by-phone (slot-value companyadmin 'phone-mobile))
 	 (dbvendor (select-vendor-by-id vendor-id))
-	 (company (vendor-company dbvendor))
+	 (company (get-vendor-company dbvendor))
 	 (vendor (make-instance 'vendor)))
     
     (setf (slot-value dbvendor 'approved-flag) "Y")
@@ -107,9 +107,6 @@
       (setf upi-id (slot-value source 'upi-id))
       (setf tenantobj comp)
       destination)))
-
-
-
 
 (defmethod ProcessCreateRequest ((adapter VendorAdapter) (requestmodel RequestVendor))
   :description  "Adapter Service method to call the BusinessService Create method. Returns the created vendor object."

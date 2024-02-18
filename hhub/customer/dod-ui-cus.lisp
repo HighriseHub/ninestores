@@ -70,9 +70,9 @@
 	(if (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y") (> shipping-cost 0))
 	    (cl-who:htm
 	     (:div :class "custom-control custom-switch"
-		   (:input :type "checkbox" :class "custom-control-input" :id "storepickup" :name "storepickup" :value "Y" :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
-		   (:label :class "custom-control-label" :for "storepickup" "Pickup In Store"))))
-	
+		   (:input :type "checkbox" :class "custom-control-input" :id "idstorepickup" :name "storepickup" :value "Y" :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
+		   (:label :class "custom-control-label" :for "idstorepickup" "Pickup In Store"))))
+
 	(with-html-div-row :id "costwithshipping" 
 	  (with-html-div-col-8
 	    (cond ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
@@ -101,7 +101,7 @@
 	  (:hr)))
 	(:input :type "submit"  :class "btn btn-primary" :tabindex "13" :value "Checkout")
 	(:script "function togglepickupinstore () {
-    const storepickup = document.getElementById('storepickup');
+    const storepickup = document.getElementById('idstorepickup');
     if( storepickup.checked ){
 	$('#costwithoutshipping').show();
         $('#costwithshipping').hide();
@@ -119,7 +119,7 @@
 
 (defun createwidgetsforcustomerpaymentmethodspage (modelfunc)
   (multiple-value-bind
-	(cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone)
+	(cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone codenabled upienabled payprovidersenabled walletenabled paylaterenabled)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -133,8 +133,7 @@
 			   (:hr)))))))
 	  (widget3 (function (lambda ()
 		     (if (> lstcount 0)
-		       (cond ((equal cust-type "STANDARD") (standardcustpaymentmethods vendor-list customer custcomp))
-			     ((equal cust-type "GUEST") (guestcustpaymentmethods singlevendor-p vpayapikey-p vupiid-p phone))))))))
+		       (custpaymentmethods (function (lambda () (values cust-type vendor-list customer custcomp phone singlevendor-p vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled paylaterenabled)))))))))
       (list widget1 widget2 widget3))))
 
 
@@ -145,6 +144,7 @@
 	 (vendor-list (get-shopcart-vendorlist lstshopcart))
 	 (singlevendor-p (if (= (length vendor-list) 1) T NIL))
 	 (singlevendor (first vendor-list))
+	 (vendoraddress (slot-value singlevendor 'address))
 	 (customer (get-login-customer))
 	 (custcomp (get-login-customer-company))
 	 ;;(wallet-balance (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'balance))
@@ -152,69 +152,108 @@
 	 (orderparams-ht (get-cust-order-params)) 
 	 (phone (gethash "phone" orderparams-ht))
 	 (vpayapikey-p (if singlevendor-p (when (slot-value singlevendor 'payment-api-key) t)))
-	 (vupiid-p (if singlevendor-p (when (slot-value singlevendor 'upi-id) t))))
-    (if (and storepickup (equal storepickup "Y"))
-	(setf (gethash "shipping-cost" orderparams-ht) 0.00)
-	(save-cust-order-params orderparams-ht)) 
+	 (vupiid-p (if singlevendor-p (when (slot-value singlevendor 'upi-id) t)))
+	 (adapter (make-instance 'VPaymentMethodsAdapter))
+	 (requestmodel (make-instance 'VPaymentMethodsRequestModel
+				      :company custcomp
+				      :vendor singlevendor))
+	 (vpaymentmethods (processreadrequest adapter requestmodel)))
+    
+    (when (and storepickup (equal storepickup "Y"))
+      (setf (gethash "shipping-cost" orderparams-ht) 0.00)
+      (setf (gethash "storepickupenabled" orderparams-ht) "Y")
+      (setf (gethash "vendoraddress" orderparams-ht) vendoraddress)
+      (save-cust-order-params orderparams-ht)) 
     ;; create a list of all the required data points or create a model and return it. 
     (function (lambda ()
-      (values cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone)))))
+      (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) vpaymentmethods
+	(values cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone codenabled upienabled payprovidersenabled walletenabled paylaterenabled))))))
 	 
 
 ;; This is not a pure function as it talks to the database.  
-(defun standardcustpaymentmethods (vendorlist customer company)
-  (cl-who:with-html-output (*standard-output* nil)
-    (:hr)
-    (with-html-div-row
-      (with-html-div-col
-	(:h5 (:u "Prepaid Wallet Balance"))))
-    (mapcar (lambda (vendor)
-	      (let* ((wallet (get-cust-wallet-by-vendor customer vendor company))
-		     (wallet-balance (slot-value wallet 'balance))
-		     (vendorname (slot-value vendor 'name)))
-		(cl-who:htm
-		 (with-html-div-row
-		   (with-html-div-col
-		     (:h6 (cl-who:str (format nil "Vendor - ~A" vendorname))))
-		   (with-html-div-col
-		     (:span  :style "color:blue" (cl-who:str (format nil "~d" wallet-balance)))))))) vendorlist)
-    (:hr)
-    (with-html-form "form-standardcustpaymentmode" "dodcustshopcartro"
-      (with-html-input-text-hidden "paymentmode" "PRE")
-      (:input :type "submit"  :class "btn btn-primary" :value "Checkout"))))
-	
-;; This is a pure function.   
-(defun guestcustpaymentmethods (singlevendor-p vpayapi-p vupiid-p phone)
-  (cl-who:with-html-output (*standard-output* nil)
-    (cond  
-      ((and singlevendor-p vpayapi-p)
-       (cl-who:htm
-	(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	      (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&paymentmode=OPY&phone=~A" phone) "Online Payment")
-	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")
-	      (:a :class "list-group-item" :href (format nil "hhubcustupipage?paymentmode=UPI") "UPI Payment"))))
-      ;;else
-      ;; if it is single vendor and vendor has UPI ID defined
-      ((and singlevendor-p vupiid-p)
-       (cl-who:htm
-	(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")
-	      (:a :class "list-group-item" :href (format nil "hhubcustupipage?paymentmode=UPI") "UPI Payment"))))
-      ;; if nothing matches.
-      (t
-       (cl-who:htm
-	(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	      (:a :class "list-group-item" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")))))))
-  
-;; This is a pure function. 		      
-(defun dod-controller-vendor-upi-notfound ()
-  (with-cust-session-check
-    (with-standard-customer-page "Vendor UPI ID Not Found"
-      (:div :class "row" 
-	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		  (:h1 :class "text-center"  "Vendor UPI ID Not Found.") 
-		  (:a :class "btn btn-primary"  :role "button" :href "/hhub/dodcustindex"  (:i :class "fa-solid fa-house")))))))
+(defun custpaymentmethods (vpmsettingsfunc)
+  (multiple-value-bind (cust-type vendor-list customer custcomp phone singlevendor-p vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled ) (funcall vpmsettingsfunc)
+    (let ((widget1 (function (lambda ()
+		     (let ((itembodyhtml
+			     (cl-who:with-html-output (*standard-output* nil)
+			       (when (and (equal cust-type "STANDARD") (equal walletenabled "Y"))
+				 (cl-who:htm
+				  (with-html-div-row
+				    (with-html-div-col
+				      (:h5 (:u "Prepaid Wallet Balance"))))
+				  (mapcar (lambda (vendor)
+					    (let* ((wallet (get-cust-wallet-by-vendor customer vendor custcomp))
+						   (wallet-balance (slot-value wallet 'balance))
+						   (vendorname (slot-value vendor 'name)))
+					      (cl-who:htm
+					       (with-html-div-row
+						 (with-html-div-col
+						   (:h6 (cl-who:str (format nil "Vendor - ~A" vendorname))))
+						 (with-html-div-col
+						   (:span  :style "color:blue" (cl-who:str (format nil "~d" wallet-balance)))))))) vendor-list)
+				  
+				  (with-html-form "form-standardcustpaymentmode" "dodcustshopcartro"
+				    (with-html-input-text-hidden "paymentmode" "PRE")
+				    (:input :type "submit"  :class "btn btn-primary" :value "Prepaid Checkout")))))))
+		       (values itembodyhtml)))))
+	  (widget2 (function (lambda ()
+		     (let ((itembodyhtml 
+			     (cl-who:with-html-output (*standard-output* nil)
+			       ;; We need to give a link for GUEST customers and button for standard customers. This is a bad design to be fixed later.
+			       (when (and (equal cust-type "GUEST") (equal codenabled "Y"))
+				 (cl-who:htm
+				  (:a :class "btn btn-primary"  :role "button" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")
+					))
+			       (when (and (equal cust-type "STANDARD") (equal codenabled "Y"))
+				 (cl-who:htm
+				  (:div :id "idstdcustcodcontainer" :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+				 	(with-html-form "form-standardcustpaymentmode" "dodcustshopcartotpstep"
+					  (with-html-input-text-hidden "paymentmode" "COD")
+					  (with-html-input-text-hidden "context" "dodcustshopcartro")
+					  (with-html-input-text-hidden "phone" phone)
+					  (:input :type "submit"  :class "btn btn-primary" :value "Cash On Delivery"))))))))
+		       (values itembodyhtml)))))
+	  (widget3 (function (lambda ()
+		     (let ((itembodyhtml
+			     (cl-who:with-html-output (*standard-output* nil)   
+			       (when (and vupiid-p (equal upienabled "Y")) 
+				 (cl-who:htm
+				  (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+					(with-html-form "form-standardcustpaymentmode" "hhubcustupipage"
+					  (with-html-input-text-hidden "paymentmode" "UPI")
+					  (:input :type "submit"  :class "btn btn-primary" :value "UPI Payment"))))))))
+		       (values itembodyhtml)))))
+	  (widget4 (function (lambda ()
+		     (let ((itembodyhtml
+			     (cl-who:with-html-output (*standard-output* nil)         
+			       (when (and (equal payprovidersenabled "Y")
+					  singlevendor-p vpayapikey-p)
+				 (cl-who:htm
+				  (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+					(with-html-form "form-standardcustpaymentmode" "dodcustshopcartro"
+					  (with-html-input-text-hidden "paymentmode" "OPY")
+					  (:input :type "submit"  :class "btn btn-primary" :value "Payment Gateway"))))))))
+		       (values itembodyhtml))))))
 
+      (cl-who:with-html-output (*standard-output* nil) 
+	(:ul :class "list-group"
+	     (:li :class "list-group-item" 
+		  (funcall widget1))
+	     (:li :class "list-group-item" 
+		  (funcall widget2))
+	     (:li :class "list-group-item" 
+		  (funcall widget3))
+	     (:li :class "list-group-item" 
+		  (funcall widget4)))))))
+
+(defun accordion-example ()
+  (let ((itembodyhtml 
+	  (cl-who:with-html-output (*standard-output* nil)
+	    (:h2 "Testing Testing")
+	    (:strong "This is strong text. This is strong text")))
+	(id "idaccordionexample")
+	(buttontext "Strong Text"))
+    (values id buttontext itembodyhtml)))
 
 
 (defun hhub-controller-get-shipping-rate ()
@@ -745,14 +784,15 @@
 	 (odtlst (get-order-items dodorder))
 	 (shipping-cost (slot-value dodorder 'shipping-cost))
 	 (order-amt (slot-value dodorder 'order-amt))
+	 (storepickupenabled (slot-value dodorder 'storepickupenabled))
 	 (total (if shipping-cost (+ order-amt shipping-cost) order-amt)))
 
     (function (lambda ()
-      (values odtlst header order-amt shipping-cost total dodorder)))))
+      (values odtlst header order-amt shipping-cost total  dodorder storepickupenabled)))))
 
 
 (defun createwidgetsforcustmyorderdetails (modelfunc)
-  (multiple-value-bind (odtlst header order-amt shipping-cost total dodorder) (funcall modelfunc)
+  (multiple-value-bind (odtlst header order-amt shipping-cost total dodorder storepickupenabled) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (if odtlst (ui-list-cust-orderdetails header odtlst) "No Order Details")))))
@@ -769,7 +809,8 @@
 				  (:p (cl-who:str (format nil "Shipping = ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))))))
 		       (:div :class "row" 
 			     (:div :class "col-md-12" :align "right" 
-				   (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total))))))))))
+				   (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total))))))
+		       (if (equal storepickupenabled "Y") (cl-who:htm (:div :class "stampbox rotated" (:strong (cl-who:str "Store Pickup")))))))))
 	  (widget3 (function (lambda ()
 		     (display-order-header-for-customer  dodorder)))))
       (list widget1 widget2 widget3))))
@@ -1833,6 +1874,7 @@
 	 (payment-mode (gethash "paymentmode" orderparams-ht))
 	 (comments (gethash "comments" orderparams-ht))
 	 (order-cxt (gethash "order-cxt" orderparams-ht))
+	 (storepickupenabled (gethash "storepickupenabled" orderparams-ht))
 	 (cust (get-login-customer))
 	 (custcomp (get-login-customer-company))
 	 (custname (slot-value cust 'name))
@@ -1864,7 +1906,7 @@
 		       (setf lowwalletbalanceflag T))))
 	;; If everything gets through, create order. 
 	(unless lowwalletbalanceflag
-	  (let ((order-id (create-order-from-shopcart  odts shopcart-products odate reqdate ship-date  shipaddress shopcart-total shipping-cost shipping-info  payment-mode comments cust custcomp temp-customer utrnum)))
+	  (let ((order-id (create-order-from-shopcart  odts shopcart-products odate reqdate ship-date  shipaddress shopcart-total shipping-cost shipping-info  payment-mode comments cust custcomp temp-customer utrnum storepickupenabled)))
 	    (setf (gethash "GUEST-EMAIL" temp-ht) (symbol-function 'send-order-email-guest-customer))
 	    (setf (gethash "GUEST-SMS" temp-ht) (symbol-function 'send-order-sms-guest-customer))
 	    (setf (gethash "STANDARD-EMAIL" temp-ht) (symbol-function 'send-order-email-standard-customer))
@@ -1923,9 +1965,9 @@
       (list widget1))))
   
 (defun dod-controller-cust-add-order-otpstep ()
-  (with-cust-session-check 
-    (let ((uri (with-mvc-redirect-ui createmodelforcustaddorderotpstep createwidgetsforcustaddorderotpstep)))
-      (format nil "~A" uri))))
+  ;; no need to check for customer session as this might be a guest login. 
+  (let ((uri (with-mvc-redirect-ui createmodelforcustaddorderotpstep createwidgetsforcustaddorderotpstep)))
+    (format nil "~A" uri)))
 
 (defun createmodelforcustshipmethodspage ()
   (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
@@ -2087,6 +2129,8 @@
 	 (gstorgname (gethash "gstorgname" orderparams-ht))
 	 (shopcart-total (gethash "shopcart-total" orderparams-ht))
 	 (shipping-cost (gethash "shipping-cost" orderparams-ht))
+	 (storepickupenabled (gethash "storepickupenabled" orderparams-ht))
+	 (vendoraddress (gethash "vendoraddress" orderparams-ht))
 	 (payment-mode (hunchentoot:parameter "paymentmode"))
 	 (utrnum (hunchentoot:parameter "utrnum"))
 	 (phone  (gethash "phone" orderparams-ht))
@@ -2097,6 +2141,9 @@
 	 (company-type (slot-value custcomp 'cmp-type))
 	 (vendor-list (get-shopcart-vendorlist odts))
 	 (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
+
+    ;;(logiamhere (format nil "Payment mode is ~A" payment-mode))
+
     ;; if payment is made using UPI, then add the utrnum to the order parameters
     (when (and (equal payment-mode "UPI") utrnum)
       (setf (gethash "utrnum" orderparams-ht) utrnum)
@@ -2113,11 +2160,11 @@
     (save-cust-order-params orderparams-ht)
     ;; return the variables in a function. 
     (function (lambda ()
-      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts)))))
+      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts storepickupenabled vendoraddress)))))
 
 (defun createwidgetsforcustshowshopcartreadonly (modelfunc)
   (multiple-value-bind
-	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts)
+	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts storepickupenabled vendoraddress)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -2159,20 +2206,23 @@
 				   ((and (equal payment-mode "OPY") (or (equal company-type "COMMUNITY")
 									(equal company-type "BASIC")
 									(equal company-type "PROFESSIONAL")))
-				    (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "live" order-cxt)))
+				    (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "live" order-cxt email)))
 				   ((and (equal payment-mode "OPY")
 					 (equal company-type "TRIAL"))
-				    (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "test" order-cxt)))
+				    (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "test" order-cxt email)))
 				   (T (with-html-form "placeorderform" "dodmyorderaddaction"  
-					(:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary" :type "submit" "Place Order" ))))))))
-		       (:hr)))))
+					(:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary" :type "submit" "Place Order" ))))))))))))
+			  
 	  (widget3 (function (lambda () (cl-who:with-html-output (*standard-output* nil)
 					  (cl-who:str (ui-list-shopcart-readonly shopcart-products odts))))))
 
 	  (widget4 (function (lambda () (cl-who:with-html-output (*standard-output* nil)
-					  (submitformevent-js "#placeorderform"))))))
-      (list widget1 widget2 widget3 widget4))))
-	
+					  (submitformevent-js "#placeorderform")))))
+	  (widget5 (function (lambda ()
+		     (if storepickupenabled (displaystorepickupwidget vendoraddress))))))
+      (list widget1 widget2 widget3 widget4 widget5))))
+
+
 
 (defun dod-controller-cust-show-shopcart-readonly()
   (with-cust-session-check

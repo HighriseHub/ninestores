@@ -143,7 +143,7 @@
    (approval-status)
    (upi-id)
    (tenantobj
-    :accessor vendor-company
+    :accessor get-vendor-company
     :initarg :tenantobj)))
 
 ;;; Database object for Vendor profile
@@ -300,16 +300,14 @@
     :type integer
     :initarg :tenant-id)
    (COMPANY
-    :ACCESSOR vendor-company
+    :ACCESSOR get-vendor-company
     :DB-KIND :JOIN
     :DB-INFO (:JOIN-CLASS dod-company
 	                  :HOME-KEY tenant-id
                           :FOREIGN-KEY row-id
-                          :SET NIL)))
-   
+              :SET NIL)))
+   (:BASE-TABLE dod_vend_profile))
 
-   
-  (:BASE-TABLE dod_vend_profile))
 
 
 

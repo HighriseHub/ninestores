@@ -95,6 +95,9 @@
 		     "vendor/dod-bl-vas.lisp"
 		     "vendor/dod-ui-vad.lisp"
 		     "vendor/dod-ui-ven.lisp"
+		     "vendor/dod-dal-vpm.lisp"
+		     "vendor/dod-bl-vpm.lisp"
+		     
 
 		     ;; Webpushnotify
 		     "webpushnotify/dod-dal-push.lisp"
@@ -119,6 +122,8 @@
 		     "test/hhub-tst-cus.lisp"
 		     "test/hhub-tst-webpush.lisp"
 		     "test/hhub-tst-sms.lisp"
+		     "test/hhub-tst-wrh.lisp"
+		     "test/hhub-tst-vpm.lisp"
 		     ;; "core/dod-seed-data.lisp"
 		     ;; "core/unit-tests.lisp"
 		     ))

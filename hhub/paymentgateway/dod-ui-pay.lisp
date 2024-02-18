@@ -28,11 +28,12 @@
 	 (udf4 "not used")
 	 (udf5 "not used")
 	 (show-convenience-fee "Y")
+	 (payment-options "cc,nb,w,atm,upi,dp")
 	 (return-url (format nil "~A?~A" *PAYGATEWAYRETURNURL* (format nil "~A=~A" (hunchentoot:session-cookie-name *current-customer-session*) (hunchentoot:url-encode (hunchentoot:session-cookie-value hunchentoot:*session*))))) 
 	 (return-url-cancel (format nil "~A?~A" *PAYGATEWAYCANCELURL* (format nil "~A=~A" (hunchentoot:session-cookie-name *current-customer-session*) (hunchentoot:url-encode (hunchentoot:session-cookie-value hunchentoot:*session*)))))  
 	 (return-url-failure (format nil "~A?~A" *PAYGATEWAYFAILUREURL*  (format nil "~A=~A" (hunchentoot:session-cookie-name *current-customer-session*) (hunchentoot:url-encode (hunchentoot:session-cookie-value hunchentoot:*session*)))))
-	 (param-names (list "amount" "api_key" "city" "country" "currency" "description" "email" "mode"  "name" "order_id" "phone" "return_url" "show_convenience_fee" "return_url_cancel" "return_url_failure" "udf1" "udf2" "udf3" "udf4" "udf5"  "zip_code"))
-	 (param-values (list amount payment-api-key customer-city customer-country currency description customer-email mode  customer-name order-id  customer-phone return-url show-convenience-fee return-url-cancel return-url-failure udf1 udf2 udf3 udf4 udf5  customer-zipcode))
+	 (param-names (list "amount" "api_key" "city" "country" "currency" "description" "email" "mode"  "name" "order_id" "phone" "return_url" "show_convenience_fee" "return_url_cancel" "return_url_failure" "udf1" "udf2" "udf3" "udf4" "udf5"  "zip_code" "payment_options"))
+	 (param-values (list amount payment-api-key customer-city customer-country currency description customer-email mode  customer-name order-id  customer-phone return-url show-convenience-fee return-url-cancel return-url-failure udf1 udf2 udf3 udf4 udf5 customer-zipcode payment-options))
 	 (params-alist (pairlis param-names param-values))
 	 (hash (generatehashkey  params-alist  payment-api-salt  :sha512)))
 
@@ -41,7 +42,7 @@
     (setf (hunchentoot:session-value :payment-hash ) hash)
     					;do something
     (with-standard-customer-page  "Payment Request"
-      (:form :class "form-makepaymentrequest" :role "form" :method "POST" :action "https://biz.traknpay.in/v2/paymentrequest"
+      (:form :class "form-makepaymentrequest" :role "form" :method "POST" :action "https://pay.basispay.in/v2/paymentrequest";;https://biz.traknpay.in/v2/paymentrequest"
       (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 		  (:h5 (cl-who:str (format nil "For Vendor: ~A" (slot-value vendor 'name))))
@@ -69,14 +70,16 @@
 			  (:input :class "form-control" :type "hidden" :value show-convenience-fee :name "show_convinience_fee")
 			  (:input :class "form-control" :type "hidden" :value return-url-failure :name "return_url_failure")
 			  (:input :class "form-control" :type "hidden" :value return-url-cancel :name "return_url_cancel")
-			  (:input :class "form-control" :type "hidden" :value return-url :name "return_url")))) 
+			  (:input :class "form-control" :type "hidden" :value return-url :name "return_url")
+			  (:input :class "form-control" :type "hidden" :value payment-options :name "payment_options")
+			  ))) 
       (:div :class "row"
 	    (:div :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"
 		  (:div :class "form-group"
 			(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Confirm"))))))))
 	
 
-(defun make-payment-request-html (amount wallet-id mode order-id)
+(defun make-payment-request-html (amount wallet-id mode order-id guestemail)
   (let* ((customer (get-login-customer))
 	 (company (get-login-customer-company))
 	 (wallet (if wallet-id (get-cust-wallet-by-id wallet-id company)))
@@ -85,7 +88,7 @@
 	 (currency "INR")
 	 (customer-type (slot-value customer 'cust-type))
 	 (customer-name (slot-value customer 'name))
-	 (customer-email (slot-value customer 'email))
+	 (customer-email (if (equal customer-type "STANDARD") (slot-value customer 'email) guestemail))
 	 (customer-phone (slot-value customer 'phone))
 	 (customer-city (slot-value customer 'city))
 	 (payment-api-key (slot-value vendor 'payment-api-key))
@@ -98,11 +101,12 @@
 	 (udf4 "not used")
 	 (udf5 "not used")
 	 (show-convenience-fee "Y")
+	 (payment-options "cc,nb,w,atm,upi,dp")
 	 (return-url (format nil "~A?~A" *PAYGATEWAYRETURNURL* (format nil "~A=~A" (hunchentoot:session-cookie-name *current-customer-session*) (hunchentoot:url-encode (hunchentoot:session-cookie-value hunchentoot:*session*))))) 
 	 (return-url-cancel (format nil "~A?~A" *PAYGATEWAYCANCELURL* (format nil "~A=~A" (hunchentoot:session-cookie-name *current-customer-session*) (hunchentoot:url-encode (hunchentoot:session-cookie-value hunchentoot:*session*)))))  
 	 (return-url-failure (format nil "~A?~A" *PAYGATEWAYFAILUREURL*  (format nil "~A=~A" (hunchentoot:session-cookie-name *current-customer-session*) (hunchentoot:url-encode (hunchentoot:session-cookie-value hunchentoot:*session*)))))
-	 (param-names (list "amount" "api_key" "city" "country" "currency" "description" "email" "mode"  "name" "order_id" "phone" "return_url" "show_convenience_fee" "return_url_cancel" "return_url_failure" "udf1" "udf2" "udf3" "udf4" "udf5"  "zip_code"))
-	 (param-values (list amount payment-api-key customer-city customer-country currency description customer-email mode  customer-name order-id  customer-phone return-url show-convenience-fee return-url-cancel return-url-failure udf1 udf2 udf3 udf4 udf5  customer-zipcode))
+	 (param-names (list "amount" "api_key" "city" "country" "currency" "description" "email" "mode"  "name" "order_id" "phone" "return_url" "show_convenience_fee" "return_url_cancel" "return_url_failure" "udf1" "udf2" "udf3" "udf4" "udf5"  "zip_code" "payment_options"))
+	 (param-values (list amount payment-api-key customer-city customer-country currency description customer-email mode  customer-name order-id  customer-phone return-url show-convenience-fee return-url-cancel return-url-failure udf1 udf2 udf3 udf4 udf5  customer-zipcode payment-options))
 	 (params-alist (pairlis param-names param-values))
 	 (hash (generatehashkey  params-alist  payment-api-salt  :sha512)))
 	 
@@ -110,7 +114,7 @@
     (setf (hunchentoot:session-value :payment-hash ) hash)
     					;do something
     (cl-who:with-html-output-to-string (*standard-output* nil)
-      (:form :class "form-makepaymentrequest" :role "form" :method "POST" :action "https://biz.traknpay.in/v2/paymentrequest"
+      (:form :class "form-makepaymentrequest" :role "form" :method "POST" :action "https://pay.basispay.in/v2/paymentrequest"
       (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 		  (:h5 (cl-who:str (format nil "For Vendor: ~A" (slot-value vendor 'name))))
@@ -138,6 +142,7 @@
 			  (:input :class "form-control" :type "hidden" :value show-convenience-fee :name "show_convinience_fee")
 			  (:input :class "form-control" :type "hidden" :value return-url-failure :name "return_url_failure")
 			  (:input :class "form-control" :type "hidden" :value return-url-cancel :name "return_url_cancel")
+			  (:input :class "form-control" :type "hidden" :value payment-options :name "payment_options")
 			  (:input :class "form-control" :type "hidden" :value return-url :name "return_url")))) 
       (:div :class "row"
 	    (:div :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"

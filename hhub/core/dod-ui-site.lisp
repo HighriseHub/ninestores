@@ -18,7 +18,7 @@
 		    (:hr))
 	      (:div :class "row"
 		    (:div :class "col-lg-12" 
-			  (:p :class "copyright text-muted small" "Copyright &copy; HighriseHub 2023. All Rights Reserved")))))))
+			  (:p :class "copyright text-muted small" "Copyright &copy; HighriseHub 2024. All Rights Reserved.")))))))
 ;;  (modal-dialog (format nil "hhubcookiepolicy-modal") "Accept Cookies" (modal.hhub-cookie-policy))))
 
 

@@ -44,25 +44,39 @@
     updatedvendor))
 
 
+(defun createmodelforproductcategoriespage ()
+  (let* ((company (get-login-company))
+	 (categories (select-prdcatg-by-company company))
+	 (catgcount (length categories)))
+    (function (lambda ()
+      (values categories catgcount)))))
+
+(defun createwidgetsforproductcategoriespage (modelfunc)
+  (multiple-value-bind ( categories catgcount) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col
+			   (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvenaddprodcatg-modal")  :href "#"  (:span :class "glyphicon glyphicon-plus") "Add New Category" )
+			   (modal-dialog-v2 (format nil "dodvenaddprodcatg-modal") "Add New Category" (modal.product-category-add)))
+			 (with-html-div-col :align "right"
+			   (:span :class "badge" (cl-who:str (format nil " ~d " catgcount)))))
+		       (:hr)))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (cl-who:str (display-as-table (list "Name" "Action") categories 'product-category-row)))))))
+    (list widget1 widget2))))
+
+  
 (defun dod-controller-product-categories-page ()
   (with-cad-session-check
-    (let* ((company (get-login-company))
-	   (categories (select-prdcatg-by-company company))
-	   (catgcount (length categories)))
-      (with-standard-compadmin-page "Product Categories"
-	(with-html-div-row
-	  (with-html-div-col
-	    (:a :data-toggle "modal" :data-target (format nil "#dodvenaddprodcatg-modal")  :href "#"  (:span :class "glyphicon glyphicon-plus") "Add New Category" )
-	    (modal-dialog (format nil "dodvenaddprodcatg-modal") "Add New Category" (modal.product-category-add)))
-	  (with-html-div-col :align "right"
-	    (:span :class "badge" (cl-who:str (format nil " ~d " catgcount)))))
-	(:hr)
-	(cl-who:str (display-as-table (list "Name" "Action") categories 'product-category-row))))))
+    (with-mvc-ui-page "Company Admin - Product Categories" createmodelforproductcategoriespage createwidgetsforproductcategoriespage :role :compadmin)))
+
 
 (defun modal.product-category-add ()
   (cl-who:with-html-output (*standard-output* nil)
     (with-html-div-row 
-      (with-html-div-col
+      (with-html-div-col-8
 	(with-html-form "form-productcategories" "hhubprodcatgaddaction"
 	  (:div :class "form-group"
 		(:input :class "form-control" :name "catg-name" :value "" :placeholder "Category Name" :type "text" ))
@@ -75,7 +89,7 @@
 	(:td  :height "10px" (cl-who:str catg-name))
 	(:td :height "10px"
 	     (:div :class "col-xs-2" :data-toggle "tooltip" :title "Delete" 
-		   (:a :href (format nil "hhubdeleteprodcatg?id=~A" row-id) (:span :class "glyphicon glyphicon-off")))))))
+		   (:a :href (format nil "hhubdeleteprodcatg?id=~A" row-id) (:i :class "fa-regular fa-trash-can")))))))
 
 
 
@@ -104,37 +118,52 @@
 
 
 
-(defun com-hhub-transaction-publish-account-exturl ()
-  (with-cad-session-check 
-    (let* ((params nil))
-      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-      (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
-      (with-hhub-transaction "com-hhub-transaction-publish-account-exturl" params 
-	(let* ((redirectto (hunchentoot:parameter "redirectto"))
-	       (account (get-login-company))
-	       (ext-url (slot-value account 'external-url)))
-	  (unless ext-url
-	    (let ((url (generate-account-ext-url account)))
-	      (setf (slot-value account 'external-url) url)
-	      (update-company account)))
-	  (hunchentoot:redirect redirectto))))))
+(defun createmodelforpublishaccountexturl ()
+  (let* ((params nil))
+    (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+    (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+    (with-hhub-transaction "com-hhub-transaction-publish-account-exturl" params 
+      (let* ((redirectto (hunchentoot:parameter "redirectto"))
+	     (account (get-login-company))
+	     (ext-url (slot-value account 'external-url)))
+	(unless ext-url
+	  (let ((url (generate-account-ext-url account)))
+	    (setf (slot-value account 'external-url) url)
+	    (update-company account)))
+	(function (lambda ()
+	  redirectto))))))
 
+  
+(defun com-hhub-transaction-publish-account-exturl ()
+  (with-cad-session-check
+    (let ((uri (with-mvc-redirect-ui createmodelforpublishaccountexturl createwidgetsforgenericredirect)))
+      (format nil "~A" uri))))
+
+(defun createmodelforcadprofile ()
+  (let ((account (get-login-company))
+	(loginusername (get-login-user-name)))
+    (function (lambda ()
+      (values account loginusername)))))
+
+(defun createwidgetsforcadprofile (modelfunc)
+  (multiple-value-bind (account loginusername) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:h3 "Welcome " (cl-who:str (format nil "~A" loginusername)))
+		       (:hr)
+		       (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
+			     (:a :class "list-group-item"  :href "hhubcadlistprodcatg"  "Product Categories")
+			     (:a :data-bs-toggle "modal" :class "list-group-item"  :data-bs-target (format nil "#dodaccountexturl-modal")  :href "#"  "Account External URL")
+			     (modal-dialog-v2 (format nil "dodaccountexturl-modal") "Account External URL" (modal.account-external-url account))
+			     (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodaccountadminupdate-modal")  :href "#"  "Contact Information")
+			     (modal-dialog-v2 (format nil "dodaccountadminupdate-modal") "Update Account Administrator" (modal.account-admin-update-details)) 
+			     (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodaccadminchangepin-modal")  :href "#"  "Change Password")
+			     (modal-dialog-v2 (format nil "dodaccadminchangepin-modal") "Change Password" (modal.account-admin-change-pin))))))))
+      (list widget1))))
 
 (defun dod-controller-cad-profile ()
-  (with-cad-session-check 
-    (let ((account (get-login-company)))
-      (with-standard-compadmin-page "HighriseHub - Company Admin Profile"
-	(:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))
-	(:hr)
-	(:div :class "list-group col-sm-6 col-md-6 col-lg-6"
-	      (:a :class "list-group-item"  :href "hhubcadlistprodcatg"  "Product Categories")
-	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodaccountexturl-modal")  :href "#"  "Account External URL")
-	      (modal-dialog (format nil "dodaccountexturl-modal") "Account External URL" (modal.account-external-url account))
-	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodaccountadminupdate-modal")  :href "#"  "Contact Information")
-	      (modal-dialog (format nil "dodaccountadminupdate-modal") "Update Account Administrator" (modal.account-admin-update-details)) 
-	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodaccadminchangepin-modal")  :href "#"  "Change Password")
-	      (modal-dialog (format nil "dodaccadminchangepin-modal") "Change Password" (modal.account-admin-change-pin)))))))
-
+  (with-cad-session-check
+    (with-mvc-ui-page "Welcome Company Administrator" createmodelforcadprofile createwidgetsforcadprofile :role :compadmin)))
 
 
 (defun modal.account-admin-change-pin ()
@@ -181,10 +210,9 @@
 			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
 
       
-
-
-(defun com-hhub-transaction-compadmin-updatedetails-action ()
-  (let* ((params nil))
+(defun createmodelforcadupdatedetailsaction ()
+  (let* ((params nil)
+	 (redirectlocation "/hhub/hhubcadprofile"))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
     (with-hhub-transaction "com-hhub-transaction-compadmin-updatedetails-action" params
@@ -198,11 +226,16 @@
 	  (setf (slot-value admin 'phone-mobile) phone)
 	  (setf (slot-value admin 'email) email)
 	  (update-user admin))
-	(hunchentoot:redirect "/hhub/hhubcadprofile")))))
-  
-  
+	(function (lambda ()
+	  redirectlocation))))))
 
 
+(defun com-hhub-transaction-compadmin-updatedetails-action ()
+  (with-cad-session-check
+    (let ((uri (with-mvc-redirect-ui createmodelforcadupdatedetailsaction createwidgetsforgenericredirect)))
+      (format nil "~A" uri))))
+  
+  
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-compadmin-navigation-bar ()
     :documentation "This macro returns the html text for generating a navigation bar using bootstrap."
@@ -226,7 +259,30 @@
 			 (:ul :class "nav navbar-nav navbar-right"
 			      (:li :align "center" (:a :href "/hhub/hhubcadprofile"   (:span :class "glyphicon glyphicon-user") " My Profile" )) 
 			      (:li :align "center" (:a :href "/hhub/hhubcadlogout"  (:span :class "glyphicon glyphicon-off") " Logout "  )))))))))
-  
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-compadmin-navigation-bar-v2 ()
+    :documentation "This macro returns the html text for generating a navigation bar using bootstrap."
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:nav :class "navbar navbar-expand-sm  sticky-top navbar-dark bg-dark" :id "hhubcompadminnavbar"  
+     	     (:div  :class "container-fluid"
+		   (:a :class "navbar-brand" :href "/hhub/hhubcadindex" (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" ))
+		   (:button :class "navbar-toggler" :type "button" :data-bs-toggle "collapse" :data-bs-target "#navbarSupportedContent" :aria-controls "navbarSupportedContent" :aria-expanded "false" :aria-label "Toggle navigation" 
+			    (:span :class "navbar-toggler-icon" ))
+		   (:div :class "collapse navbar-collapse justify-content-between" :id "navbarSupportedContent"
+			 (:ul :class "navbar-nav me-auto mb-2 mb-lg-0"
+			      (:li :class "nav-item" 	
+				   (:a :class "nav-link active" :aria-current "page" :href "/hhub/hhubcadindex" (:i :class "fa-solid fa-house") "&nbsp;Home"))
+		   	      (:li  :class "nav-item" (:a :class "nav-link" :href "/hhub/dasproductapprovals" "Customer Approvals"))
+			      (:li  :class "nav-item" (:a :class "nav-link" :href "/hhub/hhubvendorapprovalpage" "Vendor Approvals"))
+			      (:li :class "nav-item" :align "center" (:a :class "nav-link" :href "#" (cl-who:str (format nil "Group: ~a" (slot-value (get-login-company) 'name)))))
+			      (:li :class "nav-item" :align "center" (:a :class "nav-link" :href "#" (print-web-session-timeout))))
+			 (:ul :class "navbar-nav ms-auto"
+			      (:li :class "nav-item"  (:a :class "nav-link" :href "#"  (:i :class "fa-regular fa-bell")))
+			      (:li :class "nav-item"  (:a :class "nav-link" :href "/hhub/hhubcadprofile"  (:i :class "fa-regular fa-user")))
+			      (:li :class "nav-item" (:a :class "nav-link" :href "/hhub/hhubcadlogout" (:i :class "fa-solid fa-arrow-right-from-bracket"))))))))))
+
 
 (defun com-hhub-transaction-cad-login-page ()
   (handler-case 
@@ -235,18 +291,18 @@
 		  (hunchentoot:redirect "/hhub/hhubcadindex")
 		  ;else
 		  (with-standard-compadmin-page "Company Administrator Login"
-		    (:div :class "row"
+		    (:div :id "idcompadminlogin" :class "row"
 			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 				(:div :class "account-wall"
 				      (:img :class "profile-img" :src "/img/logo.png" :alt "")
 				      (:h1 :class "text-center login-title"  "Login to HighriseHub")
 				      (:form :class "form-signin" :role "form" :method "POST" :action "hhubcadloginaction"
-					     
 					     (:div :class "form-group"
 						   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "text"))
 					     (:div :class "form-group"
 						   (:input :class "form-control" :name "password"  :placeholder "Password=demo" :type "password"))
-					     (:input :type "submit"  :class "btn btn-primary" :value "Login      "))))))))
+					     (:input :type "submit"  :class "btn btn-primary" :value "Login")))))
+		    (submitformevent-js "#idcompadminlogin")))) 
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2006 )
 	  (progn
@@ -254,33 +310,46 @@
 	    (start-das)
 	    (hunchentoot:redirect "/hhub/cad-login.html"))))))
 
-
-
-(defun com-hhub-transaction-compadmin-home () 
-  (with-cad-session-check 
+;;;;;;;;;;;; com-hhub-transaction-compadmin-home ;;;;;;;;;;;;;;;
+(defun createmodelforcompadminhome ()
   (let ((params nil))
-    ; We are not checking the URI for home page, because it contains the session variable. 
+    ;; We are not checking the URI for home page, because it contains the session variable. 
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
     (with-hhub-transaction "com-hhub-transaction-compadmin-home" params
-	(let ((products (get-products-for-approval (get-login-tenant-id))))
-	  (with-standard-compadmin-page  "Welcome to Highrisehub."
-	    (:div :class "container"
-		  (:div :id "row"
-			(:div :id "col-xs-6" 
-			      (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))))
-		  (:hr)
-		  (:h4 "Pending Product Approvals")
-		  (:div :id "row"
-			(:div :id "col-xs-6"
-			      (:div :id "col-xs-6" :align "right" 
-				  (:span :class "badge" (cl-who:str (format nil "~A" (length products)))))))
-		  (:hr)
-		  (cl-who:str (display-as-tiles products 'product-card-for-approval "product-box" )))))))))
-  
-  
-(defun com-hhub-transaction-cad-login-action ()
-  (let ((params nil))
+      (let* ((products (get-products-for-approval (get-login-tenant-id)))
+	     (numproducts (length products))
+	     (username (get-login-user-name)))
+	(function (lambda ()
+	  (values  products numproducts username)))))))
+
+(defun createwidgetsforcompadminhome (modelfunc)
+  (multiple-value-bind ( products numproducts username) (funcall  modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)   
+		       (:div :class "container"
+			     (with-html-div-row
+			       (with-html-div-col-6
+				 (:h4 "Welcome " (cl-who:str (format nil "~A" username)))))
+			     (:hr)
+			     (with-html-div-row
+			       (with-html-div-col-6
+				 (:p "Pending Product Approvals"))
+			       (with-html-div-col-6
+				 (:div :class "col-xs-6" :align "right" 
+				       (:b (:span :class "position-relative translate-middle badge rounded-pill bg-success" (cl-who:str (format nil "~A" numproducts)))))))
+			     (:hr)
+			     (cl-who:str (display-as-tiles products 'product-card-for-approval "product-box" ))))))))
+      (list widget1))))
+
+(defun com-hhub-transaction-compadmin-home () 
+  (with-cad-session-check
+    (with-mvc-ui-page "Welcome Company Administrator" createmodelforcompadminhome createwidgetsforcompadminhome :role :compadmin)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;com-hhub-transaction-cad-login-action;;;;;;;;;;;;
+(defun createmodelforcadloginaction ()
+  (let ((params nil)
+	(redirectlocation "/hhub/cad-login.html"))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     ;; The person has not yet logged in 
     ;; (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
@@ -291,13 +360,14 @@
 		 (or (null phone) (zerop (length phone)))
 		 (or (null passwd) (zerop (length passwd))))
 	  (if (dod-cad-login :phone phone :password passwd)
-	      (hunchentoot:redirect  "/hhub/hhubcadindex")
-	      ;; else
-	      (hunchentoot:redirect "/hhub/cad-login.html")))))))
-      
-	
+	      (setf redirectlocation "/hhub/hhubcadindex")))))
+    (function (lambda ()
+      redirectlocation))))
 
-
+(defun com-hhub-transaction-cad-login-action ()
+  (let ((uri (with-mvc-redirect-ui createmodelforcadloginaction createwidgetsforgenericredirect)))
+    (format nil "~A" uri)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun dod-cad-login (&key phone  password)
   (let* ((login-user (car (clsql:select 'dod-users :where [and
@@ -331,41 +401,62 @@
 	(setf (hunchentoot:session-value :login-company) login-company)
 	T))))
 
-
-  
-(defun com-hhub-transaction-cad-logout ()
-  (let ((params nil))
+;;;;;;;;;;;;;;com-hhub-transaction-cad-logout;;;;;;;;;;;;;;;
+(defun createmodelforcadlogout ()
+  (let ((params nil)
+	(username (get-login-user-name))
+	(redirectlocation "/hhub/cad-login.html"))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
     (with-hhub-transaction "com-hhub-transaction-cad-logout" params 
-      (progn (dod-logout (get-login-user-name))
-	     (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
-	     (hunchentoot:redirect "/hhub/cad-login.html")))))
+      (progn
+	(dod-logout username)
+	(when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
+	(function (lambda ()
+	  redirectlocation))))))
+
+(defun com-hhub-transaction-cad-logout ()
+  (let ((uri (with-mvc-redirect-ui createmodelforcadlogout createwidgetsforgenericredirect)))
+    (hunchentoot:redirect (format nil "~A" uri))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  
+
+(defun createmodelforcadproductrejectaction ()
+  (let ((params nil)
+	(company (get-login-company))
+	(redirectlocation "/hhub/hhubcadindex"))
+    (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+    (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+    (with-hhub-transaction "com-hhub-transaction-cad-product-reject-action" params 
+      (let ((id (hunchentoot:parameter "id"))
+	    (description (hunchentoot:parameter "description")))
+	(reject-product id description company)
+	(function (lambda ()
+	  redirectlocation))))))
 
 (defun com-hhub-transaction-cad-product-reject-action ()
   (with-cad-session-check
-     (let ((params nil))
-      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-      (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
-   (with-hhub-transaction "com-hhub-transaction-cad-product-reject-action" params 
-    (let ((id (hunchentoot:parameter "id"))
+    (let ((uri (with-mvc-redirect-ui createmodelforcadproductrejectaction createwidgetsforgenericredirect)))
+      (format nil "~A" uri))))
+
+
+
+(defun createmodelforcadproductapproveaction ()
+  (let ((params nil)
+	(redirectlocation "/hhub/hhubcadindex"))
+    (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+    (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+    (with-hhub-transaction "com-hhub-transaction-cad-product-approve-action" params
+      (let ((id (hunchentoot:parameter "id"))
 	    (description (hunchentoot:parameter "description")))
-	(reject-product id description (get-login-company))
-	(hunchentoot:redirect "/hhub/hhubcadindex"))))))
-     
-
-
+	(approve-product id description (get-login-company))
+	(function (lambda ()
+	  redirectlocation))))))
 
 (defun com-hhub-transaction-cad-product-approve-action ()
   (with-cad-session-check
-    (let ((params nil))
-      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-      (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
-   (with-hhub-transaction "com-hhub-transaction-cad-product-approve-action" params
-     (let ((id (hunchentoot:parameter "id"))
-	   (description (hunchentoot:parameter "description")))
-       (approve-product id description (get-login-company))
-       (hunchentoot:redirect "/hhub/hhubcadindex"))))))
+    (let ((uri (with-mvc-redirect-ui createmodelforcadproductapproveaction createwidgetsforgenericredirect)))
+      (format nil "~A" uri))))
+  
 
 (defun dod-controller-products-approval-page ()
   :documentation "This controller function is used by the System admin and Company Admin to approve products" 

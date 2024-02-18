@@ -279,6 +279,15 @@ function displaygstdetails () {
 
 }
 
+function togglecheckboxvalueyn(id){
+    const checkboxtoggle  = document.getElementById(id);
+    if(checkboxtoggle.checked ){
+         checkboxtoggle.value = "Y";
+    }else
+    {
+         checkboxtoggle.value = "N";
+    }
+}
 
 function clearbilltoaddress(){
     var billaddress = document.getElementById("billaddress");
@@ -540,6 +549,11 @@ $(".form-vendordercomplete").on('submit', function (e) {
 
 //We are using event delegation here. #searchresult is 
 
+/*$(document).ready(function() {
+    registerforsubmitformevent ("#hhubmaincontent");
+});*/
+
+
 $(document).ready(function() {
     registerforsubmitformevent ("#prdlivesearchresult");
 });
@@ -553,6 +567,12 @@ $(document).ready(function() {
 $(document).ready(function() {
     registerforsubmitformevent ("#idprd-catg-container");
 });
+
+$(document).ready(function() {
+    registerforsubmitformevent ("#idstdcustcodcontainer");
+});
+
+
 
 const registerforsubmitformevent = (component) => {
     const element = document.querySelector(component);

@@ -88,7 +88,7 @@
 
 (defmethod db-fetch-Vendor-WebPushNotifySubscriptions ((dbas WebPushNotifyDBService) vendor)  
   (let* ((vendor-id (slot-value vendor 'row-id))
-	 (company (vendor-company vendor)) 
+	 (company (get-vendor-company vendor)) 
 	 (tenant-id (slot-value company 'row-id))
 	 (db-vendorpushsub (car (clsql:select 'dod-webpush-notify :where
 					 [and
@@ -176,7 +176,7 @@
       (unless previoussub
 	(setf (slot-value dbas 'dbobject) webpushnotifyDBobj)
 	 ;; Set the company context for the web push notification DB service 
-	(setcompany dbas (vendor-company vendor))
+	(setcompany dbas (get-vendor-company vendor))
 	(call-next-method))
       (when previoussub
 	(error 'hhub-webpush-subscription-exists :errstring (format nil "Web Push Subscription for vendor: ~A, already exists" (name vendor)))))))

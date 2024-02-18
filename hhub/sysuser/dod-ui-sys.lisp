@@ -39,12 +39,13 @@
 	(context (hunchentoot:session-value :sessioncontext))
 	(sessionotp (hunchentoot:session-value :genericotp)))
     ;;(hunchentoot:log-message* :info (format nil "context is ~A otp is ~A sessionotp is ~A" context otp sessionotp))
-    ;; before redirecting we need to reset the web session. 
-    (hunchentoot:remove-session hunchentoot:*session*)
     (if (equal (parse-integer otp) sessionotp)
         (hunchentoot:redirect (format nil "/hhub/~A" context))
 	;; else
-	(hunchentoot:redirect *siteurl*))))
+	(progn
+	  ;; before redirecting we need to reset the web session. 
+	  (hunchentoot:remove-session hunchentoot:*session*)
+	  (hunchentoot:redirect *siteurl*)))))
   
 
 (defun dod-controller-otp-regenerate-action ()
@@ -1011,6 +1012,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginwithotp"  'dod-controller-vend-login-with-otp)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginv2"  'dod-controller-vendor-otploginpage)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendprodpricingsaveaction"  'dod-controller-vendor-product-pricing-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvpmupdateaction"  'dod-controller-vendor-payment-methods-update-action)
 	
 			
 ))
