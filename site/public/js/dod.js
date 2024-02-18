@@ -568,6 +568,12 @@ $(document).ready(function() {
     registerforsubmitformevent ("#idprd-catg-container");
 });
 
+$(document).ready(function() {
+    registerforsubmitformevent ("#idstdcustcodcontainer");
+});
+
+
+
 const registerforsubmitformevent = (component) => {
     const element = document.querySelector(component);
     if (null != element){
