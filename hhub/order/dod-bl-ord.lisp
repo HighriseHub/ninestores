@@ -315,7 +315,7 @@
   
 
   
-(defun persist-order(order-date customer-id request-date ship-date ship-address  context-id order-amt shipping-cost payment-mode comments tenant-id )
+(defun persist-order(order-date customer-id request-date ship-date ship-address  context-id order-amt shipping-cost payment-mode comments storepickupenabled tenant-id )
  (clsql:update-records-from-instance (make-instance 'dod-order
 					 :ord-date order-date
 					 :cust-id customer-id
@@ -331,21 +331,22 @@
 					 :order-type "SALE"
 					 :order-amt order-amt
 					 :shipping-cost shipping-cost
+					 :storepickupenabled storepickupenabled
 					 :deleted-state "N")))
 
 
 
-(defun create-order (order-date customer-instance request-date ship-date ship-address context-id order-amt shipping-cost payment-mode comments company-instance) 
+(defun create-order (order-date customer-instance request-date ship-date ship-address context-id order-amt shipping-cost payment-mode comments storepickupenabled company-instance) 
   (let ((customer-id (slot-value  customer-instance 'row-id) )
 	(tenant-id (slot-value company-instance 'row-id)))
-    (persist-order order-date customer-id request-date ship-date ship-address  context-id order-amt shipping-cost payment-mode comments  tenant-id)))
+    (persist-order order-date customer-id request-date ship-date ship-address  context-id order-amt shipping-cost payment-mode comments storepickupenabled tenant-id)))
 
 
 
-(defun create-order-from-pref (order-pref-list order-date request-date ship-date ship-address order-amt discount shipping-cost customer-instance company-instance)
+(defun create-order-from-pref (order-pref-list order-date request-date ship-date ship-address order-amt discount shipping-cost storepickupenabled customer-instance company-instance)
   (let ((uuid (uuid:make-v1-uuid ))
 	(tenant-id (slot-value company-instance 'row-id)))
-      (progn  (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost "PRE" nil  company-instance)
+      (progn  (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost "PRE" nil storepickupenabled  company-instance)
 	      (let ((order (get-order-by-context-id (print-object uuid nil) company-instance))
 		    (vendors (get-opref-vendorlist order-pref-list))
 		    (cust-id (slot-value customer-instance 'row-id)))
@@ -437,7 +438,7 @@
 (defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt shipping-cost shipping-info payment-mode  comments customer-instance company-instance guest-customer utrnum storepickupenabled)
   (let ((uuid (uuid:make-v1-uuid )))
       ;; Create an order in the database. 
-    (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments  company-instance)
+    (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments storepickupenabled  company-instance)
    
     (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
 	   (order-id (slot-value order 'row-id))
@@ -527,7 +528,7 @@
 										 (if (equal (slot-value preference 'sat) "Y") 6))))
 								(if (member (clsql-sys:date-dow requestdate) lst) t nil)))
 							    (get-opreflist-for-customer customer))))
-			    (if custopflist  (create-order-from-pref custopflist orderdate requestdate nil (slot-value customer 'address) nil 0 0 customer dodcompany)) )) customers)))
+			    (if custopflist  (create-order-from-pref custopflist orderdate requestdate nil (slot-value customer 'address) nil 0 0 "N" customer dodcompany)) )) customers)))
 
 
 
