@@ -73,6 +73,10 @@
     :type (string 1)
     :initarg :billsameasship)
 
+   (storepickupenabled
+     :type (string 1)
+     :initarg :storepickupenabled)
+   
    (gstnumber
     :accessor get-gstnumber
     :type (string 20)
