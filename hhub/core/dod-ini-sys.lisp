@@ -151,6 +151,9 @@ Database type: Supported type is ':odbc'"
 the hunchentoot server with ssl settings"
   
   (setf *dod-debug-mode* debug-mode)
+  (setf *random-state* (make-random-state t))
+  ;; # this initializes the global random state by
+  ;;   "some means" (e.g. current time.)
   (setf *http-server* (make-instance 'hunchentoot:easy-acceptor :port 4244 :document-root #p"~/hhubplatform/"))
   (setf (hunchentoot:acceptor-access-log-destination *http-server*)   #p"~/hhublogs/highrisehub-access.log")
   (setf (hunchentoot:acceptor-message-log-destination *http-server*) #p"~/hhublogs/highrisehub-messages.log")
