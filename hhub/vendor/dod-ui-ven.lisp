@@ -303,7 +303,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			  (with-html-custom-checkbox "walletenabled" "N" "Prepaid Wallet" NIL))
 		      
 		      (if (equal payprovidersenabled "Y")
-			  (with-html-custom-checkbox "payprovidersenabled" payprovidersenabled "Pay Providers" T)
+			  (with-html-custom-checkbox "payprovidersenabled" payprovidersenabled "Payment Gateway (Details must be defined!)" T)
 			  ;;else
 			(with-html-custom-checkbox "payprovidersenabled" "N" "Pay Providers" nil))
 		      
@@ -364,6 +364,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (pg-mode (slot-value vendor 'payment-gateway-mode)))
        
     (cl-who:with-html-output (*standard-output* nil)
+      (with-html-div-row
+	(:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+	(:a  :target "_blank"  :data-toggle "tooltip" :title "Create a Merchant account with our payment partner Tyche Payments. Click here."  :href "https://www.tychepayment.com/merchantform.php" (:i :class "fa-solid fa-circle-info"))))
+	
       (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 		  (:form :id (format nil "form-vendorpaymentgatewayupdate")  :role "form" :method "POST" :action "hhubvendupdatepgsettings" :enctype "multipart/form-data" 
@@ -1537,6 +1541,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   ;; Add the vendor object and the tenant to the Business Session 
   ;;set vendor company related params
   (let ((vsessionobj (make-instance 'VendorSessionObject)))
+	
     (setf (slot-value vsessionobj 'vwebsession) hunchentoot:*session*)
     (setf (hunchentoot:session-value :login-vendor ) vendor)
     (setf (slot-value vsessionobj 'vendor) vendor)
@@ -1555,6 +1560,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (if vendor (setf (hunchentoot:session-value :order-func-list) (dod-gen-order-functions vendor company)))
     (if vendor (setf (hunchentoot:session-value :vendor-order-items-hashtable) (make-hash-table)))
     (if vendor (setf (hunchentoot:session-value :login-vendor-products-functions) (dod-gen-vendor-products-functions vendor company)))
+    (if vendor (setf (hunchentoot:session-value :login-vendor-settings-ht) (make-hash-table :test 'equal)))
+    ;; Add vendor settings to the session. 
+    (addloginvendorsettings)
     (let ((sessionkey (createBusinessSession (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite") vsessionobj)))
       (setf (hunchentoot:session-value :login-vendor-business-session-id) sessionkey)
       (logiamhere (format nil "web session is ~A" (slot-value vsessionobj 'vwebsession)))
@@ -1562,6 +1570,26 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (enforcesinglevendorsession sessionkey)
       sessionkey)))
 
+
+(defun addloginvendorsettings ()
+  (let* ((company (get-login-vendor-company))
+	 (vendor (get-login-vendor))
+	 (adapter (make-instance 'VPaymentMethodsAdapter))
+	 (requestmodel (make-instance 'VPaymentMethodsRequestModel
+				      :company company
+				      :vendor vendor))
+	(vpaymentmethods (processreadrequest adapter requestmodel)))
+    (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) vpaymentmethods
+      (addloginvendorsetting "codenabled" codenabled)
+      (addloginvendorsetting "upienabled" upienabled)
+      (addloginvendorsetting "payprovidersenabled" payprovidersenabled)
+      (addloginvendorsetting "walletenabled" walletenabled)
+      (addloginvendorsetting "paylaterenabled" paylaterenabled))))
+  
+
+
+(defun addloginvendorsetting (key value)
+  (setf (gethash key (hunchentoot:session-value :login-vendor-settings-ht)) value))
 
 
 (defun getloginvendorcount ()
@@ -1860,6 +1888,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     :documentation "Get the login session for vendor"
     (hunchentoot:session-value :login-vendor ))
 
+(defun get-login-vendor-setting (key)
+  :documentation "Gets the login vendor settings"
+  (gethash key (hunchentoot:session-value :login-vendor-settings-ht)))
 
 (defun get-login-vend-company ()
     :documentation "Get the login vendor company."
