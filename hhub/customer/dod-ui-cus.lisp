@@ -55,62 +55,77 @@
     (setf (hunchentoot:session-value :temp-guest-customer) temp-customer)))
 
 
-;; This is a pure function. 
+;; This is a pure function.
+
 (defun display-cust-shipping-costs-widget (shopcart-total shipping-options storepickupenabled vendor)
+  :description "The display-cust-shipping-costs-widget function generates an HTML widget for displaying shipping costs, allowing users to choose between shipping or store pickup. It dynamically updates cost information and visibility based on user interactions"
   (let* ((vaddress (address vendor))
-	 (vcity (city vendor))
-	 (vzipcode (zipcode vendor))
-	 (phone (phone vendor))
-	 (vshipping-enabled (slot-value vendor 'shipping-enabled))
-	 (shipping-cost (nth 0 shipping-options))
-	 (freeshipminorderamt (nth 2 shipping-options)))
+         (vcity (city vendor))
+         (vzipcode (zipcode vendor))
+         (phone (phone vendor))
+         (vshipping-enabled (slot-value vendor 'shipping-enabled))
+         (shipping-cost (nth 0 shipping-options))
+         (freeshipminorderamt (nth 2 shipping-options)))
+
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-form "form-custshippingmethod" "hhubcustpaymentmethodspage"
-	
-	(if (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y") (> shipping-cost 0))
-	    (cl-who:htm
-	     (:div :class "custom-control custom-switch"
-		   (:input :type "checkbox" :class "custom-control-input" :id "idstorepickup" :name "storepickup" :value "Y" :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
-		   (:label :class "custom-control-label" :for "idstorepickup" "Pickup In Store"))))
+        
+        (when (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y") (> shipping-cost 0))
+          (cl-who:htm
+           (:div :class "custom-control custom-switch"
+                 (:input :type "checkbox" :class "custom-control-input" :id "idstorepickup" :name "storepickup" :value "Y"
+                         :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
+                 (:label :class "custom-control-label" :for "idstorepickup" "Pickup In Store"))))
 
-	(with-html-div-row :id "costwithshipping" 
-	  (with-html-div-col-8
-	    (cond ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
-		   (cl-who:htm
-		    (:br)
-		    (:p (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
-		    (:p (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
-		    (:hr)
-		    (:p :id "costwithshipping" (:h3  :style "color: green;" (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
-		    (:p (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total))))))
-		  
-		  ((and (equal vshipping-enabled "Y") (= shipping-cost 0))
-		   (cl-who:htm (:p (cl-who:str (format nil "Shipping: FREE!")))))
-		  ((equal vshipping-enabled "N")
-		   (cl-who:htm (:p "Please pickup your items from our store")
-			       (:p (cl-who:str (format nil "Address: ~A, ~A, ~A" vaddress vcity vzipcode)))
-			       (:p (cl-who:str (format nil "Phone: ~A" phone))))))))
-      
-      (with-html-div-row :id "costwithoutshipping" :style "display: none;"
-	(with-html-div-col-8
-	  (:br)
-	  (:p (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
-	  (:p (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* 0.00)))
-	  (:hr)
-	  (:p :id "costwithoutshipping" (:h3 :style "color: green;" (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  shopcart-total)))))
-	  (:hr)))
-	(:input :type "submit"  :class "btn btn-primary" :tabindex "13" :value "Checkout")
-	(:script "function togglepickupinstore () {
-    const storepickup = document.getElementById('idstorepickup');
-    if( storepickup.checked ){
-	$('#costwithoutshipping').show();
-        $('#costwithshipping').hide();
-    }else
-    {
-       	$('#costwithoutshipping').hide();
-        $('#costwithshipping').show();
-    }
-}")))))
+        (with-html-div-row :id "costwithshipping" :class "shipping-cost-section"
+          (with-html-div-col-8
+            (cond ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
+                   (cl-who:htm
+                    (:br)
+                    (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
+                    (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
+                    (:hr)
+                    (:p :id "costwithshipping" :class "total-cost"
+                        (:h3 :style "color: green;" 
+                             (:span :class "text-bg-success" 
+                                    (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
+                    (:p :class "info-message"
+                        (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total))))))
+                  
+                  ((and (equal vshipping-enabled "Y") (= shipping-cost 0))
+                   (cl-who:htm (:p :class "info-message" (cl-who:str "Shipping: FREE!"))))
+                  
+                  ((equal vshipping-enabled "N")
+                   (cl-who:htm (:p "Please pick up your items from our store")
+                               (:p :class "location-info" 
+                                   (cl-who:str (format nil "Address: ~A, ~A, ~A" vaddress vcity vzipcode)))
+                               (:p :class "location-info" (cl-who:str (format nil "Phone: ~A" phone))))))))
+          
+        (with-html-div-row :id "costwithoutshipping" :style "display: none;" :class "shipping-cost-section"
+          (with-html-div-col-8
+            (:br)
+            (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
+            (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* 0.00)))
+            (:hr)
+            (:p :id "costwithoutshipping" :class "total-cost"
+                (:h3 :style "color: green;" 
+                     (:span :class "text-bg-success" 
+                            (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  shopcart-total)))))
+            (:hr)))
+        
+        (:input :type "submit" :class "btn btn-primary checkout-button" :tabindex "13" :value "Checkout")
+        (:script "function togglepickupinstore () {
+                      const storepickup = document.getElementById('idstorepickup');
+                      if( storepickup.checked ){
+                          $('#costwithoutshipping').show();
+                          $('#costwithshipping').hide();
+                      }else
+                      {
+                          $('#costwithoutshipping').hide();
+                          $('#costwithshipping').show();
+                      }
+                  }")))))
+
 
 (defun dod-controller-customer-payment-methods-page ()
   (with-cust-session-check
@@ -165,86 +180,99 @@
       (setf (gethash "vendoraddress" orderparams-ht) vendoraddress)
       (save-cust-order-params orderparams-ht)) 
     ;; create a list of all the required data points or create a model and return it. 
-    (function (lambda ()
+    (lambda ()
       (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) vpaymentmethods
-	(values cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone codenabled upienabled payprovidersenabled walletenabled paylaterenabled))))))
-	 
+	(values cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone codenabled upienabled payprovidersenabled walletenabled paylaterenabled)))))
+
+
+
+(defun create-prepaid-wallet-widget (customer cust-type vendor-list custcomp walletenabled)
+  (lambda ()
+    (let ((itembodyhtml
+	    (cl-who:with-html-output (*standard-output* nil)
+	      (:li :class "list-group-item"  
+	      (when (and (equal cust-type "STANDARD") (equal walletenabled "Y"))
+		(cl-who:htm
+		 (with-html-div-row
+		   (with-html-div-col
+		     (:h5 (:u "Prepaid Wallet Balance"))))
+		 (mapcar (lambda (vendor)
+			   (let* ((wallet (get-cust-wallet-by-vendor customer vendor custcomp))
+				  (wallet-balance (slot-value wallet 'balance))
+				  (vendorname (slot-value vendor 'name)))
+			     (cl-who:htm
+			      (with-html-div-row
+				(with-html-div-col
+				  (:h6 (cl-who:str (format nil "Vendor - ~A" vendorname))))
+				(with-html-div-col
+				  (:span  :style "color:blue" (cl-who:str (format nil "~d" wallet-balance)))))))) vendor-list)
+		 
+		 (with-html-form "form-standardcustpaymentmode" "dodcustshopcartro"
+		   (with-html-input-text-hidden "paymentmode" "PRE")
+		   (:input :type "submit"  :class "btn btn-primary" :value "Prepaid Checkout"))))))))
+      (values itembodyhtml))))
+
+(defun create-cash-on-delivery-widget (cust-type phone codenabled)
+  (lambda ()
+    (let ((itembodyhtml 
+	    (cl-who:with-html-output (*standard-output* nil)
+	      (:li :class "list-group-item"  
+	      ;; We need to give a link for GUEST customers and button for standard customers. This is a bad design to be fixed later.
+	      (when (and (equal cust-type "GUEST") (equal codenabled "Y"))
+		(cl-who:htm
+		 (:a :class "btn btn-primary"  :role "button" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")))
+	      (when (and (equal cust-type "STANDARD") (equal codenabled "Y"))
+		(cl-who:htm
+		 (:div :id "idstdcustcodcontainer" :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+		       (with-html-form "form-standardcustpaymentmode" "dodcustshopcartotpstep"
+			 (with-html-input-text-hidden "paymentmode" "COD")
+			 (with-html-input-text-hidden "context" "dodcustshopcartro")
+			 (with-html-input-text-hidden "phone" phone)
+			 (:input :type "submit"  :class "btn btn-primary" :value "Cash On Delivery")))))))))
+      (values itembodyhtml))))
+  
+
+(defun create-upi-payment-widget (vupiid-p upienabled)
+  (lambda ()
+    (let ((itembodyhtml
+	    (cl-who:with-html-output (*standard-output* nil)
+	      (:li :class "list-group-item"    
+		   (when (and vupiid-p (equal upienabled "Y")) 
+		     (cl-who:htm
+		      (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+			    (with-html-form "form-standardcustpaymentmode" "hhubcustupipage"
+			      (with-html-input-text-hidden "paymentmode" "UPI")
+			      (:input :type "submit"  :class "btn btn-primary" :value "UPI Payment")))))))))
+      (values itembodyhtml))))
+  
+
+(defun create-payment-gateway-widget (singlevendor-p vpayapikey-p payprovidersenabled)
+  (lambda ()
+    (let ((itembodyhtml
+	    (cl-who:with-html-output (*standard-output* nil)
+	      (:li :class "list-group-item"  
+		   (when (and (equal payprovidersenabled "Y")
+			      singlevendor-p vpayapikey-p)
+		     (cl-who:htm
+		      (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+			    (with-html-form "form-standardcustpaymentmode" "dodcustshopcartro"
+			      (with-html-input-text-hidden "paymentmode" "OPY")
+			      (:input :type "submit"  :class "btn btn-primary" :value "Payment Gateway")))))))))
+	  (values itembodyhtml))))
+  
 
 ;; This is not a pure function as it talks to the database.  
 (defun custpaymentmethods (vpmsettingsfunc)
   (multiple-value-bind (cust-type vendor-list customer custcomp phone singlevendor-p vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled ) (funcall vpmsettingsfunc)
-    (let ((widget1 (function (lambda ()
-		     (let ((itembodyhtml
-			     (cl-who:with-html-output (*standard-output* nil)
-			       (when (and (equal cust-type "STANDARD") (equal walletenabled "Y"))
-				 (cl-who:htm
-				  (with-html-div-row
-				    (with-html-div-col
-				      (:h5 (:u "Prepaid Wallet Balance"))))
-				  (mapcar (lambda (vendor)
-					    (let* ((wallet (get-cust-wallet-by-vendor customer vendor custcomp))
-						   (wallet-balance (slot-value wallet 'balance))
-						   (vendorname (slot-value vendor 'name)))
-					      (cl-who:htm
-					       (with-html-div-row
-						 (with-html-div-col
-						   (:h6 (cl-who:str (format nil "Vendor - ~A" vendorname))))
-						 (with-html-div-col
-						   (:span  :style "color:blue" (cl-who:str (format nil "~d" wallet-balance)))))))) vendor-list)
-				  
-				  (with-html-form "form-standardcustpaymentmode" "dodcustshopcartro"
-				    (with-html-input-text-hidden "paymentmode" "PRE")
-				    (:input :type "submit"  :class "btn btn-primary" :value "Prepaid Checkout")))))))
-		       (values itembodyhtml)))))
-	  (widget2 (function (lambda ()
-		     (let ((itembodyhtml 
-			     (cl-who:with-html-output (*standard-output* nil)
-			       ;; We need to give a link for GUEST customers and button for standard customers. This is a bad design to be fixed later.
-			       (when (and (equal cust-type "GUEST") (equal codenabled "Y"))
-				 (cl-who:htm
-				  (:a :class "btn btn-primary"  :role "button" :href (format nil "dodcustshopcartotpstep?context=dodcustshopcartro&phone=~A" phone) "Cash On Delivery")
-					))
-			       (when (and (equal cust-type "STANDARD") (equal codenabled "Y"))
-				 (cl-who:htm
-				  (:div :id "idstdcustcodcontainer" :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-				 	(with-html-form "form-standardcustpaymentmode" "dodcustshopcartotpstep"
-					  (with-html-input-text-hidden "paymentmode" "COD")
-					  (with-html-input-text-hidden "context" "dodcustshopcartro")
-					  (with-html-input-text-hidden "phone" phone)
-					  (:input :type "submit"  :class "btn btn-primary" :value "Cash On Delivery"))))))))
-		       (values itembodyhtml)))))
-	  (widget3 (function (lambda ()
-		     (let ((itembodyhtml
-			     (cl-who:with-html-output (*standard-output* nil)   
-			       (when (and vupiid-p (equal upienabled "Y")) 
-				 (cl-who:htm
-				  (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-					(with-html-form "form-standardcustpaymentmode" "hhubcustupipage"
-					  (with-html-input-text-hidden "paymentmode" "UPI")
-					  (:input :type "submit"  :class "btn btn-primary" :value "UPI Payment"))))))))
-		       (values itembodyhtml)))))
-	  (widget4 (function (lambda ()
-		     (let ((itembodyhtml
-			     (cl-who:with-html-output (*standard-output* nil)         
-			       (when (and (equal payprovidersenabled "Y")
-					  singlevendor-p vpayapikey-p)
-				 (cl-who:htm
-				  (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-					(with-html-form "form-standardcustpaymentmode" "dodcustshopcartro"
-					  (with-html-input-text-hidden "paymentmode" "OPY")
-					  (:input :type "submit"  :class "btn btn-primary" :value "Payment Gateway"))))))))
-		       (values itembodyhtml))))))
+    (let ((widget1 (create-prepaid-wallet-widget customer cust-type vendor-list custcomp walletenabled)) 
+	  (widget2 (create-cash-on-delivery-widget cust-type phone codenabled))
+	  (widget3 (create-upi-payment-widget vupiid-p upienabled))
+	  (widget4 (create-payment-gateway-widget singlevendor-p vpayapikey-p payprovidersenabled)))
+      (cl-who:with-html-output (*standard-output*)
+        (:ul :class "list-group"
+             (mapcar #'funcall (list widget1 widget2 widget3 widget4)))))))
 
-      (cl-who:with-html-output (*standard-output* nil) 
-	(:ul :class "list-group"
-	     (:li :class "list-group-item" 
-		  (funcall widget1))
-	     (:li :class "list-group-item" 
-		  (funcall widget2))
-	     (:li :class "list-group-item" 
-		  (funcall widget3))
-	     (:li :class "list-group-item" 
-		  (funcall widget4)))))))
+
 
 (defun accordion-example ()
   (let ((itembodyhtml 
