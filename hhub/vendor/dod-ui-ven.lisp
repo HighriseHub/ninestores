@@ -505,7 +505,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	     (cmplist (hunchentoot:session-value :login-vendor-tenants)))
 	   
 	(with-standard-vendor-page "Welcome to DAS Platform - Vendor"
-	  (:a :class "btn btn-primary" :role "button" :href "dodvendsearchtenantpage" (:span :class "glyphicon glyphicon-shopping-cart") " Add New Group  ")
+	  (:a :class "btn btn-primary" :role "button" :href "dodvendsearchtenantpage" (:i :class "fa-solid fa-users-line") " Add New Group  ")
 	  (:hr)
 	  (:h5 (cl-who:str (format nil "Currently Logged Into Group - ~A" (slot-value vendor-company 'name))))
 	  (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
@@ -528,7 +528,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			  (:form :id "theForm" :action "dodvendsearchtenantaction" :OnSubmit "return false;" 
 				 (:input :type "text" :class "  search-query form-control" :id "livesearch" :name "livesearch" :placeholder "Search for an Apartment/Group"))
 			  (:span :class "input-group-btn" (:<button :class "btn btn-danger" :type "button" 
-								(:span :class " glyphicon glyphicon-search")))))
+								(:i :class "fa-solid fa-binoculars")))))
 	      (:div :id "searchresult" "")))
       (hunchentoot:redirect "/hhub/hhubvendloginv2")))
 
@@ -569,37 +569,38 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (create-vendor-tenant (get-login-vendor) "N"  company))))
 
 (defun dod-controller-vendor-add-product-page ()
-(with-vend-session-check 
-  (let ((catglist (hhub-get-cached-product-categories)))
-    (with-standard-vendor-page "Welcome to DAS Platform- Your Demand And Supply destination."
-      (:div :class "row" 
-	    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-		  (:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-toggle "validator" :enctype "multipart/form-data" 
-			 (:div :class "account-wall"
-			       (:img :class "profile-img" :src "/img/logo.png" :alt "")
-			       (:h1 :class "text-center login-title"  "Add new product")
-			       (:div :class "form-group"
-				     (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
-			       
-			       (:div :class "form-group"
+  (with-vend-session-check 
+    (let ((catglist (hhub-get-cached-product-categories)))
+      (with-standard-vendor-page "Welcome to DAS Platform- Your Demand And Supply destination."
+	(:div :class "row" 
+	      (:div :class "col-sm-6 col-md-4 col-md-offset-4"
+		    (:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-toggle "validator" :enctype "multipart/form-data" 
+			   (:div :class "account-wall"
+				 (:img :class "profile-img" :src "/img/logo.png" :alt "")
+				 (:h1 :class "text-center login-title"  "Add new product")
+				 (with-html-custom-checkbox "isserviceproduct" "N" "This is a Service" nil)
+				 (:div :class "form-group"
+				       (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
+				 
+				 (:div :class "form-group"
 				     (:label :for "description")
 				     (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup "countChar(this, 1000)"  ))
-			       (:div :class "form-group" :id "charcount")
-			       (:div :class "form-group"
-				     (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
-			       (:div :class "form-group"
-						   (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :type "number" :min "1" :max "10000" :step "1" ))
-			       (:div :class "form-group"
-				     (:input :class "form-control" :name "qtyperunit" :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
-			       (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
-				      (ui-list-prod-catg-dropdown catglist nil))
-			       (:br) 
-			       (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
-				     (ui-list-yes-no-dropdown "N"))
-			       (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
-				     (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
-			       (:div :class "form-group"
-				     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save Product"))))))))))
+				 (:div :class "form-group" :id "charcount")
+				 (:div :class "form-group"
+				       (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
+				 (:div :class "form-group"
+				       (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :type "number" :min "1" :max "10000" :step "1" ))
+				 (:div :class "form-group"
+				       (:input :class "form-control" :name "qtyperunit" :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
+				 (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
+					(ui-list-prod-catg-dropdown catglist nil))
+				 (:br) 
+				 (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
+				       (ui-list-yes-no-dropdown "N"))
+				 (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
+				       (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
+				 (:div :class "form-group"
+				       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save Product"))))))))))
 
 
 
@@ -655,6 +656,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (company (get-login-vendor-company))
 	   (product (if id (select-product-by-id id company)))
 	   (description (hunchentoot:parameter "description"))
+	   (isserviceproduct (hunchentoot:parameter "isserviceproduct"))
+	   (prd-type (if (equal isserviceproduct "Y") "SERV" "SALE")) 
 	   (prodprice (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
 			       (read in))))
 	   (qtyperunit (hunchentoot:parameter "qtyperunit"))
@@ -692,6 +695,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		(setf (slot-value product 'units-in-stock) units-in-stock)
 		(setf (slot-value product 'subscribe-flag) subscriptionflag)
 		(setf (slot-value product 'external-url) external-url)
+		(setf (slot-value product 'prd-type) prd-type)
 		;; Save the image in AWS S3 bucket if we are in production.
 		(if *HHUBUSELOCALSTORFORRES* 
 		    (if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name)))
@@ -701,7 +705,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		 	       
 		(update-prd-details product))
 					;else
-	      (create-product prodname description vendor (select-prdcatg-by-id catg-id company) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag  company))
+	      (create-product prodname description vendor (select-prdcatg-by-id catg-id company) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag prd-type company))
 	
 		  (dod-reset-vendor-products-functions vendor company)
 	  (hunchentoot:redirect "/hhub/dodvenproducts"))))))
@@ -1430,15 +1434,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		   ;;  (:a :class "navbar-brand" :onclick "window.history.back();"  :href "#"  (:span :class "glyphicon glyphicon-arrow-left"))
 		   (:div :class "collapse navbar-collapse" :id "navheadercollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
-			      (:li :class "active" :align "center" (:a :href "dodvendindex?context=home"  (:span :class "glyphicon glyphicon-home")  "Home"))
+			      (:li :class "active" :align "center" (:a :href "dodvendindex?context=home"  (:i :class "fa-solid fa-house-user")  "Home"))
 			      (:li :align "center" (:a :href "dodvenproducts"  "My Products"))
 			      (:li :align "center" (:a :href "dodvendindex?context=completedorders"  "Completed Orders"))
 			      (:li :align "center" (:a :href "#" (print-vendor-web-session-timeout)))
 			      (:li :align "center" (:a :href "#" (cl-who:str (format nil "Group: ~A" (get-login-vendor-company-name))))))
 			 (:ul :class "nav navbar-nav navbar-right"
-			      (:li :align "center" (:a :href "dodvendprofile?context=home"   (:span :class "glyphicon glyphicon-user") "&nbsp;&nbsp;" )) 
-				(:li :align "center" (:a :target "_blank" :href "https://goo.gl/forms/XaZdzF30Z6K43gQm2"  (:span :class "glyphicon glyphicon-envelope") "&nbsp;&nbsp;"))
-				(:li :align "center" (:a :target "_blank" :href "https://goo.gl/forms/SGizZXYwXDUiTgVY2"  "Bug" ))
+			      (:li :align "center" (:a :href "dodvendprofile?context=home"   (:i :class "fa-regular fa-user") "&nbsp;&nbsp;" )) 
+				(:li :align "center" (:a :target "_blank" :href "https://goo.gl/forms/XaZdzF30Z6K43gQm2"  (:i :class "fa-regular fa-envelope") "&nbsp;&nbsp;"))
+				(:li :align "center" (:a :target "_blank" :href "https://goo.gl/forms/SGizZXYwXDUiTgVY2"  (:i :class "fa-solid fa-bug")))
 				(:li :align "center" (:a :href "dodvendlogout"  (:i :class "fa fa-sign-out" :aria-hidden "true") "&nbsp;&nbsp;")))))))))
   
   
@@ -1579,12 +1583,13 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				      :company company
 				      :vendor vendor))
 	(vpaymentmethods (processreadrequest adapter requestmodel)))
-    (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) vpaymentmethods
-      (addloginvendorsetting "codenabled" codenabled)
-      (addloginvendorsetting "upienabled" upienabled)
-      (addloginvendorsetting "payprovidersenabled" payprovidersenabled)
-      (addloginvendorsetting "walletenabled" walletenabled)
-      (addloginvendorsetting "paylaterenabled" paylaterenabled))))
+    (when vpaymentmethods 
+      (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) vpaymentmethods
+	(addloginvendorsetting "codenabled" codenabled)
+	(addloginvendorsetting "upienabled" upienabled)
+	(addloginvendorsetting "payprovidersenabled" payprovidersenabled)
+	(addloginvendorsetting "walletenabled" walletenabled)
+	(addloginvendorsetting "paylaterenabled" paylaterenabled)))))
   
 
 
@@ -1711,12 +1716,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	
 	(:div :class "row" 
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
-		    (:a :class "btn btn-primary" :role "button" :href "dodvenaddprodpage" (:span :class "glyphicon glyphicon-shopping-cart") " Add New Product  "))
+		    (:a :class "btn btn-primary" :role "button" :href "dodvenaddprodpage" (:i :class "fa-solid fa-cart-shopping") " Add New Product  "))
 	      (when (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan cmp-type)
 		(cl-who:htm   (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
-				    (:a :class "btn btn-primary" :role "button" :href "dodvenbulkaddprodpage" (:span :class "glyphicon glyphicon-shopping-cart") " Bulk Add Products "))))
+				    (:a :class "btn btn-primary" :role "button" :href "dodvenbulkaddprodpage" (:i :class "fa-solid fa-cart-shopping") " Bulk Add Products "))))
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" :align "right"
-		        (:a :class "btn btn-primary" :role "button" :href "dodvendprodcategories" (:span :class "glyphicon glyphicon-shopping-cart") " Product Categories "))
+		        (:a :class "btn btn-primary" :role "button" :href "dodvendprodcategories" (:i :class "fa-solid fa-cart-shopping")  " Product Categories "))
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" :align "right" 
 		    (:span :class "badge" (cl-who:str (format nil " ~d " (length vendor-products)))))) 
 	(:hr)
@@ -1828,7 +1833,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      
 	      ((equal context "pendingorders") 
 	       (progn (cl-who:htm (cl-who:str "Pending Orders") (:span :class "badge" (cl-who:str (format nil " ~d " (length dodorders))))
-				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodrefreshpendingorders" (:span :class "glyphicon glyphicon-refresh"))
+				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodrefreshpendingorders" (:i :class "fa-solid fa-arrows-rotate"))
 				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvendindex?context=ctxordcus" "Printer Friendly View")
 				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvenexpexl?type=pendingorders" "Export To Excel")
 				  (:hr))
