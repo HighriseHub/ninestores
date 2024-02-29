@@ -57,7 +57,7 @@
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (with-html-div-row
 			 (with-html-div-col
-			   (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvenaddprodcatg-modal")  :href "#"  (:span :class "glyphicon glyphicon-plus") "Add New Category" )
+			   (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvenaddprodcatg-modal")  :href "#"  (:i :class "fa-solid fa-plus") "Add New Category" )
 			   (modal-dialog-v2 (format nil "dodvenaddprodcatg-modal") "Add New Category" (modal.product-category-add)))
 			 (with-html-div-col :align "right"
 			   (:span :class "badge" (cl-who:str (format nil " ~d " catgcount)))))
@@ -250,15 +250,15 @@
 			 (:a :class "navbar-brand" :href "#" :title "HighriseHub" (:img :style "width: 30px; height: 30px;" :src "/img/logo.png" )  ))
 		   (:div :class "collapse navbar-collapse" :id "navHeaderCollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
-			      (:li :class "active" :align "center" (:a :href "/hhub/hhubcadindex"  (:span :class "glyphicon glyphicon-home")  " Home"))
+			      (:li :class "active" :align "center" (:a :href "/hhub/hhubcadindex"  (:i :class "fa-solid fa-house-user")  " Home"))
 			      (:li  (:a :href "/hhub/dasproductapprovals" "Customer Approvals"))
 			      (:li  (:a :href "/hhub/hhubvendorapprovalpage" "Vendor Approvals"))
 			      (:li :align "center" (:a :href "#" (cl-who:str (format nil "Group: ~a" (slot-value (get-login-company) 'name)))))
 			      (:li :align "center" (:a :href "#" (print-web-session-timeout))))
 			 
 			 (:ul :class "nav navbar-nav navbar-right"
-			      (:li :align "center" (:a :href "/hhub/hhubcadprofile"   (:span :class "glyphicon glyphicon-user") " My Profile" )) 
-			      (:li :align "center" (:a :href "/hhub/hhubcadlogout"  (:span :class "glyphicon glyphicon-off") " Logout "  )))))))))
+			      (:li :align "center" (:a :href "/hhub/hhubcadprofile"   (:i :class "fa-solid fa-user") " My Profile" )) 
+			      (:li :align "center" (:a :href "/hhub/hhubcadlogout"  (:span :class "fa-solid fa-power-off"))))))))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -509,10 +509,10 @@
 	      (:h5 :class "product-name" (cl-who:str phone))))
 	  (with-html-div-row
 	    (with-html-div-col
-	      (:button :data-toggle "modal" :data-target (format nil "#dodvendreject-modal~A" vendor-id)  :href "#"  (:span :class "glyphicon glyphicon-remove") "Reject")
+	      (:button :data-toggle "modal" :data-target (format nil "#dodvendreject-modal~A" vendor-id)  :href "#"  (:i :class "fa-solid fa-ban") "Reject")
 	      (modal-dialog (format nil "dodvendreject-modal~A" vendor-id) "Reject Vendor" (modal.reject-vendor-html  vendor-id)))
 	    (with-html-div-col
-	      (:button :data-toggle "modal" :data-target (format nil "#dodvendaccept-modal~A" vendor-id)  :href "#"  (:span :class "glyphicon glyphicon-ok") "Approve")
+	      (:button :data-toggle "modal" :data-target (format nil "#dodvendaccept-modal~A" vendor-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") "Approve")
 	      (modal-dialog (format nil "dodvendaccept-modal~A" vendor-id) "Approve Vendor" (modal.approve-vendor-html vendor-id ))))))))
 
 
