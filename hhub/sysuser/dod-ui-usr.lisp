@@ -15,7 +15,7 @@
      (with-hhub-transaction "com-hhub-transaction-sadmin-create-users-page" params
        (with-standard-admin-page "List HHUB Users"
 	 (:h3 "Users")
-	 (:a  :data-toggle "modal" :data-target (format nil "#adduser-modal")  :href "#"  (:span :class "glyphicon glyphicon-plus") " Add User")
+	 (:a  :data-toggle "modal" :tooltip "Add User" :data-target (format nil "#adduser-modal")  :href "#"  (:i :class "fa-solid fa-user-plus"))
 	 (hunchentoot:log-message* :info "I am here" )
 	 (modal-dialog (format nil "adduser-modal") "Add/Edit Policy" (modal.com-hhub-transaction-sadmin-create-users tenant-id "NEW"))
 	 
@@ -36,7 +36,7 @@
       (:td :height "10px" 
        	 (:h6 :class "user-email"  (cl-who:str email) ))
       (:td :height "10px" 
-       (:a  :data-toggle "modal" :data-target (format nil "#edituser-modal~A" row-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
+       (:a  :data-toggle "modal" :data-target (format nil "#edituser-modal~A" row-id)  :href "#"  (:i :class "fa-solid fa-pencil"))
 	(modal-dialog (format nil "edituser-modal~a" row-id) "Add/Edit Policy" (modal.com-hhub-transaction-sadmin-create-users nil "EDIT" user-instance))))))
 
 
