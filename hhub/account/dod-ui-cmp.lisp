@@ -40,7 +40,7 @@
 		      (:a  :data-toggle "modal" :data-target (format nil "#editcompany-modal~A" row-id)  :href "#"  (:i :class "fa-regular fa-pen-to-square"))
 				(modal-dialog (format nil "editcompany-modal~a" row-id) "Add/Edit Group" (com-hhub-transaction-create-company-dialog row-id)))
 		(:div :class "col-xs-2 dropdown" 
-		      (:button :class "btn btn-primary dropdown-toggle" :type "button" :id "dropdownMenu1" :data-toggle "dropdown" :aria-haspopup "true" :aria-expanded "false" (:span :class "glyphicon glyphicon-option-vertical"))
+		      (:button :class "btn btn-primary dropdown-toggle" :type "button" :id "dropdownMenu1" :data-toggle "dropdown" :aria-haspopup "true" :aria-expanded "false" (:i :class "fa-solid fa-arrow-up "))
 		      (:ul :class "dropdown-menu" :aria-labelledby "dropdownMenu1"
 			   (:li (:a :href (format nil "/hhub/sadmincreateusers?tenant-id=~a" row-id) "Manage Users"))
 			   (if (equal suspended "Y")

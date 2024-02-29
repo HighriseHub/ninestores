@@ -115,7 +115,7 @@
 
 (defun ui-list-vendor-orders-by-customers (ordlist)
  (cl-who:with-html-output (*standard-output* nil)	       
-   (:a :class "btn btn-primary btn-xs" :role "button" :onclick "window.print();" :href "#" "Print&nbsp;&nbsp;"(:span :class "glyphicon glyphicon-print"))
+   (:a :class "btn btn-primary btn-xs" :role "button" :onclick "window.print();" :href "#" "Print&nbsp;&nbsp;"(:i :class "fa-solid fa-print"))
 					; For every vendor order
    (mapcar (lambda (ord )
 	     (let*  ((odtlst (dod-get-cached-order-items-by-order-id (slot-value ord 'order-id) (hunchentoot:session-value :order-func-list) ))

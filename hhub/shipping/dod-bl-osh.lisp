@@ -14,13 +14,22 @@
   
 
 (defun persist-free-shipping-method (minordamt vendor-id tenant-id)
-  (clsql:update-records-from-instance (make-instance 'dod-shipping-methods
-					 :minorderamt minordamt
-					 :vendor-id vendor-id
-					 :tenant-id tenant-id
-					 :freeshipenabled "Y"
-					 :active-flag "Y"
-					 :deleted-state "N")))
+  (let ((shpmethod (car (clsql:select 'dod-shipping-methods  :where
+				      [and
+				      [= [:deleted-state] "N"]
+				      [= [:active-flag] "Y"]
+				      [= [:tenant-id] tenant-id]
+				      [= [:vendor-id] vendor-id]] :caching *dod-debug-mode* :flatp T ))))
+    ;; if we do not have a shipping method defined for a vendor, then create one.
+    ;; making sure we only have one shipping method defined per vendor.
+    (unless shpmethod 		   
+      (clsql:update-records-from-instance (make-instance 'dod-shipping-methods
+							 :minorderamt minordamt
+							 :vendor-id vendor-id
+							 :tenant-id tenant-id
+							 :freeshipenabled "Y"
+							 :active-flag "Y"
+							 :deleted-state "N")))))
 
 
 
