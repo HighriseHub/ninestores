@@ -219,7 +219,7 @@
     (persist-product-pricing product-id price discount currency start-date end-date tenant-id)))
 						     
   
-(defun persist-product(prdname description vendor-id catg-id qtyperunit unitprice units-in-stock img-file-path subscribe-flag tenant-id )
+(defun persist-product(prdname description vendor-id catg-id qtyperunit unitprice units-in-stock img-file-path subscribe-flag prd-type tenant-id )
  (clsql:update-records-from-instance (make-instance 'dod-prd-master
 				    :prd-name prdname
 				    :description description
@@ -234,18 +234,18 @@
 				    :active-flag "Y"
 				    :approved-flag "N"
 				    :approval-status "PENDING"
-				    :prd-type "SALE"
+				    :prd-type prd-type
 				    :deleted-state "N")))
 
 (defun create-bulk-products (products)
   (mapcar (lambda (product)
 	    (clsql:update-records-from-instance  product)) products))
 
-(defun create-product (prdname description  vendor-instance category qty-per-unit unit-price units-in-stock img-file-path subscribe-flag company-instance)
+(defun create-product (prdname description  vendor-instance category qty-per-unit unit-price units-in-stock img-file-path subscribe-flag prd-type company-instance)
   (let ((vendor-id (slot-value vendor-instance 'row-id))
 	(catg-id (if category (slot-value category 'row-id)))
 	(tenant-id (slot-value company-instance 'row-id)))
-      (persist-product prdname description vendor-id catg-id qty-per-unit unit-price units-in-stock img-file-path subscribe-flag  tenant-id)))
+      (persist-product prdname description vendor-id catg-id qty-per-unit unit-price units-in-stock img-file-path subscribe-flag prd-type  tenant-id)))
 
 ;(defun copy-products (src-company dst-company)
 ;    (let ((prdlist (select-products-by-company src-company)))
