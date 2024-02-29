@@ -355,13 +355,13 @@
 		  (:a :data-toggle "modal" :data-target (format nil "#dodvendcopyprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-clone"))
 		  (modal-dialog (format nil "dodvendcopyprod-modal~A" prd-id) "Copy Product" (modal.vendor-product-edit-html  product-instance "COPY")))
 	    (:div :class "col-xs-1" :align "right" :data-toggle "tooltip" :title "Edit" 
-		  (:a :data-toggle "modal" :data-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-pencil"))
+		  (:a :data-toggle "modal" :data-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-pencil"))
 		  (modal-dialog (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
 	    
 	    (unless external-url
 	      (cl-who:htm 
 	       (:div :class "col-xs-1" :data-toggle "tooltip" :title "Information: Edit & Save to enable sharing" 
-		     (:a :href "#" (:span :class  "glyphicon glyphicon-share")))))
+		     (:a :href "#" (:i :class  "fa-solid fa-share-nodes")))))
 	    (when external-url
 	      (cl-who:htm
 	       (:div :class "col-xs-1"  :data-toggle "tooltip" :title "Copy External URL" 
@@ -451,10 +451,10 @@
 	  
 	  (with-html-div-row
 	    (:div :class "col-xs-6"
-		  (:button :data-toggle "modal" :data-target (format nil "#dodvendrejectprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-remove") "Reject")
+		  (:button :data-toggle "modal" :data-target (format nil "#dodvendrejectprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-ban") "Reject")
 		  (modal-dialog (format nil "dodvendrejectprod-modal~A" prd-id) "Reject Product" (modal.vendor-product-reject-html  prd-id tenant-id)))
 	    (:div :class "col-xs-6"
-		  (:button :data-toggle "modal" :data-target (format nil "#dodvendacceptprod-modal~A" prd-id)  :href "#"  (:span :class "glyphicon glyphicon-ok") "Accept")
+		  (:button :data-toggle "modal" :data-target (format nil "#dodvendacceptprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") "Accept")
 		  (modal-dialog (format nil "dodvendacceptprod-modal~A" prd-id) "Accept Product" (modal.vendor-product-accept-html  prd-id tenant-id))))
 	  )))
 
