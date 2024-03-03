@@ -600,7 +600,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				 (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
 				       (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
 				 (:div :class "form-group"
-				       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save Product"))))))))))
+				       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))))
 
 
 
@@ -670,7 +670,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (file-name (format nil "~A" (second prodimageparams)))
 	   (external-url (if product (generate-product-ext-url product)))
 	   (params nil))
-
+      (logiamhere (format nil "service product is ~A" isserviceproduct))
       (if product
 	  (setf params (acons "mode" "edit" params))
 	  ;;else
@@ -2052,5 +2052,5 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				       (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value odt-product 'prd-name)))
 						 (:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
 						 (:td  :height "12px" (cl-who:str (format nil  "Rs. ~$" pricewith-discount)))
-						 (:td  :height "12px" (cl-who:str (format nil "Rs. ~$" (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty)))))
+						 (:td  :height "12px" (cl-who:str (format nil "Rs. ~$" (* pricewith-discount prd-qty))))
 						 )))) (if (not (typep data 'list)) (list data) data))))))))
