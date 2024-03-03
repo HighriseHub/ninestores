@@ -815,7 +815,7 @@ individual tiles. It also supports search functionality by including the searchr
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-custom-checkbox (name value placeholder bchecked &body body)
-    (let ((id (format nil "id~A" name)))
+    (let ((id (format nil "id~A~d" name (random 333))))
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "custom-control custom-switch"
 	     (if ,bchecked

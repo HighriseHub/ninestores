@@ -57,7 +57,7 @@
 
 ;; This is a pure function.
 
-(defun display-cust-shipping-costs-widget (shopcart-total shipping-options storepickupenabled vendor)
+(defun display-cust-shipping-costs-widget (shopcart-total shipping-options storepickupenabled vendor freeshipenabled)
   :description "The display-cust-shipping-costs-widget function generates an HTML widget for displaying shipping costs, allowing users to choose between shipping or store pickup. It dynamically updates cost information and visibility based on user interactions"
   (let* ((vaddress (address vendor))
          (vcity (city vendor))
@@ -90,7 +90,7 @@
                              (:span :class "text-bg-success" 
                                     (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
                     (:p :class "info-message"
-                        (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total))))))
+                        (if (equal freeshipenabled "Y") (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total)))))))
                   
                   ((and (equal vshipping-enabled "Y") (= shipping-cost 0))
                    (cl-who:htm (:p :class "info-message" (cl-who:str "Shipping: FREE!"))))
@@ -2031,8 +2031,9 @@
 				      (let ((prd-id (slot-value odt 'prd-id)))
 					(search-prd-in-list prd-id products ))) lstshopcart))
 	 (vshipping-method (get-shipping-method-for-vendor singlevendor custcomp))
+	 (freeshipenabled (slot-value vshipping-method 'freeshipenabled))
 	 (storepickupenabled (slot-value vshipping-method 'storepickupenabled))
-	 (shiplst (calculate-shipping-cost-for-order shipzipcode shopcart-total lstshopcart shopcart-products singlevendor custcomp))
+	 (shiplst (calculate-shipping-cost-for-order vshipping-method shipzipcode shopcart-total lstshopcart shopcart-products singlevendor custcomp))
 	 (shipping-cost (nth 0 shiplst))
 	 (shipping-options (nth 1 shiplst)))
 
@@ -2071,10 +2072,10 @@
       (when (equal cust-type "GUEST")
 	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email))
     (function (lambda ()
-      (values shopcart-total shiplst storepickupenabled singlevendor)))))
+      (values shopcart-total shiplst storepickupenabled singlevendor freeshipenabled)))))
 
 (defun createwidgetsforcustshipmethodspage (modelfunc)
-  (multiple-value-bind (shopcart-total shiplst storepickupenabled singlevendor)
+  (multiple-value-bind (shopcart-total shiplst storepickupenabled singlevendor freeshipenabled)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -2086,7 +2087,7 @@
 			     (:div :class "card-body"
 				   (:h5 :class "card-title" "Shipping & Handling"
 					(:hr)
-					(display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor)))))))))
+					(display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor freeshipenabled)))))))))
       (list widget1 widget2))))
 
 
@@ -2098,9 +2099,9 @@
 
 
 ;; This is a pure function. 
-(defun calculate-shipping-cost-for-order (shipzipcode shopcart-total shopping-cart products vendor company)
-  (let* ((vshipping-method (get-shipping-method-for-vendor vendor company))
-	 (vshipping-enabled (slot-value vendor 'shipping-enabled))
+(defun calculate-shipping-cost-for-order (vshipping-method shipzipcode shopcart-total shopping-cart products vendor company)
+  (let* ((vshipping-enabled (slot-value vendor 'shipping-enabled))
+	 (freeshippingenabled (slot-value vshipping-method 'freeshipenabled))
 	 (flatrateshipenabled (slot-value vshipping-method 'flatrateshipenabled))
 	 (tablerateshipenabled (slot-value vshipping-method 'tablerateshipenabled))
 	 (extshipenabled (slot-value vshipping-method 'extshipenabled))
@@ -2116,9 +2117,10 @@
 					     (equal prd-type "SALE"))) products))))
     ;; If we have a single service product or number of service products are more than 1 then do not calculate
     ;; shipping cost. Or calculate shipping cost only for SALES products. 
+    ;;(logiamhere (format nil "Value of saleproducts-p is ~A" saleproducts-p))
     (when (and (equal vshipping-enabled "Y")
-	       saleproducts-p
-	       (<= shopcart-total freeshipminorderamt))
+	       (<= shopcart-total freeshipminorderamt)
+	       saleproducts-p)
       (when (and flatrateshipenabled (equal defaultshipmethod "FRS"))
 	(let ((flatratetype (getflatratetype vshipping-method))
 	      (flatrateprice (getflatrateprice vshipping-method)))
@@ -2132,8 +2134,11 @@
 	(setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
 								     (nth 9 elem)) shipping-options))
 				;; else
-				0.00))))
-      (list shipping-cost shipping-options freeshipminorderamt)))
+				0.00)))
+      (when (and freeshippingenabled 
+		 (>= shopcart-total freeshipminorderamt))
+	(setf shipping-cost 0.0)))
+    (list shipping-cost shipping-options freeshipminorderamt)))
     
     
 
@@ -2258,17 +2263,20 @@
 			   
 ; This is a pure function. 
 (defun get-order-items-total-for-vendor (vendor order-items) 
- (let ((vendor-id (slot-value vendor 'row-id)))
-  (reduce #'+ (remove nil (mapcar (lambda (item) (if (equal vendor-id (slot-value item 'vendor-id)) 
-					 (* (slot-value item 'unit-price) (slot-value item 'prd-qty)))) order-items)))))
+  (let ((vendor-id (slot-value vendor 'row-id)))
+    (reduce #'+ (remove nil (mapcar (lambda (item)
+				      (let ((pricewith-discount (calculate-order-item-cost item))) 
+					(if (equal vendor-id (slot-value item 'vendor-id)) 
+					    pricewith-discount))) order-items)))))
 
 (defun get-opref-items-total-for-vendor (vendor opref-items) 
  (let ((vendor-id (slot-value vendor 'row-id)))
   (reduce #'+ (remove nil (mapcar (lambda (item) 
 				    (let* ((product (get-opf-product item))
-				    (vendor (product-vendor product)))
+					   (vendor (product-vendor product))
+					   (pricewith-discount (calculate-order-item-cost item))) 
 				      (if (equal vendor-id (slot-value vendor 'row-id))
-					 (* (slot-value product 'unit-price) (slot-value item 'prd-qty))))) opref-items)))))
+					  pricewith-discount))) opref-items)))))
 
 
 (defun filter-order-items-by-vendor (vendor order-items)
