@@ -100,9 +100,8 @@
   (let* ((prd-name (slot-value product-instance 'prd-name))
 	 (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	 (prdqty (slot-value odt-instance 'prd-qty))
-	 (unit-price (slot-value product-instance 'unit-price))
 	 (prd-image-path (slot-value product-instance 'prd-image-path))
-	 (subtotal (* prdqty unit-price))
+	 (subtotal (calculate-order-item-cost odt-instance)) 
 	 (prd-vendor (product-vendor product-instance)))
     (cl-who:with-html-output (*standard-output* nil)
       (:tr 
@@ -122,9 +121,8 @@
   (let* ((prd-name (slot-value product-instance 'prd-name))
 	 (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	 (prdqty (slot-value odt-instance 'prd-qty))
-	 (unit-price (slot-value product-instance 'unit-price))
 	 (prd-image-path (slot-value product-instance 'prd-image-path))
-	 (subtotal (* prdqty unit-price)))
+	 (subtotal (calculate-order-item-cost odt-instance))) 
     (cl-who:with-html-output (*standard-output* nil)
        (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
        (:p  (cl-who:str (format nil "~A-~A" prd-name qty-per-unit)))
@@ -150,8 +148,10 @@
 	 (prdprice (slot-value product 'unit-price))
 	 (catg-id (slot-value product 'catg-id))
 	 (prd-name (slot-value product 'prd-name))
+	 (prd-type (slot-value product 'prd-type))
 	 (catglist (hhub-get-cached-product-categories))
-	 (idtextarea (format nil "~Atextarea" (gensym "hhub")))
+	 (idtextarea (format nil "~Atextarea~A" (gensym "hhub") prd-id))
+	 (idisserviceproduct (format nil "idserviceproduct~A~A" (gensym "hhub") prd-id))
 	 (prdcategory (when catg-id (search-prdcatg-in-list catg-id catglist))))
  (cl-who:with-html-output (*standard-output* nil)
    (with-html-div-row 
@@ -162,9 +162,16 @@
 			(:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
 		  (:h1 :class "text-center login-title"  "Edit/Copy Product")
 		  (:div :class "form-group"
+			(:label :for idisserviceproduct "This is a Service&nbsp;")
+			(if (equal prd-type "SERV")
+			    (cl-who:htm 
+			     (:input  :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :checked "true" :value "Y"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct)))))
+			    ;;else
+			    (cl-who:htm 
+			     (:input  :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :value "N"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct))))))
 			(:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
 		  (:div  :class "form-group"
-			 (:label :for "description")
+			 (:label :for "description" "Description")
 			 (text-editor-control idtextarea  description))
 		  (:textarea :style "display: block;" :id idtextarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup "countChar(this, 1000)" (cl-who:str (format nil "~A" description)))
 		  (:div :class "form-group" :id "charcount")
@@ -180,14 +187,14 @@
 			(:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :value units-in-stock  :type "number" :min "1" :max "10000" :step "1"  ))
 		  
 		  (:br) 
-		      (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
+		  (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
 			    (if (equal subscribe-flag "Y") (ui-list-yes-no-dropdown "Y")
 				(ui-list-yes-no-dropdown "N")))
-		      
+
 		      (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
 			    (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
 		      (:div :class "form-group"
-			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save Product"))))))))
+			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))
 
 (defun modal.vendor-product-shipping-html (product mode)
   (let* ((prd-id (slot-value product 'row-id))
