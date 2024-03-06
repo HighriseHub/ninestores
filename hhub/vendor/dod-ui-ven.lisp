@@ -1879,9 +1879,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun dod-controller-ven-expexl ()
     (if (is-dod-vend-session-valid?)
 	(let ((type (hunchentoot:parameter "type"))
-	      (header (list "Product " "Quantity" "Qty per unit" "Unit Price" ""))
+	      (header (list "Product " "Quantity" "Qty per unit" "Unit Price" "Discount%" "Total Amt"))
 	      (today (get-date-string (clsql-sys:get-date))))
-	      (setf (hunchentoot:content-type*) "application/vnd.ms-excel")
+	      (setf (hunchentoot:content-type*) "text/csv; charset=UTF-8; BOM")
 	      (setf (hunchentoot:header-out "Content-Disposition" ) (format nil "inline; filename=Orders_~A.csv" today))
 	      (cond ((equal type "pendingorders") (ui-list-orders-for-excel header (dod-get-cached-pending-orders)))
 		    ((equal type "completedorders") (ui-list-orders-for-excel header (dod-get-cached-completed-orders)))))
@@ -1970,8 +1970,6 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 	  (with-html-div-row
 	    (:div :class "col" :align "right"
-		  (when (and (equal storepickupenabled "Y") (= shipping-cost 0.00))
-		    (cl-who:htm (:span :class "label label-info" "STORE PICKUP")))
 		  (when (and shipping-cost (> shipping-cost 0))
                     (cl-who:htm
 		     (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
@@ -1993,6 +1991,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				(:div :class "form-group" 
 				      (:input :type "submit"  :class "btn btn-primary" :value "Complete")))))))
 
+	  (when (and (equal storepickupenabled "Y") (= shipping-cost 0.00))
+		    (cl-who:htm
+		     (:div :align "right" :class "stampbox-big rotated" "Store Pickup")))
 	  (if odtlst (ui-list-vend-orderdetails header odtlst) "No order details")
 	  (if mainorder (display-order-header-for-vendor mainorder))
 
