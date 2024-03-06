@@ -41,28 +41,29 @@
   (cl-who:with-html-output-to-string (*standard-output* nil)
       (mapcar (lambda (item) (cl-who:str (format nil "~A," item ))) header)
       (cl-who:str (format nil " ~C~C" #\return #\linefeed))
-      (mapcar (lambda (ord )
-		(let* ((odtlst (dod-get-cached-order-items-by-order-id (slot-value ord 'order-id) (hunchentoot:session-value :order-func-list)  ))
+      (mapcar (lambda (vord )
+		(let* ((odtlst (dod-get-cached-order-items-by-order-id (slot-value vord 'order-id) (hunchentoot:session-value :order-func-list)  ))
 		       (total   (reduce #'+  (mapcar (lambda (odt)
-						       (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty))) odtlst)))
-		       (customer (get-customer ord)))
-		  (if (>  (length odtlst) 0) 
+						       (calculate-order-item-cost odt)) odtlst)))
+		       (customer (get-customer vord)))
+		  (if (> (length odtlst) 0) 
 		      (progn  
-			
-			(cl-who:str (format nil "Order: ~A Customer: ~A. ~A." (slot-value ord 'order-id)  (slot-value customer 'name) (slot-value customer 'address) )) 
-			(if (equal (slot-value ord 'fulfilled) "Y") 
+			(cl-who:str (format nil "Order: ~A Customer: ~A. ~A." (slot-value vord 'order-id)  (slot-value customer 'name) (slot-value customer 'address) )) 
+			(if (equal (slot-value vord 'fulfilled) "Y") 
 			    (cl-who:str (format nil "Order status - Fulfilled ~C~C" #\return #\linefeed )) 
 			    ;else
 			    (cl-who:str (format nil "Order status - Pending ~C~C" #\return #\linefeed)))
 			(mapcar (lambda (odt)
-			     (let ((prd (get-odt-product odt))
-				   (subtotal (* (slot-value odt 'prd-qty) (slot-value odt 'unit-price))))
-
-
-				 (cl-who:str (format nil "~a,~a,~a,Rs ~$ ,Each,~$,~C~C"  (slot-value prd 'prd-name)  (slot-value odt 'prd-qty) (slot-value prd 'qty-per-unit)  (slot-value odt 'unit-price) subtotal  #\return #\linefeed  )))) odtlst)
+				  (let* ((prd (get-odt-product odt))
+					 (subtotal (calculate-order-item-cost odt))
+					 (prd-name (slot-value prd 'prd-name))
+					 (prd-qty (slot-value odt 'prd-qty))
+					 (qty-per-unit (slot-value prd 'qty-per-unit))
+					 (disc-rate (slot-value odt 'disc-rate))
+					 (unit-price (slot-value odt 'unit-price)))
+				    (cl-who:str (format nil "~a,~a,~a,Rs. ~$,~$,Rs. ~$,~C~C" prd-name prd-qty qty-per-unit unit-price disc-rate subtotal  #\return #\linefeed)))) odtlst)
 		
-			(cl-who:str (format nil ",,,,,Total = Rs ~$~C~C" total #\return #\linefeed)))
-		 ))) ordlist)))
+			(cl-who:str (format nil ",,,,Total, Rs. ~$~C~C" total #\return #\linefeed)))))) ordlist)))
 
 
 
@@ -117,23 +118,33 @@
  (cl-who:with-html-output (*standard-output* nil)	       
    (:a :class "btn btn-primary btn-xs" :role "button" :onclick "window.print();" :href "#" "Print&nbsp;&nbsp;"(:i :class "fa-solid fa-print"))
 					; For every vendor order
-   (mapcar (lambda (ord )
-	     (let*  ((odtlst (dod-get-cached-order-items-by-order-id (slot-value ord 'order-id) (hunchentoot:session-value :order-func-list) ))
+   (mapcar (lambda (vord)
+	     (let*  ((order-id (slot-value vord 'order-id))
+		     (odtlst (dod-get-cached-order-items-by-order-id order-id (hunchentoot:session-value :order-func-list)))
 		     (total   (reduce #'+  (mapcar (lambda (odt)
-						     (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty))) odtlst)))
-		     (customer (get-customer ord))
-		     (cust-order (get-order ord)))
+						     (calculate-order-item-cost odt)) odtlst)))
+		     (storepickupenabled (if (equal (slot-value vord 'storepickupenabled) "Y") T NIL))
+		     (customer (get-customer vord))
+		     (cust-order (get-order vord))
+		     (cust-name (slot-value customer 'name))
+		     (cust-phone (slot-value customer 'phone))
+		     (ship-address (slot-value vord 'ship-address))
+		     (order-comments (slot-value cust-order 'comments)))
+
 	       ;(if (>  (length odtlst) 0) 
 		   (progn 
 		     (if (equal (slot-value customer 'cust-type) "GUEST")
 			 (cl-who:htm (:div :class "row"
 			    (:div :class "col-sm-12 col-xs-12 col-md-4 col-lg-2"
-			     (:h5 (cl-who:str (format nil "Order: ~A ~A. " (slot-value ord 'order-id) (slot-value cust-order 'comments)))))))
+			     (:h5 (cl-who:str (format nil "Order: ~A ~A. " order-id order-comments))))))
 			 ;else
 		     (cl-who:htm (:div :class "row"
 			    (:div :class "col-sm-12 col-xs-12 col-md-4 col-lg-2"
-			     (:h5 (cl-who:str (format nil "Order: ~A ~A. ~A. ~A. " (slot-value ord 'order-id) (slot-value customer 'name) (slot-value customer 'phone)(slot-value ord 'ship-address))))))))
-		     
+			     (:h5 (cl-who:str (format nil "Order: ~A ~A. ~A. ~A. " order-id cust-name cust-phone ship-address)))))))
+		     (when storepickupenabled
+			 (cl-who:htm (:div :class "row"
+					   (:div :class "col-sm-12"
+						 (:h4 (:span :class "label label-default" (cl-who:str (format nil "THIS IS STORE PICKUP ORDER. NO SHIPPING."))))))))
 		     (mapcar (lambda (odt)
 			       (let* ((prd (get-odt-product odt))
 				      (prd-name (slot-value prd 'prd-name))
@@ -150,6 +161,7 @@
 		     (cl-who:htm (:div :class "row"
 				       (:div :class "col-sm-12" 
 					     (:h4 (:span :class "label label-default" (cl-who:str (format nil "Total ~$" total)))))))
+		     
 		     ))) ordlist)))
 
 
@@ -187,6 +199,7 @@
 	 (company (get-company vorder-instance))
 	 (order-id (slot-value vorder-instance 'order-id))
 	 (name (if customer (slot-value customer 'name)))
+	 (storepickupenabled (if (equal (slot-value vorder-instance 'storepickupenabled) "Y") T NIL))
 	 (address (if customer (slot-value customer 'address))))
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "row"
@@ -194,7 +207,11 @@
       (:div :class "row" 
 	    (:div :class "col-sm-12" (cl-who:str (if (> (length address) 20)  (subseq (slot-value customer 'address) 0 20) address))))
       (:div :class "row"
-	    (:div :class "col-sm-12" (:a :data-toggle "modal" :data-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id)))))
-	    (modal-dialog (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details vorder-instance company))))))
+	    (:div :class "col-sm-12"
+		  (:a :data-toggle "modal" :data-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
+		  (modal-dialog (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details vorder-instance company))
+		  (if storepickupenabled
+		      (cl-who:htm (:a :data-toggle "tooltip" :title "Store Pickup" :href "#" (:i :class "fa-solid fa-person-walking-luggage")))))))))
+      
 
 

@@ -75,6 +75,7 @@
 
    (storepickupenabled
      :type (string 1)
+     :accessor storepickupenabled
      :initarg :storepickupenabled)
    
    (gstnumber
