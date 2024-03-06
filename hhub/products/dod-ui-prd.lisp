@@ -478,10 +478,10 @@
 	 (prd-discount (if product-pricing (slot-value product-pricing 'discount)))
 	 (pricewith-discount (if product-pricing (- prd-price (/ (* prd-price prd-discount) 100)))))
     (function (lambda ()
-      (values product-pricing showdiscount-p unit-price qty-per-unit pricewith-discount prd-discount)))))
+      (values product-pricing showdiscount-p unit-price qty-per-unit prd-price pricewith-discount prd-discount)))))
     
 (defun createwidgetsforprdpricewithdiscount (modelfunc)
-  (multiple-value-bind (product-pricing showdiscount-p unit-price qty-per-unit pricewith-discount prd-discount) (funcall modelfunc)
+  (multiple-value-bind (product-pricing showdiscount-p unit-price qty-per-unit pricewithout-discount pricewith-discount prd-discount) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (unless product-pricing
@@ -490,7 +490,7 @@
 		       (when (and product-pricing showdiscount-p)
 			 (cl-who:htm
 			  (:p :class "new-price" (:strong (cl-who:str (format nil "Rs. ~$ / ~A"  pricewith-discount qty-per-unit))))
-			  (:p :class "old-price" (:i (:del (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit)))))
+			  (:p :class "old-price" (:i (:del (cl-who:str (format nil "Rs. ~$ / ~A" pricewithout-discount qty-per-unit)))))
 			  (:p :class "new-price" (cl-who:str (format nil "~$% off" prd-discount))))))))))
       (list widget1))))
 
