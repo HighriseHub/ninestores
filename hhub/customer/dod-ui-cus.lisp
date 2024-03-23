@@ -1217,7 +1217,6 @@
 		    (:a :class "order-box"  :href "pricing"  "New Grocery, Mobile, Apparel, Electronics Store.")))
 		(:hr)
 		;; whenever one or more than one search forms are used, remember to call the searchformevent-js function. 
-		(searchformevent-js)
 		(hhub-html-page-footer)))
     
     (clsql:sql-database-data-error (condition)
@@ -2499,11 +2498,8 @@
 			  (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
 			    (cl-who:str (ui-list-customer-products lstproducts lstshopcart)))))))
 	   (widget7 (function (lambda ()
-		      (when activevendor (whatsapp-widget (slot-value activevendor 'phone))))))
-	   (widget8 (function (lambda ()
-		      (searchformevent-js)))))
-	   
-      (list widget1 widget2 widget3 widget4 widget5 widget6 widget7 widget8))))
+		      (when activevendor (whatsapp-widget (slot-value activevendor 'phone)))))))
+	   (list widget1 widget2 widget3 widget4 widget5 widget6 widget7))))
 
 
 (defun dod-controller-cust-index ()
