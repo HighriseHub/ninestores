@@ -85,26 +85,6 @@
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun searchformevent-js ()
-    (cl-who:with-html-output (*standard-output* nil)
-      (:script :type "text/javascript"
-	       (cl-who:str
-		(parenscript:ps
-		  (defun searchformevent (id-bind-element searchresultid)
-		    (let ((the-form (parenscript:@ event target form))))
-		    (let ((element (parenscript:chain document (query-selector id-bind-element)))))
-		    (if (or
-			 (= (parenscript:@ element value length) 3)
-			 (= (parenscript:@ element value length) 5)
-			 (= (parenscript:@ element value length) 8)
-			 (= (parenscript:@ element value length) 13)
-			 (= (parenscript:@ element value length) 21))
-			(searchformsubmit the-form  searchresultid)))))))))
-
-
-
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
   (defun text-editor-control (idtextarea value)
     (let ((editorid (format nil "~AEditor" (gensym "hhub")))
 	  (editorparentid (format nil "~AEditor" (gensym "hhub"))))
