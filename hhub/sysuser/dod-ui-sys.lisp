@@ -168,8 +168,7 @@
 	  (:div :id "custom-search-input"
 		(:div :class "input-group col-xs-12 col-sm-6 col-md-6 col-lg-6"
 		      (with-html-search-form "idsyssearchtenant" "syssearchtenant" "idaccountlivesearch" "accountlivesearch" "dodsyssearchtenantaction" "onkeyupsearchform1event();" "Search for an Apartment/Group"
-			(submitsearchform1event-js "#idaccountlivesearch" "#accountlivesearchresult")))
-		(searchformevent-js)))))
+			(submitsearchform1event-js "#idaccountlivesearch" "#accountlivesearchresult")))))))
 
 (defun com-hhub-transaction-create-company-dialog (&optional id)
   (let* ((company (if id (select-company-by-id id)))
