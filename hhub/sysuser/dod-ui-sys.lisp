@@ -167,7 +167,9 @@
     (:div :class "row"
 	  (:div :id "custom-search-input"
 		(:div :class "input-group col-xs-12 col-sm-6 col-md-6 col-lg-6"
-		      (with-html-search-form "idsyssearchtenant" "syssearchtenant" "idaccountlivesearch" "accountlivesearch" "dodsyssearchtenantaction" "Search for an Apartment/Group"))))))
+		      (with-html-search-form "idsyssearchtenant" "syssearchtenant" "idaccountlivesearch" "accountlivesearch" "dodsyssearchtenantaction" "onkeyupsearchform1event();" "Search for an Apartment/Group"
+			(submitsearchform1event-js "#idaccountlivesearch" "#accountlivesearchresult")))
+		(searchformevent-js)))))
 
 (defun com-hhub-transaction-create-company-dialog (&optional id)
   (let* ((company (if id (select-company-by-id id)))
@@ -430,9 +432,9 @@
     
     
 (defun dod-controller-company-search-for-sys-action ()
-  (let*  ((qrystr (hunchentoot:parameter "livesearch"))
+  (let*  ((qrystr (hunchentoot:parameter "accountlivesearch"))
 	  (company-list (if (not (equal "" qrystr)) (select-companies-by-name qrystr))))
-    (display-as-tiles company-list 'company-card 'product-box)))
+    (display-as-tiles company-list 'company-card "tenant-box")))
 
 (defun com-hhub-transaction-refresh-iam-settings () 
   (with-opr-session-check 
@@ -476,7 +478,8 @@
 		      (:span :class "badge" (cl-who:str (format nil "~A" (length companies))))))
 	  (:hr)
 	    (modal-dialog "editcompany-modal" "Add/Edit Group" (com-hhub-transaction-create-company-dialog))
-	    (cl-who:str (display-as-tiles companies 'company-card "tenant-box"))))))))
+	    (:div :id "accountlivesearchresult"
+		  (cl-who:str (display-as-tiles companies 'company-card "tenant-box")))))))))
 
 
 
