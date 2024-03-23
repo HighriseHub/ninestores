@@ -865,7 +865,7 @@
 		     
 (defun dod-controller-search-products ()
   (let* ((modelfunc (cretemodelforsearchproducts))
-	(widgets (createwidgetsforsearchproducts modelfunc)))
+	 (widgets (createwidgetsforsearchproducts modelfunc)))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
       (loop for widget in widgets do
 	(cl-who:str (funcall widget))))))
@@ -948,20 +948,26 @@
 					 (cl-who:htm
 					  (:li :class "nav-item"  (:a :class "nav-link" :href "#"  (:i :class "fa-regular fa-bell")))
 					  (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustprofile"  (:i :class "fa-regular fa-user")))))
-				
-				(when (equal customer-type "GUEST")
-				  (cl-who:htm
-				   (:li :class "nav-item dropdown"
-					(:a :class "nav-link dropdown-toggle" :href "#" :id "navbarDropdown" :role "button" :data-bs-toggle "dropdown" :aria-expanded="false" "My Account&nbsp;")
-					(:ul :class "dropdown-menu" :aria-labelledby "navbarDropdown"
-					     (:li (:a :class "dropdown-item" :href "dodguestcustlogout" "Member Login" ))
-					     (:li 
-					      (:form :method "POST" :action "custsignup1action" :id "custsignup1form" 
+				     
+				     ;;(:li :class "nav-item"
+					;;  (:div :class "form-check form-switch"
+					;;	(:input :class "form-check-input" :type "checkbox" :id "darkModeSwitch" :checked "checked")
+					;;	(:label :class "form-check-label" :for "darkModeSwitch" "Dark Mode")))
+
+				     (when (equal customer-type "GUEST")
+				       (cl-who:htm
+					(:li :class "nav-item dropdown"
+					     (:a :class "nav-link dropdown-toggle" :href "#" :id "navbarDropdown" :role "button" :data-bs-toggle "dropdown" :aria-expanded="false" "My Account&nbsp;")
+					     
+					     (:ul :class "dropdown-menu" :aria-labelledby "navbarDropdown"
+						  (:li (:a :class "dropdown-item" :href "dodguestcustlogout" "Member Login" ))
+						  (:li 
+						   (:form :method "POST" :action "custsignup1action" :id "custsignup1form" 
 						     (:div :class "form-group"
 							   (:input :class "form-control" :name "cname" :type "hidden" :value (cl-who:str (format nil "~A" (get-login-customer-company-name)))))
 						     (:div :class "form-group"
 							   (:button :class "btn btn-sm btn-primary btn-block" :type "submit" (cl-who:str (format nil "Sign Up" ))))))))))
-				(:li :class "nav-item" (:a :class "nav-link" :href "dodcustlogout" (:i :class "fa-solid fa-arrow-right-from-bracket")))))))))))
+				     (:li :class "nav-item" (:a :class "nav-link" :href "dodcustlogout" (:i :class "fa-solid fa-arrow-right-from-bracket")))))))))))
 
 
 
@@ -1200,7 +1206,8 @@
 		(:br)
 		(:h2 "Store Search.")
 		(:div :id "custom-search-input"
-		      (with-html-search-form "idcompanysearch" "companysearch" "idaccountlivesearch" "accountlivesearch"  "companysearchaction" "Enter Store Name..."))
+		      (with-html-search-form "idcompanysearch" "companysearch" "idaccountlivesearch" "accountlivesearch"  "companysearchaction" "onkeyupsearchform1event();" "Enter Store Name..."
+			(submitsearchform1event-js "#idaccountlivesearch" "#accountlivesearchresult" )))
 		(:div :id "accountlivesearchresult")
 		(:hr)
 		(with-html-div-row
@@ -1209,6 +1216,7 @@
 		  (with-html-div-col :style "display: none;"
 		    (:a :class "order-box"  :href "pricing"  "New Grocery, Mobile, Apparel, Electronics Store.")))
 		(:hr)
+		;; whenever one or more than one search forms are used, remember to call the searchformevent-js function. 
 		(hhub-html-page-footer)))
     
     (clsql:sql-database-data-error (condition)
@@ -2467,7 +2475,8 @@
 		      (unless activevendor
 			(cl-who:with-html-output (*standard-output* nil)
 			  (:span (:h5 "Top Vendors"))
-			  (with-html-search-form "idsearchvendors" "searchvendors" "idvendorlivesearch" "vendorlivesearch" "hhubcustvendorsearch" "Vendor Store Search...") 
+			  (with-html-search-form "idsearchvendors" "searchvendors" "idvendorlivesearch" "vendorlivesearch" "hhubcustvendorsearch" "onkeyupsearchform1event();" "Vendor Store Search..."
+			    (submitsearchform1event-js "#idvendorlivesearch" "#vendorlivesearchresult"))
 			  (cl-who:str (display-vendors-widget lstvendors))
 			  (:hr)))
 		      (when activevendor
@@ -2490,7 +2499,7 @@
 			    (cl-who:str (ui-list-customer-products lstproducts lstshopcart)))))))
 	   (widget7 (function (lambda ()
 		      (when activevendor (whatsapp-widget (slot-value activevendor 'phone)))))))
-      (list widget1 widget2 widget3 widget4 widget5 widget6 widget7))))
+	   (list widget1 widget2 widget3 widget4 widget5 widget6 widget7))))
 
 
 (defun dod-controller-cust-index ()
@@ -2505,7 +2514,9 @@
   (cl-who:with-html-output (*standard-output* nil) 
     (:br)
     (with-html-div-row
-      (with-html-search-form "idsearchproducts" "searchproducts" "idprdlivesearch" "prdlivesearch" "dodsearchproducts" "Search Products...") 
+      (with-html-search-form "idsearchproducts" "searchproducts" "idprdlivesearch" "prdlivesearch" "dodsearchproducts" "onkeyupsearchform2event();"  "Search Products..."
+	(submitsearchform2event-js "#idprdlivesearch" "#prdlivesearchresult" ))
+       
       ;; Display the My Cart button.
       (with-html-div-col-1 :style "align: right;" 
 	(:a :class "btn btn-primary" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;" (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))))
@@ -2587,11 +2598,11 @@
 (defun display-vendors-widget (vendorlist)
   :documentation "This function displays all the vendors for the given customers account"
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-    (:div :id "idprd-vendors-container" :class "prd-vendors-container" :style "width: 100%; display:flex; overflow:auto;"
-	  (:div :id "vendorlivesearchresult" 
+    (:div :id "vendorlivesearchresult" :class "prd-vendors-container" :style "width: 100%; display:flex; overflow:auto;"
+	  ;;(:div :id "vendorlivesearchresult" 
 		(with-html-div-row  :style "padding: 30px 20px; display: flex; align-items:center; justify-content:center; flex-wrap: nowrap;"  
 		  (mapcar (lambda (vendor)
-			    (cl-who:htm (:div :class "vendor-card" (vendor-card vendor)))) vendorlist))))))
+			    (cl-who:htm (:div :class "vendor-card" (vendor-card vendor)))) vendorlist)))))
 
 (defun createmodelforcustshowshopcart ()
   (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
