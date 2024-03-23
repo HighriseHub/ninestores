@@ -60,24 +60,50 @@
 
 
 
+
+				    
+		
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun submitsearchformevent-js (id-bind-element searchresultid)
+  (defun submitsearchform1event-js (id-bind-element searchresultid)  
     (cl-who:with-html-output (*standard-output* nil)
       (:script :type "text/javascript"
 	       (cl-who:str
 		(parenscript:ps
-		  (defun onkeyupsearchformevent ()   
+		  (defun onkeyupsearchform1event ()
+		    (searchformevent (parenscript:lisp id-bind-element) (parenscript:lisp searchresultid)))))))))
+		  
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitsearchform2event-js (id-bind-element searchresultid)  
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str
+		(parenscript:ps
+		  (defun onkeyupsearchform2event ()
+		    (searchformevent (parenscript:lisp id-bind-element) (parenscript:lisp searchresultid)))))))))
+
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun searchformevent-js ()
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str
+		(parenscript:ps
+		  (defun searchformevent (id-bind-element searchresultid)
 		    (let ((the-form (parenscript:@ event target form))))
-		    (let ((element (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
+		    (let ((element (parenscript:chain document (query-selector id-bind-element)))))
 		    (if (or
 			 (= (parenscript:@ element value length) 3)
 			 (= (parenscript:@ element value length) 5)
 			 (= (parenscript:@ element value length) 8)
 			 (= (parenscript:@ element value length) 13)
 			 (= (parenscript:@ element value length) 21))
-			(searchformsubmit the-form (parenscript:lisp searchresultid))))))))))
-		    
-			 
+			(searchformsubmit the-form  searchresultid)))))))))
+
+
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun text-editor-control (idtextarea value)
     (let ((editorid (format nil "~AEditor" (gensym "hhub")))
@@ -344,9 +370,10 @@
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-standard-page-template-v2 (title nav-func  &body body)
     `(cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-       (:html  :xmlns "http://www.w3.org/1999/xhtml"
+       (:html  :xmlns "http://www.w3.org/1999/xhtml" 
 	       :xml\:lang "en" 
-	       :lang "en"
+	       :lang "en" :data-bs-theme "light"
+	       
 	       (:head
 		(:meta :http-equiv "content-type" 
 		       :content    "text/html;charset=utf-8")
@@ -360,8 +387,8 @@
 		(:link :rel "manifest" :href "/manifest.json")
 		;; Bootstrap CSS
 		;;(:link :href "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" :rel "stylesheet")
+		;;(:link :href "/css/bs5.3/css/bootstrap.min.css" :rel "stylesheet" )
 		(:link :href "/css/bootstrap5.3.css" :rel "stylesheet" )
-
 		(:link :href "/css/style.css" :rel "stylesheet")
 		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/themes/cupertino/jquery-ui.min.css" :rel "stylesheet")
 		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" :rel "stylesheet")
@@ -376,7 +403,7 @@
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
 		) ;; header completes here.
 	        (:body
-		 (:div :id "dod-main-container"  :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
+		 (:div :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;" )
@@ -386,7 +413,7 @@
 					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
 		       (:div :class "container" :role "main" :style "background-color: white; min-height: calc(100vh - 100px);" 
 			     (:div :class "sidebar-nav" 
-				   (:div :id "hhubmaincontent"  ,@body))))
+				   (:div :id "hhubmaincontent"   ,@body))))
 		 ;; rangeslider
 		      ;; bootstrap core javascript
 		 
@@ -563,7 +590,6 @@
 :documentation "This is a generic function which will display items in list as a html table. You need to pass the html table header and  list data, and a display function which will display data. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizing refer to style.css. " 
   (let ((incr (let ((count 0)) (lambda () (incf count)))))
     (cl-who:with-html-output-to-string (*standard-output* nil)
-
       ;; searchresult div will be used to store the search result. 
       (:div :id "searchresult"  :class "container" 
 	    (:table :class "table table-sm  table-striped  table-hover"
@@ -581,7 +607,7 @@
 individual tiles. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizingrefer to style.css. " 
   (cl-who:with-html-output-to-string (*standard-output* nil)
     ; searchresult div will be used to store the search result. 
-    (:div :id "searchresult"  :class "container" 
+    (:div :class "container" 
 	  (:div :class "row-fluid"
 		(mapcar (lambda (item)
 			  (cl-who:htm (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4" 
@@ -645,16 +671,17 @@ individual tiles. It also supports search functionality by including the searchr
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro  with-html-search-form (form-id form-name txtctrlid txtctrlname  search-form-action search-placeholder &body body)
+  (defmacro  with-html-search-form (form-id form-name txtctrlid txtctrlname  search-form-action onkeyupfunc  search-placeholder &body body)
     :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"
     `(cl-who:with-html-output (*standard-output* nil ) 
        (with-html-div-col-8
 	 (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
 		(:div :class "input-group"
-		      (:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder :onkeyup "onkeyupsearchformevent ();")
+		      (:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder   :onkeyup ,onkeyupfunc)
 		      (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
-		,@body))
-	 (submitsearchformevent-js  (format nil "#~A" ,txtctrlid) (format nil "#~Aresult" ,txtctrlname)))))
+		,@body)))))
+
+  
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun WelcomeMessage (username)
