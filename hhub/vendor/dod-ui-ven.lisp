@@ -905,8 +905,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(with-html-search-form "idsearchmycustomer" "searchmycustomer" "idtxtsearchcustomer" "txtsearchcustomer" "hhubsearchmycustomer" "onkeyupsearchform1event();" "Customer Name"
 	  (submitsearchform1event-js "#idtxtsearchcustomer" "#vendormycustomerssearchresult" ))
 	(:div :id "vendormycustomerssearchresult"  :class "container"
-	      (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") mycustomers 'display-my-customers-row)))
-	 (searchformevent-js)))))
+	      (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") mycustomers 'display-my-customers-row)))))))
 
 
 (defun hhub-controller-search-my-customer-action ()
@@ -1728,8 +1727,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    (:span :class "badge" (cl-who:str (format nil " ~d " (length vendor-products)))))) 
 	(:hr)
 	(:div :id "txtvendsearchproductresult" 
-	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card")))
-	 (searchformevent-js)))))
+	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card")))))))
 
 
 
