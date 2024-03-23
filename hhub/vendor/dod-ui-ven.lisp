@@ -902,16 +902,18 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					 (cust-type (slot-value customer 'cust-type)))
 				    (when (equal cust-type "STANDARD") customer))) wallets))))
       (with-standard-vendor-page "My Customers"
-	(with-html-search-form "idsearchmycustomer" "searchmycustomer" "idtxtsearchcustomer" "txtsearchcustomer" "hhubsearchmycustomer" "Customer Name")
-	(:div :id "searchresult"  :class "container"
-	      (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") mycustomers 'display-my-customers-row)))))))
+	(with-html-search-form "idsearchmycustomer" "searchmycustomer" "idtxtsearchcustomer" "txtsearchcustomer" "hhubsearchmycustomer" "onkeyupsearchform1event();" "Customer Name"
+	  (submitsearchform1event-js "#idtxtsearchcustomer" "#vendormycustomerssearchresult" ))
+	(:div :id "vendormycustomerssearchresult"  :class "container"
+	      (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") mycustomers 'display-my-customers-row)))
+	 (searchformevent-js)))))
 
 
 (defun hhub-controller-search-my-customer-action ()
   (with-vend-session-check
     (let* ((company (get-login-vendor-company))
 	   (vendor (get-login-vendor))
-	   (name (hunchentoot:parameter "livesearch"))
+	   (name (hunchentoot:parameter "txtsearchcustomer"))
 	   (totalcustomers (select-customer-list-by-name (format nil "%~A%" name) company))
 	   (customers (remove nil (mapcar (lambda (customer)
 					    (if (get-cust-wallet-by-vendor customer vendor company) customer)) totalcustomers))))
@@ -1712,8 +1714,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (cmp-type (slot-value vendor-company 'cmp-type))
 	   (subscription-plan (slot-value vendor-company 'subscription-plan)))
       (with-standard-vendor-page "Welcome to HighriseHub  - Vendor"
-	(with-html-search-form "idvendsearchproduct" "vendsearchproduct" "idtxtvendsearchproduct" "txtvendsearchproduct" "hhubvendsearchproduct" "Product Name")
-	
+	(with-html-search-form "idvendsearchproduct" "vendsearchproduct" "idtxtvendsearchproduct" "txtvendsearchproduct" "hhubvendsearchproduct" "onkeyupsearchform1event();" "Product Name"
+	   (submitsearchform1event-js "#idtxtvendsearchproduct" "#txtvendsearchproductresult"))  
 	(:div :class "row" 
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
 		    (:a :class "btn btn-primary" :role "button" :href "dodvenaddprodpage" (:i :class "fa-solid fa-cart-shopping") " Add New Product  "))
@@ -1726,7 +1728,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    (:span :class "badge" (cl-who:str (format nil " ~d " (length vendor-products)))))) 
 	(:hr)
 	(:div :id "txtvendsearchproductresult" 
-	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card")))))))
+	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card")))
+	 (searchformevent-js)))))
 
 
 
