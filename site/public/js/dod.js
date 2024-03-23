@@ -8,7 +8,6 @@ var ajaxCallParams = {};
 var ajaxDataParams = {}; 
 var slideindex =1;
 
-
 const setRangeValue = (event)=>{
     
     const range = event.target;
@@ -573,6 +572,23 @@ $(document).ready(function() {
 });
 
 
+function submitonkeyupevent (event){
+    event.preventDefault();
+    let tergetform = event.target;
+    searchformsubmit(targetform, resultelem); 
+}
+
+const registeronkeyupevent = (component, resultelem) => {
+    const element = document.querySelector(component);
+    if (null != element){
+	element.addEventListener('keyup', (e) => {
+	    e.preventDefault();
+	    let targetform = e.target;
+	    searchformsubmit(targetform, resultelem);
+	});
+    }
+};
+
 
 const registerforsubmitformevent = (component) => {
     const element = document.querySelector(component);
@@ -597,6 +613,21 @@ function submitformandredirect (theForm){
 	location.replace(data);});
 }
 
+function searchformsubmit (theForm, resultdiv){
+    $(theForm).find("button[type='submit']").hide();
+    ajaxCallParams.Type = "POST";
+    ajaxCallParams.Cache = false;
+    ajaxCallParams.Url = $(theForm).attr("action");
+    ajaxCallParams.DataType = "HTML"; // Return data type e-g Html, Json etc                                                                                                                                    
+    ajaxDataParams = $(theForm).serialize();
+    ajaxCall(ajaxCallParams, ajaxDataParams, function (data) { 
+	console.log("Search Form submitted");
+	$(resultdiv).html(data);
+    });
+}
+
+
+
 $(".form-shopcart").on('submit', function (e){
     e.preventDefault();
     var theForm = $(this);
@@ -619,18 +650,6 @@ function DeleteConfirm (){
     return confirm("Do you really want to Delete?");
 }
 
-function searchformsubmit (theForm, resultdiv){
-    $(theForm).find("button[type='submit']").hide();
-    ajaxCallParams.Type = "POST";
-    ajaxCallParams.Cache = false;
-    ajaxCallParams.Url = $(theForm).attr("action");
-    ajaxCallParams.DataType = "HTML"; // Return data type e-g Html, Json etc                                                                                                                                    
-    ajaxDataParams = $(theForm).serialize();
-    ajaxCall(ajaxCallParams, ajaxDataParams, function (data) { 
-	console.log("Search Form submitted");
-	$(resultdiv).html(data);
-    });
-}
 
 
 
@@ -668,3 +687,15 @@ $(document).ready (function(){
 	//$('html, body').animate({scrollTop:0}, '300');
     });
 }); 
+
+
+function searchformevent(idBindElement, searchresultid) {
+    var theForm = event.target.form;
+    var element = document.querySelector(idBindElement);
+    return element.value.length === 3 ||
+	element.value.length === 5 ||
+	element.value.length === 8 ||
+	element.value.length === 13 ||
+	element.value.length === 21 ? searchformsubmit(theForm, searchresultid) : null;
+}
+
