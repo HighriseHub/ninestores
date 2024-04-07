@@ -541,6 +541,7 @@
 	 (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	 (units-in-stock (slot-value product-instance 'units-in-stock))
 	 (description (slot-value product-instance 'description))
+	 (external-url (slot-value product-instance 'external-url))
 	 (prd-image-path (slot-value product-instance 'prd-image-path))
 	 (prd-id (slot-value product-instance 'row-id))
 	 (subscribe-flag (slot-value product-instance 'subscribe-flag))
@@ -557,12 +558,18 @@
 	    ;; Product image only here
 	    (:img :src  (format nil "~A" prd-image-path) :height "200" :width "323" :alt prd-name " ")
 	    (:div :class "product-details"
-		  (:p :class "product-title" (cl-who:str prd-name))
+		  (:p :class "product-title" (cl-who:str prd-name)
+		      (when external-url
+			(cl-who:htm
+			 (:div :class "col-xs-1"  :data-toggle "tooltip" :title "Copy External URL" 
+			       (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes"))))))
+		  
 		  (:p (cl-who:str qty-per-unit))
 		  (:p (:a :data-bs-toggle "modal" :data-bs-target (format nil "#vendordetails-modal~A" vendor-id)  :href "#"   :class "btn btn-sm btn-primary" :onclick "addtocartclick(this.id);" :name "btnvendormodal" (cl-who:str vendor-name)))  
 		  (modal-dialog-v2 (format nil "vendordetails-modal~A" vendor-id) (cl-who:str (format nil "Vendor Details")) (modal.vendor-details vendor-id))
 		  (:p (:a :href (format nil "hhubcustvendorstore?id=~A" vendor-id) (:i :class "fa-solid fa-store") (cl-who:str (format nil "&nbsp;~A Store" vendor-name))))
 		  (:hr)
+		  
 		  (product-price-with-discount-widget product-instance product-pricing)
 		  (:hr)
 		  (:p (cl-who:str description))
