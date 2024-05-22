@@ -427,20 +427,34 @@
        (update-customer customer)
        (hunchentoot:redirect "/hhub/dodcustprofile")))))))
 
+;;;;;;;;;;;;;;;; CUSTOMER PROFILE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun createwidgetsfordisplaycustomerproile (modelfunc)
+  (multiple-value-bind (customername customer-instance) (funcall modelfunc)
+      (let ((widget1 (function (lambda ()
+		       (cl-who:with-html-output (*standard-output* nil)
+			 (:h3 "Welcome " (cl-who:str (format nil "~a" customername)))
+			 (:hr)
+			 (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+			       (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustupdate-modal")  :href "#"  "Contact Info")
+			       (modal-dialog-v2 (format nil "dodcustupdate-modal") "Update Customer" (modal.customer-update-details customer-instance)) 
+			       ;; We have OTP based login now, so will not support changing password by customer.
+			       ;;(:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustchangepin-modal")  :href "#"  "Change Password")
+			       ;;(modal-dialog-v2 (format nil "dodcustchangepin-modal") "Change Password" (modal.customer-change-pin)) 
+			       ;;(:a :class "list-group-item" :href "#" "Settings")
+			       (:a :class "list-group-item" :href *HHUBFEATURESWISHLISTURL*  "Feature Wishlist")
+			       (:a :class "list-group-item" :href *HHUBBUGSURL* "Report Issues")))))))
+	(list widget1))))
+
+(defun createmodelfordisplaycustomerproile ()
+  (function (lambda ()
+    (values (get-login-cust-name) (get-login-customer)))))
+
 (defun dod-controller-customer-profile ()
   (with-cust-session-check
-    (with-standard-customer-page-v2 "HighriseHub - Customer Profile"
-      (:h3 "Welcome " (cl-who:str (format nil "~a" (get-login-cust-name))))
-      (:hr)
-      (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	    (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustupdate-modal")  :href "#"  "Contact Info")
-	    (modal-dialog-v2 (format nil "dodcustupdate-modal") "Update Customer" (modal.customer-update-details (get-login-customer))) 
-	    ;; We have OTP based login now, so will not support chanding password by customer.
-	    ;;(:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustchangepin-modal")  :href "#"  "Change Password")
-	    ;;(modal-dialog-v2 (format nil "dodcustchangepin-modal") "Change Password" (modal.customer-change-pin)) 
-	    ;;(:a :class "list-group-item" :href "#" "Settings")
-	    (:a :class "list-group-item" :href "https://goo.gl/forms/hI9LIM9ebPSFwOrm1" "Feature Wishlist")
-	    (:a :class "list-group-item" :href "https://goo.gl/forms/3iWb2BczvODhQiWW2" "Report Issues")))))
+    (with-mvc-ui-page "Customer Profile" createmodelfordisplaycustomerproile createwidgetsfordisplaycustomerproile :role :customer)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun get-login-customer ()
     :documentation "get the login session for customer"
@@ -1194,6 +1208,7 @@
      (with-standard-customer-page (:title "Welcome to HighriseHub platform")
 	 (:h3 (cl-who:str(format nil "Customer record has already been created" )))
 	 (:a :href "cust-register.html" "Register new customer")))
+
 (defun dod-controller-company-search-action ()
   (let*  ((qrystr (hunchentoot:parameter "accountlivesearch"))
 	  (company-list (if (not (equal "" qrystr)) (select-companies-by-name qrystr))))
@@ -1752,7 +1767,7 @@
 	(loop for company in list 
 	     do ( cl-who:htm (:option :value (slot-value company 'row-id) (cl-who:str (slot-value company 'name)))))))))
 
-;;;; LOW WALLET BALANCE ;;;;;
+;;;; LOW WALLET BALANCE FOR SHOPCART ;;;;;
 (defun createmodelforlowwalletbalanceforshopcart ()
   (let* ((odts (hunchentoot:session-value :login-shopping-cart))
 	 (vendor-list (get-shopcart-vendorlist odts))
@@ -1766,13 +1781,14 @@
 
 (defun createwidgetforlowwalletbalanceforshopcart (modelfunc)
   (multiple-value-bind (wallets order-items-totals) (funcall modelfunc)
-    (let ((widget1 (cl-who:with-html-output (*standard-output* nil)
-		     (with-html-div-row
-		       (with-html-div-col
-			 (:div :class "p-3 mb-2 bg-danger text-white" "Low Wallet Balance")))
-		     (list-customer-low-wallet-balance   wallets order-items-totals)
-		     (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart" (:i :class "fa-solid fa-cart-shopping") "&nbsp;Modify Cart&nbsp;")
-		     (jscript-displayerror "Low Wallet Balance"))))
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col
+			   (:div :class "p-3 mb-2 bg-danger text-white" "Low Wallet Balance")))
+		       (list-customer-low-wallet-balance   wallets order-items-totals)
+		       (:a :class "btn btn-primary" :role "button" :href "dodcustshopcart" (:i :class "fa-solid fa-cart-shopping") "&nbsp;Modify Cart&nbsp;"))
+		     (jscript-displayerror "Low Wallet Balance")))))
       (list widget1))))
 
 (defun dod-controller-low-wallet-balance-for-shopcart ()
@@ -1780,26 +1796,36 @@
     (with-mvc-ui-page "Low Wallet Balance" createmodelforlowwalletbalanceforshopcart createwidgetforlowwalletbalanceforshopcart :role :customer)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;;;;;;;;;;;;;;;;;;; LOW WALLET BALANCE FOR ORDER ITEMS ;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun createmodelforlowwalletbalancefororderitems ()
+  (let* ((item-id (hunchentoot:parameter "item-id"))
+	 (prd-qty (parse-integer (hunchentoot:parameter "prd-qty")))
+	 (odts  (list (get-order-item-by-id item-id)))
+	 (vendor-list (get-shopcart-vendorlist odts))
+	 (company (get-login-customer-company)) 
+	 (wallets (mapcar (lambda (vendor) 
+			    (get-cust-wallet-by-vendor  (get-login-customer) vendor company)) vendor-list))
+	 (order-items-totals (mapcar (lambda (vendor)
+				       (if prd-qty (setf (slot-value (first odts) 'prd-qty) prd-qty))
+				       (get-order-items-total-for-vendor vendor odts)) vendor-list)))
+    (function (lambda ()
+      (values wallets order-items-totals)))))
+
+(defun createwidgetsforlowwalletbalancefororderitems (modelfunc)
+  (multiple-value-bind (wallets order-items-totals) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:div :class "row"
+                             (:div :class "col-sm-12 col-xs-12 col-md-12 col-lg-12"
+				   (:h3 (:span :class "label label-danger" "Low Wallet Balance."))))
+		       (list-customer-low-wallet-balance   wallets order-items-totals))))))
+      (list widget1))))
 
 (defun dod-controller-low-wallet-balance-for-orderitems ()
   (with-cust-session-check
-      (let* ((item-id (hunchentoot:parameter "item-id"))
-	     (prd-qty (parse-integer (hunchentoot:parameter "prd-qty")))
-	     (odts  (list (get-order-item-by-id item-id)))
-	     (vendor-list (get-shopcart-vendorlist odts))
-	     (company (get-login-customer-company)) 
-	     (wallets (mapcar (lambda (vendor) 
-				(get-cust-wallet-by-vendor  (get-login-customer) vendor company)) vendor-list))
-	     (order-items-totals (mapcar (lambda (vendor)
-					   (if prd-qty (setf (slot-value (first odts) 'prd-qty) prd-qty))
-					   (get-order-items-total-for-vendor vendor odts)) vendor-list)))
-	
-	(with-standard-customer-page-v2 (:title "Low Wallet Balance")
-	(:div :class "row" 
-	      (:div :class "col-sm-12 col-xs-12 col-md-12 col-lg-12"
-		    (:h3 (:span :class "label label-danger" "Low Wallet Balance."))))
-	(list-customer-low-wallet-balance   wallets order-items-totals)))))
+    (with-mvc-ui-page "Low Wallet Balance" createmodelforlowwalletbalancefororderitems createwidgetsforlowwalletbalancefororderitems :role :customer)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun dod-controller-cust-login-as-guest ()
   (let ((tenant-id (hunchentoot:parameter "tenant-id")))
@@ -1850,7 +1876,15 @@
 (defun send-order-email-guest-customer(order-id email temp-customer products shopcart shipping-cost) 
   (let* ((shopcart-total (get-shop-cart-total shopcart))
        	 (order-disp-str (create-order-email-content products shopcart temp-customer order-id shipping-cost shopcart-total)))
-    (send-order-mail email (format nil "HighriseHub order ~A" order-id) order-disp-str)))
+    (as:with-event-loop (:catch-app-errors t)
+      (let* ((result nil)
+	     (notifier (as:make-notifier (lambda () (format t "Job finished! ~a~%" result)))))
+	(bt:make-thread 
+	 (lambda ()
+	   (send-order-mail email (format nil "HighriseHub order ~A" order-id) order-disp-str)
+	   (setf result 1)
+	   (as:trigger-notifier notifier)) :name (format T "Order Loop Thread: ~d" order-id))))))
+  
 
 (defun send-order-sms-guest-customer (order-id phone)
   (declare (ignore order-id phone))
@@ -1938,7 +1972,7 @@
 	(setf (gethash "PRE" temp-ht) (symbol-function 'check-all-vendors-wallet-balance))
 	(let ((func (gethash payment-mode temp-ht)))
 	  (when func (unless (funcall (gethash payment-mode temp-ht) vendor-list wallet-list odts)
-		       (setf redirectlocation "/hhub/dodcustlowbalanceshopcarts")
+		       (setf redirectlocation "/hhub/dodcustlowbalanceshopcart")
 		       (setf lowwalletbalanceflag T))))
 	;; If everything gets through, create order. 
 	(unless lowwalletbalanceflag

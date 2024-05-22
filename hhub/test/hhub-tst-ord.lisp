@@ -70,8 +70,8 @@
 				  (lambda ()
 				    (sleep 30)
 				    (setf result 10)
-				    (as:trigger-notifier notifier)) :name "Background Task Thread")
-		  (format t "I am in the async event loop. Exiting loop")))) :name "Event loop thread")))
+				    (as:trigger-notifier notifier)) :name "Event Loop Thread")
+		  (format t "I am in the async event loop. Exiting loop")))) :name "Background Task Thread")))
     (format t "I am in the main task. Thread info ~A" asynceventsthread)))
 		    
 
