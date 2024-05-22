@@ -435,57 +435,63 @@
 		  (:td (cl-who:str (nth 11 shipinfo)))))) shipping-info))))
   
 
+
+(defun save-order-items-in-db (order order-items products company-instance)
+  (mapcar (lambda (odt)
+	    (let* ((prd (search-prd-in-list (slot-value odt 'prd-id) products))
+		   (units-in-stock (slot-value prd 'units-in-stock))
+		   (unit-price (slot-value odt 'unit-price))
+		   (discount (slot-value odt 'disc-rate))
+		   (prd-qty (slot-value odt 'prd-qty))
+		   (updated-units-in-stock  (if (and units-in-stock (> units-in-stock 0)) (- units-in-stock  prd-qty) 0)))
+	      (create-order-items order prd  prd-qty unit-price discount company-instance)
+	      (setf (slot-value prd 'units-in-stock) updated-units-in-stock)
+	      (update-prd-details prd))) order-items))
+
+(defun save-vendor-orders-in-db (order order-date request-date ship-date ship-address payment-mode  storepickupenabled  order-items products  shipping-info shipping-cost  guest-customer customer-instance company-instance utrnum)
+  (let* ((order-id (slot-value order 'row-id))
+	 (cust-id (slot-value customer-instance 'row-id))
+	 (cust-type (slot-value customer-instance 'cust-type))
+	 (vendors (get-shopcart-vendorlist order-items))
+	 (tenant-id (slot-value company-instance 'row-id)))
+    (mapcar (lambda (vendor) 
+	      (let* ((vendor-email (slot-value vendor 'email))
+		     (vitems (filter-order-items-by-vendor vendor order-items))
+		     (vproducts (mapcar (lambda (odt)
+					  (let ((prd-id (slot-value odt 'prd-id)))
+					    (search-prd-in-list prd-id products))) vitems))
+		     (total (get-order-items-total-for-vendor vendor vitems))
+		     (vendor-id (slot-value vendor 'row-id))
+		     (custinst (if (equal cust-type "GUEST") guest-customer customer-instance))
+		     (order-disp-str (create-order-email-content vproducts vitems custinst order-id shipping-cost total))
+		     (shipstr (process-shipping-information-for-email shipping-info))) 
+      		
+		(persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost storepickupenabled)
+		;; Save the UPI Transaction 
+		(when utrnum (save-upi-transaction total utrnum (format nil "#ORD:~A" order-id) custinst vendor company-instance (slot-value custinst 'phone)))
+		;;Send a mail to the vendor
+		(when vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  (format nil "~A~A" order-disp-str shipstr)))
+		;; Send a push notification on the vendor's browser
+		(send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)))
+
+
 (defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt shipping-cost shipping-info payment-mode  comments customer-instance company-instance guest-customer utrnum storepickupenabled)
-  (let ((uuid (uuid:make-v1-uuid )))
-      ;; Create an order in the database. 
-    (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments storepickupenabled  company-instance)
-   
-    (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
-	   (order-id (slot-value order 'row-id))
-	   (cust-id (slot-value customer-instance 'row-id))
-	   (cust-type (slot-value customer-instance 'cust-type))
-	   (vendors (get-shopcart-vendorlist order-items))
-	   (tenant-id (slot-value company-instance 'row-id)))
-      (as:with-event-loop (:catch-app-errors t)
-	(let* ((result nil)
-	       (notifier (as:make-notifier (lambda () (format t "Job finished! ~a~%" result)))))
-	  (bt:make-thread 
-	   (lambda ()
-	;; Create the order-items and also update the current products in stock. 
-	   (mapcar (lambda (odt)
-		     (let* ((prd (search-prd-in-list (slot-value odt 'prd-id) products))
-			    (units-in-stock (slot-value prd 'units-in-stock))
-			    (unit-price (slot-value odt 'unit-price))
-			    (discount (slot-value odt 'disc-rate))
-			    (prd-qty (slot-value odt 'prd-qty))
-			    (updated-units-in-stock  (if (and units-in-stock (> units-in-stock 0)) (- units-in-stock  prd-qty) 0)))
-		       (create-order-items order prd  prd-qty unit-price discount company-instance)
-		       (setf (slot-value prd 'units-in-stock) updated-units-in-stock)
-		       (update-prd-details prd))) order-items)
-					; Create one row per vendor in the vendor_orders table. Send an order received email to each vendor. 
-	   (mapcar (lambda (vendor) 
-		     (let* ((vendor-email (slot-value vendor 'email))
-			    (vitems (filter-order-items-by-vendor vendor order-items))
-			    (vproducts (mapcar (lambda (odt)
-						 (let ((prd-id (slot-value odt 'prd-id)))
-					      (search-prd-in-list prd-id products))) vitems))
-			    (total (get-order-items-total-for-vendor vendor vitems))
-			    (vendor-id (slot-value vendor 'row-id))
-			    (custinst (if (equal cust-type "GUEST") guest-customer customer-instance))
-			    (order-disp-str (create-order-email-content vproducts vitems custinst order-id shipping-cost total))
-			    (shipstr (process-shipping-information-for-email shipping-info))) 
-      		       
-		       (persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost storepickupenabled)
-		       ;; Save the UPI Transaction 
-		       (when utrnum (save-upi-transaction total utrnum (format nil "#ORD:~A" order-id) custinst vendor company-instance (slot-value custinst 'phone)))
-		       ;;Send a mail to the vendor
-		       (when vendor-email (send-order-mail vendor-email (format nil "You have received new order ~A" order-id)  (format nil "~A~A" order-disp-str shipstr)))
-		       ;; Send a push notification on the vendor's browser
-		       (send-webpush-message vendor (format nil "You have received a new order ~A" order-id))))  vendors)
+  (as:with-event-loop (:catch-app-errors T)
+    (let* ((result nil)
+	   (notifier (as:make-notifier (lambda () (format t "Job finished! ~a~%" result)))))
+      (bt:make-thread
+       (lambda ()
+	 (let ((uuid (uuid:make-v1-uuid )))
+	   ;; Create an order in the database. 
+	   (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments storepickupenabled  company-instance)
+	   (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance)))
+	     ;; Create the order-items and also update the current products in stock. 
+	     (save-order-items-in-db order order-items products company-instance)
+	     ;; Create one row per vendor in the vendor_orders table. Send an order received email to each vendor. 
+	     (save-vendor-orders-in-db order  order-date request-date ship-date ship-address payment-mode  storepickupenabled  order-items products  shipping-info shipping-cost  guest-customer customer-instance company-instance utrnum))
 	   (setf result 1)
-	   (as:trigger-notifier notifier)) :name (format T "Order Thread: ~d" order-id ))))
-      ;; Return the order id
-	order-id))) 
+	   (as:trigger-notifier notifier))) :name (format T "Order Loop Thread")))))
+   
 
 
 
