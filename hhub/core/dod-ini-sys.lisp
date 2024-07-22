@@ -84,6 +84,7 @@
 (defvar *HHUBWHATAPPLINKURLINDIA* "https://wa.me/91")
 (defvar *HHUBWHATSAPPBUTTONIMG* "WhatsAppButtonGreenSmall.png")
 (defvar *HTMLRUPEESYMBOL* "&#8377;")
+(defvar *HTMLDOLLARSYMBOL* "&#36;")
 (defvar *HHUBSHIPPINGZONES* nil)
 (defvar *HHUBDEFAULTSHIPRATETABLECSV* "defaultshipratetable.csv")
 (defvar *HHUBDEFAULTSHIPZONESCSV*  "defaultshipzonepincodes.csv")
@@ -91,6 +92,8 @@
 (defvar *HHUBFREESHIPMINORDERAMT* 500.00)
 (defvar *HHUBMAXVENDORLOGINS* 4)
 (defvar *HHUBMEMOIZEDFUNCTIONS* nil)
+(defvar *HHUBDEFAULTCURRENCY* "INR")
+(defvar *HHUBDEFAULTCOUNTRY* "India")
 
 (defun set-customer-page-title (name)
   (setf *customer-page-title* (format nil "Welcome to HighriseHub - ~A." name))) 
@@ -167,7 +170,7 @@ the hunchentoot server with ssl settings"
        (if withssl  (hunchentoot:start *ssl-http-server*) (hunchentoot:start *http-server*) )
        (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql)
        (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))
-       (setf *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "23:00:00")
+       (setf *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "00:00:00")
        (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
        (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
        ;(setf *HHUBENTITYINSTANCES-HT* (make-hash-table))
@@ -176,6 +179,7 @@ the hunchentoot server with ssl settings"
        (hhub-init-business-functions)
        (setf *HHUBBUSINESSDOMAIN* (initbusinessdomain))
        (define-shipping-zones)))
+
 
 
 
@@ -209,6 +213,7 @@ the hunchentoot server with ssl settings"
 (setf *HHUBBUSINESSSESSIONS-HT* NIL)
 (setf *HHUBBUSINESSDOMAIN* NIL)))
 
+
 ;;;;*********** Globally Cached lists and their accessor functions *********************************
 
 (defun hhub-gen-globally-cached-lists-functions ()
@@ -222,7 +227,9 @@ the hunchentoot server with ssl settings"
 	(transactions-ht (get-system-bus-transactions-ht))
 	(policies-ht (get-system-auth-policies-ht))
 	(companies (get-system-companies))
-	(currencies-ht (get-system-currencies-ht)))
+	(currencies-ht (get-system-currencies-ht))
+	(curr-html-symbols-ht (get-currency-html-symbol-map))
+	(curr-fa-symbols-ht (get-currency-fontawesome-map)))
     (list (function (lambda () policies)) ;0
 	  (function (lambda () roles)) ;1
 	  (function (lambda () transactions)) ;2
@@ -232,7 +239,9 @@ the hunchentoot server with ssl settings"
 	  (function (lambda () companies)) ;6
 	  (function (lambda () transactions-ht)) ;7
 	  (function (lambda () policies-ht)) ;8
-	  (function (lambda () currencies-ht))))) ;9
+	  (function (lambda () currencies-ht)) ;9
+	  (function (lambda () curr-html-symbols-ht)) ;10
+	  (function (lambda () curr-fa-symbols-ht))))) ;11
 
 
 (defun hhub-get-cached-auth-policies()
@@ -256,6 +265,7 @@ the hunchentoot server with ssl settings"
   :documentation "This function gets a list of all the globally cached bus objects for System"
   (let ((busobjfunc (nth 3 *HHUBGLOBALLYCACHEDLISTSFUNCTIONS*)))
     (funcall busobjfunc)))
+
 
 (defun hhub-get-cached-abac-subjects ()
   :documentation "This function gets a list of all the globally cached ABAC Subjects for System"
@@ -288,6 +298,16 @@ the hunchentoot server with ssl settings"
   :documentation "This function gets a list of all the globally cached currencies."
   (let ((currencies-ht (nth 9 *HHUBGLOBALLYCACHEDLISTSFUNCTIONS*)))
     (funcall currencies-ht)))
+
+(defun hhub-get-cached-currency-html-symbols-ht ()
+  :documentation "This function gets a list of all the globally cached currencies."
+  (let ((currency-html-symbols-ht (nth 10 *HHUBGLOBALLYCACHEDLISTSFUNCTIONS*)))
+    (funcall currency-html-symbols-ht)))
+
+(defun hhub-get-cached-currency-fontawesome-symbols-ht ()
+  :documentation "This function gets a list of all the globally cached currencies."
+  (let ((currency-fa-symbols-ht (nth 11 *HHUBGLOBALLYCACHEDLISTSFUNCTIONS*)))
+    (funcall currency-fa-symbols-ht)))
 
 
 (defun hhub-init-business-function-registrations ()

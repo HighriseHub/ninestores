@@ -2,6 +2,13 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+
+(defun get-account-currency (company)
+  (let* ((country (slot-value company 'country))
+	 (currency-ht (hhub-get-cached-currencies-ht))
+	 (currency (nth 1 (gethash country currency-ht))))
+    (if currency currency *HHUBDEFAULTCURRENCY*)))
+    
 (defun generate-account-ext-url (account)
   :description "Generates an external URL for an account, which can be shared with external entities"
   (let* ((tenant-id (slot-value account 'row-id))
