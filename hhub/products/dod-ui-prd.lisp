@@ -349,6 +349,7 @@
 	 (external-url (slot-value product-instance 'external-url))
 	 (shipping-weight-kg (slot-value product-instance 'shipping-weight-kg))
 	 (company (product-company product-instance))
+	 (currency (get-account-currency company))
 	 (product-pricing (select-product-pricing-by-product-id prd-id company)))
       (cl-who:with-html-output (*standard-output* nil)
 	(with-html-div-row :style "border-radius: 5px;background-color:#e6f0ff; border-bottom: solid 1px; margin: -2px;"
@@ -385,11 +386,11 @@
 	  (:div :class "col-xs-1"  :data-toggle "tooltip" :title "Discounts" 
 		(if product-pricing 
 		    (cl-who:htm
-		     (:a :data-toggle "modal" :data-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-indian-rupee-sign"))
+		     (:a :data-toggle "modal" :data-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
 		     (modal-dialog (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))
 		    ;; else
 		    (cl-who:htm
-		     (:a :style "color:red;" :data-toggle "modal" :data-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-indian-rupee-sign"))
+		     (:a :style "color:red;" :data-toggle "modal" :data-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
 		     (modal-dialog (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))))
 	  (:div :class "col-xs-1" "&nbsp;")
 	  (:div :class "col-xs-1" "&nbsp;")
@@ -474,23 +475,24 @@
 	 (start-date (if product-pricing (slot-value product-pricing 'start-date)))
 	 (end-date (if product-pricing (slot-value product-pricing 'end-date)))
 	 (showdiscount-p (if product-pricing (and (clsql:date>= today-date start-date) (clsql:date<= today-date end-date))))
+	 (currency (if product-pricing (slot-value product-pricing 'currency) *HHUBDEFAULTCURRENCY*))
 	 (prd-price (if product-pricing (slot-value product-pricing 'price)))
 	 (prd-discount (if product-pricing (slot-value product-pricing 'discount)))
 	 (pricewith-discount (if product-pricing (- prd-price (/ (* prd-price prd-discount) 100)))))
     (function (lambda ()
-      (values product-pricing showdiscount-p unit-price qty-per-unit prd-price pricewith-discount prd-discount)))))
+      (values product-pricing showdiscount-p unit-price (get-currency-html-symbol currency)  qty-per-unit prd-price pricewith-discount prd-discount)))))
     
 (defun createwidgetsforprdpricewithdiscount (modelfunc)
-  (multiple-value-bind (product-pricing showdiscount-p unit-price qty-per-unit pricewithout-discount pricewith-discount prd-discount) (funcall modelfunc)
+  (multiple-value-bind (product-pricing showdiscount-p unit-price cur-html-sym  qty-per-unit pricewithout-discount pricewith-discount prd-discount) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (unless product-pricing
 			 (cl-who:htm
-			  (:p :class "new-price" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit)))))
+			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  unit-price qty-per-unit)))))
 		       (when (and product-pricing showdiscount-p)
 			 (cl-who:htm
-			  (:p :class "new-price" (:strong (cl-who:str (format nil "Rs. ~$ / ~A"  pricewith-discount qty-per-unit))))
-			  (:p :class "old-price" (:i (:del (cl-who:str (format nil "Rs. ~$ / ~A" pricewithout-discount qty-per-unit)))))
+			  (:p :class "new-price" (:strong (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  pricewith-discount qty-per-unit))))
+			  (:p :class "old-price" (:i (:del (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  pricewithout-discount qty-per-unit)))))
 			  (:p :class "new-price" (cl-who:str (format nil "~$% off" prd-discount))))))))))
       (list widget1))))
 

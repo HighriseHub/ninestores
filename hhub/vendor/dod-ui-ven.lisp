@@ -13,12 +13,14 @@
 	 (end-date (get-date-from-string (hunchentoot:parameter "enddate")))
 	 (prd-id (parse-integer (hunchentoot:parameter "prdid")))
 	 (product (select-product-by-id prd-id company))
+	 (currency (get-account-currency company))
 	 (prdpricing (select-product-pricing-by-product-id prd-id company))
 	 (redirectlocation "/hhub/dodvenproducts"))
     (unless prdpricing
-      (create-product-pricing product prd-price prd-discount "INR" start-date end-date company))
+      (create-product-pricing product prd-price prd-discount currency start-date end-date company))
     (when prdpricing
       (setf (slot-value prdpricing 'price) prd-price)
+      (setf (slot-value prdpricing 'currency) currency)
       (setf (slot-value prdpricing 'discount) prd-discount)
       (setf (slot-value prdpricing 'start-date) start-date)
       (setf (slot-value prdpricing 'end-date) end-date)
@@ -929,6 +931,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun display-my-customers-row (customer)
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
+	 (currency (get-account-currency company))
 	 (cust-id (slot-value customer 'row-id))
 	 (cust-phone (slot-value customer 'phone))
 	 (cust-name (slot-value customer 'name))
@@ -941,7 +944,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(:td  :height "10px" (cl-who:str address))
 	(:td  :height "10px" (cl-who:str (slot-value wallet 'balance)))
 	(:td  :height "10px"
-	      (:a :data-toggle "modal" :data-target (format nil "#vendormycustomerwallet~A" cust-id)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
+	      (:a :data-toggle "modal" :data-target (format nil "#vendormycustomerwallet~A" cust-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency) :aria-hidden "true"))
 	      (modal-dialog (format nil "vendormycustomerwallet~A" cust-id) "Recharge Wallet" (modal.vendor-my-customer-wallet-recharge wallet phone)))
 	      (:td :height "10px" (:a :href chatonwhatsappurl :target "_blank" (:i :class "fa-brands fa-whatsapp fa-xl" :style "color: #39dd30;")))))))
  
@@ -1559,6 +1562,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (setf (hunchentoot:session-value :login-vendor-company-name) (slot-value company 'name))
     (setf (slot-value vsessionobj 'companyname) (slot-value company 'name))
     (setf (hunchentoot:session-value :login-vendor-company) company)
+    (setf (hunchentoot:session-value :login-vendor-currency) (get-account-currency company))
     ;;(setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company company))
     ;;set vendor related params 
     (if vendor (setf (hunchentoot:session-value :login-vendor-tenants) (get-vendor-tenants-as-companies vendor)))

@@ -19,5 +19,9 @@
     ; Return  the hash table. 
     ht))
 
+(defun get-currency-html-symbol (currency)
+  (gethash currency (hhub-get-cached-currency-html-symbols-ht)))
 
+(defun get-currency-fontawesome-symbol (currency)
+  (gethash currency (hhub-get-cached-currency-fontawesome-symbols-ht)))
 
