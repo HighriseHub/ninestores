@@ -109,9 +109,9 @@
 
 
 (defun test-webpush-notification-for-vendor (vendor)
-  (let* ((title "HighriseHub")
-	 (message (format nil "Welcome to HighriseHub - ~A" (slot-value vendor 'name)))
-	 (clickTarget "https://www.highrisehub.com")
+  (let* ((title "Nine Stores")
+	 (message (format nil "Welcome to Nine Stores - ~A" (slot-value vendor 'name)))
+	 (clickTarget (format nil "~A" *siteurl*))
 	 (params nil))
     (setf params (acons "vendor" vendor params))
     (let ((returnlist (hhub-execute-business-function  "com.hhub.businessfunction.bl.getpushnotifysubscriptionforvendor" (setf params (acons "vendor" vendor  params))))) 
@@ -125,10 +125,10 @@
 
 
 (defun send-webpush-message (person message)
-  (let* ((title "HighriseHub")
+  (let* ((title "Nine Stores")
 	 (webpushdbservice (make-instance 'WebPushNotifyDBService))
 	 (subscription (if (equal 'DOD-VEND-PROFILE (type-of person)) (db-fetch-Vendor-WebPushNotifySubscriptions webpushdbservice person)))
-	 (clickTarget "https://www.highrisehub.com/hhub/dodvendindex?context=pendingorders"))
+	 (clickTarget (format nil "~A/hhub/dodvendindex?context=pendingorders" *siteurl*)))
     ;; Send a message only if subscription is present. 
     (if subscription
 	(let ((endpoint (slot-value subscription 'endpoint))
@@ -141,9 +141,9 @@
 
 
 (defun test-webpush-notification-for-customer (customer)
-  (let* ((title "HighriseHub")
-	 (message (format nil "Welcome to HighriseHub - ~A" (slot-value customer 'name)))
-	 (clickTarget "https://www.highrisehub.com")
+  (let* ((title "Nine Stores")
+	 (message (format nil "Welcome to Nine Stores - ~A" (slot-value customer 'name)))
+	 (clickTarget (format nil "~A" *siteurl*))
 	 (subscriptions (get-push-notify-subscription-for-customer customer)))
     (mapcar (lambda (subscription)
 	      (let ((endpoint (slot-value subscription 'endpoint))
@@ -161,7 +161,7 @@
 	 (headers nil) 
 	 (headers (acons "auth-secret" "highrisehub1234" headers)))
     ; Execution
-    (drakma:http-request "https://www.highrisehub.com/push/notify/user"
+    (drakma:http-request (format nil "~A/push/notify/user" *siteurl*)
 			 :additional-headers headers
 			     :parameters param-alist)))
 

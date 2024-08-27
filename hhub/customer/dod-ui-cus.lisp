@@ -1000,7 +1000,7 @@
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar"))
-			 (:a :class "navbar-brand" :href "#" :title "highrisehub" (:img :style "width: 50px; height: 50px;" :src "/img/logo.png" )  ))
+			 (:a :class "navbar-brand" :href "#" :title "Nine Stores" (:img :style "width: 50px; height: 50px;" :src "/img/logo.png" )  ))
 		   (:div :class "collapse navbar-collapse" :id "navheadercollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
 			      (:li :class "active" :align "center" (:a :href "/hhub/dodcustindex" (:i :class "fa-solid fa-house")  "&nbsp;Home"))
@@ -1046,7 +1046,7 @@
     ;; Need to logout of all logged in sessions if any
     (if hunchentoot:*session*  (hunchentoot:remove-session hunchentoot:*session*))
     ;; We need a page without a navbar. 
-    (with-no-navbar-page-v2 "Welcome to HighriseHub Platform- Your Demand And Supply destination."
+    (with-no-navbar-page-v2 "Welcome to Nine Stores Platform."
       	(:form :class "form-custregister" :role "form" :data-toggle "validator"  :method "POST" :action "custsignup1step2"
 	   (:div :class "row"
 		 (:img :class "profile-img" :src "/img/logo.png" :alt "")
@@ -1193,7 +1193,7 @@
 	       (email (slot-value customer 'email)))
 	   (send-registration-email name email))
 					;3
-	 (with-no-navbar-page "Welcome to HighriseHub platform"
+	 (with-no-navbar-page "Welcome to Nine Stores platform"
 	   (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
 	   (:a :href "/hhub/customer-login.html" "Login now"))))))))
   
@@ -1205,7 +1205,7 @@
   (with-standard-customer-page (:title "Captcha response error from Google")
     (:h2 "Captcha response error from Google. Looks like some unusual activity. Please try again later")))
 (defun dod-controller-duplicate-customer ()
-     (with-standard-customer-page (:title "Welcome to HighriseHub platform")
+     (with-standard-customer-page (:title "Welcome to Nine Stores platform")
 	 (:h3 (cl-who:str(format nil "Customer record has already been created" )))
 	 (:a :href "cust-register.html" "Register new customer")))
 
@@ -1217,7 +1217,7 @@
 (defun dod-controller-company-search-page ()
   (handler-case
       (progn  (if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)	      
-	      (with-no-navbar-page-v2 "Welcome to HighriseHub platform" 
+	      (with-no-navbar-page-v2 "Welcome to Nine Stores platform" 
 		(:br)
 		(:h2 "Store Search.")
 		(:div :id "custom-search-input"
@@ -1631,10 +1631,6 @@
 	      (:input :type "checkbox" :name "tnccheck" :value  "tncagreed" :tabindex "11" :required T)
 	      (:label :class= "form-check-label" :for "tnccheck" "&nbsp;&nbsp;Agree Terms and Conditions&nbsp;&nbsp;")
 	      (:a  :href "/hhub/tnc" (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms"))
-	;;(:div :class "form-check" 
-	;;    (:input :type "checkbox" :name "privacycheck" :value "privacyagreed" :tabindex "12" :required T)
-	;;    (:label :class= "form-check-label" :for "tnccheck" "&nbsp;&nbsp;Agree Privacy Policy&nbsp;&nbsp;")
-	;;    (:a  :href "https://www.highrisehub.com/tnc.html"  (:i :class "fa fa-eye" :aria-hidden "true") "&nbsp;&nbsp;Privacy"))
 	(:div :class "form-group"
 	      (:div :class "g-recaptcha" :required T  :data-sitekey *HHUBRECAPTCHAV2KEY* ))))))
 
@@ -1881,7 +1877,7 @@
 	     (notifier (as:make-notifier (lambda () (format t "Job finished! ~a~%" result)))))
 	(bt:make-thread 
 	 (lambda ()
-	   (send-order-mail email (format nil "HighriseHub order ~A" order-id) order-disp-str)
+	   (send-order-mail email (format nil "Nine Stores order ~A" order-id) order-disp-str)
 	   (setf result 1)
 	   (as:trigger-notifier notifier)) :name (format T "Order Loop Thread: ~d" order-id))))))
   
@@ -2814,7 +2810,7 @@
 	  (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company customer-company))
 	  (setf (hunchentoot:session-value :login-prdcatg-cache) (select-prdcatg-by-company customer-company))
 	  (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer))
-	  (hunchentoot:set-cookie "community-url" :value (format nil "https://www.highrisehub.com/hhub/dascustloginasguest?tenant-id=~A" (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
+	  (hunchentoot:set-cookie "community-url" :value (format nil "~A/hhub/dascustloginasguest?tenant-id=~A" *siteurl* (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
 	  ))
       )
 
@@ -2862,7 +2858,7 @@
 	  (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company customer-company))
 	  (setf (hunchentoot:session-value :login-prdcatg-cache) (select-prdcatg-by-company customer-company))
 	  (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer))
-	  (hunchentoot:set-cookie "community-url" :value (format nil "https://www.highrisehub.com/hhub/dascustloginasguest?tenant-id=~A" (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
+	  (hunchentoot:set-cookie "community-url" :value (format nil "~A/hhub/dascustloginasguest?tenant-id=~A" *siteurl* (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
 	  1))
     ;; Handle this condition
     (clsql:sql-database-data-error (condition)

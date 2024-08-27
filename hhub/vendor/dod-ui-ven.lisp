@@ -201,6 +201,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (phone  (phone vendor))
 	 (zipcode (zipcode vendor))
 	 (email (email vendor))
+	 (gstnumber (gstnumber vendor))
 	 (picture-path (picture-path vendor)))
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "row" :style "align: center"
@@ -224,6 +225,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			    (:input :class "form-control" :name "phone"  :value phone :placeholder "Phone"  :type "text" ))
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "email" :value email :placeholder "Email" :type "text"))
+		      (:div :class "form-group"
+			    (:input :class "form-control" :name "gstnumber" :value gstnumber :placeholder "GST Number" :type "text"))
 		      
 		      (:div :class "form-group" (:label :for "prodimage" "Select Picture:")
 			    (:input :class "form-control" :name "picturepath" :placeholder "Picture" :type "file" ))
@@ -237,6 +240,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (address (hunchentoot:parameter "address"))
 	   (phone (hunchentoot:parameter "phone"))
 	   (zipcode (hunchentoot:parameter "zipcode"))
+	   (gstnumber (hunchentoot:parameter "gstnumber"))
 	   (email (hunchentoot:parameter "email"))
 	   (vendor (get-login-vendor))
 	   (prodimageparams (hunchentoot:post-parameter "picturepath"))
@@ -247,6 +251,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (setf (slot-value vendor 'address) address)
       (setf (slot-value vendor 'phone) phone)
       (setf (slot-value vendor 'zipcode) zipcode)
+      (setf (slot-value vendor 'gstnumber) gstnumber)
       (setf (slot-value vendor 'email) email)
       (if tempfilewithpath (setf (slot-value vendor 'picture-path) (format nil "/img/~A"  file-name)))
       (update-vendor-details vendor)
@@ -710,8 +715,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (create-product prodname description vendor (select-prdcatg-by-id catg-id company) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag prd-type company))
 	
 		  (dod-reset-vendor-products-functions vendor company)
-	  (hunchentoot:redirect "/hhub/dodvenproducts"))))))
-  
+	  (hunchentoot:redirect "/hhub/dodvenproducts"))))))  
 
 
 
@@ -772,7 +776,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (let* ((token (hunchentoot:parameter "token"))
 	 (rstpassinst (get-reset-password-instance-by-token token))
 	 (user-type (if rstpassinst (slot-value rstpassinst 'user-type)))
-	 (url (format nil "https://www.highrisehub.com/hhub/hhubvendpassreset.html?token=~A" token))
+	 (url (format nil "~A/hhub/hhubvendpassreset.html?token=~A" *siteurl*  token))
 	 (email (if rstpassinst (slot-value rstpassinst 'email))))
     
 	 (cond 
@@ -798,7 +802,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
        (tenant-id (if vendor (slot-value vendor 'tenant-id)))
        (captcha-resp (hunchentoot:parameter "g-recaptcha-response"))
        (paramname (list "secret" "response" ))
-       (url (format nil "https://www.highrisehub.com/hhub/hhubvendgentemppass?token=~A" token))
+       (url (format nil "~A/hhub/hhubvendgentemppass?token=~A" *siteurl*  token))
        (paramvalue (list *HHUBRECAPTCHAv2SECRET*  captcha-resp))
        (param-alist (pairlis paramname paramvalue ))
        (json-response (json:decode-json-from-string  (map 'string 'code-char(drakma:http-request "https://www.google.com/recaptcha/api/siteverify"
@@ -847,13 +851,13 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (progn  (if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)	      
 	      (if (is-dod-vend-session-valid?)
 		  (hunchentoot:redirect "/hhub/dodvendindex?context=home")
-		  (with-standard-vendor-page  "Welcome to HighriseHub Platform - Vendor Login "
+		  (with-standard-vendor-page  "Welcome to Nine Stores Platform - Vendor Login "
 		    (:div :class "row" 
 			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 				(:div :class "account-wall"
 				      (:form :class "form-vendorsignin" :role "form" :method "POST" :action "dodvendlogin"
 					     (:a :href *siteurl*  (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-					     (:h1 :class "text-center login-title"  "Vendor - Login to HighriseHub")
+					     (:h1 :class "text-center login-title"  "Vendor - Login to Nine Stores")
 					     (:div :class "form-group"
 						   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex:9999999990" :type "text" ))
 					     (:div :class "form-group"
@@ -876,13 +880,13 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)	      
 	(if (is-dod-vend-session-valid?)
 	    (hunchentoot:redirect "/hhub/dodvendindex?context=home")
-	    (with-standard-vendor-page  "Welcome to HighriseHub Platform - Vendor Login "
+	    (with-standard-vendor-page  "Welcome to Nine Stores Platform - Vendor Login "
 	      (:div :class "row" 
 		    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 			  (:div :class "account-wall"
 				      (with-html-form "form-vendorsignin" "hhubvendloginotpstep"
 					     (:a :href *siteurl*  (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-					     (:h1 :class "text-center login-title"  "Vendor - Login to HighriseHub")
+					     (:h1 :class "text-center login-title"  "Vendor - Login to Nine Stores")
 					     (:div :class "form-group"
 						   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex:9999999990" :type "text" ))
 					(:div :class "form-group"
@@ -1036,7 +1040,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					:company company
 					:vendor vendor))
 	   (vpaymentmethods (processreadrequest adapter requestmodel)))
-    (with-standard-vendor-page "HighriseHub - Vendor Profile"
+    (with-standard-vendor-page "Nine Stores - Vendor Profile"
        (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-vendor-name))))
        (:hr)
       (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
@@ -1071,7 +1075,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (minorderamt (when shippingmethod (getminorderamt shippingmethod)))
 	 (freeshipenabled (when shippingmethod (slot-value shippingmethod 'freeshipenabled))))
     (with-vend-session-check
-      (with-standard-vendor-page "HighriseHub - Vendor Shipping Methods"
+      (with-standard-vendor-page "Nine Stores - Vendor Shipping Methods"
 	(:div :class "list-group col-sm-6 col-md-6 col-lg-6"
 	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendfreeshipping-modal")  :href "#"  "Free Shipping")
 	      (modal-dialog (format nil "dodvendfreeshipping-modal") "Free Shipping Configuration" (modal.vendor-free-shipping-config freeshipenabled minorderamt))
@@ -1127,7 +1131,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (shipzones (get-ship-zones-for-vendor vendor company))
 	   (zipcoderanges (hhub-read-file (format nil "~A/~A" *HHUBRESOURCESDIR* *HHUBDEFAULTSHIPZONESCSV*))))
 
-      (with-standard-vendor-page "HighriseHub - Vendor Zonewise Shipping Method"
+      (with-standard-vendor-page "Nine Stores - Vendor Zonewise Shipping Method"
 	(with-html-form "form-vendorshipratetableupload" "hhubvenduploadshipratetableaction"
 	  (:div :class "form-check"
 		(if (equal tablerateshipenabled "Y")
@@ -1434,7 +1438,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar"))
-			 (:a :class "navbar-brand" :href "#" :title "highrisehub" (:img :style "width: 50px; height: 50px;" :src "/img/logo.png" )))
+			 (:a :class "navbar-brand" :href "#" :title "Nine Stores" (:img :style "width: 50px; height: 50px;" :src "/img/logo.png" )))
 		   ;;  (:a :class "navbar-brand" :onclick "window.history.back();"  :href "#"  (:span :class "glyphicon glyphicon-arrow-left"))
 		   (:div :class "collapse navbar-collapse" :id "navheadercollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
@@ -1716,7 +1720,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (vendor-company (get-login-vendor-company))
 	   (cmp-type (slot-value vendor-company 'cmp-type))
 	   (subscription-plan (slot-value vendor-company 'subscription-plan)))
-      (with-standard-vendor-page "Welcome to HighriseHub  - Vendor"
+      (with-standard-vendor-page "Welcome to Nine Stores  - Vendor"
 	(with-html-search-form "idvendsearchproduct" "vendsearchproduct" "idtxtvendsearchproduct" "txtvendsearchproduct" "hhubvendsearchproduct" "onkeyupsearchform1event();" "Product Name"
 	   (submitsearchform1event-js "#idtxtvendsearchproduct" "#txtvendsearchproductresult"))  
 	(:div :class "row" 

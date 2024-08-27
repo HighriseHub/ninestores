@@ -18,6 +18,7 @@
    (state)
    (country)
    (zipcode)
+   (gstnumber)
    (picture-path)
    (password)
    (salt)
@@ -49,6 +50,7 @@
    (state)
    (country)
    (zipcode)
+   (gstnumber)
    (picture-path)
    (password)
    (salt)
@@ -73,6 +75,7 @@
    (state)
    (country)
    (zipcode)
+   (gstnumber)
    (picture-path)
    (password)
    (salt)
@@ -128,6 +131,7 @@
    (state)
    (country)
    (zipcode)
+   (gstnumber)
    (picture-path)
    (password)
    (salt)
@@ -208,6 +212,11 @@
     :accessor zipcode
     :type (string 10)
     :initarg :zipcode)
+
+   (gstnumber
+    :accessor gstnumber
+    :type (string 20)
+    :initarg :gstnumber)
    
    (picture-path
     :accessor picture-path

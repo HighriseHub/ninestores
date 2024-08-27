@@ -459,10 +459,11 @@
       (when (company dbas) 
 	;;(hunchentoot:log-message* :info (format nil "Company is ~A" (slot-value (slot-value dbas 'company) 'name)))
 	;;(hunchentoot:log-message* :info (format nil "DB obj amount is ~A" (slot-value (slot-value dbas 'dbobject) 'amount)))
+	;;(format t "I am going to db save now")
 	(clsql:update-records-from-instance (dbobject dbas)))
     
     (error (c)
-      (let ((exceptionstr (format nil  "HHUB General Business Function Error: ~a~%"  c)))
+      (let ((exceptionstr (format nil  "HHUB Database Error:~A: ~a~%" (mysql-now)  c)))
 	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
 				:direction :output
 				:if-exists :append
@@ -470,7 +471,9 @@
 	  (format stream "~A" exceptionstr))
 	(setexception dbas c)
 	;; return the exception.
-	c))))
+	(error 'hhub-database-error :errstring exceptionstr)))))
+
+
 
 
 
@@ -511,7 +514,7 @@
 
 ;; Method implementation for AdapterService 
 (defmethod  ProcessRequest ((service AdapterService) params)
-  :description "This method acts as a gateway for all incoming requests to HighriseHub Business layer"
+  :description "This method acts as a gateway for all incoming requests to Nine Stores Business layer"
   (let* ((bservicename (getbusinessservice service))
 	 (bserviceinstance (make-instance bservicename))
 	 (method "doservice")
@@ -521,7 +524,7 @@
 
 
 (defmethod ProcessReadRequest ((service AdapterService) (requestmodel RequestModel))
-  :description "This method acts as a gateway for all incoming READ requests to HighriseHub Business layer"
+  :description "This method acts as a gateway for all incoming READ requests to Nine Stores Business layer"
   (let* ((bservicename (getbusinessservice service))
 	 (bserviceinstance (make-instance bservicename))
 	 (method "doread")) 
@@ -529,7 +532,7 @@
     (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
 
 (defmethod ProcessReadAllRequest ((service AdapterService) (requestmodel RequestModel))
-  :description "This method acts as a gateway for all incoming READ requests to HighriseHub Business layer"
+  :description "This method acts as a gateway for all incoming READ requests to Nine Stores Business layer"
   (let* ((bservicename (getbusinessservice service))
 	 (bserviceinstance (make-instance bservicename))
 	 (method "doreadall")) 
@@ -538,7 +541,7 @@
 
 
 (defmethod ProcessCreateRequest ((service AdapterService) (requestmodel RequestModel)) 
-  :description "This method acts as a gateway for all incoming CREATE requests to HighriseHub Business layer"
+  :description "This method acts as a gateway for all incoming CREATE requests to Nine Stores Business layer"
   (let*  ((bservicename (getbusinessservice service))
 	  (bserviceinstance (make-instance bservicename))
 	  (method "docreate"))
@@ -547,7 +550,7 @@
   
 
 (defmethod ProcessDeleteRequest ((service AdapterService) (requestmodel RequestModel)) 
-  :description "This method acts as a gateway for all incoming DELETE requests to HighriseHub Business layer"
+  :description "This method acts as a gateway for all incoming DELETE requests to Nine Stores Business layer"
   (let* ((bservicename (getbusinessservice service))
 	 (bserviceinstance (make-instance bservicename))
 	 (method "dodelete"))
@@ -556,7 +559,7 @@
   
 
 (defmethod ProcessUpdateRequest ((service AdapterService) (requestmodel RequestModel))
-  :description "This method acts as a gateway for all the incoming UPDATE requests to HighriseHub Business Layer."
+  :description "This method acts as a gateway for all the incoming UPDATE requests to Nine Stores Business Layer."
   (let* ((bservicename (getbusinessservice service))
 	 (bserviceinstance (make-instance bservicename))
 	 (method "doupdate"))

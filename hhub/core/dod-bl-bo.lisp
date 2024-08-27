@@ -189,7 +189,7 @@
 				:if-exists :append
 				:if-does-not-exist :create)
 	  (format stream "~A~A" exceptionstr (sb-debug:list-backtrace)))
-	(list nil (format nil "HighriseHub General Authorization Error. Contact your system administrator.")))
+	(list nil (format nil "Nine Stores General Authorization Error. Contact your system administrator.")))
   
       ;; If we get any general error we will not throw it to the upper levels. Instead set the exception and log it. 
       (error (c)

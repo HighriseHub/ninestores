@@ -5,6 +5,10 @@
 (defvar *logged-in-users* nil)
 (defvar *current-user-session* nil)
 
+
+
+
+
 (defun hhub-controller-permission-denied ()
   (let ((message (hunchentoot:parameter "message")))
     (with-no-navbar-page "Permission Denied"
@@ -98,7 +102,7 @@
 
 (defun com-hhub-transaction-sadmin-profile ()
  (with-opr-session-check 
-    (with-standard-admin-page (:title "welcome to highrisehub")
+    (with-standard-admin-page (:title "welcome to Nine Stores")
        (:h3 "Welcome " (cl-who:str (format nil "~a" (get-login-user-name))))
        (:hr)
        (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
@@ -151,11 +155,12 @@
 (defun dod-controller-dbreset-action ()
   :documentation "No longer used now" 
   (let ((pass (hunchentoot:parameter "password")))
-    (if (equal (encrypt  pass "highrisehub.com") *sitepass*)
+    (if (equal (encrypt  pass "ninestores.in") *sitepass*)
        (progn  (stop-das) 
 	      (start-das) 
-	      (with-standard-admin-page (:title "Restart Highrisehub.com")
+	      (with-standard-admin-page (:title "Restart Ninestores")
 		(:h3 "DB Reset successful"))))))
+
 
 
 
@@ -307,7 +312,7 @@
 	  (with-html-div-col
 	    (with-html-checkbox "tnccheck" "tncagreed" T  T
 	      (:label :class "form-check-label" :for "tnccheck" "&nbsp;&nbsp;Agree Terms and Conditions&nbsp;&nbsp;")
-	      (:a  :href "https://www.highrisehub.com/tnc.html"  (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms"))))
+	      (:a  :href (format nil "~A/tnc.html" *siteurl*)  (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms"))))
 
 	
 	(with-html-div-row
@@ -419,11 +424,11 @@
 			  (:input :class "form-control" :type "text" :maxlength "256" :value "" :placeholder "Website" :name "cmpwebsite" ))
 		    (:div :class "form-group checkbox" 
 			  (:input :type "checkbox" :name "tnccheck" :value  "tncagreed" :required T "Agree Terms and Conditions.  "))
-		    (:a  :href "https://www.highrisehub.com/tnc.html"  (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms")
+		    (:a  :href (format nil "~A/tnc.html" *siteurl*)  (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms")
 		    (:div :class "form-group checkbox" 
 			  (:input :type "checkbox" :name "privacycheck" :value "privacyagreed" :required T  "Agree Privacy Policy.  "))
 		   
-		    (:a  :href "https://www.highrisehub.com/privacy.html"  (:i :class "fa-solid fa-eye") "&nbsp;Privacy Policy. ")
+		    (:a  :href (format nil "~A/tnc.html" *siteurl*)  (:i :class "fa-solid fa-eye") "&nbsp;Privacy Policy. ")
 		    (:div :class "form-group"
 			  (:div :class "g-recaptcha" :data-sitekey *HHUBRECAPTCHAV2KEY* ))
 		    (:div :class "form-group"
@@ -444,7 +449,7 @@
 (defun dod-controller-abac-security ()
   (let ((policies (hhub-get-cached-auth-policies)))
     (with-opr-session-check 
-      (with-standard-admin-page "Welcome to Highrisehub"
+      (with-standard-admin-page "Welcome to Nine Stores"
 	(iam-security-page-header)
 	(:hr)
 	(:div :class "row"
@@ -454,7 +459,7 @@
 	(cl-who:str (display-as-table (list  "Name" "Description" "Policy Function" "Action")  policies 'policy-row))
 	(modal-dialog "addpolicy-modal" "Add/Edit Policy" (com-hhub-transaction-policy-create-dialog))))))
 
-			
+
 
 
 (defun com-hhub-transaction-sadmin-home () 
@@ -570,7 +575,7 @@
 	      (if (is-dod-session-valid?)
 		  (hunchentoot:redirect "/hhub/sadminhome")
 		  ;else
-		  (with-standard-admin-page "Welcome to HighriseHub"
+		  (with-standard-admin-page "Welcome to Nine Stores"
 		    (:div :class "row background-image: url(resources/login-background.png);background-color:lightblue;" 
 			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 				(:div :class "account-wall"
@@ -846,6 +851,10 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/permissiondenied" 'hhub-controller-permission-denied)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubnewcommstorerequest" 'hhub-controller-new-community-store-request-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/list-companies" 'dod-controller-list-companies)
+	(hunchentoot:create-regex-dispatcher "^/hhub/gsthsncodes" 'com-hhub-transaction-gst-hsn-codes-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/searchhsncodesaction" 'com-hhub-transaction-search-gst-hsn-codes-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/createhsncodeaction" 'com-hhub-transaction-create-gst-hsn-code-action)
+	
 	
 	;***************** COMPADMIN/COMPANYHELPDESK/COMPANYOPERATOR  RELATED ********************
      

@@ -105,7 +105,7 @@
 	 (prd-vendor (product-vendor product-instance)))
     (cl-who:with-html-output (*standard-output* nil)
       (:tr 
-       (:td (:img :src (format nil "https://www.highrisehub.com~A" prd-image-path) :height "50" :width "50" :alt prd-name prd-name))
+       (:td (:img :src (format nil "~A/~A" *siteurl* prd-image-path) :height "50" :width "50" :alt prd-name prd-name))
 					;Product name and other details
        (:td
 	(:h5 :class "product-name"  (cl-who:str prd-name))

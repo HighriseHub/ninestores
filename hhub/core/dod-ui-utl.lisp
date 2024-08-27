@@ -204,7 +204,7 @@
 		   (with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		     (:h1 :class "text-center login-title"  "New Store details have been sent. You will be contacted soon. ")
-		     (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house"))
+		     (:a :class "btn btn-primary"  :role "button" :href "https://www.ninestores.in"  (:i :class "fa-solid fa-house"))
 		     (hhub-html-page-footer))))))
 
 (defun dod-controller-password-reset-mail-link-sent ()
@@ -224,7 +224,7 @@
 		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		  (:h1 :class "text-center login-title"  "Password Reset Email Sent.")
-		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house")))))))
+		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
   
 
 (defun dod-controller-invalid-email-error ()
@@ -234,7 +234,7 @@
 		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		  (:h1 :class "text-center login-title"  "Invalid Customer Email.")
-		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house")))))))
+		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
 
 
 
@@ -245,7 +245,7 @@
 		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		  (:h1 :class "text-center login-title"  "Your password reset time window has expired. Please try again." )
-		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house")))))))
+		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
 
 
 
@@ -257,12 +257,12 @@
     
     (cl-smtp:send-email *HHUBSMTPSERVER*
 			from to 
-			subject "HighriseHub Email."
+			subject "Nine Stores Email."
 			:authentication (list :login username password) 
 			:ssl
 			:tls
 			:html-message body
-			:display-name "HighriseHub"
+			:display-name "Nine Stores"
 			:attachments attachments-list)))
 
 
@@ -287,7 +287,7 @@
     `(cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
        (:html 
 	(:body
-	 (:img :class "profile-img" :src "https://highrisehub.com/img/logo.png" :alt "Welcome to Highrisehub.com")
+	 (:img :class "profile-img" :src (format nil "~A/img/logo.png" *siteurl*) :alt "Welcome to Nine Stores")
 	 (:p
 	  ,@body))))))
   
@@ -303,7 +303,7 @@
 		(:meta :name "viewport" :content "width=device-width,user-scalable=no")
 		(:meta :name "theme-color" :content "#5382EE")
 		(:meta :names "description" :content "A marketplace app.")
-		(:meta :name "author" :content "HighriseHub")
+		(:meta :name "author" :content "Nine Stores")
 		(:link :rel "icon" :href "/favicon.ico")
 		(:title ,title )
 		;; Link to the app manifest for PWA. 
@@ -360,7 +360,7 @@
 		(:meta :name "viewport" :content "width=device-width,user-scalable=no")
 		(:meta :name "theme-color" :content "#5382EE")
 		(:meta :names "description" :content "A marketplace app.")
-		(:meta :name "author" :content "HighriseHub")
+		(:meta :name "author" :content "Nine Stores")
 		(:link :rel "icon" :href "/favicon.ico")
 		(:title ,title )
 					; Link to the app manifest for PWA. 
@@ -409,7 +409,7 @@
     `(with-standard-page-template-v2  ,title with-vendor-navigation-bar-v2  ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro with-standard-admin-page-v2 ( title &body body)
+  (defmacro with-standard-admin-page-v2 (title &body body)
     `(with-standard-page-template-v2 ,title with-admin-navigation-bar-v2   ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -419,10 +419,6 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-no-navbar-page-v2 (title &body body)
     `(with-standard-page-template-v2 ,title (lambda () ()) ,@body)))
-
-
-
-
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
@@ -520,7 +516,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-hhub-transaction (name &optional params  &body body)
-    :documentation "This is the Policy Enforcement Point for HighriseHub" 
+    :documentation "This is the Policy Enforcement Point for Nine Stores" 
     `(let* ((transaction (get-ht-val ,name (hhub-get-cached-transactions-ht)))
 	    (uri (cdr (assoc "uri" params :test 'equal)))
 	    (returnlist (has-permission transaction ,params))
@@ -603,7 +599,8 @@ individual tiles. It also supports search functionality by including the searchr
        (case ,role
 	 (:customer (display-customer-page-with-widgets ,pagetitle widgets))
 	 (:vendor (display-vendor-page-with-widgets ,pagetitle widgets))
-	 (:compadmin (display-compadmin-page-with-widgets ,pagetitle widgets))))))
+	 (:compadmin (display-compadmin-page-with-widgets ,pagetitle widgets))
+	 (:superadmin (display-superadmin-page-with-widgets ,pagetitle widgets))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-mvc-redirect-ui (createmodelfunc createwidgetsfunc)
@@ -639,6 +636,11 @@ individual tiles. It also supports search functionality by including the searchr
 
 (defun display-compadmin-page-with-widgets (pagetitle widgets)
   (with-standard-compadmin-page-v2 pagetitle
+    (loop for widget in widgets do 
+      (funcall widget))))
+
+(defun display-superadmin-page-with-widgets (pagetitle widgets)
+  (with-standard-admin-page pagetitle
     (loop for widget in widgets do 
       (funcall widget))))
 

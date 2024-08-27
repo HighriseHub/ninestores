@@ -68,6 +68,9 @@
 		     "products/dod-dal-prd.lisp"
 		     "products/dod-bl-prd.lisp"
 		     "products/dod-ui-prd.lisp"
+		     "products/dod-dal-gst.lisp"
+		     "products/dod-bl-gst.lisp"
+		     "products/dod-ui-gst.lisp"
 
 		     ;; Sysuser
 		     "sysuser/dod-dal-usr.lisp"
