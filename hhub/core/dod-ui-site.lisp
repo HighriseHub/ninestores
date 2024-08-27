@@ -18,7 +18,7 @@
 		    (:hr))
 	      (:div :class "row"
 		    (:div :class "col-lg-12" 
-			  (:p :class "copyright text-muted small" "Copyright &copy; HighriseHub 2024. All Rights Reserved.")))))))
+			  (:p :class "copyright text-muted small" "Copyright &copy; Nine Stores 2024. All Rights Reserved.")))))))
 ;;  (modal-dialog (format nil "hhubcookiepolicy-modal") "Accept Cookies" (modal.hhub-cookie-policy))))
 
 
@@ -29,16 +29,16 @@
 	  (:div :class "panel-heading" "Cookie Policy"
 	  (:div :class "row"
 		(:div :class "col-lg-12"
-		      (:p :class "small"  "To enrich and perfect your online experience, HighriseHub uses Cookies, similar technologies and services provided by others to display personalized content, appropriate advertising and store your preferences on your computer.")
+		      (:p :class "small"  "To enrich and perfect your online experience, Nine Stores uses Cookies, similar technologies and services provided by others to display personalized content, appropriate advertising and store your preferences on your computer.")
 
-(:p :class "small" "A cookie is a string of information that a website stores on a visitor's computer, and that the visitor's browser provides to the website each time the visitor returns. HighriseHub uses cookies to help HighriseHub identify and track visitors, their usage of https://www.highrisehub.com, and their website access preferences. HighriseHub visitors who do not wish to have cookies placed on their computers should set their browsers to refuse cookies before using HighriseHub's websites, with the drawback that certain features of HighriseHub's websites may not function properly without the aid of cookies.")
+(:p :class "small" "A cookie is a string of information that a website stores on a visitor's computer, and that the visitor's browser provides to the website each time the visitor returns. Nine Stores uses cookies to help HighriseHub identify and track visitors, their usage of https://www.ninestores.in, and their website access preferences. Nine Stores visitors who do not wish to have cookies placed on their computers should set their browsers to refuse cookies before using Nine Stores' websites, with the drawback that certain features of Nine Stores' websites may not function properly without the aid of cookies.")
 
-(:p :class "small" "By continuing to navigate our website without changing your cookie settings, you hereby acknowledge and agree to HighriseHub's use of cookies.")))))))
+(:p :class "small" "By continuing to navigate our website without changing your cookie settings, you hereby acknowledge and agree to Nine Stores' use of cookies.")))))))
 
 (defun hhub-controller-tnc-page ()
   :documentation "Terms and Conditions Page"
   (let* ((tncstr (hhub-read-file (format nil "~A/~A" *HHUB-STATIC-FILES* *HHUB-TERMSANDCONDITIONS-FILE*))))
-    (with-standard-admin-page "HighriseHub - Terms"
+    (with-standard-admin-page "Nine Stores - Terms"
       (:div :class "row"
 	    (:div :class "col-sm-12"
 		  (cl-who:str tncstr)))
@@ -47,39 +47,39 @@
 (defun hhub-controller-privacy-page ()
   :documentation "Privacy Page"
  (let* ((privacystr (hhub-read-file (format nil "~A/~A" *HHUB-STATIC-FILES* *HHUB-PRIVACY-FILE*))))
-    (with-standard-admin-page "HighriseHub - Privacy"
+    (with-standard-admin-page "Nine Stores - Privacy"
       (:div :class "row"
 	    (:div :class "col-sm-12"
 		  (cl-who:str privacystr)))
       (hhub-html-page-footer))))
 
 (defun hhub-controller-aboutus-page ()
-  (with-standard-admin-page "HighriseHub - Contact Us"
+  (with-standard-admin-page "Nine Stores - Contact Us"
     (:div :class "row"
 	  (:div :class "col-sm-12"
-		(:div :class "col-lg-4" (:h2 "HighriseHub - About Us"))))
+		(:div :class "col-lg-4" (:h2 "Nine Stores - About Us"))))
     (:div :class "row"
 	  (:div :class "col-sm-12"
 		(:img :class "profile-img" :src "/img/logo.png" :alt "")))
     (:div :class "row"
 	    (:div :class "col-sm-12"
-		  (:p "HighriseHub is a e-commerce platform offered by Nine Technologies. A platform where you can create your own E-Commerce Stores, Multi Vendor Digital Marketplaces and Community Stores. From Product Catalogs, Basic Inventory Management, Order and Subscription Management, Digital Payments you can take your business to new heights with support from our enthusiastic team.")
+		  (:p "Nine Stores is a e-commerce platform offered by Nine Technologies. A platform where you can create your own E-Commerce Stores, Multi Vendor Digital Marketplaces and Community Stores. From Product Catalogs, Basic Inventory Management, Order and Subscription Management, Digital Payments you can take your business to new heights with support from our enthusiastic team.")
 		  (:p (:strong "Community Edition:") " In this journey, we do not want the Community based stores to feel left behind. If you live in an apartment/community and need a store for buying/selling Products and Services, we provide a platform for you FREE! Not only that, we provide this platform FREE to Indian Farmer Community.")
-		  (:p "We are a team of enthusiastic professionals keen to make your Digital Journey smooth and enable you to provide that Customer Delight! HighriseHub is a SAAS application which provides you E-Commerce Services, Web Hosting of your Site, Redirection from Your Site to www.highrisehub.com, where your customers can experience a great online shopping/services.")
+		  (:p "We are a team of enthusiastic professionals keen to make your Digital Journey smooth and enable you to provide that Customer Delight! Nine Stores is a SAAS application which provides you E-Commerce Services, Web Hosting of your Site, Redirection from Your Site to www.ninestores.in, where your customers can experience a great online shopping/services.")
 		  (:div  :class "hhub-footer" (hhub-html-page-footer))))))
   
 
 (defun hhub-controller-contactus-page ()
-  (with-standard-admin-page "HighriseHub - Contact Us"
+  (with-standard-admin-page "Nine Stores - Contact Us"
     (:div :class "row"
-	  (:div :class "col-lg-4" (:h2 "HighriseHub - Contact Us")))
+	  (:div :class "col-lg-4" (:h2 "Nine Stores - Contact Us")))
 
     (:div :class "row"
 	  (:div :class "col-lg-6"
 		(:img :class "profile-img" :src "/img/logo.png" :alt "")
 		(with-html-form "hhubcontactusform" "contactusaction" 
 		  (:div :class "panel panel-default"
-			(:div :class "panel-heading" "To: support@highrisehub.com"
+			(:div :class "panel-heading" "To: support@ninestores.in"
 			      (:div :class "panel-body"
 			;;Panel content
 			(:div :class "form-group"
@@ -156,7 +156,7 @@
 	   (list "1"  "50"   "Upto &#8377; 1 Lac"   "Y" "1"  "Y" "100"  "Y" "Y" "Y" "N" "Y" "Y" "Y" "N" "N" "N" "N" "N" "N")
 	   (list "5"  "500"  "Upto &#8377; 5 Lacs"  "Y" "5"  "Y" "1000" "Y" "Y" "Y" "2" "Y" "Y" "Y" "Y" "N" "N" "N" "N" "N")
 	   (list "10" "1000" "Upto &#8377; 10 Lacs" "Y" "10" "Y" "3000" "Y" "Y" "Y" "5" "Y" "Y" "Y" "Y" "Y" "Y" "Y" "Y" "Y" ))))
-    (with-standard-admin-page "HighriseHub Pricing" 
+    (with-standard-admin-page "Nine Stores Pricing" 
       (:link :href "/css/pricing.css" :rel "stylesheet")
 	   (:div :id "hhub_pt"  
 		 (:section
@@ -164,7 +164,7 @@
 			(:div :class "row"
 			      (:div :class "col-md-12"
 				    (:div  :class "price-heading clearfix"
-					   (:h1 "HighriseHub Pricing")))))
+					   (:h1 "Nine Stores Pricing")))))
 		  (:div  :class  "container"  
 			 (:div  :class  "row"
 				;; Print All the Features on LHS Header

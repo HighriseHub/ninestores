@@ -50,7 +50,7 @@
                               ; START HEADER IMAGE -- 
                               (:tr 
                                 (:td :align "center" :class "hund" :width "600" 
-     				     (:img :src "https://highrisehub.com/img/logo.png"  :width "300" :alt "Logo" :border "1" :style "max-width: 300px; display:block; " 
+     				     (:img :src (format nil "~A/img/logo.png" *siteurl*)  :width "300" :alt "Logo" :border "1" :style "max-width: 300px; display:block; " 
                                 )))))))))))))))))
 
 (defmacro with-single-column-email ((&key title) &body body)
@@ -100,7 +100,7 @@
 (defmethod send-test-email (customer)
   (let* ((reg-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-REG-TEMPLATE-FILE*)))
 	(cust-reg-email (format nil reg-templ-str (slot-value customer 'name)))) 
-  (hhubsendmail "pawan.deshpande@gmail.com" "Welcome to highrisehub" cust-reg-email)))
+  (hhubsendmail "pawan.deshpande@gmail.com" "Welcome to Nine Stores" cust-reg-email)))
 
 
 
@@ -129,7 +129,7 @@
 	 (cmpwebsite (slot-value object 'website))
 	 (cmptype (slot-value object 'cmp-type))
 	 (temp-str-email (format nil temp-str custname phone email cmpname cmpaddress cmpcity cmpstate cmpzipcode cmpcountry cmpwebsite cmptype )))
-  (hhubsendmail *HHUBSUPPORTEMAIL*  "Highrisehub - New company registration request" temp-str-email)))
+  (hhubsendmail *HHUBSUPPORTEMAIL*  "Nine Stores - New company registration request" temp-str-email)))
 
 (defun send-contactus-email (firstname lastname businessname email subject message)
   :documentation "Send the email with data filled from the contact us form"

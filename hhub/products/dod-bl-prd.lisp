@@ -3,6 +3,21 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
+
+
+(defun get-all-gst-sac-codes ()
+  :documentation "This function stores all the currencies in a hashtable. The Key = country, Value = list of currency, code and symbol."
+  (let ((ht (make-hash-table :test 'equal))
+	(sac-codes (clsql:select 'dod-gst-sac-codes 
+		:caching *dod-database-caching* :flatp t )))
+    (loop for saccd in sac-codes do
+      (let ((key (slot-value saccd 'sac-code))
+	    (value (slot-value saccd 'sac-description)))
+	(setf (gethash key ht) value )))
+    ; Return  the hash table. 
+    ht))
+
+
 (defun deactivate-product (id company)
   (let ((product (select-product-by-id id company)))
     (setf (slot-value product 'active-flag) "N")

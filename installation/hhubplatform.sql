@@ -1,6 +1,10 @@
 
 select 'dropping the tables' as ' ';
 
+drop table if exists DOD_INVOICE_ITEMS; SELECT 'dropping Invoice Items table .'; 
+drop table if exists DOD_INVOICE_HEADER; SELECT 'dropping Invoice header table .'; 
+drop table if exists DOD_GST_HSN_CODES; SELECT 'dropping GST HSN codes table .';
+drop table if exists DOD_GST_SAC_CODES; SELECT 'dropping GST SAC codes table .'; 
 drop table if exists DOD_CURRENCY; SELECT 'dropping currency table, which defines currency.'; 
 drop table if exists DOD_PRODUCT_PRICING; SELECT 'dropping product pricing table, which will let the vendor enter product pricing.'; 
 drop table if exists DOD_VENDOR_SHIP_ZONES; SELECT 'dropping shipping zones table, which will let the vendor choose the shipping methods.'; 
@@ -43,6 +47,111 @@ drop table if exists DOD_COMPANY;  SELECT 'dropping apartment complex/society/gr
 
 
 select 'tables dropped' as ' ';
+
+
+
+
+select 'creating table DOD_INVOICE_HEADER' as ' ';
+CREATE TABLE DOD_INVOICE_HEADER (
+ `ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,			
+ `INVNUM` VARCHAR(50) NOT NULL UNIQUE, -- Unique Invoice Number
+ `INVDATE` DATE NOT NULL, -- Date of Invoice
+ `CUSTID` mediumint(9) DEFAULT NULL, 
+ `CUSTNAME` VARCHAR(255) NOT NULL, -- Name of the Customer
+ `CUSTADDR` TEXT DEFAULT NULL, -- Address of the Customer
+ `CUSTGSTIN`  VARCHAR(15) DEFAULT NULL, -- GSTIN of the Customer
+ `STATECODE` VARCHAR(2) NOT NULL, -- State Code of the Customer
+ `BILLADDR`  TEXT, -- Billing Address if different from Shipping Address
+ `SHIPADDR` TEXT, -- Shipping Address
+ `PLACEOFSUPPLY` VARCHAR(50) NOT NULL, -- Place of Supply
+ `REVCHARGE` ENUM('Yes', 'No') DEFAULT 'No', -- Whether Reverse Charge is applicable
+ `TRANSMODE`  VARCHAR(50), -- Mode of Transportation
+ `VNUM`  VARCHAR(20), -- Vehicle Number (if applicable)
+ `TOTALVALUE`  DECIMAL(15, 2) NOT NULL, -- Total Invoice Value
+ `TOTALINWORDS` VARCHAR(255) NOT NULL, -- Total Invoice Amount in Words
+ `BANKACCNUM` VARCHAR(20), -- Bank Account Number for Payments
+ `BANKIFSCCODE`  VARCHAR(11), -- IFSC Code of the Bank
+ `TNC`  TEXT, -- Terms and Conditions
+ `AUTHSIGN`  VARCHAR(100), -- Name of Authorized Signatory
+ `FINYEAR`  VARCHAR(9) NOT NULL, -- Financial Year (e.g., 2024-2025)
+ `CREATED` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ `UPDATED` timestamp DEFAULT NULL, 
+ `DELETED_STATE` char(1) DEFAULT NULL,
+ `TENANT_ID` mediumint(9) DEFAULT NULL,  
+  PRIMARY KEY (`ROW_ID`),
+  KEY `TENANT_ID` (`TENANT_ID`),
+  KEY `CUSTID` (`CUSTID`),
+  CONSTRAINT `DOD_INVOICE_HEADER_ibfk_1` FOREIGN KEY (`TENANT_ID`) REFERENCES `DOD_COMPANY` (`ROW_ID`) ,
+  CONSTRAINT `DOD_INVOICE_HEADER_ibfk_2` FOREIGN KEY (`CUSTID`) REFERENCES `DOD_CUST_PROFILE` (`ROW_ID`) 
+);
+
+
+select 'creating table DOD_INVOICE_ITEMS' as ' ';
+CREATE TABLE DOD_INVOICE_ITEMS (
+ `ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,				
+ `INVHEADID` mediumint(9) NOT NULL, -- Foreign key to the invoice_headers table
+ `PRDID` mediumint(9) NOT NULL, 
+ `PRDDESC` TEXT NOT NULL,  -- Description of the Product/Service
+ `HSNCODE` VARCHAR(10) NOT NULL, -- HSN Code of the Product/Service
+ `QTY` DECIMAL(10, 2) NOT NULL, -- Quantity of the Product/Service
+ `UOM` VARCHAR(10) NOT NULL, -- Unit of Measurement (UOM)
+ `PRICE` DECIMAL(10, 2) NOT NULL, -- Rate per unit of the Product/Service
+ `DISCOUNT` DECIMAL(10, 2) DEFAULT 0.00, -- Discount (if any)
+ `TAXABLE_VALUE` DECIMAL(15, 2) NOT NULL, -- Taxable Value after Discount
+ `CGSTRATE` DECIMAL(5, 2) NOT NULL, -- CGST Rate
+ `CGSTAMT` DECIMAL(15, 2) NOT NULL, -- CGST Amount
+ `SGSTRATE` DECIMAL(5, 2) NOT NULL, -- SGST Rate
+ `SGSTAMT` DECIMAL(15, 2) NOT NULL, -- SGST Amount
+ `IGSTRATE` DECIMAL(5, 2) NOT NULL, -- IGST Rate
+ `IGSTAMT` DECIMAL(15, 2) NOT NULL, -- IGST Amount
+ `TOTALITEMVAL` DECIMAL(15, 2) NOT NULL, -- Total value of the item after taxes
+ `CREATED` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ `UPDATED` timestamp DEFAULT NULL, 
+ `DELETED_STATE` char(1) DEFAULT NULL,
+ `TENANT_ID` mediumint(9) DEFAULT NULL,  
+  PRIMARY KEY (`ROW_ID`),
+  KEY `TENANT_ID` (`TENANT_ID`),
+  KEY `PRDID` (`PRDID`),
+  KEY `INVHEADID` (`INVHEADID`),
+  CONSTRAINT `DOD_INVOICE_ITEMS_ibfk_1` FOREIGN KEY (`TENANT_ID`) REFERENCES `DOD_COMPANY` (`ROW_ID`) ON DELETE CASCADE,
+  CONSTRAINT `DOD_INVOICE_ITEMS_ibfk_2` FOREIGN KEY (`PRDID`) REFERENCES `DOD_PRD_MASTER` (`ROW_ID`) ON DELETE CASCADE,
+  CONSTRAINT `DOD_INVOICE_ITEMS_ibfk_3` FOREIGN KEY (`INVHEADID`) REFERENCES `DOD_INVOICE_HEADER` (`ROW_ID`) ON DELETE CASCADE
+);
+
+select 'creating table dod_gst_hsn_codes' as ' ';
+CREATE TABLE `DOD_GST_HSN_CODES`(
+`ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,
+`HSN_CODE` VARCHAR(10) NOT NULL UNIQUE,
+`HSN_CODE_4DIGIT` VARCHAR(6) NOT NULL,
+`HSN_DESCRIPTION` TEXT NOT NULL,
+`CGST` decimal(4,2) DEFAULT NULL,
+`SGST` decimal(4,2) DEFAULT NULL,
+`IGST` decimal(4,2) DEFAULT NULL,
+`COMP_CESS` decimal(4,2) DEFAULT NULL,
+`COMP_CESS_FUNC` VARCHAR(255) DEFAULT NULL,-- a function which puts a compensation condition based on quantity, price or any other factor.
+`GST_HSN_FUNC` VARCHAR(255) DEFAULT NULL, -- a function which puts a generic calculation condition  based on quantity, price or any other factor.
+`TENANT_ID` mediumint(9) DEFAULT NULL,
+CONSTRAINT `DOD_GST_HSN_CODES_ibfk_1` FOREIGN KEY (`TENANT_ID`) REFERENCES `DOD_COMPANY` (`ROW_ID`) ON DELETE CASCADE,		
+  PRIMARY KEY (`ROW_ID`));  
+
+
+select 'creating table dod_gst_sac_codes' as ' ';
+CREATE TABLE `DOD_GST_SAC_CODES`(
+`ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,
+`SAC_CODE` VARCHAR(10) NOT NULL UNIQUE,
+`SAC_CODE_4DIGIT` VARCHAR(6) NOT NULL,
+`SAC_DESCRIPTION` TEXT NOT NULL,
+`CONDITION_TXT` TEXT DEFAULT NULL,
+`CGST` decimal(4,2) DEFAULT NULL,
+`SGST` decimal(4,2) DEFAULT NULL,
+`IGST` decimal(4,2) DEFAULT NULL,
+`GST_SAC_FUNC` VARCHAR(255) DEFAULT NULL, -- a function which puts a generic calculation condition  based on quantity, price or any other factor.
+`TENANT_ID` mediumint(9) DEFAULT NULL, 
+CONSTRAINT `DOD_GST_SAC_CODES_ibfk_1` FOREIGN KEY (`TENANT_ID`) REFERENCES `DOD_COMPANY` (`ROW_ID`) ON DELETE CASCADE,  
+PRIMARY KEY (`ROW_ID`)); 
+
+
+
 
 
 select 'creating table dod_currency' as ' ';
@@ -229,6 +338,7 @@ CREATE TABLE `DOD_VEND_PROFILE` (
   `PICTURE_PATH` varchar(256) DEFAULT NULL,
   `CITY` varchar(256) DEFAULT NULL,
   `ZIPCODE` varchar(10) DEFAULT NULL,
+  `GSTNUMBER` varchar(20) DEFAULT NULL,
   `STATE` varchar(256) DEFAULT NULL,
   `COUNTRY` varchar(100) DEFAULT NULL,
   `CREATED` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,

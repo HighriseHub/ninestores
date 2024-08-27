@@ -265,3 +265,94 @@
 
 
 
+
+(clsql:def-view-class dod-gst-hsn-codes ()
+  ((row-id
+    :db-kind :key
+    :db-constraints :not-null
+    :type integer
+    :initarg row-id)
+   (hsn-code
+    :accessor hsn-code
+    :TYPE (string 10))
+   (hsn-code-4digit
+    :accessor hsn-code-4digit
+    :type (string 4))
+   
+   (hsn-description
+    :accessor hsn-description
+    :TYPE (string 500))
+
+   (cgst
+    :accessor cgst
+    :type float
+    :initarg :cgst)
+
+   (sgst
+    :accessor sgst
+    :type float
+    :initarg :sgst)
+
+   (igst
+    :accessor igst
+    :type float
+    :initarg :igst)
+
+   (comp-cess
+    :accessor comp-cess
+    :type float
+    :initarg :comp-cess)
+
+   (comp-cess-func
+    :accessor comp-cess-func
+    :TYPE (string 255))
+
+   (gst-hsn-func
+    :accessor gst-hsn-func
+    :TYPE (string 255)))
+  (:BASE-TABLE dod_gst_hsn_codes))
+
+(clsql:def-view-class dod-gst-sac-codes ()
+  ((row-id
+    :db-kind :key
+    :db-constraints :not-null
+    :type integer
+    :initarg row-id)
+   (sac-code
+    :accessor sac-code
+    :TYPE (string 10))
+
+   (sac-description
+    :accessor sac-description
+    :TYPE (string 500))
+
+   (sac-code-4digit
+    :accessor sac-code-4digit
+    :type (string 4))
+
+   (condition-txt
+    :accessor condition-txt
+    :TYPE (string 500))
+   
+   (cgst
+    :accessor cgst
+    :type float
+    :initarg :cgst)
+
+   (sgst
+    :accessor sgst
+    :type float
+    :initarg :sgst)
+
+   (igst
+    :accessor igst
+    :type float
+    :initarg :igst)
+
+   (gst-sac-func
+    :accessor gst-hsn-func
+    :TYPE (string 255)))
+
+
+  (:BASE-TABLE dod_gst_sac_codes))
+

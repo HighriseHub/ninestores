@@ -1,7 +1,10 @@
-
+;; -*- mode: common-lisp; coding: utf-8 -*-
+(in-package :hhub)
 
 ;; METHODS FOR ENTITY CREATE 
 ;; This file contains template code which will be used to generate for class methods.
+;; DO NOT COMPILE THIS FILE USING CTRL + C CTRL + K (OR CTRL + CK)
+;; DO NOT ADD THIS FILE TO COMPILE.LISP FOR MASS COMPILATION. 
 
 
 (defmethod ProcessCreateRequest ((adapter xxxxAdapter) (requestmodel xxxxRequestModel))
@@ -23,15 +26,6 @@
     (call-next-method)))
 
 
-(defmethod doreadall ((service xxxxService) (requestmodel xxxxRequestModel))
-  (let* ((vend (vendor requestmodel))
-	 (cust (customer requestmodel))
-	 (comp (company requestmodel))
-	 (readalllst (select-all-xxxx cust vend comp)))
-    ;; return back a list of upi payments response model
-    (mapcar (lambda (object)
-	      (let ((domainobj (make-instance 'xxxx)))
-		(copydomainobj-dbtodomain upitran upipayment))) upitranslst)))
 
 (defmethod doCreate ((service xxxxService) (requestmodel xxxxRequestModel))
   (let* ((xxxxdbservice (make-instance 'xxxxDBService))
@@ -85,7 +79,7 @@
   (let ((vendor (slot-value source 'vendor))
 	(customer (slot-value source 'customer))
 	(company (slot-value source 'company)))
-    (with-slots (field1 field2 field3 field 4 field5 field6 field7 field8 field9 customer-id vendor-id tenant-id) destination
+    (with-slots (field1 field2 field3 field4 field5 field6 field7 field8 field9 customer-id vendor-id tenant-id) destination
       (setf vendor-id (slot-value vendor 'row-id))
       (setf tenant-id (slot-value company 'row-id))
       (setf customer-id (slot-value customer 'row-id))
@@ -154,6 +148,26 @@
 	    (createviewmodel presenter responsemodel)) responsemodellist))
 
 
+(defmethod CreateResponseModel ((adapter xxxxAdapter) (source xxxx) (destination xxxxResponseModel))
+  :description "source = xxxx destination = xxxxResponseModel"
+  (with-slots (field1 field2 field3 field4 field5 field6 field7 field8 field9 vendor customer company created) destination  
+    (setf field1 (slot-value source 'field1))
+    (setf field2 (slot-value source 'field2))
+    (setf field3 (slot-value source 'field3))
+    (setf field4 (slot-value source 'field4))
+    (setf field5 (slot-value source 'field5))
+    (setf field6 (slot-value source 'field6))
+    (setf field7 (slot-value source 'field7))
+    (setf field8 (slot-value source 'field8))
+    (setf field9 (slot-value source 'field9))
+    (setf (slot-value viewmodel 'vendor) vendor)
+    (setf (slot-value viewmodel 'customer) customer)
+    (setf company (slot-value source 'company))
+    (setf (slot-value viewmodel 'created) created)
+    destination))
+
+
+
 (defmethod doupdate ((service xxxxService) (requestmodel xxxxRequestModel))
   (let* ((vend (vendor requestmodel))
 	 (cust (customer requestmodel))
@@ -218,3 +232,24 @@
     ;; return back a Vpaymentmethod  response model
     (setf (slot-value xxxxobj 'company) comp)
     (copyxxxx-dbtodomain dbxxxx xxxxobj)))
+
+
+(defun copyxxxx-dbtodomain (source destination)
+  (let* ((comp (select-company-by-id (slot-value source 'tenant-id)))
+	 (vend (select-vendor-by-id (slot-value source 'vendor-id)))
+	 (cust (select-customer-by-id (slot-value source 'cust-id) comp)))
+
+    (with-slots (field1 field2 field3 field4 field5 field6 field7 field8 field9 vendor customer company) destination
+      (setf vendor vend)
+      (setf customer cust)
+      (setf company comp)
+      (setf field1 (slot-value source 'field1))
+      (setf field2 (slot-value source 'field2))
+      (setf field3 (slot-value source 'field3))
+      (setf field4 (slot-value source 'field4))
+      (setf field5 (slot-value source 'field5))
+      (setf field6 (slot-value source 'field6))
+      (setf field7 (slot-value source 'field7))
+      (setf field8 (slot-value source 'field8))
+      (setf field9 (slot-value source 'field9))
+      destination)))

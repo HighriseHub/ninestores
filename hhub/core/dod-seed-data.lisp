@@ -187,7 +187,7 @@
 (defparameter salt (flexi-streams:octets-to-string  (secure-random:bytes 56 secure-random:*generator*)))
 (defparameter password (encrypt "Welcome$1" salt))      
 
-(create-dod-user "Super Admin" "superadmin" password salt "support@highrisehub.com" "9999988888" 1)
+(create-dod-user "Super Admin" "superadmin" password salt "support@ninestores.in" "9999988888" 1)
 
 ;******Create the customer ******
 (defparameter *customer-params* nil)

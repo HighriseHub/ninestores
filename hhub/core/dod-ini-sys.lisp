@@ -22,7 +22,7 @@
 (defvar *HHUB-DEMO-TENANT-ID* 2)
 
 (defvar *HHUB-COMPILE-FILES-LOCATION* "/home/ubuntu/hhubplatform/bin/hhubcompilelog.txt") 
-(defvar *HHUB-EMAIL-CSS-FILE* "/data/www/highrisehub.com/public/css")
+(defvar *HHUB-EMAIL-CSS-FILE* "/data/www/ninestores.in/public/css")
 (defvar *HHUB-EMAIL-CSS-CONTENTS* NIL)
 (defvar *HHUB-EMAIL-TEMPLATES-FOLDER* "/home/ubuntu/hhubplatform/hhub/email/templates")
 (defvar *HHUB-CUST-REG-TEMPLATE-FILE* "cust-reg.html")
@@ -36,8 +36,8 @@
 (defvar *HHUB-STATIC-FILES* "/home/ubuntu/hhubplatform/site/public")
 
 (defvar *dod-db-instance*)
-(defvar *siteurl* "https://www.highrisehub.com")
-(defvar *sitepass* (encrypt "P@ssword1" "highrisehub.com"))
+(defvar *siteurl* "https://www.ninestores.in")
+(defvar *sitepass* (encrypt "P@ssword1" "ninestores.in"))
 (defvar *current-customer-session* nil) 
 (defvar *customer-page-title* nil) 
 (defvar *vendor-page-title* nil) 
@@ -49,14 +49,14 @@
 (defvar *ABAC-ATTRIBUTE-FUNC-PREFIX* "com-hhub-attribute-")
 (defvar *ABAC-POLICY-FUNC-PREFIX* "com-hhub-policy-")
 (defvar *ABAC-TRANSACTION-FUNC-PREFIX* "com-hhub-transaction-")
-(defvar *PAYGATEWAYRETURNURL* "https://www.highrisehub.com/hhub/custpaymentsuccess")
-(defvar *PAYGATEWAYCANCELURL* "https://www.highrisehub.com/hhub/custpaymentcancel")
-(defvar *PAYGATEWAYFAILUREURL* "https://www.highrisehub.com/hhub/custpaymentfailure")
+(defvar *PAYGATEWAYRETURNURL* "https://www.ninestores.in/hhub/custpaymentsuccess")
+(defvar *PAYGATEWAYCANCELURL* "https://www.ninestores.in/hhub/custpaymentcancel")
+(defvar *PAYGATEWAYFAILUREURL* "https://www.ninestores.in/hhub/custpaymentfailure")
 (defvar *HHUBRESOURCESDIR* "/data/www/public/img")
 (defvar *HHUBDEFAULTPRDIMG* "HHubDefaultPrdImg.png")
 (defvar *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* NIL)
 (defvar *HHUBGLOBALBUSINESSFUNCTIONS-HT* NIL)
-(defvar *HHUBBUSINESSFUNCTIONSLOGFILE* "/home/hunchentoot/hhublogs/highrisehub-busfunctions.log")
+(defvar *HHUBBUSINESSFUNCTIONSLOGFILE* "/home/hunchentoot/hhublogs/ninestores-busfunctions.log")
 
 ;;; EXPERIMENTING WITH DDD 
 (defvar *HHUBENTITYINSTANCES-HT* nil)
@@ -75,8 +75,8 @@
 (defvar *HHUBCADLOGINPAGEURL* "/hhub/cad-login.html")
 (defvar *HHUBPASSRESETTIMEWINDOW* 20) ; 20 minutes. Depicts the reset password time window. 
 (defvar *HHUBGUESTCUSTOMERPHONE* "9999999999")
-(defvar *HHUBSUPERADMINEMAIL* "support@highrisehub.com")
-(defvar *HHUBSUPPORTEMAIL* "support@highrisehub.com")
+(defvar *HHUBSUPERADMINEMAIL* "support@ninestores.in")
+(defvar *HHUBSUPPORTEMAIL* "support@ninestores.in")
 (defvar *HHUBPENDINGUPIFUNCTIONS-HT* nil)
 (defvar *HHUBTRIALCOMPANYEXPIRYDAYS* 90)
 (defvar *HHUBOTPTESTING* T)
@@ -96,13 +96,13 @@
 (defvar *HHUBDEFAULTCOUNTRY* "India")
 
 (defun set-customer-page-title (name)
-  (setf *customer-page-title* (format nil "Welcome to HighriseHub - ~A." name))) 
+  (setf *customer-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
  
 (defun set-vendor-page-title (name)
-  (setf *vendor-page-title* (format nil "Welcome to HighriseHub - ~A." name))) 
+  (setf *vendor-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
 
 (defun set-admin-page-title (name)
-  (setf *admin-page-title* (format nil "Welcome to HighriseHub - ~A." name))) 
+  (setf *admin-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
 
 
 ;; Connect to the database (see the CLSQL documentation for vendor
@@ -158,8 +158,8 @@ the hunchentoot server with ssl settings"
   ;; # this initializes the global random state by
   ;;   "some means" (e.g. current time.)
   (setf *http-server* (make-instance 'hunchentoot:easy-acceptor :port 4244 :document-root #p"~/hhubplatform/"))
-  (setf (hunchentoot:acceptor-access-log-destination *http-server*)   #p"~/hhublogs/highrisehub-access.log")
-  (setf (hunchentoot:acceptor-message-log-destination *http-server*) #p"~/hhublogs/highrisehub-messages.log")
+  (setf (hunchentoot:acceptor-access-log-destination *http-server*)   #p"~/hhublogs/ninestores-access.log")
+  (setf (hunchentoot:acceptor-message-log-destination *http-server*) #p"~/hhublogs/ninestores-messages.log")
   ;;Support double quotes for parenscript. 
   ;;CL-WHO leaves it up to you to escape HTML attributes.
   ;;One way to make sure that quoted strings in inline JavaScript
@@ -193,8 +193,8 @@ the hunchentoot server with ssl settings"
 							  :document-root #p"~/hhubplatform/hhub/"
 							  :ssl-privatekey-file #p"~/hhubplatform/privatekey.key"
 							  :ssl-certificate-file #p"~/hhubplatform/certificate.crt" ))
-(setf (hunchentoot:acceptor-access-log-destination *ssl-http-server* )  #p"~/hhublogs/highrisehub-ssl-access.log")
-       (setf  (hunchentoot:acceptor-message-log-destination *ssl-http-server*)   #p"~/hhublogs/highrisehub-ssl-messages.log")))
+(setf (hunchentoot:acceptor-access-log-destination *ssl-http-server* )  #p"~/hhublogs/ninestores-ssl-access.log")
+       (setf  (hunchentoot:acceptor-message-log-destination *ssl-http-server*)   #p"~/hhublogs/ninestores-ssl-messages.log")))
 
 
 
@@ -229,7 +229,10 @@ the hunchentoot server with ssl settings"
 	(companies (get-system-companies))
 	(currencies-ht (get-system-currencies-ht))
 	(curr-html-symbols-ht (get-currency-html-symbol-map))
-	(curr-fa-symbols-ht (get-currency-fontawesome-map)))
+	(curr-fa-symbols-ht (get-currency-fontawesome-map))
+	(gst-hsn-codes-ht (get-system-gst-hsn-codes))
+	(gst-sac-codes-ht (get-all-gst-sac-codes)))
+
     (list (function (lambda () policies)) ;0
 	  (function (lambda () roles)) ;1
 	  (function (lambda () transactions)) ;2
@@ -241,7 +244,9 @@ the hunchentoot server with ssl settings"
 	  (function (lambda () policies-ht)) ;8
 	  (function (lambda () currencies-ht)) ;9
 	  (function (lambda () curr-html-symbols-ht)) ;10
-	  (function (lambda () curr-fa-symbols-ht))))) ;11
+	  (function (lambda () curr-fa-symbols-ht)) ;11
+	  (function (lambda () gst-hsn-codes-ht)) ;12
+	  (function (lambda () gst-sac-codes-ht))))) ;13	
 
 
 (defun hhub-get-cached-auth-policies()
@@ -309,6 +314,16 @@ the hunchentoot server with ssl settings"
   (let ((currency-fa-symbols-ht (nth 11 *HHUBGLOBALLYCACHEDLISTSFUNCTIONS*)))
     (funcall currency-fa-symbols-ht)))
 
+(defun hhub-get-cached-gst-hsn-codes-ht ()
+  :documentation "This function gets a hash table which contains gst hsn codes."
+  (let ((gst-hsn-codes-func  (nth 12 *HHUBGLOBALLYCACHEDLISTSFUNCTIONS*)))
+    (funcall gst-hsn-codes-func)))
+
+(defun hhub-get-cached-gst-sac-codes-ht ()
+  :documentation "This function gets a hash table which contains gst hsn codes."
+  (let ((gst-sac-codes-func  (nth 13 *HHUBGLOBALLYCACHEDLISTSFUNCTIONS*)))
+    (funcall gst-sac-codes-func)))
+
 
 (defun hhub-init-business-function-registrations ()
   :documentation "This function will be called at system startup time to register all the business functions"
@@ -316,7 +331,7 @@ the hunchentoot server with ssl settings"
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;; HIGHRISEHUB GLOBAL BUSINESS FUNCTIONS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;; Nine Stores GLOBAL BUSINESS FUNCTIONS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun hhub-register-business-function (name funcsymbol)
@@ -385,7 +400,7 @@ the hunchentoot server with ssl settings"
 (defun initBusinessDomain ()
   (let ((business-server  (make-instance 'BusinessServer)))
     (setf (slot-value business-server 'ipaddress) "127.0.0.1") ;; Not useful Today. May be on future.
-    (setf (slot-value business-server 'name) "HighriseHub")
+    (setf (slot-value business-server 'name) "NineStores")
     (setf (slot-value business-server 'id)  (format nil "~A" (uuid:make-v1-uuid )))
     (setf (slot-value business-server 'BusinessContexts) (initBusinessContexts business-server (list "vendorsite")))
     business-server))

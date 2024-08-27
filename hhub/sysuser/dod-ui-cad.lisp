@@ -247,7 +247,7 @@
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar"))
-			 (:a :class "navbar-brand" :href "#" :title "HighriseHub" (:img :style "width: 30px; height: 30px;" :src "/img/logo.png" )  ))
+			 (:a :class "navbar-brand" :href "#" :title "Nine Stores" (:img :style "width: 30px; height: 30px;" :src "/img/logo.png" )  ))
 		   (:div :class "collapse navbar-collapse" :id "navHeaderCollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
 			      (:li :class "active" :align "center" (:a :href "/hhub/hhubcadindex"  (:i :class "fa-solid fa-house-user")  " Home"))
@@ -295,7 +295,7 @@
 			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 				(:div :class "account-wall"
 				      (:img :class "profile-img" :src "/img/logo.png" :alt "")
-				      (:h1 :class "text-center login-title"  "Login to HighriseHub")
+				      (:h1 :class "text-center login-title"  "Login to Nine Stores")
 				      (:form :class "form-signin" :role "form" :method "POST" :action "hhubcadloginaction"
 					     (:div :class "form-group"
 						   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "text"))

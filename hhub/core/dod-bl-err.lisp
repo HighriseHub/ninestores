@@ -24,3 +24,12 @@
     ((errstring
       :initarg :errstring
       :reader getExceptionStr))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition hhub-database-error (error)
+    ((errstring
+      :initarg :errstring
+      :reader getExceptionStr))))
+
+

@@ -2,8 +2,26 @@
 (clsql:file-enable-sql-reader-syntax)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR HIGHRISEHUB ;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR Nine Stores ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+
+(defun com-hhub-policy-search-gst-hsn-codes-action (&optional (params nil))
+  :documentation "This policy governs the gst hsn codes page"
+  (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
+    (equal rolename "SUPERADMIN")))
+
+(defun com-hhub-policy-create-gst-hsn-code-action (&optional (params nil))
+  :documentation "This policy governs the gst hsn codes page"
+  (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
+	(equal rolename "SUPERADMIN")))
+
+(defun com-hhub-policy-gst-hsn-codes (&optional (params nil))
+  :documentation "This policy governs the gst hsn codes page"
+  (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
+	(equal rolename "SUPERADMIN")))                                      
 
 (defun com-hhub-policy-vendor-prod-ship-infoadd (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
@@ -423,8 +441,9 @@ T)
 	  (:div :class "col-xs-12" 
 		(:h4 (cl-who:str (format nil "Currently linked policy:   ~A" (slot-value policy 'name))))))
 
-    (with-html-search-form "idsearchpolicies" "searchpolicies" "idtxtsearchpolicies" "txtsearchpolicies" "dassearchpolicies" "Enter Policy Name..." 
+    (with-html-search-form "idsearchpolicies" "searchpolicies" "idtxtsearchpolicies" "txtsearchpolicies" "dassearchpolicies" "onkeyupsearchform1event();" "Enter Policy Name..." 
       (:input :class "form-control" :name "trans-id" :type "hidden" :value trans-id))
+    (submitsearchform1event-js "#idtxtsearchpolicies" "#txtsearchpoliciesresult")
     (:div :id "txtsearchpoliciesresult"))))
 
     
