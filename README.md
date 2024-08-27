@@ -12,14 +12,14 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 * Vendors have access to multiple groups/communities.
 * Shipping support - Free Shipping, 3rd Party Shipping providers support (iThinkLogistics), Flat rate & zone wise shipping rates and in store pickup. 
 * Customer have access to multiple groups/communities. (coming soon...)  
-* Standalone Vendor support. Using this feature, you can promote online selling for your own website. Visitors from your website will be forwarded to www.highrisehub.com to create orders, make payments. You can copy the source code from this repository and create your own Digital Marketplace. 
+* Standalone Vendor support. Using this feature, you can promote online selling for your own website. Visitors from your website will be forwarded to www.ninestores.in to create orders, make payments. You can copy the source code from this repository and create your own Digital Marketplace. 
 * Payment modes supported are Online Payment using Payment Gateway, Cash On Demand and Prepaid Wallet and UPI payments. (For Indian Subcontinent Customers) 
 * Progressive Web Application. 
 * Browser Push Notification for Vendors. 
 * SMS One Time Password - OTP for 2 Factor Authentication.   
 * Support for Tag based or Attribute Based Access Control (ABAC) only for System Administrators.
 * UI is built using Bootstrap 5.3 framework. 
-* For a detailed list of features please visit https://www.highrisehub.com/pricing
+* For a detailed list of features please visit https://www.ninestores.in/pricing
 
 ** How to setup the repository. **
 * Procure a Ubuntu 20.02 server on Hyperscalers like AWS, GCP or MSFT Azure. 
