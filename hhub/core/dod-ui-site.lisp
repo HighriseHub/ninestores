@@ -31,7 +31,7 @@
 		(:div :class "col-lg-12"
 		      (:p :class "small"  "To enrich and perfect your online experience, Nine Stores uses Cookies, similar technologies and services provided by others to display personalized content, appropriate advertising and store your preferences on your computer.")
 
-(:p :class "small" "A cookie is a string of information that a website stores on a visitor's computer, and that the visitor's browser provides to the website each time the visitor returns. Nine Stores uses cookies to help HighriseHub identify and track visitors, their usage of https://www.ninestores.in, and their website access preferences. Nine Stores visitors who do not wish to have cookies placed on their computers should set their browsers to refuse cookies before using Nine Stores' websites, with the drawback that certain features of Nine Stores' websites may not function properly without the aid of cookies.")
+(:p :class "small" "A cookie is a string of information that a website stores on a visitor's computer, and that the visitor's browser provides to the website each time the visitor returns. Nine Stores uses cookies to help Nine Stores identify and track visitors, their usage of https://www.ninestores.in, and their website access preferences. Nine Stores visitors who do not wish to have cookies placed on their computers should set their browsers to refuse cookies before using Nine Stores' websites, with the drawback that certain features of Nine Stores' websites may not function properly without the aid of cookies.")
 
 (:p :class "small" "By continuing to navigate our website without changing your cookie settings, you hereby acknowledge and agree to Nine Stores' use of cookies.")))))))
 
@@ -101,7 +101,7 @@
 			(:div :class "form-group"
 			  (:div :class "g-recaptcha" :data-sitekey *HHUBRECAPTCHAV2KEY* ))
 			(:div :class "form-group"
-			      (:label "By clicking submit, you consent to allow HighriseHub to store and process the personal information submitted above to provide you the content requested. We will not share your information with other companies."))
+			      (:label "By clicking submit, you consent to allow Nine Stores to store and process the personal information submitted above to provide you the content requested. We will not share your information with other companies."))
 			(:div :class "form-group"
 			      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
       (:div  :class "hhub-footer" (hhub-html-page-footer))))

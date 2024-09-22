@@ -534,7 +534,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    (:div :class "input-group col-md-12"
 			  (:form :id "theForm" :action "dodvendsearchtenantaction" :OnSubmit "return false;" 
 				 (:input :type "text" :class "  search-query form-control" :id "livesearch" :name "livesearch" :placeholder "Search for an Apartment/Group"))
-			  (:span :class "input-group-btn" (:<button :class "btn btn-danger" :type "button" 
+			  (:span :class "input-group-btn" (:button :class "btn btn-danger" :type "button" 
 								(:i :class "fa-solid fa-binoculars")))))
 	      (:div :id "searchresult" "")))
       (hunchentoot:redirect "/hhub/hhubvendloginv2")))
@@ -900,18 +900,29 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-my-customers-page ()
   (with-vend-session-check
-    (let* ((vendor (get-login-vendor))
-	   (company (get-login-vendor-company))
-	   (wallets (get-cust-wallets-for-vendor vendor company))
-	   (mycustomers (remove nil (mapcar (lambda (wallet)
-				  (let* ((customer (slot-value wallet 'customer))
-					 (cust-type (slot-value customer 'cust-type)))
-				    (when (equal cust-type "STANDARD") customer))) wallets))))
-      (with-standard-vendor-page "My Customers"
-	(with-html-search-form "idsearchmycustomer" "searchmycustomer" "idtxtsearchcustomer" "txtsearchcustomer" "hhubsearchmycustomer" "onkeyupsearchform1event();" "Customer Name"
-	  (submitsearchform1event-js "#idtxtsearchcustomer" "#vendormycustomerssearchresult" ))
-	(:div :id "vendormycustomerssearchresult"  :class "container"
-	      (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") mycustomers 'display-my-customers-row)))))))
+    (with-mvc-ui-page "My Customers" createmodelforshowvendorcustomers createwidgetsforshowvendorcustomers :role  :vendor )))
+
+(defun createmodelforshowvendorcustomers ()
+  (let* ((vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (wallets (get-cust-wallets-for-vendor vendor company))
+	 (mycustomers (remove nil (mapcar (lambda (wallet)
+					    (let* ((customer (slot-value wallet 'customer))
+						   (cust-type (slot-value customer 'cust-type)))
+					      (when (equal cust-type "STANDARD") customer))) wallets))))
+    (function (lambda ()
+      (values mycustomers)))))
+
+(defun createwidgetsforshowvendorcustomers (modelfunc)
+  (multiple-value-bind (mycustomers) (funcall modelfunc)
+    (let* ((widget1 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(with-html-search-form "idsearchmycustomer" "searchmycustomer" "idtxtsearchcustomer" "txtsearchcustomer" "hhubsearchmycustomer" "onkeyupsearchform1event();" "Customer Name"
+			  (submitsearchform1event-js "#idtxtsearchcustomer" "#vendormycustomerssearchresult" ))
+			(:div :id "vendormycustomerssearchresult"  :class "container"
+			      (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") mycustomers 'display-my-customers-row))))))))
+      (list widget1))))
+
 
 
 (defun hhub-controller-search-my-customer-action ()
@@ -1838,7 +1849,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      ((equal context "home")	(cl-who:htm (:div :class "list-group col-xs-6 col-sm-6 col-md-6 col-lg-6" 
 							  (:a :class "list-group-item" :href "dodvendindex?context=pendingorders" " Orders " (:span :class "badge" (cl-who:str (format nil " ~d " (length dodorders)))))
 							  (:a :class "list-group-item" :href "dodvendindex?context=ctxordprd" "Todays Demand")
-							  (:a :class "list-group-item" :href (cl-who:str (format nil "dodvendrevenue"))  "Today's Revenue"))))  
+							  (:a :class "list-group-item" :href (cl-who:str (format nil "dodvendrevenue"))  "Today's Revenue")
+							  (:a :class "list-group-item" :href (cl-who:str (format nil "displayinvoices"))  "Invoices"))))
+							  
 	      
 	      ((equal context "pendingorders") 
 	       (progn (cl-who:htm (cl-who:str "Pending Orders") (:span :class "badge" (cl-who:str (format nil " ~d " (length dodorders))))

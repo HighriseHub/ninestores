@@ -457,24 +457,21 @@
   ;; if the company is set for Database Adapter, only then we Save. 
   (handler-case 
       (when (company dbas) 
-	;;(hunchentoot:log-message* :info (format nil "Company is ~A" (slot-value (slot-value dbas 'company) 'name)))
+	(hunchentoot:log-message* :info (format nil "Company is ~A" (slot-value (slot-value dbas 'company) 'name)))
 	;;(hunchentoot:log-message* :info (format nil "DB obj amount is ~A" (slot-value (slot-value dbas 'dbobject) 'amount)))
-	;;(format t "I am going to db save now")
+	(logiamhere  "I am going to db save now")
 	(clsql:update-records-from-instance (dbobject dbas)))
-    
-    (error (c)
-      (let ((exceptionstr (format nil  "HHUB Database Error:~A: ~a~%" (mysql-now)  c)))
-	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
-				:direction :output
-				:if-exists :append
-				:if-does-not-exist :create)
-	  (format stream "~A" exceptionstr))
-	(setexception dbas c)
-	;; return the exception.
-	(error 'hhub-database-error :errstring exceptionstr)))))
 
-
-
+    (error (condition)
+	  (let ((exceptionstr (format nil  "Database Error:~A: ~a~%" (mysql-now) condition)))
+	    (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
+				    :direction :output
+				    :if-exists :append
+				    :if-does-not-exist :create)
+	      (format stream "~A~A" exceptionstr (sb-debug:list-backtrace)))
+	    ;; return the exception.
+	    (error 'hhub-database-error :errstring exceptionstr)))))
+ 
 
 
 (defmethod db-fetch ((dbas DBAdapterService) row-id)
@@ -563,6 +560,7 @@
   (let* ((bservicename (getbusinessservice service))
 	 (bserviceinstance (make-instance bservicename))
 	 (method "doupdate"))
+    (logiamhere "Going to call doupdate")
     ;; Call the doupdate method on the BusinessService.
     (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
   

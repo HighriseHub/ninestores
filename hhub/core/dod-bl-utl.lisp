@@ -3,19 +3,49 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
-(defun createentity (entityname fieldnames destfile)
+(defun create-entity-bl-template (entityname fieldnames destfile)
   :description "This function will create a set of business layer functions based on the business object / entity name"
   (let* ((filecontent (hhub-read-file "~/hhubplatform/hhub/core/hhub-bl-egn.lisp"))
-	 (count 1)
+	 (count 65)
 	 (fieldname ""))
     (loop for field in fieldnames do
-      (setf fieldname (format nil "field~A" count))
+      (setf fieldname (format nil "field~A" (code-char count)))
+      (setf filecontent (cl-ppcre:regex-replace-all fieldname filecontent field))
+      (incf count))
+      (let ((temp-str (cl-ppcre:regex-replace-all "xxxx" filecontent entityname)))
+	(with-open-file (stream destfile :if-does-not-exist :create :if-exists :append :direction :output)
+	  (print (format stream temp-str))
+	  (terpri stream)))))
+(defun create-entity-ui-template (entityname fieldnames destfile)
+  :description "This function will create a set of business layer functions based on the business object / entity name"
+  (let* ((filecontent (hhub-read-file "~/hhubplatform/hhub/core/hhub-ui-egn.lisp"))
+	 (count 65)
+	 (fieldname ""))
+    (loop for field in fieldnames do
+      (setf fieldname (format nil "field~A" (code-char count)))
       (setf filecontent (cl-ppcre:regex-replace-all fieldname filecontent field))
       (incf count))
     (let ((temp-str (cl-ppcre:regex-replace-all "xxxx" filecontent entityname)))
-      (with-open-file (stream destfile :if-exists :append :direction :output)
+      (with-open-file (stream destfile :if-does-not-exist :create :if-exists :append :direction :output)
 	(print (format stream temp-str))
 	(terpri stream)))))
+(defun create-entity-dal-template (entityname fieldnames destfile)
+  :description "This function will create a set of business layer functions based on the business object / entity name"
+  (let* ((filecontent (hhub-read-file "~/hhubplatform/hhub/core/hhub-dal-egn.lisp"))
+	 (count 65)
+	 (fieldname ""))
+    (loop for field in fieldnames do
+      (setf fieldname (format nil "field~A" (code-char count)))
+      (setf filecontent (cl-ppcre:regex-replace-all fieldname filecontent field))
+      (incf count))
+      (let ((temp-str (cl-ppcre:regex-replace-all "xxxx" filecontent entityname)))
+	(with-open-file (stream destfile :if-does-not-exist :create :if-exists :append :direction :output)
+	  (print (format stream temp-str))
+	  (terpri stream)))))
+
+
+
+
 
 (defun hhub-register-network-function (name funcsymbol)
 :documentation "This function registers a new business function and adds it to the *HHUBGLOBALBUSINESSFUNCTIONS-HT* Hash Table. It should conform to naming convention com.hhub.businessfunction*"
@@ -232,6 +262,27 @@ corresponding universal time."
     (declare (ignore sec min hr dow dst-p tz))
     (format nil "~2,'0d-~2,'0d-~4,'0d" day mon yr )))
 
+(defun current-year-string ()
+"Returns current year as a string in YYYY format"
+  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+                       (get-decoded-time)
+    (declare (ignore day mon sec min hr dow dst-p tz))
+    (format nil "~4,'0d" yr )))
+
+(defun current-year-string-- ()
+"Returns current year as a string in YYYY format"
+  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+                       (get-decoded-time)
+    (declare (ignore day mon sec min hr dow dst-p tz))
+    (format nil "~4,'0d" (decf yr))))
+
+(defun current-year-string++ ()
+"Returns current year as a string in YYYY format"
+  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+                       (get-decoded-time)
+    (declare (ignore day mon sec min hr dow dst-p tz))
+    (format nil "~4,'0d" (incf yr))))
+  
 
 (defun get-date-string (dateobj)
   "Returns current date as a string in DD/MM/YYYY format."

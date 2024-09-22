@@ -12,12 +12,12 @@
 		    (cl-who:htm  (:option :value  (slot-value catg 'row-id) (cl-who:str (slot-value catg 'catg-name))))))))))
 
 (defun ui-list-yes-no-dropdown (value) 
-(cl-who:with-html-output (*standard-output* nil) 
-  (:select :class "form-control" :name "yesno"
-	  (if (equal value "N") (cl-who:htm (:option :value "N" "NO" :selected)
-				     (:option :value "Y" "YES"))
-	   (cl-who:htm (:option :value "Y" "YES" :selected)
-		(:option :value "N" "NO"))))))
+  (cl-who:with-html-output (*standard-output* nil) 
+    (:select :class "form-control" :name "yesno"
+	     (if (equal value "N") (cl-who:htm (:option :value "N" "NO" :selected)
+					       (:option :value "Y" "YES"))
+		 (cl-who:htm (:option :value "Y" "YES" :selected)
+			     (:option :value "N" "NO"))))))
 	   
 (defun ui-list-prod-catg (catglist)
   (cl-who:with-html-output (*standard-output* nil)

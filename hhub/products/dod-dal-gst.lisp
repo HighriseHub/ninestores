@@ -29,12 +29,15 @@
     :accessor description)
    (cgst
     :initarg :cgst
+    :type float
     :accessor cgst)
    (sgst
     :initarg :sgst
+    :type float
     :accessor sgst)
    (igst
     :initarg :igst
+    :type float
     :accessor igst)
    (compcess
     :initarg :compcess
@@ -55,12 +58,15 @@
     :accessor description)
    (cgst
     :initarg :cgst
+    :type float
     :accessor cgst)
    (sgst
     :initarg :sgst
+    :type float
     :accessor sgst)
    (igst
     :initarg :igst
+    :type float
     :accessor igst)
    (compcess
     :initarg :compcess
@@ -82,12 +88,15 @@
     :accessor description)
    (cgst
     :initarg :cgst
+    :type float
     :accessor cgst)
    (sgst
     :initarg :sgst
+    :type float
     :accessor sgst)
    (igst
     :initarg :igst
+    :type float
     :accessor igst)
    (compcess
     :initarg :compcess
@@ -112,12 +121,15 @@
     :accessor description)
    (cgst
     :initarg :cgst
+    :type float
     :accessor cgst)
    (sgst
     :initarg :sgst
+    :type float
     :accessor sgst)
    (igst
     :initarg :igst
+    :type float
     :accessor igst)
    (compcess
     :initarg :compcess

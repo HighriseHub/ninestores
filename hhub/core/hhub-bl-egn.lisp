@@ -1,4 +1,4 @@
-;; -*- mode: common-lisp; coding: utf-8 -*-
+;; -*- mode: common-lisp; coding: utf-8 -*-%
 (in-package :hhub)
 
 ;; METHODS FOR ENTITY CREATE 
@@ -32,16 +32,26 @@
 	 (vendor (vendor requestmodel))
 	 (company (company requestmodel))
 	 (customer (customer requestmodel))
-	 (field1 (field1 requestmodel))
-	 (field2 (field2 requestmodel))
-	 (field3 (field3 requestmodel))
-	 (field4 (field4 requestmodel))
-	 (field5 (field5 requestmodel))
-	 (field6 (field6 requestmodel))
-	 (field7 (field7 requestmodel))
-	 (field8 (field8 requestmodel))
-	 (field9 (field9 requestmodel))
-	 (domainobj (createxxxxobject field1 field2 field3 field4 field5 field6 field7 field8 field9)))
+	 (fieldA (fieldA requestmodel))
+	 (fieldB (fieldB requestmodel))
+	 (fieldC (fieldC requestmodel))
+	 (fieldD (fieldD requestmodel))
+	 (fieldE (fieldE requestmodel))
+	 (fieldF (fieldF requestmodel))
+	 (fieldG (fieldG requestmodel))
+	 (fieldH (fieldH requestmodel))
+	 (fieldI (fieldI requestmodel))
+	 (fieldJ (fieldJ requestmodel))
+	 (fieldK (fieldK requestmodel))
+	 (fieldL (fieldL requestmodel))
+	 (fieldM (fieldM requestmodel))
+	 (fieldN (fieldN requestmodel))
+	 (fieldO (fieldO requestmodel))
+	 (fieldP (fieldP requestmodel))
+	 (fieldQ (fieldQ requestmodel))
+	 (fieldR (fieldR requestmodel))
+	 (fieldS (fieldS requestmodel))
+	 (domainobj (createxxxxobject fieldA fieldB fieldC fieldD fieldE fieldF fieldG fieldH fieldI fieldJ fieldK fieldL fieldM fieldN fieldO fieldP fieldQ fieldR fieldS)))
          ;; Initialize the DB Service
     (init xxxxdbservice domainobj)
     (copy-businessobject-to-dbobject xxxxdbservice)
@@ -50,17 +60,27 @@
     domainobj))
 
 
-(defun createxxxxobject (field1 field2 field3 field4 field5 field6 field7 field8 field9 vendor customer company)
+(defun createxxxxobject (fieldA fieldB fieldC fieldD fieldE fieldF fieldG fieldH fieldI vendor customer company)
   (let* ((domainobj  (make-instance 'xxxx 
-				       :field1 field1
-				       :field2 field2
-				       :field3 field3
-				       :field4 field4
-				       :field5 field5
-				       :field6 field6
-				       :field7 field7
-				       :field8 field8
-				       :field9 field9
+				       :fieldA fieldA
+				       :fieldB fieldB
+				       :fieldC fieldC
+				       :fieldD fieldD
+				       :fieldE fieldE
+				       :fieldF fieldF
+				       :fieldG fieldG
+				       :fieldH fieldH
+				       :fieldI fieldI
+				       :fieldJ fieldJ
+				       :fieldK fieldK 
+				       :fieldL fieldL
+				       :fieldM fieldM
+				       :fieldN fieldN
+				       :fieldO fieldO
+				       :fieldP fieldP
+				       :fieldQ fieldQ
+				       :fieldR fieldR
+				       :fieldS fieldS
 				       :deleted-state "N"
 				       :active-flag "Y"
 				       :vendor vendor
@@ -79,20 +99,30 @@
   (let ((vendor (slot-value source 'vendor))
 	(customer (slot-value source 'customer))
 	(company (slot-value source 'company)))
-    (with-slots (field1 field2 field3 field4 field5 field6 field7 field8 field9 customer-id vendor-id tenant-id) destination
+    (with-slots (fieldA fieldB fieldC fieldD fieldE fieldF fieldG fieldH fieldI fieldJ fieldK fieldL fieldM fieldN fieldO fieldP fieldQ fieldR fieldS customer-id vendor-id tenant-id) destination
       (setf vendor-id (slot-value vendor 'row-id))
       (setf tenant-id (slot-value company 'row-id))
       (setf customer-id (slot-value customer 'row-id))
-      (setf field1 (slot-value source 'field1))
-      (setf field2 (slot-value source 'field2))
-      (setf field3 (slot-value source 'field3))
-      (setf field4 (slot-value source 'field4))
-      (setf field5 (slot-value source 'field5))
-      (setf field6 (slot-value source 'field6))
-      (setf field7 (slot-value source 'field7))
-      (setf field8 (slot-value source 'field8))
-      (setf field9 (slot-value source 'field9))
-    destination)))
+      (setf fieldA (slot-value source 'fieldA))
+      (setf fieldB (slot-value source 'fieldB))
+      (setf fieldC (slot-value source 'fieldC))
+      (setf fieldD (slot-value source 'fieldD))
+      (setf fieldE (slot-value source 'fieldE))
+      (setf fieldF (slot-value source 'fieldF))
+      (setf fieldG (slot-value source 'fieldG))
+      (setf fieldH (slot-value source 'fieldH))
+      (setf fieldI (slot-value source 'fieldI))
+      (setf fieldJ (slot-value source 'fieldJ))
+      (setf fieldK (slot-value source 'fieldK))
+      (setf fieldL (slot-value source 'fieldL))
+      (setf fieldM (slot-value source 'fieldM))
+      (setf fieldN (slot-value source 'fieldN))
+      (setf fieldO (slot-value source 'fieldO))
+      (setf fieldP (slot-value source 'fieldP))
+      (setf fieldQ (slot-value source 'fieldQ))
+      (setf fieldR (slot-value source 'fieldR))
+      (setf fieldS (slot-value source 'fieldS))
+      destination)))
 
 
 ;; PROCESS UPDATE REQUEST  
@@ -121,22 +151,36 @@
 
 (defmethod CreateViewModel ((presenter xxxxPresenter) (responsemodel xxxxResponseModel))
   (let ((viewmodel (make-instance 'xxxxViewModel)))
-    (with-slots (field1 field2 field3 field4 field5 field6 field7 field8 field9 vendor customer company created) responsemodel
+    (with-slots (fieldA fieldB fieldC fieldD fieldE fieldF fieldG fieldH fieldI fieldJ fieldK fieldL fieldM fieldN fieldO fieldP fieldQ fieldR fieldS vendor customer company created) responsemodel
       (setf (slot-value viewmodel 'vendor) vendor)
       (setf (slot-value viewmodel 'customer) customer)
-      (setf (slot-value viewmodel 'field1) field1)
-      (setf (slot-value viewmodel 'field2) field2)
-      (setf (slot-value viewmodel 'field3 field3)
-      (setf (slot-value viewmodel 'field4) field4)
-      (setf (slot-value viewmodel 'field5) field5)
-      (setf (slot-value viewmodel 'field6) field6)
-      (setf (slot-value viewmodel 'field7) field7)
-      (setf (slot-value viewmodel 'field8) field8)
-      (setf (slot-value viewmodel 'field9) field9)
+      (setf (slot-value viewmodel 'fieldA) fieldA)
+      (setf (slot-value viewmodel 'fieldB) fieldB)
+      (setf (slot-value viewmodel 'fieldC fieldC)
+      (setf (slot-value viewmodel 'fieldD) fieldD)
+      (setf (slot-value viewmodel 'fieldE) fieldE)
+      (setf (slot-value viewmodel 'fieldF) fieldF)
+      (setf (slot-value viewmodel 'fieldG) fieldG)
+      (setf (slot-value viewmodel 'fieldH) fieldH)
+      (setf (slot-value viewmodel 'fieldI) fieldI)
+      (setf (slot-value viewmodel 'fieldJ) fieldJ)
+      (setf (slot-value viewmodel 'fieldK) fieldK)
+      (setf (slot-value viewmodel 'fieldL) fieldL)
+      (setf (slot-value viewmodel 'fieldM fieldM)
+      (setf (slot-value viewmodel 'fieldN) fieldN)
+      (setf (slot-value viewmodel 'fieldO) fieldO)
+      (setf (slot-value viewmodel 'fieldP) fieldP)
+      (setf (slot-value viewmodel 'fieldQ) fieldQ)
+      (setf (slot-value viewmodel 'fieldR) fieldR)
+      (setf (slot-value viewmodel 'fieldS) fieldS)
       (setf (slot-value viewmodel 'company) company)
       (setf (slot-value viewmodel 'created) created)
       viewmodel))))
   
+
+(defmethod ProcessResponse ((adapter xxxxAdapter) (busobj xxxx))
+  (let ((responsemodel (make-instance 'xxxxResponseModel)))
+    (createresponsemodel adapter busobj responsemodel)))
 
 (defmethod ProcessResponseList ((adapter xxxxAdapter) xxxxlist)
   (mapcar (lambda (doaminobj)
@@ -150,16 +194,26 @@
 
 (defmethod CreateResponseModel ((adapter xxxxAdapter) (source xxxx) (destination xxxxResponseModel))
   :description "source = xxxx destination = xxxxResponseModel"
-  (with-slots (field1 field2 field3 field4 field5 field6 field7 field8 field9 vendor customer company created) destination  
-    (setf field1 (slot-value source 'field1))
-    (setf field2 (slot-value source 'field2))
-    (setf field3 (slot-value source 'field3))
-    (setf field4 (slot-value source 'field4))
-    (setf field5 (slot-value source 'field5))
-    (setf field6 (slot-value source 'field6))
-    (setf field7 (slot-value source 'field7))
-    (setf field8 (slot-value source 'field8))
-    (setf field9 (slot-value source 'field9))
+  (with-slots (fieldA fieldB fieldC fieldD fieldE fieldF fieldG fieldH fieldI fieldJ fieldK fieldL fieldM fieldN fieldO fieldP fieldQ fieldR fieldS vendor customer company created) destination  
+    (setf fieldA (slot-value source 'fieldA))
+    (setf fieldB (slot-value source 'fieldB))
+    (setf fieldC (slot-value source 'fieldC))
+    (setf fieldD (slot-value source 'fieldD))
+    (setf fieldE (slot-value source 'fieldE))
+    (setf fieldF (slot-value source 'fieldF))
+    (setf fieldG (slot-value source 'fieldG))
+    (setf fieldH (slot-value source 'fieldH))
+    (setf fieldI (slot-value source 'fieldI))
+    (setf fieldJ (slot-value source 'fieldJ))
+    (setf fieldK (slot-value source 'fieldK))
+    (setf fieldL (slot-value source 'fieldL))
+    (setf fieldM (slot-value source 'fieldM))
+    (setf fieldN (slot-value source 'fieldN))
+    (setf fieldO (slot-value source 'fieldO))
+    (setf fieldP (slot-value source 'fieldP))
+    (setf fieldQ (slot-value source 'fieldQ))
+    (setf fieldR (slot-value source 'fieldR))
+    (setf fieldS (slot-value source 'fieldS))
     (setf (slot-value viewmodel 'vendor) vendor)
     (setf (slot-value viewmodel 'customer) customer)
     (setf company (slot-value source 'company))
@@ -172,40 +226,71 @@
   (let* ((vend (vendor requestmodel))
 	 (cust (customer requestmodel))
 	 (xxxxdbservice (make-instance 'xxxxDBService))
-	 (field1 (field1 requestmodel))
-	 (field2 (field2 requestmodel))
-	 (field3 (field3 requestmodel))
-	 (field4 (field4 requestmodel))
-	 (field5 (field4 requestmodel))
-	 (field6 (field4 requestmodel))
-	 (field7 (field4 requestmodel))
-	 (field8 (field4 requestmodel))
-	 (field9 (field4 requestmodel))
+	 (fieldA (fieldA requestmodel))
+	 (fieldB (fieldB requestmodel))
+	 (fieldC (fieldC requestmodel))
+	 (fieldD (fieldD requestmodel))
+	 (fieldE (fieldE requestmodel))
+	 (fieldF (fieldF requestmodel))
+	 (fieldG (fieldG requestmodel))
+	 (fieldH (fieldH requestmodel))
+	 (fieldI (fieldI requestmodel))
+	 (fieldJ (fieldJ requestmodel))
+	 (fieldK (fieldK requestmodel))
+	 (fieldL (fieldL requestmodel))
+	 (fieldM (fieldM requestmodel))
+	 (fieldN (fieldN requestmodel))
+	 (fieldO (fieldN requestmodel))
+	 (fieldP (fieldP requestmodel))
+	 (fieldQ (fieldQ requestmodel))
+	 (fieldR (fieldR requestmodel))
+	 (fieldS (fieldS requestmodel))
 	 (comp (company requestmodel))
 	 (xxxxdbobj (select-dbobject-from-database cust vend comp))
 	 (domainobj (make-instance 'xxxx)))
     ;; FIELD UPDATE CODE STARTS HERE 
     (when somefield  
-      (setf (slot-value xxxxdbobj 'field1) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field2) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field3) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field4) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field5) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field6) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field7) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field8) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field9) "SOMEVALUE"))
+      (setf (slot-value xxxxdbobj 'fieldA) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldB) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldC) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldD) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldE) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldF) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldG) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldH) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldI) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldJ) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldK) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldL) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldM) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldN) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldO) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldP) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldQ) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldR) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldS) "SOMEVALUE"))
+
 
     (unless somefield  
-      (setf (slot-value xxxxdbobj 'field1) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field2) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field3) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field4) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field5) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field6) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field7) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field8) "SOMEVALUE")
-      (setf (slot-value xxxxdbobj 'field9) "SOMEVALUE"))
+      (setf (slot-value xxxxdbobj 'fieldA) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldB) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldC) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldD) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldE) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldF) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldG) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldH) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldI) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldJ) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldK) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldL) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldM) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldN) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldO) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldP) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldQ) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldR) "SOMEVALUE")
+      (setf (slot-value xxxxdbobj 'fieldS) "SOMEVALUE"))
     ;;  FIELD UPDATE CODE ENDS HERE. 
     
     (setf (slot-value xxxxdbservice 'dbobject) xxxxdbobj)
@@ -239,17 +324,27 @@
 	 (vend (select-vendor-by-id (slot-value source 'vendor-id)))
 	 (cust (select-customer-by-id (slot-value source 'cust-id) comp)))
 
-    (with-slots (field1 field2 field3 field4 field5 field6 field7 field8 field9 vendor customer company) destination
+    (with-slots (fieldA fieldB fieldC fieldD fieldE fieldF fieldG fieldH fieldI fieldJ fieldK fieldL fieldM fieldN fieldO fieldP fieldQ fieldR fieldS vendor customer company) destination
       (setf vendor vend)
       (setf customer cust)
       (setf company comp)
-      (setf field1 (slot-value source 'field1))
-      (setf field2 (slot-value source 'field2))
-      (setf field3 (slot-value source 'field3))
-      (setf field4 (slot-value source 'field4))
-      (setf field5 (slot-value source 'field5))
-      (setf field6 (slot-value source 'field6))
-      (setf field7 (slot-value source 'field7))
-      (setf field8 (slot-value source 'field8))
-      (setf field9 (slot-value source 'field9))
+      (setf fieldA (slot-value source 'fieldA))
+      (setf fieldB (slot-value source 'fieldB))
+      (setf fieldC (slot-value source 'fieldC))
+      (setf fieldD (slot-value source 'fieldD))
+      (setf fieldE (slot-value source 'fieldE))
+      (setf fieldF (slot-value source 'fieldF))
+      (setf fieldG (slot-value source 'fieldG))
+      (setf fieldH (slot-value source 'fieldH))
+      (setf fieldI (slot-value source 'fieldI))
+      (setf fieldJ (slot-value source 'fieldJ))
+      (setf fieldK (slot-value source 'fieldK))
+      (setf fieldL (slot-value source 'fieldL))
+      (setf fieldM (slot-value source 'fieldM))
+      (setf fieldN (slot-value source 'fieldN))
+      (setf fieldO (slot-value source 'fieldO))
+      (setf fieldP (slot-value source 'fieldP))
+      (setf fieldQ (slot-value source 'fieldQ))
+      (setf fieldR (slot-value source 'fieldR))
+      (setf fieldS (slot-value source 'fieldS))
       destination)))

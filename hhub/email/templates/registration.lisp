@@ -141,7 +141,7 @@
 (defun send-registration-email (name email)
   (let* ((reg-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-REG-TEMPLATE-FILE*)))
 	 (cust-reg-email (format nil reg-templ-str name)))
-    (hhubsendmail email "Welcome to highrisehub" cust-reg-email)))
+    (hhubsendmail email "Welcome to Nine Stores" cust-reg-email)))
 
 (defun send-order-mail (email subject  order-disp-str)
   :documentation "Here we are using the cl-async library to asynchronously send the email"

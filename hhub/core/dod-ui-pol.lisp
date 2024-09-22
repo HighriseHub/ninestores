@@ -5,8 +5,39 @@
 ;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR Nine Stores ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; INVOICE RELATED POLICIES START
 
+(defun com-hhub-policy-search-invoice-action (&optional (params nil))
+  :documentation "This policy governs the gst hsn codes page"
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
 
+(defun com-hhub-policy-create-invoice-action (&optional (params nil))
+  :documentation "This policy governs the gst hsn codes page"
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
+(defun com-hhub-policy-show-invoices-page (&optional (params nil))
+  :documentation "This policy governs the gst hsn codes page"
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
+(defun com-hhub-policy-update-invoice-action (&optional (params nil))
+  :documentation "This policy governs the gst hsn codes page"
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
+
+;; INVOICE RELATED POLICIES END;; 
 
 (defun com-hhub-policy-search-gst-hsn-codes-action (&optional (params nil))
   :documentation "This policy governs the gst hsn codes page"
@@ -14,6 +45,11 @@
     (equal rolename "SUPERADMIN")))
 
 (defun com-hhub-policy-create-gst-hsn-code-action (&optional (params nil))
+  :documentation "This policy governs the gst hsn codes page"
+  (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
+    (equal rolename "SUPERADMIN")))
+
+(defun com-hhub-policy-update-gst-hsn-code-action (&optional (params nil))
   :documentation "This policy governs the gst hsn codes page"
   (let ((rolename (cdr (assoc "rolename" params :test 'equal))))
 	(equal rolename "SUPERADMIN")))
