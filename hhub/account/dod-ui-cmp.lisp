@@ -118,6 +118,9 @@
 (defun get-login-tenant-id ()
   (hunchentoot:session-value :login-tenant-id))
 
+(defun get-login-user-role-name ()
+  (hunchentoot:session-value :login-user-role-name))
+
 (defun get-login-cust-tenant-id ()
   (hunchentoot:session-value :login-customer-tenant-id))
 

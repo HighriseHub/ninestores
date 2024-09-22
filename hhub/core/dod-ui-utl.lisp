@@ -154,6 +154,15 @@
 		  (:li :class "breadcrumb-item" (:a :href "/hhub/dodcustindex" "Home"))
 		  ,@body)))))
 
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defmacro with-vendor-breadcrumb (&body body)
+    :description "Takes link attributes like HREF and Link name as pair and processes it to display the breadcrumb"
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:nav :aria-label "breadcrumb"
+	     (:ol :class "breadcrumb"
+		  (:li :class "breadcrumb-item" (:a :href "/hhub/dodvendindex?context=home" "Home"))
+		  ,@body)))))
+
 
 (defun whatsapp-widget (phone)
   :description "This function returns the HTML required for the floating whatsapp button"
@@ -214,7 +223,7 @@
 		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
 					;(:div :class "account-wall"
 		  (:h1 :class "text-center login-title"  "Password Reset Link Sent To Your Email.")
-		  (:a :class "btn btn-primary"  :role "button" :href "https://www.highrisehub.com"  (:i :class "fa-solid fa-house")))))))
+		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
 
 
 (defun dod-controller-password-reset-mail-sent ()
@@ -522,6 +531,8 @@
 	    (returnlist (has-permission transaction ,params))
 	    (returnvalue (nth 0 returnlist))
 	    (exceptionstr (nth 1 returnlist)))
+       (unless transaction
+	 (error 'hhub-abac-transaction-error :errstring (format nil "Did not find the transaction by name ~A. Create a new transaction and a related policy." ,name)))
        
        (logiamhere (format nil "In the transaction ~A" (slot-value transaction 'name)))
        (logiamhere (format nil "URI -  ~A" uri))
@@ -631,8 +642,7 @@ individual tiles. It also supports search functionality by including the searchr
 (defun display-vendor-page-with-widgets (pagetitle widgets)
   (with-standard-vendor-page pagetitle
     (loop for widget in widgets do 
-      (funcall widget)))
-)
+      (funcall widget))))
 
 (defun display-compadmin-page-with-widgets (pagetitle widgets)
   (with-standard-compadmin-page-v2 pagetitle
@@ -643,6 +653,11 @@ individual tiles. It also supports search functionality by including the searchr
   (with-standard-admin-page pagetitle
     (loop for widget in widgets do 
       (funcall widget))))
+
+(defun display-search-results-with-widgets (widgets)
+  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+      (loop for widget in widgets do
+	(funcall widget))))
 
 (defun html-back-button ()
   :documentation "HTML Back button"
@@ -656,12 +671,13 @@ individual tiles. It also supports search functionality by including the searchr
   (defmacro  with-html-search-form (form-id form-name txtctrlid txtctrlname  search-form-action onkeyupfunc  search-placeholder &body body)
     :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"
     `(cl-who:with-html-output (*standard-output* nil ) 
-       (with-html-div-col-8
-	 (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
-		(:div :class "input-group"
-		      (:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder   :onkeyup ,onkeyupfunc)
-		      (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
-		,@body)))))
+       (:hr)
+       (with-html-div-col-6
+	   (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
+		  (:div :class "input-group"
+			(:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder   :onkeyup ,onkeyupfunc)
+			(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
+		  ,@body)))))
 
   
 

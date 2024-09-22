@@ -442,16 +442,17 @@ function minusbtnclick (id){
 
 
 
-function countChar(val, maxchars){
-var length = val.value.length; 
+function countChar (divid, val, maxchars ) {
+    event.preventDefault();
+    var charcountdiv = document.getElementById(divid);
+    var length = val.value.length; 
     if (length >= maxchars+1){
 	val.value = val.value.substring(0, maxchars);
-	$('#charcount').text ("Length Exceeded beyond - " + maxchars)
+	charcountdiv.textContent = "Length Exceeded beyond - " + maxchars; 
     }else {
-	$('#charcount').text (maxchars - length)
+	charcountdiv.textContent = maxchars - length;
     }
-
-}; 
+}
 
 
 
@@ -476,10 +477,9 @@ $formcustsignin.submit ( function() {
 })
 
 $(document).ready(
-    
     function() {
         $( "#required-on" ).datepicker({dateFormat: "dd/mm/yy", minDate: 1} ).attr("readonly", "true");
-        }
+    }
 );
 
 

@@ -119,6 +119,11 @@
 		     "warehouse/dod-dal-wrh.lisp"
 		     "warehouse/dod-bl-wrh.lisp"
 		     "warehouse/dod-ui-wrh.lisp"
+
+		     ;; Invoices
+		     "invoice/nst-dal-ihd.lisp"
+		     "invoice/nst-bl-ihd.lisp"
+		     "invoice/nst-ui-ihd.lisp"
 		   
 		     ;; UNIT TESTS
 		     "test/hhub-tst-upi.lisp"

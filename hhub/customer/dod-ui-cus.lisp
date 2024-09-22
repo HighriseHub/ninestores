@@ -896,7 +896,7 @@
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar"))
-			 (:a :class "navbar-brand" :href *siteurl* :title "highrisehub" (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" )))
+			 (:a :class "navbar-brand" :href *siteurl* :title "Nine Stores" (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" )))
 			;; (:a :class "navbar-brand" :onclick "javascript:history.go(-1);"  :href "#"  (:span :class "glyphicon glyphicon-arrow-left")))
 		   (:div :class "collapse navbar-collapse" :id "navheadercollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
@@ -1180,7 +1180,7 @@
 	    ;;3
 	    (send-registration-email name email))
 				    ;;4
-	 (with-no-navbar-page "Welcome to HighriseHub platform"
+	 (with-no-navbar-page "Welcome to Nine Stores platform"
 	   (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
 	   (:a :href "/hhub/vendor-login.html" "Login now"))))
       
@@ -1853,7 +1853,7 @@
   (with-cust-session-check 
     (let ((cust-type  (slot-value (get-login-customer) 'cust-type)))
       (with-standard-customer-page-v2
-	 "Welcome to HighriseHub- Add Customer Order"
+	 "Welcome to Nine Stores - Add Customer Order"
 	(:div :class "row"
 	      (:div :class "col-sm-12" 
 		    (:h1 "Your order has been successfully placed")))

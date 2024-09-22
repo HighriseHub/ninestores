@@ -94,6 +94,9 @@
 (defvar *HHUBMEMOIZEDFUNCTIONS* nil)
 (defvar *HHUBDEFAULTCURRENCY* "INR")
 (defvar *HHUBDEFAULTCOUNTRY* "India")
+(defvar *NSTGSTSTATECODES-HT* nil)
+(defvar *NSTGSTBUSINESSSTATE* "KARNATAKA")
+(defvar *NSTGSTINVOICETERMS* NIL)
 
 (defun set-customer-page-title (name)
   (setf *customer-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
@@ -178,6 +181,8 @@ the hunchentoot server with ssl settings"
        (setf *HHUBBUSINESSSESSIONS-HT* (make-hash-table)) 
        (hhub-init-business-functions)
        (setf *HHUBBUSINESSDOMAIN* (initbusinessdomain))
+       (setf *NSTGSTSTATECODES-HT* (init-gst-statecodes))
+       (init-gst-invoice-terms)
        (define-shipping-zones)))
 
 

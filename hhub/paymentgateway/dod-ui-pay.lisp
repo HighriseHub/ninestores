@@ -156,7 +156,7 @@
 
 
 (defun dod-controller-customer-payment-successful-page ()
-  :documentation "This page is called by the Payment Gateway when the payment is successful and the PG redirects to HighriseHub" 
+  :documentation "This page is called by the Payment Gateway when the payment is successful and the PG redirects to Nine Stores" 
   (let* ((transaction-id (hunchentoot:parameter "transaction_id"))
 	 (company (get-login-customer-company))
 	 (payment-method (hunchentoot:parameter "payment_method"))

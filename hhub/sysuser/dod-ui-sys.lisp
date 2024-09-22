@@ -126,7 +126,7 @@
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar"))
-			 (:a :class "navbar-brand" :href "#" :title "HighriseHub" (:img :style "width: 30px; height: 30px;" :src "/img/logo.png" )  ))
+			 (:a :class "navbar-brand" :href "#" :title "Nine Stores" (:img :style "width: 30px; height: 30px;" :src "/img/logo.png" )  ))
 		   (:div :class "collapse navbar-collapse" :id "navHeaderCollapse"
 			 (:ul :class "nav navbar-nav navbar-left"
 			      (:li :class "active" :align "center" (:a :href "/hhub/sadminhome"  (:i :class "fa-solid fa-house")  "&nbsp;Home"))
@@ -469,7 +469,7 @@
       (setf params (acons "uri" (hunchentoot:request-uri*)  params))
       (with-hhub-transaction "com-hhub-transaction-sadmin-home" params 
 	(let (( companies (hhub-get-cached-companies)))
-	  (with-standard-admin-page  "Welcome to Highrisehub."
+	  (with-standard-admin-page  "Welcome to Nine Stores."
 	    (:div :id "row"
 		  (:div :id "col-xs-6" 
 			(:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))))
@@ -579,7 +579,7 @@
 		    (:div :class "row background-image: url(resources/login-background.png);background-color:lightblue;" 
 			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 				(:div :class "account-wall"
-				      (:h1 :class "text-center login-title"  "Login to HighriseHub")
+				      (:h1 :class "text-center login-title"  "Login to Nine Stores")
 				      (:form :class "form-signin" :role "form" :method "POST" :action "sadminlogin"
 					     (:div :class "form-group"
 						   (:input :class "form-control" :name "company" :placeholder "Company Name"  :type "text"))
@@ -653,7 +653,9 @@
 	     (setf (hunchentoot:session-value :login-attribute-cart) login-attribute-cart)
 	     (setf (hunchentoot:session-value :login-tenant-id) login-tenant-id)
 	     (setf (hunchentoot:session-value :login-company-name) company-name)
-	     (setf (hunchentoot:session-value :login-company) login-company)))))  
+	     (setf (hunchentoot:session-value :login-company) login-company)
+	     (setf (hunchentoot:session-value :login-user-role-name) (com-hhub-attribute-role-name))))))
+
   
 
 
@@ -854,6 +856,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/gsthsncodes" 'com-hhub-transaction-gst-hsn-codes-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/searchhsncodesaction" 'com-hhub-transaction-search-gst-hsn-codes-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/createhsncodeaction" 'com-hhub-transaction-create-gst-hsn-code-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/updatehsncodeaction" 'com-hhub-transaction-update-gst-hsn-code-action)
 	
 	
 	;***************** COMPADMIN/COMPANYHELPDESK/COMPANYOPERATOR  RELATED ********************
@@ -1024,6 +1027,12 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginv2"  'dod-controller-vendor-otploginpage)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendprodpricingsaveaction"  'dod-controller-vendor-product-pricing-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvpmupdateaction"  'dod-controller-vendor-payment-methods-update-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/displayinvoices" 'com-hhub-transaction-show-invoices-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/searchinvoicesaction" 'com-hhub-transaction-search-invoice-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/createinvoiceaction" 'com-hhub-transaction-create-invoice-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/editinvoicepage" 'com-hhub-transaction-edit-invoice-header-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/updateinvoiceaction" 'com-hhub-transaction-update-invoice-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/addcusttoinvoice" 'com-hhub-transaction-add-customer-to-invoice-page)
 	
 			
 ))
