@@ -124,6 +124,9 @@
 		     "invoice/nst-dal-ihd.lisp"
 		     "invoice/nst-bl-ihd.lisp"
 		     "invoice/nst-ui-ihd.lisp"
+		     "invoice/nst-dal-itm.lisp"
+		     "invoice/nst-bl-itm.lisp"
+		     "invoice/nst-ui-itm.lisp"
 		   
 		     ;; UNIT TESTS
 		     "test/hhub-tst-upi.lisp"
