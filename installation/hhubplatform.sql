@@ -93,7 +93,7 @@ select 'creating table DOD_INVOICE_ITEMS' as ' ';
 CREATE TABLE DOD_INVOICE_ITEMS (
  `ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,				
  `INVHEADID` mediumint(9) NOT NULL, -- Foreign key to the invoice_headers table
- `PRDID` mediumint(9) NOT NULL, 
+ `PRD-ID` mediumint(9) NOT NULL, 
  `PRDDESC` TEXT NOT NULL,  -- Description of the Product/Service
  `HSNCODE` VARCHAR(10) NOT NULL, -- HSN Code of the Product/Service
  `QTY` DECIMAL(10, 2) NOT NULL, -- Quantity of the Product/Service
