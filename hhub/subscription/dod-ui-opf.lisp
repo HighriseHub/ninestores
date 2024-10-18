@@ -28,7 +28,8 @@
       (list widget1 widget2))))
 
 
-(defun cust-opf-as-row (orderpref)
+(defun cust-opf-as-row (orderpref &rest params)
+  (declare (ignore params))
   (let* ((opf-id (slot-value orderpref 'row-id))
 	 (opf-product (get-opf-product orderpref))
 	 (prd-name (slot-value opf-product  'prd-name)))
