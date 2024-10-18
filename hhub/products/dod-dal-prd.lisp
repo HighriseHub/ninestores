@@ -50,8 +50,6 @@
     :type (string 256)
     :initarg :prd-image-path)
    
-
-
    (unit-price
     :type float
     :initarg :unit-price)
@@ -212,6 +210,89 @@
    
   (:BASE-TABLE dod_product_pricing))
 
+
+;;;;;;;;;;;; PRODUCT GST ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(clsql:def-view-class dod-product-gst ()
+  ((row-id
+    :db-kind :key
+    :db-constraints :not-null
+    :type integer
+    :initarg row-id)
+
+   (product-id
+    :accessor product-id
+    :DB-CONSTRAINTS :NOT-NULL
+    :TYPE integer
+    :INITARG :product-id)
+
+   (cgstrate
+    :initarg :cgstrate
+    :type float
+    :accessor cgstrate)
+   (sgstrate
+    :initarg :sgstrate
+    :type float
+    :accessor sgstrate)
+   (igst
+    :initarg :igstrate
+    :type float
+    :accessor igstrate)
+   (compcess
+    :initarg :compcess
+    :accessor compcess)
+
+   
+   (price
+    :type float
+    :initarg :price)
+
+   (discount
+    :type float
+    :initarg :discount)
+   
+   (currency
+    :type (string 3)
+    :void-value "INR"
+    :initarg :currency)
+
+   (start-date
+    :accessor start-date
+    :DB-CONSTRAINTS :NOT-NULL
+    :TYPE clsql:date
+    :initarg :start-date)
+   (end-date
+    :accessor end-date
+    :DB-CONSTRAINTS :NOT-NULL
+    :TYPE clsql:date
+    :initarg :end-date)
+      
+   (active-flag
+    :type (string 1)
+    :void-value "N"
+    :initarg :active-flag)
+
+
+   (deleted-state
+    :type (string 1)
+    :void-value "N"
+    :initarg :deleted-state)
+
+   (tenant-id
+    :type integer
+    :initarg :tenant-id)
+   (COMPANY
+    :ACCESSOR product-company
+    :DB-KIND :JOIN
+    :DB-INFO (:JOIN-CLASS dod-company
+	                  :HOME-KEY tenant-id
+                          :FOREIGN-KEY row-id
+                          :SET T)))
+
+   
+  (:BASE-TABLE dod_product_pricing))
+
+;;;;;;;;;;;;; END PRODUCT GST TABLE ;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ; Product category
 
 (clsql:def-view-class dod-prd-catg ()
@@ -266,51 +347,6 @@
 
 
 
-(clsql:def-view-class dod-gst-hsn-codes ()
-  ((row-id
-    :db-kind :key
-    :db-constraints :not-null
-    :type integer
-    :initarg row-id)
-   (hsn-code
-    :accessor hsn-code
-    :TYPE (string 10))
-   (hsn-code-4digit
-    :accessor hsn-code-4digit
-    :type (string 4))
-   
-   (hsn-description
-    :accessor hsn-description
-    :TYPE (string 500))
-
-   (cgst
-    :accessor cgst
-    :type float
-    :initarg :cgst)
-
-   (sgst
-    :accessor sgst
-    :type float
-    :initarg :sgst)
-
-   (igst
-    :accessor igst
-    :type float
-    :initarg :igst)
-
-   (comp-cess
-    :accessor comp-cess
-    :type float
-    :initarg :comp-cess)
-
-   (comp-cess-func
-    :accessor comp-cess-func
-    :TYPE (string 255))
-
-   (gst-hsn-func
-    :accessor gst-hsn-func
-    :TYPE (string 255)))
-  (:BASE-TABLE dod_gst_hsn_codes))
 
 (clsql:def-view-class dod-gst-sac-codes ()
   ((row-id
