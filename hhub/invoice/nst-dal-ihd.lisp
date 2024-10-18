@@ -16,6 +16,18 @@
 (defclass InvoiceHeaderHTMLView (HTMLView)
   ())
 
+(defclass SessionInvoice (BusinessObject)
+  ((customer
+    :initarg :customer
+    :accessor customer)
+   (invoiceheader
+    :initarg :invoiceheader
+    :accessor invoiceheader)
+   (invoiceitems
+    :initarg :inivoiceitems
+    :accessor invoiceitems
+    :initform '())))
+
 (defclass InvoiceHeaderViewModel (ViewModel)
   ((invnum
     :initarg :invnum
@@ -143,7 +155,6 @@
    (finyear
     :initarg :finyear
     :accessor finyear)
-
    (company
     :initarg :company
     :accessor company)))
@@ -153,6 +164,9 @@
   ((invnum
     :initarg :invnum
     :accessor invnum)
+   (context-id
+    :initarg :context-id
+    :accessor context-id)
    (invdate
     :initarg :invdate
     :accessor invdate)
@@ -224,8 +238,14 @@
 (defclass InvoiceHeaderSearchRequestModel (InvoiceHeaderRequestModel)
   ())
 
+(defclass InvoiceHeaderContextIDRequestModel (InvoiceHeaderRequestModel)
+  ())
+
 (defclass InvoiceHeader (BusinessObject)
   ((row-id)
+   (context-id
+    :initarg :context-id
+    :accessor context-id)
    (invnum
     :initarg :invnum
     :initform "000"
@@ -240,7 +260,6 @@
     :accessor customer)
    (vendor
     :initarg :vendor
-    :initform ""
     :accessor vendor)
    (custaddr
     :initarg :custaddr
@@ -309,7 +328,6 @@
 
    (company
     :initarg :company
-    :initform ""
     :accessor company)))
 
 
@@ -319,6 +337,10 @@
     :db-constraints :not-null
     :type integer
     :initarg row-id)
+   (context-id
+    :initarg :context-id
+    :type (string 100)
+    :accessor context-id)
    (invnum
     :initarg :invnum
     :type (string 50)

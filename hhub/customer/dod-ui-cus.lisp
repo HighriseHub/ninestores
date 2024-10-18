@@ -2379,7 +2379,6 @@
     (if vendor (hunchentoot:log-message* :info "Created wallet for vendor ~A" (slot-value vendor 'name)))
     (hunchentoot:redirect (format nil "/hhub/dodcustindex"))))
 
-
 (defun createmodelforcustaddtocart ()
   (let* ((prd-id (parse-integer (hunchentoot:parameter "prd-id")))
 	 (prdqty (parse-integer (hunchentoot:parameter "prdqty")))

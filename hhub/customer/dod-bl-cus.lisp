@@ -147,9 +147,17 @@
 		  [= [:tenant-id] tenant-id]
 		  [= [:active-flag] "Y"]
 		  [like  [:name] name-like-clause]]
+				    :caching *dod-database-caching* :flatp t)))
+
+(defun select-customer-list-by-phone (phone-like-clause company)
+  (let ((tenant-id (slot-value company 'row-id)))
+    (clsql:select 'dod-cust-profile :where [and
+		  [= [:deleted-state] "N"]
+		  [= [:cust-type] "STANDARD"]
+		  [= [:tenant-id] tenant-id]
+		  [= [:active-flag] "Y"]
+		  [like  [:phone] phone-like-clause]]
 					 :caching *dod-database-caching* :flatp t)))
-
-
 
 (defun select-customer-by-phone (phone company)
 (let ((tenant-id (slot-value company 'row-id)))
@@ -168,6 +176,7 @@
     (clsql:select 'dod-cust-profile :where [and
 		       [= [:deleted-state] "N"]
 		       [= [:tenant-id] tenant-id]
+		       [= [:cust-type] "STANDARD"]
 		       [= [:active-flag] "Y"]]
 		       :caching *dod-database-caching* :flatp t)))
 
@@ -270,21 +279,21 @@
 
 (defun create-customer(name address phone  email birthdate password salt city state zipcode company  )
   (let ((tenant-id (slot-value company 'row-id)))
- (clsql:update-records-from-instance (make-instance 'dod-cust-profile
-						    :name name
-						    :address address
-						    :email email 
-						    :password password 
-						    :salt salt
-						    :birthdate birthdate 
-						    :phone phone
-						    :city city 
-						    :state state 
-						    :zipcode zipcode
-						    :tenant-id tenant-id
-						    :cust-type "STANDARD"
-						    :active-flag "N"
-						    :deleted-state "N"))))
+    (clsql:update-records-from-instance (make-instance 'dod-cust-profile
+						       :name name
+						       :address address
+						       :email email 
+						       :password password 
+						       :salt salt
+						       :birthdate birthdate 
+						       :phone phone
+						       :city city 
+						       :state state 
+						       :zipcode zipcode
+						       :tenant-id tenant-id
+						       :cust-type "STANDARD"
+						       :active-flag "Y"
+						       :deleted-state "N"))))
  
 
 (defun create-guest-customer(company)

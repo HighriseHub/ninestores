@@ -401,7 +401,8 @@ T)
 	   (modal-dialog (format nil "editattribute-modal~a" row-id) "Add/Edit Attribute" (com-hhub-transaction-create-attribute-dialog attribute-instance))))))
 
 
-(defun policy-row (policy-instance)
+(defun policy-row (policy-instance &rest arguments)
+  (declare (ignore arguments))
   (let ((name (slot-value policy-instance 'name))
 	(description (slot-value policy-instance 'description))
 	(policy-func (slot-value policy-instance 'policy-func))

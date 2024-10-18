@@ -50,13 +50,13 @@
 	       (cl-who:str
 		(parenscript:ps
 		 (parenscript:chain ($ "document") 
-				     (ready (lambda ()
-					      (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
-					      (if (not (null element))
-						  (parenscript:chain element (add-event-listener "submit" (lambda (e)
-													    (parenscript:chain e (prevent-default))
-													    (let ((target-form (parenscript:@ e target)))
-													      (submitformandredirect target-form)))))))))))))))
+				    (ready (lambda ()
+					     (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
+					     (if (not (null element))
+						 (parenscript:chain element (add-event-listener "submit" (lambda (e)
+													   (parenscript:chain e (prevent-default))
+													   (let ((target-form (parenscript:@ e target)))
+													     (submitformandredirect target-form)))))))))))))))
 
 
 
@@ -573,7 +573,7 @@
   
 
 
-(defun display-as-table (header listdata rowdisplayfunc) 
+(defun display-as-table (header listdata rowdisplayfunc &rest arguments) 
 :documentation "This is a generic function which will display items in list as a html table. You need to pass the html table header and  list data, and a display function which will display data. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizing refer to style.css. " 
   (let ((incr (let ((count 0)) (lambda () (incf count)))))
     (cl-who:with-html-output-to-string (*standard-output* nil)
@@ -581,11 +581,11 @@
       (:div :id "searchresult"  :class "container" 
 	    (:table :class "table table-sm  table-striped  table-hover"
 		    (:thead (:tr
-			     (:th "No")
+			     (:th "Sr. No")
 			     (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
 		    (:tbody :class "table-group-divider"
 		     (mapcar (lambda (item)
-			       (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall rowdisplayfunc item))))  listdata)))))))
+			       (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall rowdisplayfunc item arguments))))  listdata)))))))
 
 
 ;; Can this function be converted into a macro?
@@ -691,11 +691,18 @@ individual tiles. It also supports search functionality by including the searchr
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form ( form-name form-action  &body body) 
-    :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js"  
+    :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js. To have submit form event for this form create it outside the macro."  
     `(cl-who:with-html-output (*standard-output* nil) 
        (:form :class ,form-name :id ,form-name :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
 	      ,@body))))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-form-having-submit-event ( form-name form-action  &body body) 
+    :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js. Use this macro when you have individual form which needs submit event."  
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:form :class ,form-name :id (format nil "id~A" ,form-name) :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
+	      ,@body)
+       (submitformevent-js (format nil "#id~A" ,form-name)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-html-card (cardimage cardimagealt cardtitle cardtext  &body body)
@@ -822,11 +829,11 @@ individual tiles. It also supports search functionality by including the searchr
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-input-textarea (name label placeholder brequired validation-error-msg tabindex rows &body other-attributes)
+  (defmacro with-html-input-textarea (name value label placeholder brequired validation-error-msg tabindex rows &body other-attributes)
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "form-group"
 	     (:label :for ,name ,label)
-	     (:textarea :class "form-control" :name ,name :id ,name :placeholder ,placeholder  :tabindex ,tabindex :required ,brequired  :rows ,rows :data-error ,validation-error-msg :onkeyup "countChar(this, 400)" ,@other-attributes )
+	     (:textarea :class "form-control" :name ,name :id (format nil "id~A" ,name) :value ,value :placeholder ,placeholder  :tabindex ,tabindex :required ,brequired  :rows ,rows :data-error ,validation-error-msg :onkeyup "countChar(this, 400)" ,@other-attributes )
 	     (:div :class "help-block with-errors")))))
 
 

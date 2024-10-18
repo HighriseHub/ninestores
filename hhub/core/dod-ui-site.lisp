@@ -63,8 +63,8 @@
 		(:img :class "profile-img" :src "/img/logo.png" :alt "")))
     (:div :class "row"
 	    (:div :class "col-sm-12"
-		  (:p "Nine Stores is a e-commerce platform offered by Nine Technologies. A platform where you can create your own E-Commerce Stores, Multi Vendor Digital Marketplaces and Community Stores. From Product Catalogs, Basic Inventory Management, Order and Subscription Management, Digital Payments you can take your business to new heights with support from our enthusiastic team.")
-		  (:p (:strong "Community Edition:") " In this journey, we do not want the Community based stores to feel left behind. If you live in an apartment/community and need a store for buying/selling Products and Services, we provide a platform for you FREE! Not only that, we provide this platform FREE to Indian Farmer Community.")
+		  (:p "Nine Stores is a multi paradign platform offering ERP capabilities to Small and Medium sized businesses. We offer GST Invoice/Billing Software for Sellers, Product Catalogs, Basic Inventory Management, Order and Subscription Management, Digital Payments which will help you to take your business to new heights. We also offer FREE e-commerce store to your customers. ")
+		  
 		  (:p "We are a team of enthusiastic professionals keen to make your Digital Journey smooth and enable you to provide that Customer Delight! Nine Stores is a SAAS application which provides you E-Commerce Services, Web Hosting of your Site, Redirection from Your Site to www.ninestores.in, where your customers can experience a great online shopping/services.")
 		  (:div  :class "hhub-footer" (hhub-html-page-footer))))))
   

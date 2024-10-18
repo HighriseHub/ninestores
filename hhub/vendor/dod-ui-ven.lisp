@@ -942,6 +942,31 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	  (:h3 (cl-who:str "No Records Found")))))))
 	
        
+(defun hhub-controller-vsearchcustbyname-for-invoice-action ()
+  (with-vend-session-check
+    (let* ((company (get-login-vendor-company))
+	   (name (hunchentoot:parameter "txtsearchcustomername"))
+	   (customers (select-customer-list-by-name (format nil "%~A%" name) company)))
+      (if (> (length customers) 0)
+	(cl-who:with-html-output (*standard-output* nil) 
+	  (cl-who:str (display-as-table (list "Name" "Phone" "Action") customers 'display-add-customer-to-invoice-row)))
+	;; else
+	(cl-who:with-html-output (*standard-output* nil)
+	  (:h3 (cl-who:str "No Records Found")))))))
+
+(defun hhub-controller-vsearchcustbyphone-for-invoice-action ()
+  (with-vend-session-check
+    (let* ((company (get-login-vendor-company))
+	   (name (hunchentoot:parameter "txtsearchcustomerphone"))
+	   (customers (select-customer-list-by-phone (format nil "~A%" name) company)))
+      (if (> (length customers) 0)
+	(cl-who:with-html-output (*standard-output* nil) 
+	  (cl-who:str (display-as-table (list "Name" "Phone" "Action") customers 'display-add-customer-to-invoice-row)))
+	;; else
+	(cl-who:with-html-output (*standard-output* nil)
+	  (:h3 (cl-who:str "No Records Found")))))))
+
+
 
 (defun display-my-customers-row (customer)
   (let* ((vendor (get-login-vendor))
@@ -1585,6 +1610,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (if vendor (setf (hunchentoot:session-value :vendor-order-items-hashtable) (make-hash-table)))
     (if vendor (setf (hunchentoot:session-value :login-vendor-products-functions) (dod-gen-vendor-products-functions vendor company)))
     (if vendor (setf (hunchentoot:session-value :login-vendor-settings-ht) (make-hash-table :test 'equal)))
+    (if vendor (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-vendor vendor  company)))
+    (if vendor (setf (hunchentoot:session-value :session-invoices-ht) (make-hash-table :test 'equal)))
+    (if vendor (setf (hunchentoot:session-value :login-shopping-cart) '()))
     ;; Add vendor settings to the session. 
     (addloginvendorsettings)
     (let ((sessionkey (createBusinessSession (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite") vsessionobj)))

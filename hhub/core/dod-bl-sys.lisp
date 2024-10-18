@@ -2,9 +2,6 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
-
-
-
 (defun refreshiamsettings ()
   (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions)))
 
@@ -29,7 +26,7 @@
 
 
 (defun init-gst-statecodes ()
-  (let ((ht (make-hash-table)))
+  (let ((ht (make-hash-table :test 'equal)))
     (setf (gethash  "1" ht) "JAMMU AND KASHMIR")
     (setf (gethash  "2" ht) "HIMACHAL PRADESH")
     (setf (gethash  "3" ht) "PUNJAB")

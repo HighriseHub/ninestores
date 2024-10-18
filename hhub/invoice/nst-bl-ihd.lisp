@@ -12,10 +12,17 @@
 
 (defun select-invoice-header-by-invnum (invnum company)
   (let* ((tenant-id (slot-value company 'row-id)))
-    (logiamhere "going to execute select-invoice-header-by-invnum")
     (car (clsql:select 'dod-invoice-header :where
 		       [and 
 		       [=  [:invnum] invnum]
+		       [= [:tenant-id] tenant-id]]
+					   :caching *dod-database-caching* :flatp t))))
+
+(defun select-invoice-header-by-context-id (context-id company)
+  (let* ((tenant-id (slot-value company 'row-id)))
+    (car (clsql:select 'dod-invoice-header :where
+		       [and 
+		       [=  [:context-id] context-id]
 		       [= [:tenant-id] tenant-id]]
 					  :caching *dod-database-caching* :flatp t))))
 
@@ -56,6 +63,7 @@
 
 (defmethod doCreate ((service InvoiceHeaderService) (requestmodel InvoiceHeaderRequestModel))
   (let* ((InvoiceHeaderdbservice (make-instance 'InvoiceHeaderDBService))
+	 (context-id (context-id requestmodel))
 	 (vendor (vendor requestmodel))
 	 (company (company requestmodel))
 	 (customer (customer requestmodel))
@@ -77,7 +85,7 @@
 	 (tnc (tnc requestmodel))
 	 (authsign (authsign requestmodel))
 	 (finyear (finyear requestmodel))
-	 (domainobj (createInvoiceHeaderobject invnum invdate customer custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company)))
+	 (domainobj (createInvoiceHeaderobject context-id invnum invdate customer custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company)))
          ;; Initialize the DB Service
     (init InvoiceHeaderdbservice domainobj)
     (copy-businessobject-to-dbobject InvoiceHeaderdbservice)
@@ -86,29 +94,30 @@
     domainobj))
 
 
-(defun createInvoiceHeaderobject (invnum invdate customer custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company)
+(defun createInvoiceHeaderobject (context-id invnum invdate customer custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company)
   (let* ((domainobj  (make-instance 'InvoiceHeader 
-				       :invnum invnum
-				       :invdate invdate
-				       :custaddr custaddr
-				       :custgstin custgstin
-				       :statecode statecode
-				       :billaddr billaddr
-				       :shipaddr shipaddr
-				       :placeofsupply placeofsupply
-				       :revcharge revcharge 
-				       :transmode transmode
-				       :vnum vnum
-				       :totalvalue totalvalue
-				       :totalinwords totalinwords
-				       :bankaccnum bankaccnum
-				       :bankifsccode bankifsccode
-				       :tnc tnc
-				       :authsign authsign
-				       :finyear finyear
-				       :vendor vendor
-				       :customer customer
-				       :company company)))
+				    :context-id context-id
+				    :invnum invnum
+				    :invdate invdate
+				    :custaddr custaddr
+				    :custgstin custgstin
+				    :statecode statecode
+				    :billaddr billaddr
+				    :shipaddr shipaddr
+				    :placeofsupply placeofsupply
+				    :revcharge revcharge 
+				    :transmode transmode
+				    :vnum vnum
+				    :totalvalue totalvalue
+				    :totalinwords totalinwords
+				    :bankaccnum bankaccnum
+				    :bankifsccode bankifsccode
+				    :tnc tnc
+				    :authsign authsign
+				    :finyear finyear
+				    :vendor vendor
+				    :customer customer
+				    :company company)))
     domainobj))
 
 (defmethod Copy-BusinessObject-To-DBObject ((dbas InvoiceHeaderDBService))
@@ -122,7 +131,8 @@
   (let ((vendor (slot-value source 'vendor))
 	(customer (slot-value source 'customer))
 	(company (slot-value source 'company)))
-    (with-slots (invdate custname custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear deleted-state  custid vendor-id tenant-id) destination
+    (with-slots (context-id invdate custname custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear deleted-state  custid vendor-id tenant-id) destination
+      (setf context-id (slot-value source 'context-id))
       (setf vendor-id (slot-value vendor 'row-id))
       (setf tenant-id (slot-value company 'row-id))
       (setf custid (slot-value customer 'row-id))
@@ -328,6 +338,11 @@
   (setf (slot-value adapter 'businessservice) (find-class 'InvoiceHeaderService))
   (call-next-method))
 
+(defmethod ProcessReadRequest ((adapter InvoiceHeaderAdapter) (requestmodel InvoiceHeaderContextIDRequestModel))
+  :description "Adapter service method to read a single InvoiceHeader"
+  (setf (slot-value adapter 'businessservice) (find-class 'InvoiceHeaderService))
+  (call-next-method))
+
 (defmethod doread ((service InvoiceHeaderService) (requestmodel InvoiceHeaderRequestModel))
   (let* ((comp (company requestmodel))
 	 (invnum (invnum requestmodel))
@@ -337,33 +352,44 @@
     (setf (slot-value InvoiceHeaderobj 'company) comp)
     (copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)))
 
+(defmethod doread ((service InvoiceHeaderService) (requestmodel InvoiceHeaderContextIDRequestModel))
+  (let* ((comp (company requestmodel))
+	 (context-id (context-id requestmodel))
+	 (dbInvoiceHeader (select-invoice-header-by-context-id context-id comp))
+	 (InvoiceHeaderobj (make-instance 'InvoiceHeader)))
+    ;; return back a Invoice Header  object
+    (setf (slot-value InvoiceHeaderobj 'company) comp)
+    (copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)))
 
-(defun copyInvoiceHeader-dbtodomain (source destination)
-  (let* ((comp (select-company-by-id (slot-value source 'tenant-id)))
-	 (vend (select-vendor-by-id (slot-value source 'vendor-id)))
-	 (cust (select-customer-by-id (slot-value source 'custid) comp)))
 
-    (with-slots (invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company) destination
+(defun copyInvoiceHeader-dbtodomain (dbsrc domaindest)
+  (let* ((comp (select-company-by-id (slot-value dbsrc 'tenant-id)))
+	 (vend (select-vendor-by-id (slot-value dbsrc 'vendor-id)))
+	 (cust (select-customer-by-id (slot-value dbsrc 'custid) comp)))
+
+    (with-slots (context-id row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company) domaindest
       (setf vendor vend)
       (setf customer cust)
       (setf company comp)
-      (setf invnum (slot-value source 'invnum))
-      (setf invdate (slot-value source 'invdate))
-      (setf custaddr (slot-value source 'custaddr))
-      (setf custgstin (slot-value source 'custgstin))
-      (setf statecode (slot-value source 'statecode))
-      (setf billaddr (slot-value source 'billaddr))
-      (setf shipaddr (slot-value source 'shipaddr))
-      (setf placeofsupply (slot-value source 'placeofsupply))
-      (setf revcharge (slot-value source 'revcharge))
-      (setf transmode (slot-value source 'transmode))
-      (setf vnum (slot-value source 'vnum))
-      (setf totalvalue (slot-value source 'totalvalue))
-      (setf totalinwords (slot-value source 'totalinwords))
-      (setf bankaccnum (slot-value source 'bankaccnum))
-      (setf bankifsccode (slot-value source 'bankifsccode))
-      (setf tnc (slot-value source 'tnc))
-      (setf authsign (slot-value source 'authsign))
-      (setf finyear (slot-value source 'finyear))
-      destination)))
+      (setf context-id (slot-value dbsrc 'context-id))
+      (setf row-id (slot-value dbsrc 'row-id))
+      (setf invnum (slot-value dbsrc 'invnum))
+      (setf invdate (slot-value dbsrc 'invdate))
+      (setf custaddr (slot-value dbsrc 'custaddr))
+      (setf custgstin (slot-value dbsrc 'custgstin))
+      (setf statecode (slot-value dbsrc 'statecode))
+      (setf billaddr (slot-value dbsrc 'billaddr))
+      (setf shipaddr (slot-value dbsrc 'shipaddr))
+      (setf placeofsupply (slot-value dbsrc 'placeofsupply))
+      (setf revcharge (slot-value dbsrc 'revcharge))
+      (setf transmode (slot-value dbsrc 'transmode))
+      (setf vnum (slot-value dbsrc 'vnum))
+      (setf totalvalue (slot-value dbsrc 'totalvalue))
+      (setf totalinwords (slot-value dbsrc 'totalinwords))
+      (setf bankaccnum (slot-value dbsrc 'bankaccnum))
+      (setf bankifsccode (slot-value dbsrc 'bankifsccode))
+      (setf tnc (slot-value dbsrc 'tnc))
+      (setf authsign (slot-value dbsrc 'authsign))
+      (setf finyear (slot-value dbsrc 'finyear))
+      domaindest)))
 
