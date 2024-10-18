@@ -40,7 +40,29 @@
       (function (lambda ()
 	(values viewallmodel htmlview username))))))
 
-
+(defun createwidgetsforshowxxxx (modelfunc)
+ :description "This is the view/widget function for show xxxx entities" 
+  (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-vendor-breadcrumb)
+		       (xxxx-search-html)
+			 (:hr)))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (with-html-div-row
+			 (:h4 "Showing records for xxxx."))
+		       (:div :id "xxxxlivesearchresult" 
+			     (:div :class "row"
+				   (:div :class"col-xs-6"
+					 (:a :href "/hhub/addxxxx" (:i :class "fa-solid fa-plus") "&nbsp;&nbsp;Create xxxx"))
+				   (:div :class "col-xs-6" :align "right" 
+					 (:span :class "badge" (cl-who:str (format nil "~A" (length viewallmodel))))))
+			     (:hr)
+			     (cl-who:str (RenderListViewHTML htmlview viewallmodel)))))))
+	  (widget3 (function (lambda ()
+		     (submitformevent-js "#xxxxlivesearchresult")))))
+      (list widget1 widget2 widget3))))
 
 (defun createwidgetsforupdatexxxx (modelfunc)
 :description "This is a widgets function for update xxxx entity"      
@@ -65,7 +87,7 @@
 						 :field1 search-clause
 						 :company company))
 	 (adapterobj (make-instance 'xxxxAdapter))
-	 (domainbojlst (processreadallrequest adapterobj requestmodelobj))
+	 (domainobjlst (processreadallrequest adapterobj requestmodelobj))
 	 (responsemodellist (processresponselist adapterobj domainobjlst))
 	 (viewallmodel (CreateAllViewModel presenterobj responsemodellist))
 	 (htmlview (make-instance 'xxxxHTMLView))
