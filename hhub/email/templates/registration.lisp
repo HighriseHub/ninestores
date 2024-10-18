@@ -74,29 +74,28 @@
   :documentation "You can insert any html table content here. It will be merged with the html display template on the upward journey" 
   (let* ((cust-name (slot-value customer 'name)))
 	;(id (slot-value customer 'row-id)))
-   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-					      (:table :width "600" :cellpadding "0" :cellspacing "0" :border "1" :class "container" 
-						      (:tr 
-						       (:td :class "td-padding" :align "left" (cl-who:str (format nil "Welcome ~A!" cust-name)))
-						       (:tr
-							(:td :class "td-padding" :align "left" :style "font-family: 'Roboto Mono', monospace; color: #212121!important; font-size: 24px; line-height: 30px; padding-top: 18px; padding-left: 18px!important; padding-right: 18px!important; padding-bottom: 0px!important; mso-line-height-rule: exactly; mso-padding-alt: 18px 18px 0px 13px;" 
-							     "Thank you for registering. We appreciate your memebership. "))
-						
-						       (:tr
-							(:td :class "td-padding" :align "left" :style "font-family: 'Roboto Mono', monospace; color: #212121!important; font-size: 16px; line-height: 24px; padding-top: 18px; padding-left: 18px!important; padding-right: 18px!important; padding-bottom: 0px!important; mso-line-height-rule: exactly; mso-padding-alt: 18px 18px 0px 18px;" 
-							     "Please click on the verification link below. "
-							    ) )
-						      						       
-						       (:tr
-							(:td :align "left" :style "padding: 18px 18px 18px 18px; mso-alt-padding: 18px 18px 18px 18px!important;" 
-							     (:table :width "100%" :border "1" :cellspacing "0" :cellpadding "0" 
-								     (:tr
-								      (:td 
-								       (:table :border "1" :cellspacing "0" :cellpadding "0" 
-									       (:tr
-										(:td :align "left" :style ":border-radius: 3px;" :bgcolor "#17bef7" 
-										     (:a :class "button raised" :href verify-url :target "_blank" :style "font-size: 14px; line-height: 14px; font-weight: 500; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; :border-radius: 3px; padding: 10px 25px; :border: 1px solid #17bef7; display: inline-block;" "Activate Your Account") )))))))))))))
-	   
+    (cl-who:with-html-output-to-string
+	(*standard-output* nil :prologue t :indent t)
+      (:table :width "600" :cellpadding "0" :cellspacing "0" :border "1" :class "container" 
+	      (:tr 
+	       (:td :class "td-padding" :align "left" (cl-who:str (format nil "Welcome ~A!" cust-name)))
+	       (:tr
+		(:td :class "td-padding" :align "left" :style "font-family: 'Roboto Mono', monospace; color: #212121!important; font-size: 24px; line-height: 30px; padding-top: 18px; padding-left: 18px!important; padding-right: 18px!important; padding-bottom: 0px!important; mso-line-height-rule: exactly; mso-padding-alt: 18px 18px 0px 13px;" 
+		     "Thank you for registering. We appreciate your memebership. "))
+	       
+	       (:tr
+		(:td :class "td-padding" :align "left" :style "font-family: 'Roboto Mono', monospace; color: #212121!important; font-size: 16px; line-height: 24px; padding-top: 18px; padding-left: 18px!important; padding-right: 18px!important; padding-bottom: 0px!important; mso-line-height-rule: exactly; mso-padding-alt: 18px 18px 0px 18px;" 
+		     "Please click on the verification link below. "))
+	       (:tr
+		(:td :align "left" :style "padding: 18px 18px 18px 18px; mso-alt-padding: 18px 18px 18px 18px!important;" 
+		     (:table :width "100%" :border "1" :cellspacing "0" :cellpadding "0" 
+			     (:tr
+			      (:td 
+			       (:table :border "1" :cellspacing "0" :cellpadding "0" 
+				       (:tr
+					(:td :align "left" :style ":border-radius: 3px;" :bgcolor "#17bef7" 
+					     (:a :class "button raised" :href verify-url :target "_blank" :style "font-size: 14px; line-height: 14px; font-weight: 500; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; :border-radius: 3px; padding: 10px 25px; :border: 1px solid #17bef7; display: inline-block;" "Activate Your Account") )))))))))))))
+
 (defmethod send-test-email (customer)
   (let* ((reg-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-REG-TEMPLATE-FILE*)))
 	(cust-reg-email (format nil reg-templ-str (slot-value customer 'name)))) 
