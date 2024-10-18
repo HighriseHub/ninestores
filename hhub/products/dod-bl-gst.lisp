@@ -2,54 +2,58 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
-(defun select-hsn-codes-by-text (hsn-desc-like company)
-  (let* ((tenant-id (slot-value company 'row-id)))
-    (clsql:select 'dod-gst-hsn-codes :where 
-		  [and
-		  [= [:tenant-id] tenant-id]
-		  [like [:hsn-description] (format NIL "%~a%"  hsn-desc-like)]]
-	       :caching *dod-database-caching* :flatp t)))
+(defun select-hsn-codes-by-text (hsn-desc-like)
+  (clsql:select 'dod-gst-hsn-codes :where 
+		[and
+		[= [:tenant-id] 1]
+		[like [:hsn-description] (format NIL "%~a%"  hsn-desc-like)]]
+		:caching *dod-database-caching* :flatp t))
 
-(defun select-hsn-code-by-id (id company)
-  (let* ((tenant-id (slot-value company 'row-id)))
-    (car (clsql:select 'dod-gst-hsn-codes :where 
-		       [and 
-		       [=  [:row-id] id]
-		       [= [:tenant-id] tenant-id]]
-					  :caching *dod-database-caching* :flatp t))))
+(defun select-hsn-code-by-id (id)
+(car (clsql:select 'dod-gst-hsn-codes :where 
+		   [and 
+		   [=  [:row-id] id]
+		   [= [:tenant-id] 1]]
+		     		      :caching *dod-database-caching* :flatp t)))
 
-(defun select-matching-hsn-codes (hsn-code-like company)
-  (let* ((tenant-id (slot-value company 'row-id)))
-    (logiamhere (format nil "got search clause for hsn code = ~A" hsn-code-like))
-    (clsql:select 'dod-gst-hsn-codes :where
-		       [and 
-		       [like  [:hsn-code] (format NIL "~a%"  hsn-code-like)]
-		       [= [:tenant-id] tenant-id]]
-		       :limit 200
-		       :caching *dod-database-caching* :flatp t)))
+(defun select-matching-hsn-codes (hsn-code-like)
+(clsql:select 'dod-gst-hsn-codes :where
+	      [and 
+	      [like  [:hsn-code] (format NIL "~a%"  hsn-code-like)]
+	      [= [:tenant-id] 1]]
+	      :limit 200
+	      :caching *dod-database-caching* :flatp t))
 
-(defun select-hsn-code-by-code (hsn-code company)
-  (let* ((tenant-id (slot-value company 'row-id)))
-    (car (clsql:select 'dod-gst-hsn-codes :where
-		       [and 
-		       [=  [:hsn-code] hsn-code]
-		       [= [:tenant-id] tenant-id]]
-					  :caching *dod-database-caching* :flatp t))))
+(defun select-hsn-code-by-code (hsn-code )
+(car (clsql:select 'dod-gst-hsn-codes :where
+		   [and 
+		   [=  [:hsn-code] hsn-code]
+		   [= [:tenant-id] 1]]
+				      :caching *dod-database-caching* :flatp t)))
 
 
-(defun select-all-GSTHSNCodes (company)
-  :documentation "This function stores all the currencies in a hashtable. The Key = country, Value = list of currency, code and symbol."
-  (let* ((tenant-id (slot-value company 'row-id))
-	(hsn-codes (clsql:select 'dod-gst-hsn-codes :where
-				 [= [:tenant-id] tenant-id]
+(defun select-all-GSTHSNCodes ()
+:documentation "This function stores all the currencies in a hashtable. The Key = country, Value = list of currency, code and symbol."
+(clsql:select 'dod-gst-hsn-codes :where
+	      [= [:tenant-id] 1]
 				 :limit 200
-				 :caching *dod-database-caching* :flatp t )))
-    hsn-codes))
+				 :caching *dod-database-caching* :flatp t ))
 
 
 (defun get-system-gst-hsn-codes ()
-  (select-all-GSTHSNCodes (select-company-by-id 1)))
+  (select-all-GSTHSNCodes))
 
+
+(defun get-gstvalues-for-product (product)
+  (let* ((hsncode (slot-value product 'hsn-code))
+	 (adapter (make-instance 'GSTHSNCodesAdapter))
+	 (requestmodel (make-instance 'GSTHSNCodesRequestModel
+				      :hsncode hsncode
+				      :company (product-company product)))
+	 (gsthsncodeobj (processreadrequest adapter requestmodel)))
+    (when gsthsncodeobj
+      (with-slots (cgst sgst igst compcess) gsthsncodeobj
+	(list cgst sgst igst compcess)))))
 
 ;; METHODS FOR ENTITY CREATE 
 ;; This file contains template code which will be used to generate for class methods.
@@ -76,7 +80,7 @@
 
 (defmethod doreadall ((service GSTHSNCodesService) (requestmodel GSTHSNCodesRequestModel))
   (let* ((comp (company requestmodel))
-	 (readalllst (select-all-GSTHSNCodes comp)))
+	 (readalllst (select-all-GSTHSNCodes)))
     ;; return back a list of GST HSN Codes response model
     (mapcar (lambda (object)
 	      (let ((domainobj (make-instance 'GSTHSNCodes)))
@@ -86,7 +90,7 @@
 (defmethod doreadall ((service GSTHSNCodesService) (requestmodel GSTHSNCodesSearchRequestModel))
   (let* ((comp (company requestmodel))
 	 (hsn-code-like (hsncode requestmodel))
-	 (readalllst (select-matching-hsn-codes hsn-code-like comp)))
+	 (readalllst (select-matching-hsn-codes hsn-code-like)))
     ;; return back a list of GST HSN Codes response model
     (mapcar (lambda (dbobject)
 	      (let ((domainobj (make-instance 'GSTHSNCodes)))
@@ -217,7 +221,7 @@
 	 (igst (igst requestmodel))
 	 (compcess (compcess requestmodel))
 	 (comp (company requestmodel))
-	 (GSTHSNCodesdbobj (select-hsn-code-by-code hsncode comp))
+	 (GSTHSNCodesdbobj (select-hsn-code-by-code hsncode))
 	 (domainobj (make-instance 'GSTHSNCodes)))
     ;; FIELD UPDATE CODE STARTS HERE 
     (when GSTHSNCodesdbobj
@@ -250,7 +254,7 @@
 (defmethod doread ((service GSTHSNCodesService) (requestmodel GSTHSNCodesRequestModel))
   (let* ((comp (company requestmodel))
 	 (code (hsncode requestmodel))
-	 (dbGSTHSNCode (select-hsn-code-by-code code comp))
+	 (dbGSTHSNCode (select-hsn-code-by-code code))
 	 (GSTHSNCodesobj (make-instance 'GSTHSNCodes)))
     ;; return back a Vpaymentmethod  response model
     (setf (slot-value GSTHSNCodesobj 'company) comp)
@@ -258,12 +262,13 @@
       (copyGSTHSNCodes-dbtodomain dbGSTHSNCode GSTHSNCodesobj))))
 
 (defun copyGSTHSNCodes-dbtodomain (source destination)
-  (with-slots (hsncode hsncode4digit description sgst cgst igst compcess company) destination
-      (setf hsncode (slot-value source 'hsn-code))
-      (setf hsncode4digit  (slot-value source 'hsn-code-4digit))
-      (setf description (slot-value source 'hsn-description))
-      (setf sgst (slot-value source 'sgst))
-      (setf cgst (slot-value source 'cgst))
-      (setf igst (slot-value source 'igst))
-      (setf compcess (slot-value source 'comp-cess))
+  (with-slots (row-id hsncode hsncode4digit description sgst cgst igst compcess company) destination
+    (setf row-id (slot-value source 'row-id))
+    (setf hsncode (slot-value source 'hsn-code))
+    (setf hsncode4digit  (slot-value source 'hsn-code-4digit))
+    (setf description (slot-value source 'hsn-description))
+    (setf sgst (slot-value source 'sgst))
+    (setf cgst (slot-value source 'cgst))
+    (setf igst (slot-value source 'igst))
+    (setf compcess (slot-value source 'comp-cess))
     destination))
