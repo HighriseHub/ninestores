@@ -49,13 +49,12 @@ drop table if exists DOD_COMPANY;  SELECT 'dropping apartment complex/society/gr
 select 'tables dropped' as ' ';
 
 
-
-
 select 'creating table DOD_INVOICE_HEADER' as ' ';
 CREATE TABLE DOD_INVOICE_HEADER (
  `ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,			
  `INVNUM` VARCHAR(50) NOT NULL UNIQUE, -- Unique Invoice Number
  `INVDATE` DATE NOT NULL, -- Date of Invoice
+ `CONTEXT_ID` VARCHAR(100), 
  `CUSTID` mediumint(9) DEFAULT NULL,
  `VENDOR_ID` mediumint(9) DEFAULT NULL, 
  `CUSTNAME` VARCHAR(255) NOT NULL, -- Name of the Customer
