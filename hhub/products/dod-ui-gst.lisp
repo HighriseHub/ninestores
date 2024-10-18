@@ -10,9 +10,6 @@
 			(submitsearchform1event-js "#idhsncodeslivesearch" "#hsncodeslivesearchresult")))))))
 
 
-
-
-
 (defun com-hhub-transaction-gst-hsn-codes-page ()
   (with-opr-session-check
     (with-mvc-ui-page "GST HSN Codes" createmodelforshowgsthsncodes createwidgetsforshowgsthsncodes :role :superadmin)))
@@ -59,10 +56,8 @@
 				   (:div :class "col-xs-6" :align "right" 
 					 (:span :class "badge" (cl-who:str (format nil "~A" (length viewallmodel))))))
 			     (:hr)
-			     (cl-who:str (RenderListViewHTML htmlview viewallmodel)))))))
-	  (widget3 (function (lambda ()
-		     (submitformevent-js "#hsncodeslivesearchresult")))))
-      (list widget1 widget2 widget3))))
+			     (cl-who:str (RenderListViewHTML htmlview viewallmodel))))))))
+      (list widget1 widget2))))
 
 
 (defun createwidgetsforsearchhsncodes (modelfunc)
@@ -76,13 +71,12 @@
 			     (:div :class "col-xs-6" :align "right" 
 				   (:span :class "badge" (cl-who:str (format nil "~A" (length viewallmodel))))))
 		       (:hr)
-		       (cl-who:str (RenderListViewHTML htmlview viewallmodel)))))))
+		       (RenderListViewHTML htmlview viewallmodel))))))
       (list widget1))))
 
 
 (defmethod RenderListViewHTML ((htmlview GSTHSNCodesHTMLView) viewmodellist)
   (when viewmodellist
-    (logiamhere (format nil "length of search viewmodellist is  ~d" (length viewmodellist)))
     (display-as-table (list "HSN Code" "4 Digit Code" "Description" "SGST" "CGST" "IGST" "Compensation Cess") viewmodellist 'display-gst-hsn-code-row)))
 
 (defun createmodelforsearchhsncodes ()
@@ -215,7 +209,8 @@
   (createwidgetsforgenericredirect modelfunc))
 
  
-(defun display-gst-hsn-code-row (gst-hsn-code)
+(defun display-gst-hsn-code-row (gst-hsn-code &rest arguments)
+  (declare (ignore arguments))
   (with-slots (hsncode hsncode4digit description sgst cgst igst compcess) gst-hsn-code 
     (cl-who:with-html-output (*standard-output* nil)
       (:td  :height "10px" (cl-who:str hsncode))
