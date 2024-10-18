@@ -60,7 +60,7 @@
     domainobj))
 
 
-(defun createxxxxobject (fieldA fieldB fieldC fieldD fieldE fieldF fieldG fieldH fieldI vendor customer company)
+(defun createxxxxobject (fieldA fieldB fieldC fieldD fieldE fieldF fieldG fieldH fieldI fieldJ fieldK fieldL fieldM fieldN fieldO fieldP fieldQ fieldR fieldS  vendor customer company)
   (let* ((domainobj  (make-instance 'xxxx 
 				       :fieldA fieldA
 				       :fieldB fieldB
@@ -156,7 +156,7 @@
       (setf (slot-value viewmodel 'customer) customer)
       (setf (slot-value viewmodel 'fieldA) fieldA)
       (setf (slot-value viewmodel 'fieldB) fieldB)
-      (setf (slot-value viewmodel 'fieldC fieldC)
+      (setf (slot-value viewmodel 'fieldC) fieldC)
       (setf (slot-value viewmodel 'fieldD) fieldD)
       (setf (slot-value viewmodel 'fieldE) fieldE)
       (setf (slot-value viewmodel 'fieldF) fieldF)
@@ -166,7 +166,7 @@
       (setf (slot-value viewmodel 'fieldJ) fieldJ)
       (setf (slot-value viewmodel 'fieldK) fieldK)
       (setf (slot-value viewmodel 'fieldL) fieldL)
-      (setf (slot-value viewmodel 'fieldM fieldM)
+      (setf (slot-value viewmodel 'fieldM) fieldM)
       (setf (slot-value viewmodel 'fieldN) fieldN)
       (setf (slot-value viewmodel 'fieldO) fieldO)
       (setf (slot-value viewmodel 'fieldP) fieldP)
