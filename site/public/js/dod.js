@@ -21,6 +21,21 @@ const setRangeValue = (event)=>{
     rangeV.style.left = `calc(${newValue}% + (${newPosition}px))`;
     };
 
+const oninput = (event)=>{
+    
+    const range = event.target;
+    const id = event.target.id; 
+    const prdrowid = id.substring(id.indexOf("_") + 1);
+    const rangeV = document.querySelector('#rangeV_' + prdrowid);
+    const
+    newValue = Number( (range.value - range.min) * 100 / (range.max - range.min) ),
+    newPosition = 10 - (newValue * 0.2);
+    rangeV.innerHTML = `<span>${range.value}</span>`;
+    rangeV.style.left = `calc(${newValue}% + (${newPosition}px))`;
+    };
+
+
+
 $(document).ready(function() {
   var $navbar = $("#hhubcustnavbar");
   
