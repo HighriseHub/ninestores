@@ -281,7 +281,7 @@
 	
 	(with-html-div-row
 	  (with-html-div-col
-	    (with-html-input-textarea "cmpaddress" "Address" "Enter Address" T "Enter Address" 5 3))
+	    (with-html-input-textarea "cmpaddress" "Address" "Address" "Enter Address" T "Enter Address" 5 3))
 	  (:div :class "form-group" :id "charcount"))
 	
 	(:input  :type "hidden" :value cmp-type :name "cmptype")
@@ -946,7 +946,6 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustpaymentmethodspage"   'dod-controller-customer-payment-methods-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustwalletrechargepage"   'hhub-controller-upi-recharge-wallet-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustwalletrechargeaction"   'hhub-controller-upi-recharge-wallet-action)
-	(hunchentoot:create-regex-dispatcher "^/hhub/hhubsearchmycustomer"   'hhub-controller-search-my-customer-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcarouseltest"   'hhub-controller-carousel-test)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustshippingmethodspage"   'dod-controller-cust-shipping-methods-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginotpstep"  'dod-controller-cust-login-otpstep)
@@ -1033,7 +1032,14 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/editinvoicepage" 'com-hhub-transaction-edit-invoice-header-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/updateinvoiceaction" 'com-hhub-transaction-update-invoice-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/addcusttoinvoice" 'com-hhub-transaction-add-customer-to-invoice-page)
-	
+	(hunchentoot:create-regex-dispatcher "^/hhub/vendorcreatecustomer" 'com-hhub-transaction-vendor-create-customer-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubsearchmycustomer"   'hhub-controller-search-my-customer-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vsearchcustbyname"   'hhub-controller-vsearchcustbyname-for-invoice-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vsearchcustbyphone"   'hhub-controller-vsearchcustbyphone-for-invoice-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vproductsforinvoicepage"   'com-hhub-transaction-add-product-to-invoice-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vsearchproductforinvoice"   'com-hhub-transaction-search-product-for-invoice-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vaddtocartforinvoice"   'com-hhub-transaction-vendor-addtocart-for-invoice-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vshowinvoiceconfirmpage"   'com-hhub-transaction-show-invoice-confirm-page)
 			
 ))
 
