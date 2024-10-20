@@ -968,7 +968,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 
-(defun display-my-customers-row (customer)
+(defun display-my-customers-row (customer &rest arguments)
+  (declare (ignore arguments))
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (currency (get-account-currency company))
