@@ -23,13 +23,13 @@
   :documentation "This function stores all the currencies in a hashtable. The Key = country, Value = list of currency, code and symbol."
   (let* ((tenant-id (slot-value company 'row-id))
 	 (invheadid (slot-value invoiceheader 'row-id)))
-    (clsql:select 'dod-invoice-items :where
+    (car (clsql:select 'dod-invoice-items :where
 		  [and
 		  [= [:prd-id] product-id]
 		  [= [:invheadid] invheadid]
 		  [= [:tenant-id] tenant-id]]
 		    :limit 100
-		    :caching *dod-database-caching* :flatp t )))
+		    :caching *dod-database-caching* :flatp t ))))
 
 
 (defmethod ProcessCreateRequest ((adapter InvoiceItemAdapter) (requestmodel InvoiceItemRequestModel))
@@ -221,43 +221,27 @@
   (let* ((InvoiceItemdbservice (make-instance 'InvoiceItemDBService))
 	 (InvoiceHeader (InvoiceHeader requestmodel))
 	 (prd-id (prd-id requestmodel))
-	 (prddesc (prddesc requestmodel))
-	 (hsncode (hsncode requestmodel))
 	 (qty (qty requestmodel))
-	 (uom (uom requestmodel))
 	 (price (price requestmodel))
 	 (discount (discount requestmodel))
 	 (taxablevalue (taxablevalue requestmodel))
-	 (cgstrate (cgstrate requestmodel))
 	 (cgstamt (cgstamt requestmodel))
-	 (sgstrate (sgstrate requestmodel))
 	 (sgstamt (sgstamt requestmodel))
-	 (igstrate (igstrate requestmodel))
-	 (igstamt (igstrate requestmodel))
+	 (igstamt (igstamt requestmodel))
 	 (totalitemval (totalitemval requestmodel))
 	 (comp (company requestmodel))
-	 (InvoiceItemdbobj (select-all-invoice-items invoiceheader comp))
+	 (InvoiceItemdbobj (select-invoice-item-by-product-id prd-id invoiceheader comp))
 	 (domainobj (make-instance 'InvoiceItem)))
     ;; FIELD UPDATE CODE STARTS HERE 
     (when invoiceheader  
-      (setf (slot-value InvoiceItemdbobj 'invheadid) (slot-value invoiceheader 'row-id))
-      (setf (slot-value InvoiceItemdbobj 'prd-id) prd-id)
-      (setf (slot-value InvoiceItemdbobj 'prddesc) prddesc)
-      (setf (slot-value InvoiceItemdbobj 'hsncode) hsncode)
       (setf (slot-value InvoiceItemdbobj 'qty) qty)
-      (setf (slot-value InvoiceItemdbobj 'uom) uom)
       (setf (slot-value InvoiceItemdbobj 'price) price)
       (setf (slot-value InvoiceItemdbobj 'discount) discount)
-      (setf (slot-value InvoiceItemdbobj 'taxablevalue) taxablevalue)
-      (setf (slot-value InvoiceItemdbobj 'cgstrate) cgstrate)
+      (setf (slot-value InvoiceItemdbobj 'taxable-value) taxablevalue)
       (setf (slot-value InvoiceItemdbobj 'cgstamt) cgstamt)
-      (setf (slot-value InvoiceItemdbobj 'sgstrate) sgstrate)
       (setf (slot-value InvoiceItemdbobj 'sgstamt) sgstamt)
-      (setf (slot-value InvoiceItemdbobj 'igstrate) igstrate)
       (setf (slot-value InvoiceItemdbobj 'igstamt) igstamt)
-      (setf (slot-value InvoiceItemdbobj 'totalitemval) totalitemval)
-      (setf (slot-value InvoiceItemdbobj 'tenant-id) (slot-value comp 'row-id)))
-        
+      (setf (slot-value InvoiceItemdbobj 'totalitemval) totalitemval))
     ;;  FIELD UPDATE CODE ENDS HERE. 
     
     (setf (slot-value InvoiceItemdbservice 'dbobject) InvoiceItemdbobj)
