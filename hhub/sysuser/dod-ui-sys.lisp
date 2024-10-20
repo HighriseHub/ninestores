@@ -1040,7 +1040,8 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/vsearchproductforinvoice"   'com-hhub-transaction-search-product-for-invoice-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vaddtocartforinvoice"   'com-hhub-transaction-vendor-addtocart-for-invoice-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vshowinvoiceconfirmpage"   'com-hhub-transaction-show-invoice-confirm-page)
-			
+	(hunchentoot:create-regex-dispatcher "^/hhub/updateInvoiceItemaction"   'com-hhub-transaction-update-InvoiceItem-action)
+
 ))
 
 
