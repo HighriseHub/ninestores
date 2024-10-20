@@ -87,7 +87,11 @@
 ;;				(slot-value item 'row-id)) list))))
 
     (if (not (equal row-id (slot-value (car list) 'row-id))) (search-prd-in-list row-id (cdr list))
-    (car list)))
+	(car list)))
+
+(defun search-item-in-list (row-id list)
+  (if (not (equal row-id (slot-value (car list) 'row-id))) (search-item-in-list row-id (cdr list))
+      (car list)))
 
 
 (defun filter-products-by-category (category-id list)
