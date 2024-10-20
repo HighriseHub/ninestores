@@ -13,7 +13,6 @@
 	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
-	 (sessioninvcustomer (slot-value sessioninvoice 'Customer))
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
 	 (context-id (slot-value sessioninvheader 'context-id)) 
 	 (hrequestmodel (make-instance 'InvoiceHeaderContextIDRequestModel
@@ -26,11 +25,15 @@
 				       :invoiceheader invheader))
 	 (itemsadapter (make-instance 'InvoiceItemAdapter))
 	 (sessioninvitems (processreadallrequest itemsadapter irequestmodel)))
+
+    (setf (slot-value sessioninvoice 'InvoiceItems) sessioninvitems)
+    (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
+    (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)	   
     (function (lambda ()
-      (values sessioninvkey sessioninvcustomer invheader sessioninvitems)))))
+      (values sessioninvkey  invheader sessioninvitems)))))
 
 (defun createwidgetsforshowinvoiceconfirmpage (modelfunc)
-  (multiple-value-bind (sessioninvkey sessioninvcustomer sessioninvheader sessioninvitems) (funcall modelfunc)
+  (multiple-value-bind (sessioninvkey  sessioninvheader sessioninvitems) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (with-vendor-breadcrumb
 			(:li :class "breadcrumb-item" (:a :href "displayinvoices" "Invoices"))
@@ -39,8 +42,14 @@
 	   (widget2 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(:a :class "btn btn-primary btn-xs" :role "button" :onclick "window.print();" :href "#" "Print&nbsp;&nbsp;"(:i :class "fa-solid fa-print"))))))
-	   (widget3 (display-invoice-confirm-page-widget sessioninvcustomer sessioninvheader sessioninvitems)))
-      (list widget1 widget2 widget3))))
+	   (widget3 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(:div :id "idinvoiceitemsupdateevent"
+			      (cl-who:str (display-invoice-confirm-page-widget  sessioninvheader sessioninvitems sessioninvkey)))))))
+	   (widget4 (function (lambda ()
+		      (submitformevent-js "#idinvoiceitemsupdateevent")))))
+      
+      (list widget1 widget2 widget3 widget4))))
 
 
 
@@ -59,7 +68,7 @@
 			      (sgstamt (slot-value item 'sgstamt))
 			      (igstamt (slot-value item 'igstamt))
 			      (taxablevalue (- (* qty price) discountvalue)))
-			  (+ taxablevalue sgstamt cgstamt igstamt))) invoiceitems)))
+			  (fround (+ taxablevalue sgstamt cgstamt igstamt)))) invoiceitems)))
 
 
 (defun calculate-invoice-totalcgst (invoiceitems)
@@ -80,129 +89,115 @@
       (calculate-invoice-totaligst invoiceitems))))
 
  
-(defun display-invoice-confirm-page-widget (customer invoiceheader invoiceitems)
+(defun display-invoice-confirm-page-widget (invoiceheader invoiceitems sessioninvkey)
   (logiamhere (format nil "inv number - ~A" (slot-value invoiceheader 'invnum)))
   (with-slots (row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company) invoiceheader
-    (let* ((widget1 (function (lambda ()
-		    (cl-who:with-html-output (*standard-output* nil)
-			(:table :style "width: 100%; border-collapse: collapse; th, td {border: 1px solid black;} th, td {padding: 8px; text-align: left;}"
-				(:thead
-				 (:tr 
-				  (:th :colspan "2" "INVOICE")
-				  (:th :colspan "3" "Original For Recipient")
-				  (:th :colspan "3" "Duplicate for Supplier")
-				  (:th :colspan "3" "Triplicate for Supplier")))
-				(:tbody
-				 (:tr
-				  (:td :colspan "5" "Transportation Mode :")
-				  (:td :colspan "2" "Vehicle Number :")
-				  (:td :colspan "2" "Invoice No. :")
-				  (:td :colspan "2" (cl-who:str invnum)))
-				 (:tr
-				  (:td :colspan "5" "Invoice Date :")
-				  (:td :colspan "2" "Date of Supply :")
-				  (:td :colspan "2" "Place of Supply :")
-				  (:td :colspan "2" "State Code:")
-				  (:td :colspan "2" (cl-who:str statecode)))
-				 (:tr
-				  (:th :colspan "5" "Details of Receiver / Billed to:")
-				  (:th :colspan "5" "Details of Consignee / Shipped to:"))
-				 (:tr
-				  (:td :colspan "2" "Name :")
-				  (:td :colspan "3" (cl-who:str (slot-value customer 'name)))
-				  (:td :colspan "2" "Name :")
-				  (:td :colspan "3" (cl-who:str (slot-value customer 'name))))
-				 (:tr
-				  (:td :colspan "2" "Address :")
-				  (:td :colspan "3" (cl-who:str (slot-value customer 'address)))
-				  (:td :colspan "2" "Address :")
-				  (:td :colspan "3" (cl-who:str (slot-value customer 'address))))
-				 (:tr
-				  (:td :colspan "2" "GSTIN :")
-				  (:td :colspan "3")
-				  (:td :colspan "2" "GSTIN :")
-				  (:td :colspan="3"))
-				 (:tr
-				  (:td :colspan "2" "State :")
-				  (:td :colspan "3" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*)))
-				  (:td :colspan "2" "State :")
-				  (:td :colspan "3" (cl-who:str statecode)))
-				 (:tr 
-				  (:td :colspan "2" "State Code :")
-				  (:td :colspan "3")
-				  (:td :colspan "2" "State Code :")
-				  (:td :colspan "3"))
-				 (:tr
-				  (:th "Sr. No")
-				  (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) (list "Name of Product/Service" "HSN/SAC" "Qty Per Unit" "Qty" "Rate"  "Less: Discount%" "Taxable Value" "CGST" "SGST" "IGST" "Total")))
-				 (let ((incr (let ((count 0)) (lambda () (incf count)))))
-				   (mapcar (lambda (item)
-					     (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall 'display-invoice-item-row item))))  invoiceitems))
-			  	 ;;<!-- Repeat <tr> as needed for more items -->
-				 (:tr
-				  (:td :colspan "7" "Total :")
-				  (:td :colspan "6" (cl-who:str (calculate-invoice-totalaftertax invoiceitems))))
-				 (:tr
-				  (:td :colspan "7" "Total Invoice Amount in Words:")
-				  (:td :colspan "6"))
-				 (:tr
-				  (:td :colspan "7" "Bank Details :")
-				  (:td :colspan "6" "Total Amount Before Tax :")
-				  (:td :colspan "6" (cl-who:str (calculate-invoice-totalbeforetax invoiceitems))))
-				 
-				 (:tr
-				  (:td :colspan "2" "Bank Account Number :")
-				  (:td :colspan "5")
-				  (:td :colspan "6" "Add : CGST :")
-				  (:td :colspan "6" (cl-who:str (calculate-invoice-totalcgst invoiceitems))))
-				 
-				 (:tr
-				  (:td :colspan "2" "Bank Branch IFSC :")
-				  (:td :colspan "5")
-				  (:td :colspan "6" "Add : SGST :")
-				  (:td :colspan "6" (cl-who:str (calculate-invoice-totalsgst invoiceitems))))
-				 (:tr
-				  (:td :colspan "7" "Terms and Conditions :")
-				  (:td :colspan "6" "Add : IGST :")
-				  (:td :colspan "6" (cl-who:str (calculate-invoice-totaligst invoiceitems))))
-				 (:tr
-				  (:td :colspan "7")
-				  (:td :colspan "6" "Tax Amount : GST :")
-				  (:td :colspan "6" (cl-who:str (calculate-invoice-totalgst invoiceheader invoiceitems))))
-				 (:tr
-				  (:td :colspan "7")
-				  (:td :colspan "6" "Total Amount After Tax :")
-				  (:td :colspan "6" (cl-who:str (calculate-invoice-totalaftertax invoiceitems))))
-				 (:tr
-				  (:td :colspan "7")
-				  (:td :colspan "6" "GST Payable on Reverse Charge :"))
-				 (:tr
-				  (:td :colspan "7")
-				  (:td :colspan "6" "Certified that the particulars given above are true and correct."))
-				 (:tr
-				  (:td :colspan "7")
-				  (:td :colspan "6" "For, [Company Name]"))
-				 (:tr
-				  (:td :colspan "7")
-				  (:td :colspan "6" "(Authorized Signatory)")))))))))
-      widget1)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (:table :style "width: 100%; border-collapse: collapse; th, td {border: 1px solid black;} th, td {padding: 8px; text-align: left;}"
+	      (:thead
+	       (:tr 
+		(:th :colspan "2" "INVOICE")
+		(:th :colspan "3" "Original For Recipient")
+		(:th :colspan "3" "Duplicate for Supplier")
+		(:th :colspan "3" "Triplicate for Supplier")))
+	      (:tbody
+	       (:tr
+		(:td :colspan "5" "Transportation Mode :")
+		(:td :colspan "2" "Vehicle Number :")
+		(:td :colspan "2" "Invoice No. :")
+		(:td :colspan "2" (cl-who:str invnum)))
+	       (:tr
+		(:td :colspan "5" "Invoice Date :")
+		(:td :colspan "2" "Date of Supply :")
+		(:td :colspan "2" "Place of Supply :")
+		(:td :colspan "2" "State Code:")
+		(:td :colspan "2" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*))))
+	       (:tr
+		(:th :colspan "5" "Details of Receiver / Billed to:")
+		(:th :colspan "5" "Details of Consignee / Shipped to:"))
+	       (:tr
+		(:td :colspan "2" "Name :")
+		(:td :colspan "3" (cl-who:str (slot-value customer 'name)))
+		(:td :colspan "2" "Name :")
+		(:td :colspan "3" (cl-who:str (slot-value customer 'name))))
+	       (:tr
+		(:td :colspan "2" "Address :")
+		(:td :colspan "3" (cl-who:str (slot-value customer 'address)))
+		(:td :colspan "2" "Address :")
+		(:td :colspan "3" (cl-who:str (slot-value customer 'address))))
+	       (:tr
+		(:td :colspan "2" "GSTIN :")
+		(:td :colspan "3")
+		(:td :colspan "2" "GSTIN :")
+		(:td :colspan="3"))
+	       (:tr
+		(:td :colspan "2" "State :")
+		(:td :colspan "3" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*)))
+		(:td :colspan "2" "State :")
+		(:td :colspan "3" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*))))
+	       (:tr 
+		(:td :colspan "2" "State Code :")
+		(:td :colspan "3")
+		(:td :colspan "2" "State Code :")
+		(:td :colspan "3"))
+	       (:tr
+		(:th "Sr. No")
+		(mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) (list "Name of Product/Service" "HSN/SAC" "Qty Per Unit" "Qty" "Rate"  "Less: Discount%" "Taxable Value" "CGST" "SGST" "IGST" "Total")))
+	       (let ((incr (let ((count 0)) (lambda () (incf count)))))
+		 (mapcar (lambda (item)
+			   (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall 'display-invoice-item-row item sessioninvkey))))  invoiceitems))
+	       ;;<!-- Repeat <tr> as needed for more items -->
+	       (:tr
+		(:td :colspan "3" "Total :")
+		(:td :colspan "3" (cl-who:str (calculate-invoice-totalaftertax invoiceitems)))
+		(:td :colspan "7"))
+	       (:tr
+		(:td :colspan "3" "Total Invoice Amount in Words:")
+		(:td :colspan "3" (cl-who:str (convert-number-to-words-INR (calculate-invoice-totalaftertax invoiceitems))))
+		(:td :colspan "7"))
+	       
+	       (:tr
+		(:td :colspan "7" "Bank Details :")
+		(:td :colspan "3" "Total Amount Before Tax :")
+		(:td :colspan "3" (cl-who:str (calculate-invoice-totalbeforetax invoiceitems))))
+	       
+	       (:tr
+		(:td :colspan "2" "Bank Account Number :")
+		(:td :colspan "5")
+		(:td :colspan "6" "Add : CGST :")
+		(:td :colspan "6" (cl-who:str (calculate-invoice-totalcgst invoiceitems))))
+	       
+	       (:tr
+		(:td :colspan "2" "Bank Branch IFSC :")
+		(:td :colspan "5")
+		(:td :colspan "6" "Add : SGST :")
+		(:td :colspan "6" (cl-who:str (calculate-invoice-totalsgst invoiceitems))))
+	       (:tr
+		(:td :colspan "7" "Terms and Conditions :")
+		(:td :colspan "6" "Add : IGST :")
+		(:td :colspan "6" (cl-who:str (calculate-invoice-totaligst invoiceitems))))
+	       (:tr
+		(:td :colspan "7")
+		(:td :colspan "6" "Tax Amount : GST :")
+		(:td :colspan "6" (cl-who:str (calculate-invoice-totalgst invoiceheader invoiceitems))))
+	       (:tr
+		(:td :colspan "7")
+		(:td :colspan "6" "Total Amount After Tax :")
+		(:td :colspan "6" (cl-who:str (calculate-invoice-totalaftertax invoiceitems))))
+	       (:tr
+		(:td :colspan "7")
+		(:td :colspan "6" "GST Payable on Reverse Charge :"))
+	       (:tr
+		(:td :colspan "7")
+		(:td :colspan "6" "Certified that the particulars given above are true and correct."))
+	       (:tr
+		(:td :colspan "7")
+		(:td :colspan "6" "For, [Company Name]"))
+	       (:tr
+		(:td :colspan "7")
+		(:td :colspan "6" "(Authorized Signatory)")))))))
 
-(defun display-invoice-item-row (invitem &rest arguments)
-  (declare (ignore arguments))
-  (cl-who:with-html-output (*standard-output* nil)
-    (with-slots ( prdid prddesc hsncode qty uom price discount  taxablevalue  cgstamt  sgstamt  igstamt totalitemval) invitem
-      (cl-who:htm
-       (:td :height "10px" (cl-who:str prddesc))
-       (:td :height "10px" (cl-who:str hsncode))
-       (:td :height "10px" (cl-who:str uom))
-       (:td :height "10px" (cl-who:str qty))
-       (:td :height "10px" (cl-who:str price))
-       (:td :height "10px" (cl-who:str discount))
-       (:td :height "10px" (cl-who:str taxablevalue))
-       (:td :height "10px" (cl-who:str cgstamt))
-       (:td :height "10px" (cl-who:str sgstamt))
-       (:td :height "10px" (cl-who:str igstamt))
-       (:td :height "10px" (cl-who:str totalitemval))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;; ADD PRODUCT TO CART TO CREATE AN INVOICE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -277,7 +272,7 @@
 		 (if (and units-in-stock (> units-in-stock 0))
 		     (cl-who:htm
 		      (:div :class "form-group"
-			    (:button :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) :type "button" :class "add-to-cart-btn" :data-toggle "modal" :data-target (format nil "#producteditqty-modal~A" prd-id) (:i :class "fa-solid fa-cart-shopping") "&nbsp;Add Me To Cart")
+			    (:button :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) :type "button" :class "add-to-cart-btn" :data-toggle "modal" :data-target (format nil "#producteditqty-modal~A" prd-id) (:i :class "fa-solid fa-cart-shopping") "&nbsp;Add To Cart")
 			    (modal-dialog (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (vproduct-qty-add-for-invoice-html product ppricing sessioninvkey))))			
 		     ;; else
 		     (cl-who:htm
@@ -356,14 +351,7 @@
 	 (statecode (slot-value sessioninvheader 'statecode))
 	 (intrastate (if (equal statecode placeofsupply) T NIL))
 	 (interstate (if (equal statecode placeofsupply) NIL T)) 
-	 (cgstrate (if gstvalues (first gstvalues) 0.00)) 
-	 (cgstamt (if intrastate (/ ( * taxablevalue cgstrate) 100) 0.00))
-	 (sgstrate (if gstvalues (second gstvalues) 0.00))
-	 (sgstamt (if intrastate (/ (* sgstrate taxablevalue) 100) 0.00))
-	 (igstrate (if gstvalues (third gstvalues) 0.00)) 
-	 (igstamt (if interstate (/ (* igstrate taxablevalue) 100) 0.00))
-	 (totalitemval (+ taxablevalue (if intrastate (+ cgstamt sgstamt) igstamt)))
-	 (vendor (product-vendor product))
+		 (vendor (product-vendor product))
 	 (wallet (get-cust-wallet-by-vendor customer vendor company))
 	 (ihdadapter (make-instance 'InvoiceHeaderAdapter))
 	 (ihdrequestmodel (make-instance 'InvoiceHeaderContextIDRequestModel
@@ -427,12 +415,15 @@
 
 (defun createmodelforaddcusttoinvoice()
   (let* ((company (get-login-vendor-company))
+	 (guestcustomer (select-guest-customer company))
+	 (guestcustid (slot-value guestcustomer 'row-id))
 	 (mycustomers (select-customers-for-company company)))
+    (logiamhere (format nil "Guest customer id is ~A" guestcustid))
     (function (lambda ()
-      (values mycustomers)))))
+      (values mycustomers guestcustid)))))
 
 (defun createwidgetsforaddcusttoinvoice (modelfunc)
-  (multiple-value-bind (mycustomers) (funcall modelfunc)
+  (multiple-value-bind (mycustomers guestcustid) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-vendor-breadcrumb
@@ -440,10 +431,15 @@
 			(with-html-div-row
 			  (:div :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"
 				(:span "Create Invoice - Step 1: ")
-				(:h2 "Select Customer"))
-			  (:div :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"
-				(:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target (format nil "#vendorcreatecustomer-modal") (:i :class "fa-solid fa-user") "&nbsp;Add Customer")
-				(modal-dialog (format nil "vendorcreatecustomer-modal")  "Create Customer" (vendor-create-update-customer-dialog nil))))))))
+				(:h2 "Select Customer (Optional)"))
+			  (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3"
+				(:button :type "button" :class "btn btn-lg btn-primary btn-block" :data-toggle "modal" :data-target (format nil "#vendorcreatecustomer-modal") (:i :class "fa-solid fa-user") "&nbsp;Add Customer")
+				(modal-dialog (format nil "vendorcreatecustomer-modal")  "Create Customer" (vendor-create-update-customer-dialog nil)))
+			  (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3 form-group"
+				(with-html-form (format nil "invoicecreateforcust~A" guestcustid) "editinvoicepage"
+				  (with-html-input-text-hidden "mode" "create")
+				  (with-html-input-text-hidden "custid" guestcustid)
+				  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "NEXT"))))))))
 	   (widget2 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-html-div-row
@@ -471,7 +467,7 @@
 		(with-html-input-text-hidden "mode" "create")
 		(with-html-input-text-hidden "custid" cust-id)
 		(:div :class "form-group"
-			  (:button :class "btn btn-sm btn-primary" :type "submit" (:i :class "fa-solid fa-user-plus" :aria-hidden "true") "&nbsp;Create Invoice&nbsp;"))))))))
+			  (:button :class "btn btn-sm btn-info" :type "submit" (:i :class "fa-solid fa-user-plus" :aria-hidden "true") "&nbsp;Create Invoice&nbsp;"))))))))
 	  ;;    (:a :href (format nil "/hhub/editinvoicepage?mode=create&custid=~A" cust-id) :alt "Select Customer" (:i :class "fa-solid fa-user-plus" :aria-hidden "true")))))))
 
 	 
@@ -924,6 +920,7 @@
 				:vendor vendor
 				:customer customer
 				:finyear finyear
+				:placeofsupply *NSTGSTBUSINESSSTATE*
 				:statecode *NSTGSTBUSINESSSTATE*
 				:tnc *NSTGSTINVOICETERMS*
 				:authsign (get-login-vendor-name)
