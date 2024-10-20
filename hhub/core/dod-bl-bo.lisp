@@ -183,22 +183,22 @@
 
       ;; If we get an ABAC Transaction exception
       (hhub-abac-transaction-error (condition)
-	(setf exceptionstr (format nil "HHUB ABAC Transaction error - ~A. Error: ~A~%" (string-upcase policy-name) (getExceptionStr condition)))
+	(setf exceptionstr (format nil "~A: HHUB ABAC Transaction error - ~A. Error: ~A~%" (mysql-now) (string-upcase policy-name) (getExceptionStr condition)))
 	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
 				:direction :output
 				:if-exists :append
 				:if-does-not-exist :create)
-	  (format stream "~A~A" exceptionstr (sb-debug:list-backtrace)))
+	  (format stream "~A: ~A~A" (mysql-now) exceptionstr (sb-debug:list-backtrace)))
 	(list nil (format nil "Nine Stores General Authorization Error. Contact your system administrator.")))
   
       ;; If we get any general error we will not throw it to the upper levels. Instead set the exception and log it. 
       (error (c)
-	(setf exceptionstr (format nil  "HHUB General ABAC Policy Error: ~A :: ~A~%" (string-upcase policy-name) c))
+	(setf exceptionstr (format nil  "~A: HHUB General ABAC Policy Error: ~A :: ~A~%" (mysql-now) (string-upcase policy-name) c))
 	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
 				:direction :output
 			      :if-exists :append
 				:if-does-not-exist :create)
-	  (format stream "~A~A" exceptionstr (sb-debug:list-backtrace)))
+	  (format stream "~A: ~A~A" (mysql-now)  exceptionstr (sb-debug:list-backtrace)))
 	(list nil (format nil "HHUB General Authorization Error. Contact your system administrator."))))))
 
 
