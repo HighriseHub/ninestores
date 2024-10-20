@@ -105,65 +105,56 @@
 
 (defun createmodelforupdateInvoiceItem ()
   :description "This is a model function for update InvoiceItem entity"
-  (let* ((InvoiceHeader (hunchentoot:parameter "InvoiceHeader"))
-	 (prdid (hunchentoot:parameter "prdid"))
-	 (prddesc (hunchentoot:parameter "prddesc"))
-	 (hsncode (hunchentoot:parameter "hsncode"))
-	 (qty (hunchentoot:parameter "qty"))
-	 (uom (hunchentoot:parameter "uom"))
+  (let* ((company (get-login-vendor-company))
+	 (prd-id (parse-integer (hunchentoot:parameter "prd-id")))
+	 (prdqty (parse-integer (hunchentoot:parameter "qty")))
+	 (productlist (hunchentoot:session-value :login-prd-cache))
+	 (product (search-prd-in-list prd-id productlist))
+	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
+	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
+	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
+	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
 	 (price (float (with-input-from-string (in (hunchentoot:parameter "price"))
 		   (read in))))
 	 (discount (float (with-input-from-string (in (hunchentoot:parameter "discount"))
 			    (read in))))
-	 (taxablevalue (float (with-input-from-string (in (hunchentoot:parameter "taxablevalue"))
-			    (read in))))
-	 (cgstrate (float (with-input-from-string (in (hunchentoot:parameter "cgstrate"))
-		   (read in))))
-	 (cgstamt (float (with-input-from-string (in (hunchentoot:parameter "cgstamt"))
-		   (read in))))
-	 (sgstrate (float (with-input-from-string (in (hunchentoot:parameter "sgstrate"))
-		   (read in))))
-
-	 (sgstamt (float (with-input-from-string (in (hunchentoot:parameter "sgstamt"))
-			   (read in))))
-	 (igstrate (float (with-input-from-string (in (hunchentoot:parameter "igstrate"))
-			    (read in))))
-	 (igstamt (float (with-input-from-string (in (hunchentoot:parameter "igstamt"))
-			    (read in))))
-	 (totalitemval (float (with-input-from-string (in (hunchentoot:parameter "totalitemval"))
-			    (read in))))
-	 (company (get-login-vendor-company))
+	 (taxablevalue (- (* prdqty price) (if discount (/ (* prdqty price discount) 100) 0.00)))
+	 (gstvalues (get-gstvalues-for-product product))
+	 (placeofsupply (slot-value sessioninvheader 'placeofsupply))
+	 (statecode (slot-value sessioninvheader 'statecode))
+	 (intrastate (if (equal statecode placeofsupply) T NIL))
+	 (interstate (if (equal statecode placeofsupply) NIL T)) 
+	 (cgstrate (if gstvalues (first gstvalues) 0.00)) 
+	 (cgstamt (if intrastate (/ ( * taxablevalue cgstrate) 100) 0.00))
+	 (sgstrate (if gstvalues (second gstvalues) 0.00))
+	 (sgstamt (if intrastate (/ (* sgstrate taxablevalue) 100) 0.00))
+	 (igstrate (if gstvalues (third gstvalues) 0.00)) 
+	 (igstamt (if interstate (/ (* igstrate taxablevalue) 100) 0.00))
+	 (totalitemval (+ taxablevalue (if intrastate (+ cgstamt sgstamt) igstamt)))
 	 (requestmodel (make-instance 'InvoiceItemRequestModel
-					 :InvoiceHeader InvoiceHeader
-					 :prdid prdid
-					 :prddesc prddesc
-					 :hsncode hsncode
-					 :qty qty
-					 :uom uom
+					 :InvoiceHeader sessioninvheader
+					 :prd-id prd-id
+					 :qty prdqty
 					 :price price
 					 :discount discount
 					 :taxablevalue taxablevalue
-					 :cgstrate cgstrate
 					 :cgstamt cgstamt
-					 :sgstrate sgstrate
 					 :sgstamt sgstamt
-					 :igstrate igstrate
 					 :igstamt igstamt
 					 :totalitemval totalitemval
 					 :company company))
 	 (adapterobj (make-instance 'InvoiceItemAdapter))
-	 (redirectlocation  "/hhub/InvoiceItem")
+	 (redirectlocation  (format nil "/hhub/vshowinvoiceconfirmpage?sessioninvkey=~A" sessioninvkey))
 	 (params nil))
-    (setf params (acons "username" (get-login-user-name) params))
-    (setf params (acons "rolename" (get-login-user-role-name) params))
+    (setf params (acons "company" company params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-    (with-hhub-transaction "com-hhub-transaction-update-InvoiceItem-action" params 
-      (handler-case 
-	  (let ((domainobj (ProcessUpdateRequest adapterobj requestmodel)))
+    (with-hhub-transaction "com-hhub-transaction-update-invoiceitem-action" params 
+      ;;(handler-case 
+	  (let ((domainobj (if (> prdqty 0 ) (ProcessUpdateRequest adapterobj requestmodel))))
 	    (function (lambda ()
-	      (values redirectlocation domainobj))))
-	(error (c)
-	  (error 'hhub-business-function-error :errstring (format t "got an exception ~A" c)))))))
+	      (values redirectlocation domainobj)))))))
+	;;(error (c)
+	 ;; (error 'hhub-business-function-error :errstring (format t "got an exception ~A" c)))))))
 
 
 (defun createmodelforcreateInvoiceItem ()
@@ -237,74 +228,27 @@
 	(error (c)
 	  (error 'hhub-business-function-error :errstring (format t "got an exception ~A" c)))))))
 
-(defun com-hhub-transaction-create-InvoiceItem-dialog (&optional domainobj)
+(defun com-hhub-transaction-create-InvoiceItem-dialog (domainobj sessioninvkey)
   :description "This function creates a dialog to create InvoiceItem entity"
   (let* ((InvoiceHeader  (if domainobj (slot-value domainobj 'InvoiceHeader)))
-	 (prdid  (if domainobj (slot-value domainobj 'prdid)))
+	 (prdid  (if domainobj (slot-value domainobj 'prd-id)))
 	 (prddesc  (if domainobj (slot-value domainobj 'prddesc)))
-	 (hsncode  (if domainobj (slot-value domainobj 'hsncode)))
 	 (qty  (if domainobj (slot-value domainobj 'qty)))
-	 (uom  (if domainobj (slot-value domainobj 'uom)))
 	 (price  (if domainobj (slot-value domainobj 'price)))
 	 (discount  (if domainobj (slot-value domainobj 'discount)))
-	 (taxablevalue  (if domainobj (slot-value domainobj 'taxablevalue)))
-	 (cgstrate  (if domainobj (slot-value domainobj 'cgstrate)))
-	 (cgstamt  (if domainobj (slot-value domainobj 'cgstamt)))
-	 (sgstrate  (if domainobj (slot-value domainobj 'sgstrate)))
-	 (sgstamt  (if domainobj (slot-value domainobj 'sgstamt)))
-	 (igstrate  (if domainobj (slot-value domainobj 'igstrate)))
-	 (igstamt  (if domainobj (slot-value domainobj 'igstamt)))
-	 (totalitemval  (if domainobj (slot-value domainobj 'totalitemval)))
-	 (company  (if domainobj (slot-value domainobj 'company)))
-	 (fieldR  (if domainobj (slot-value domainobj 'fieldR)))
-	 (fieldS  (if domainobj (slot-value domainobj 'fieldS))))
+	 (row-id (if domainobj (slot-value domainobj 'row-id))))
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 		  (with-html-form (format nil "form-addInvoiceItem~A" InvoiceHeader)  (if domainobj "updateInvoiceItemaction" "createInvoiceItemaction")
 		    (:img :class "profile-img" :src "/img/logo.png" :alt "")
-		    (:div :class "form-group"
-			  (:input :class "form-control" :name "InvoiceHeader" :maxlength "20"  :value  InvoiceHeader :placeholder "InvoiceItem (max 20 characters) " :type "text" ))
-		    (:div :class "form-group"
-			  (:label :for "description")
-			  (:textarea :class "form-control" :name "description"  :placeholder "Description ( max 500 characters) "  :rows "5" :onkeyup "countChar(this, 500)" (cl-who:str prddesc)))
-		    (:div :class "form-group" :id "charcount")
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value prdid :placeholder "prdid"  :name "prdid" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value prddesc :placeholder "prddesc"  :name "prddesc" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value hsncode :placeholder "hsncode"  :name "hsncode" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value qty :placeholder "qty"  :name "qty" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value uom :placeholder "uom"  :name "uom" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value price :placeholder "price"  :name "price" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value discount :placeholder "discount"  :name "discount" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value taxablevalue :placeholder "taxablevalue"  :name "taxablevalue" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value cgstrate :placeholder "cgstrate"  :name "cgstrate" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value cgstamt :placeholder "cgstamt"  :name "cgstamt" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value sgstrate :placeholder "sgstrate"  :name "sgstrate" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value sgstamt :placeholder "sgstamt"  :name "sgstamt" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value igstrate :placeholder "igstrate"  :name "igstrate" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value igstamt :placeholder "igstamt"  :name "igstamt" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value totalitemval :placeholder "totalitemval"  :name "totalitemval" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value company :placeholder "company"  :name "company" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value fieldR :placeholder "fieldR"  :name "fieldR" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :type "text" :value fieldS :placeholder "fieldS"  :name "fieldS" ))
+		    (with-html-input-text-hidden "prd-id" prdid)
+		    (with-html-input-text-hidden "row-id" row-id)
+		    (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
+		    (with-html-input-text-readonly "prddesc" "Product Description" "Product Description"  prddesc nil nil 0)
+		    (with-html-input-text "qty" "Quantity" "Quantity" qty T "Enter/Update Quantity" 1)
+		    (with-html-input-text "price" "Price" "Price" price T "Enter/Update Price" 2)
+		    (with-html-input-text "discount" "Discount%" "Discount%" discount T "Enter/Update Discount" 3)
 		    (:div :class "form-group"
 			  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
 
@@ -339,7 +283,27 @@
   :description "This is a HTML View rendering function for InvoiceHeader entities, which will display each InvoiceHeader entity in a row"
   (when viewmodellist
     (display-as-table (list "Product" "HSN Code" "UOM" "Qty" "Rate" "Amount" "Less:Discount" "Taxable Value" "CGST" "SGST" "IGST" "Total") viewmodellist 'display-InvoiceItem-row)))
- 
+
+
+(defun display-invoice-item-row (invitem sessioninvkey)
+  (cl-who:with-html-output (*standard-output* nil)
+      (with-slots (prd-id prddesc hsncode qty uom price discount  taxablevalue  cgstamt  sgstamt  igstamt totalitemval) invitem
+	(cl-who:htm
+	 (:td :height "10px" (cl-who:str prddesc))
+	 (:td :height "10px" (cl-who:str hsncode))
+	 (:td :height "10px" (cl-who:str uom))
+	 (:td :height "10px" (cl-who:str qty))
+	 (:td :height "10px" (cl-who:str price))
+	 (:td :height "10px" (cl-who:str discount))
+	 (:td :height "10px" (cl-who:str taxablevalue))
+	 (:td :height "10px" (cl-who:str cgstamt))
+	 (:td :height "10px" (cl-who:str sgstamt))
+	 (:td :height "10px" (cl-who:str igstamt))
+	 (:td :height "10px" (cl-who:str totalitemval))
+	 (:td :height "10px"
+	      (:a  :class "btn btn-primary" :data-toggle "modal" :data-target (format nil "#editInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-pencil"))
+	      (modal-dialog (format nil "editInvoiceItem-modal~A" prd-id) "Add/Edit InvoiceItem" (com-hhub-transaction-create-InvoiceItem-dialog invitem sessioninvkey)))))))
+
 (defun display-InvoiceItem-row (InvoiceItemViewModel)
   :description "This function has HTML row code for InvoiceItem entity row"
   (with-slots (InvoiceHeader prdid prddesc hsncode qty uom price discount  taxablevalue cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval) InvoiceItemViewModel 
@@ -363,7 +327,7 @@
 
 
 
-(defun com-hhub-transaction-update-InvoiceItem-action ()
+(defun com-hhub-transaction-update-invoiceitem-action ()
   :description "This is the MVC function to update action for InvoiceItem entity"
   (with-vend-session-check ;; delete if not needed. 
     (let ((url (with-mvc-redirect-ui  createmodelforupdateInvoiceItem createwidgetsforupdateInvoiceItem)))
