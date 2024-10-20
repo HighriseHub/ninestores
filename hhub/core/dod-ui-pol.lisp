@@ -5,6 +5,20 @@
 ;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR Nine Stores ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+;; INVOICE ITEM RELATED POLICIES START
+
+(defun com-hhub-policy-update-invoiceitem-action (&optional (params nil))
+  :documentation "This policy governs updating the invoice item by the vendor"
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
+
+
+;; INVOICE ITEM POLICIES END
+
 ;; INVOICE RELATED POLICIES START
 
 (defun com-hhub-policy-search-invoice-action (&optional (params nil))
@@ -354,13 +368,15 @@ T)
 
 
 
-(defun busobj-card (busobj-instance)
+(defun busobj-card (busobj-instance &rest arguments)
+  (declare (ignore arguments))
   (let ((name (slot-value busobj-instance 'name)))
 	(cl-who:with-html-output (*standard-output* nil)
 	  (:td :height "10px" 
 	   (:h6 :class "busobj-name"  (cl-who:str (format nil " ~A" name)))))))
 
-(defun bustrans-card (bustrans-instance)
+(defun bustrans-card (bustrans-instance &rest arguments)
+  (declare (ignore arguments))
   (let ((name (slot-value bustrans-instance 'name))
 	(uri (slot-value bustrans-instance 'uri))
 	(row-id (slot-value bustrans-instance 'row-id))
@@ -378,7 +394,8 @@ T)
 	   (modal-dialog (format nil "linkbustrans-modal~a" row-id) "Add/Edit Business Transaction" (link-bus-transaction-to-policy bustrans-instance))
 	   (modal-dialog (format nil "editbustrans-modal~a" row-id) "Add/Edit Business Transaction" (new-transaction-html  bustrans-instance))))))
 
-(defun attribute-card (attribute-instance)
+(defun attribute-card (attribute-instance &rest arguments)
+  (declare (ignore arguments))
   (let* ((name (slot-value attribute-instance 'name))
 	 (description (slot-value attribute-instance 'description))
 	 (attr-func (slot-value attribute-instance 'attr-func))
