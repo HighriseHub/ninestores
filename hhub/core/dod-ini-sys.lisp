@@ -95,7 +95,7 @@
 (defvar *HHUBDEFAULTCURRENCY* "INR")
 (defvar *HHUBDEFAULTCOUNTRY* "India")
 (defvar *NSTGSTSTATECODES-HT* nil)
-(defvar *NSTGSTBUSINESSSTATE* "KARNATAKA")
+(defvar *NSTGSTBUSINESSSTATE* "29")
 (defvar *NSTGSTINVOICETERMS* NIL)
 
 (defun set-customer-page-title (name)
