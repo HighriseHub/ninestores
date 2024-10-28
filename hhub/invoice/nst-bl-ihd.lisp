@@ -35,6 +35,7 @@
 				 :caching *dod-database-caching* :flatp t )))
     invheaders))
 
+
 ;; METHODS FOR ENTITY CREATE 
 ;; This file contains template code which will be used to generate for class methods.
 ;; DO NOT COMPILE THIS FILE USING CTRL + C CTRL + K (OR CTRL + CK)
@@ -117,6 +118,7 @@
 				    :finyear finyear
 				    :vendor vendor
 				    :customer customer
+				    :status "DRAFT"
 				    :company company)))
     domainobj))
 
@@ -131,7 +133,7 @@
   (let ((vendor (slot-value source 'vendor))
 	(customer (slot-value source 'customer))
 	(company (slot-value source 'company)))
-    (with-slots (context-id invdate custname custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear deleted-state  custid vendor-id tenant-id) destination
+    (with-slots (context-id invdate custname custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status deleted-state  custid vendor-id tenant-id) destination
       (setf context-id (slot-value source 'context-id))
       (setf vendor-id (slot-value vendor 'row-id))
       (setf tenant-id (slot-value company 'row-id))
@@ -154,6 +156,7 @@
       (setf tnc (slot-value source 'tnc))
       (setf authsign (slot-value source 'authsign))
       (setf finyear (slot-value source 'finyear))
+      (setf status (slot-value source 'status))
       (setf deleted-state "N")
       destination)))
 
@@ -200,7 +203,7 @@
 
 (defmethod CreateViewModel ((presenter InvoiceHeaderPresenter) (responsemodel InvoiceHeaderResponseModel))
   (let ((viewmodel (make-instance 'InvoiceHeaderViewModel)))
-    (with-slots (invnum invdate  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor customer company) responsemodel
+    (with-slots (invnum invdate  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor customer company) responsemodel
       (setf (slot-value viewmodel 'vendor) vendor)
       (setf (slot-value viewmodel 'customer) customer)
       (setf (slot-value viewmodel 'invnum) invnum)
@@ -221,6 +224,7 @@
       (setf (slot-value viewmodel 'tnc) tnc)
       (setf (slot-value viewmodel 'authsign) authsign)
       (setf (slot-value viewmodel 'finyear) finyear)
+      (setf (slot-value viewmodel 'status) status)
       (setf (slot-value viewmodel 'company) company)
       (setf (slot-value viewmodel 'vendor) vendor)
       viewmodel)))
@@ -242,7 +246,7 @@
 
 (defmethod CreateResponseModel ((adapter InvoiceHeaderAdapter) (source InvoiceHeader) (destination InvoiceHeaderResponseModel))
   :description "source = InvoiceHeader destination = InvoiceHeaderResponseModel"
-  (with-slots (invnum invdate  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor customer company created) destination  
+  (with-slots (invnum invdate  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor customer company created) destination  
     (setf invnum (slot-value source 'invnum))
     (setf invdate (slot-value source 'invdate))
     (setf custaddr (slot-value source 'custaddr))
@@ -261,6 +265,7 @@
     (setf tnc (slot-value source 'tnc))
     (setf authsign (slot-value source 'authsign))
     (setf finyear (slot-value source 'finyear))
+    (setf status (slot-value source 'status))
     (setf vendor (slot-value source  'vendor))
     (setf customer (slot-value source 'customer))
     (setf company (slot-value source 'company))
@@ -294,6 +299,7 @@
 	 (comp (company requestmodel))
 	 (tenant-id (slot-value comp 'row-id))
 	 (finyear (finyear requestmodel))
+	 (status (status requestmodel))
 	 (InvoiceHeaderdbobj (select-invoice-header-by-invnum invnum comp))
 	 (domainobj (make-instance 'InvoiceHeader)))
 	 
@@ -321,7 +327,8 @@
       (setf (slot-value InvoiceHeaderdbobj 'custid) custid)
       (setf (slot-value InvoiceHeaderdbobj 'vendor-id) vendor-id)
       (setf (slot-value InvoiceHeaderdbobj 'tenant-id) tenant-id)
-      (setf (slot-value InvoiceHeaderdbobj 'finyear) finyear))
+      (setf (slot-value InvoiceHeaderdbobj 'finyear) finyear)
+      (setf (slot-value InvoiceHeaderdbobj 'status) status))
     ;;  FIELD UPDATE CODE ENDS HERE. 
     (setf (slot-value InvoiceHeaderdbservice 'dbobject) InvoiceHeaderdbobj)
     (setf (slot-value InvoiceHeaderdbservice 'businessobject) domainobj)
@@ -367,7 +374,7 @@
 	 (vend (select-vendor-by-id (slot-value dbsrc 'vendor-id)))
 	 (cust (select-customer-by-id (slot-value dbsrc 'custid) comp)))
 
-    (with-slots (context-id row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company) domaindest
+    (with-slots (context-id row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor company) domaindest
       (setf vendor vend)
       (setf customer cust)
       (setf company comp)
@@ -391,5 +398,6 @@
       (setf tnc (slot-value dbsrc 'tnc))
       (setf authsign (slot-value dbsrc 'authsign))
       (setf finyear (slot-value dbsrc 'finyear))
+      (setf status (slot-value dbsrc 'status))
       domaindest)))
 
