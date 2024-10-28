@@ -65,6 +65,9 @@
    (totalitemval
     :initarg :totalitemval
     :accessor totalitemval)
+   (status
+    :initarg :status
+    :accessor status)
    (company
     :initarg :company
     :accessor company)))
@@ -118,6 +121,9 @@
    (totalitemval
     :initarg :totalitemval
     :accessor totalitemval)
+   (status
+    :initarg :status
+    :accessor status)
    (company
     :initarg :company
     :accessor company)))
@@ -172,6 +178,9 @@
    (totalitemval
     :initarg :totalitemval
     :accessor totalitemval)
+   (status
+    :initarg :status
+    :accessor status)
    (company
     :initarg :company
     :accessor company)))
@@ -230,6 +239,9 @@
    (totalitemval
     :initarg :totalitemval
     :accessor totalitemval)
+   (status
+    :initarg :status
+    :accessor status)
    (company
     :initarg :company
     :accessor company)))
@@ -305,6 +317,10 @@
     :type float
     :initarg :totalitemval
     :accessor totalitemval)
+   (status
+    :type (string 20)
+    :initarg :status
+    :accessor status)
    (deleted-state
     :type (string 1)
     :void-value "N"
