@@ -36,39 +36,30 @@
   (multiple-value-bind (sessioninvkey  sessioninvheader sessioninvitems) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (with-vendor-breadcrumb
-			(:li :class "breadcrumb-item" (:a :href "displayinvoices" "Invoices"))
-			(:li :class "breadcrumb-item" (:a :href "addcusttoinvoice" "Select Customer"))
-			(:li :class "breadcrumb-item" (:a :href (format nil "vproductsforinvoicepage?sessioninvkey=~A" sessioninvkey) "Select Products"))))))
+			(:li :class "breadcrumb-item no-print" (:a :href "displayinvoices" "Invoices"))
+			(:li :class "breadcrumb-item no-print" (:a :href "addcusttoinvoice" "Select Customer"))
+			(:li :class "breadcrumb-item no-print" (:a :href (format nil "vproductsforinvoicepage?sessioninvkey=~A" sessioninvkey) "Select Products"))))))
 	   (widget2 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
-			(:a :class "btn btn-primary btn-xs" :role "button" :onclick "window.print();" :href "#" "Print&nbsp;&nbsp;"(:i :class "fa-solid fa-print"))))))
+			(:h2 "Finalize Invoice - Step 4:")
+			(:a :class "btn btn-primary btn-xs no-print" :role "button" :onclick "window.print();" :href "#" "Print&nbsp;&nbsp;"(:i :class "fa-solid fa-print"))))))
 	   (widget3 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
-			(:div :id "idinvoiceitemsupdateevent"
-			      (cl-who:str (display-invoice-confirm-page-widget  sessioninvheader sessioninvitems sessioninvkey)))))))
-	   (widget4 (function (lambda ()
-		      (submitformevent-js "#idinvoiceitemsupdateevent")))))
-      
-      (list widget1 widget2 widget3 widget4))))
-
-
-
+			(with-catch-submit-event
+			  (cl-who:str (display-invoice-confirm-page-widget  sessioninvheader sessioninvitems sessioninvkey))))))))
+      (list widget1 widget2 widget3))))
 	
 
 (defun calculate-invoice-totalbeforetax (invoiceitems)
-  (reduce #'+ (mapcar (lambda (item) (slot-value item 'taxablevalue)) invoiceitems)))
+  (fround (reduce #'+ (mapcar (lambda (item) (slot-value item 'taxablevalue)) invoiceitems))))
 
 (defun calculate-invoice-totalaftertax (invoiceitems)
-  (reduce #'+ (mapcar (lambda (item)
-			(let* ((price (slot-value item 'price))
-			      (qty (slot-value item 'qty))
-			      (discountrate (slot-value item 'discount))
-			      (discountvalue (if discountrate (/ (* price discountrate) 100) 0.00))
-			      (cgstamt (slot-value item 'cgstamt))
-			      (sgstamt (slot-value item 'sgstamt))
-			      (igstamt (slot-value item 'igstamt))
-			      (taxablevalue (- (* qty price) discountvalue)))
-			  (fround (+ taxablevalue sgstamt cgstamt igstamt)))) invoiceitems)))
+  (fround (reduce #'+ (mapcar (lambda (item)
+				(let* ((cgstamt (slot-value item 'cgstamt))
+				       (sgstamt (slot-value item 'sgstamt))
+				       (igstamt (slot-value item 'igstamt))
+				       (taxablevalue (slot-value item 'taxablevalue)))
+				  (+ taxablevalue sgstamt cgstamt igstamt))) invoiceitems))))
 
 
 (defun calculate-invoice-totalcgst (invoiceitems)
@@ -83,119 +74,121 @@
 (defun calculate-invoice-totalgst (invoiceheader invoiceitems)
   (let ((placeofsupply (slot-value invoiceheader 'placeofsupply))
 	(statecode (slot-value invoiceheader 'statecode)))
-    (when (equal placeofsupply statecode)
-      (+ (calculate-invoice-totalcgst invoiceitems) (calculate-invoice-totalsgst invoiceitems)))
-    (unless (equal placeofsupply statecode)
-      (calculate-invoice-totaligst invoiceitems))))
+    (if (equal placeofsupply statecode)
+	(+ (calculate-invoice-totalcgst invoiceitems) (calculate-invoice-totalsgst invoiceitems))
+	;;else
+	(calculate-invoice-totaligst invoiceitems))))
 
  
 (defun display-invoice-confirm-page-widget (invoiceheader invoiceitems sessioninvkey)
   (logiamhere (format nil "inv number - ~A" (slot-value invoiceheader 'invnum)))
   (with-slots (row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company) invoiceheader
     (cl-who:with-html-output (*standard-output* nil)
-      (:table :style "width: 100%; border-collapse: collapse; th, td {border: 1px solid black;} th, td {padding: 8px; text-align: left;}"
-	      (:thead
-	       (:tr 
-		(:th :colspan "2" "INVOICE")
-		(:th :colspan "3" "Original For Recipient")
-		(:th :colspan "3" "Duplicate for Supplier")
-		(:th :colspan "3" "Triplicate for Supplier")))
-	      (:tbody
-	       (:tr
-		(:td :colspan "5" "Transportation Mode :")
-		(:td :colspan "2" "Vehicle Number :")
-		(:td :colspan "2" "Invoice No. :")
-		(:td :colspan "2" (cl-who:str invnum)))
-	       (:tr
-		(:td :colspan "5" "Invoice Date :")
-		(:td :colspan "2" "Date of Supply :")
-		(:td :colspan "2" "Place of Supply :")
-		(:td :colspan "2" "State Code:")
-		(:td :colspan "2" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*))))
-	       (:tr
-		(:th :colspan "5" "Details of Receiver / Billed to:")
-		(:th :colspan "5" "Details of Consignee / Shipped to:"))
-	       (:tr
-		(:td :colspan "2" "Name :")
-		(:td :colspan "3" (cl-who:str (slot-value customer 'name)))
-		(:td :colspan "2" "Name :")
-		(:td :colspan "3" (cl-who:str (slot-value customer 'name))))
-	       (:tr
-		(:td :colspan "2" "Address :")
-		(:td :colspan "3" (cl-who:str (slot-value customer 'address)))
-		(:td :colspan "2" "Address :")
-		(:td :colspan "3" (cl-who:str (slot-value customer 'address))))
-	       (:tr
-		(:td :colspan "2" "GSTIN :")
-		(:td :colspan "3")
-		(:td :colspan "2" "GSTIN :")
-		(:td :colspan="3"))
-	       (:tr
-		(:td :colspan "2" "State :")
-		(:td :colspan "3" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*)))
-		(:td :colspan "2" "State :")
-		(:td :colspan "3" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*))))
-	       (:tr 
-		(:td :colspan "2" "State Code :")
-		(:td :colspan "3")
-		(:td :colspan "2" "State Code :")
-		(:td :colspan "3"))
-	       (:tr
-		(:th "Sr. No")
-		(mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) (list "Name of Product/Service" "HSN/SAC" "Qty Per Unit" "Qty" "Rate"  "Less: Discount%" "Taxable Value" "CGST" "SGST" "IGST" "Total")))
-	       (let ((incr (let ((count 0)) (lambda () (incf count)))))
-		 (mapcar (lambda (item)
-			   (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall 'display-invoice-item-row item sessioninvkey))))  invoiceitems))
-	       ;;<!-- Repeat <tr> as needed for more items -->
-	       (:tr
-		(:td :colspan "3" "Total :")
-		(:td :colspan "3" (cl-who:str (calculate-invoice-totalaftertax invoiceitems)))
-		(:td :colspan "7"))
-	       (:tr
-		(:td :colspan "3" "Total Invoice Amount in Words:")
-		(:td :colspan "3" (cl-who:str (convert-number-to-words-INR (calculate-invoice-totalaftertax invoiceitems))))
-		(:td :colspan "7"))
-	       
-	       (:tr
-		(:td :colspan "7" "Bank Details :")
-		(:td :colspan "3" "Total Amount Before Tax :")
-		(:td :colspan "3" (cl-who:str (calculate-invoice-totalbeforetax invoiceitems))))
-	       
-	       (:tr
-		(:td :colspan "2" "Bank Account Number :")
-		(:td :colspan "5")
-		(:td :colspan "6" "Add : CGST :")
-		(:td :colspan "6" (cl-who:str (calculate-invoice-totalcgst invoiceitems))))
-	       
-	       (:tr
-		(:td :colspan "2" "Bank Branch IFSC :")
-		(:td :colspan "5")
-		(:td :colspan "6" "Add : SGST :")
-		(:td :colspan "6" (cl-who:str (calculate-invoice-totalsgst invoiceitems))))
-	       (:tr
-		(:td :colspan "7" "Terms and Conditions :")
-		(:td :colspan "6" "Add : IGST :")
-		(:td :colspan "6" (cl-who:str (calculate-invoice-totaligst invoiceitems))))
-	       (:tr
-		(:td :colspan "7")
-		(:td :colspan "6" "Tax Amount : GST :")
-		(:td :colspan "6" (cl-who:str (calculate-invoice-totalgst invoiceheader invoiceitems))))
-	       (:tr
-		(:td :colspan "7")
-		(:td :colspan "6" "Total Amount After Tax :")
-		(:td :colspan "6" (cl-who:str (calculate-invoice-totalaftertax invoiceitems))))
-	       (:tr
-		(:td :colspan "7")
-		(:td :colspan "6" "GST Payable on Reverse Charge :"))
-	       (:tr
-		(:td :colspan "7")
-		(:td :colspan "6" "Certified that the particulars given above are true and correct."))
-	       (:tr
-		(:td :colspan "7")
-		(:td :colspan "6" "For, [Company Name]"))
-	       (:tr
-		(:td :colspan "7")
-		(:td :colspan "6" "(Authorized Signatory)")))))))
+      (:style "table {width: 100%; border-collapse: collapse;} table, th, td {border: 1px solid blue;} th, td { padding: 1px; text-align: left;}")
+      (:table 
+       (:thead
+	(:tr 
+	 (:th :colspan "2" "TAX INVOICE")
+	 (:th :colspan "3" "Original For Recipient")
+	 (:th :colspan "3" "Duplicate for Supplier")
+	 (:th :colspan "3" "Triplicate for Supplier")))
+       (:tbody
+	(:tr
+	 (:td :colspan "2" "Invoice No. :")
+	 (:td :colspan "2" (cl-who:str invnum))
+	 (if (not (equal transmode "NA"))
+	     (cl-who:htm 
+	      (:td :colspan "2" "Transportation Mode:")
+	      (:td :colspan "1" (cl-who:str transmode))
+	      (:td :colspan "2" "Vehicle Number :")
+	      (:td :colspan "1" (cl-who:str vnum)))))
+	(:tr
+	 (:td :colspan "2" "Invoice Date:")
+	 (:td :colspan "2" (cl-who:str (get-date-string invdate)))
+	 (:td :colspan "2" "Date of Supply :")
+	 (:td :colspan "2" "Place of Supply :")
+	 (:td :colspan "2" (cl-who:str (gethash placeofsupply *NSTGSTSTATECODES-HT*)))
+	 (:td :colspan "2" "State Code:")
+	 (:td :colspan "2" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*))))
+	(:tr
+	 (:th :colspan "5" "Details of Receiver / Billed to:")
+	 (:th :colspan "5" "Details of Consignee / Shipped to:"))
+	(:tr
+	 (:td :colspan "2" "Name :")
+	 (:td :colspan "3" (cl-who:str (slot-value customer 'name)))
+	 (:td :colspan "2" "Name :")
+	 (:td :colspan "3" (cl-who:str (slot-value customer 'name))))
+	(:tr
+	 (:td :colspan "2" "Address :")
+	 (:td :colspan "3" (cl-who:str billaddr))
+	 (:td :colspan "2" "Address :")
+	 (:td :colspan "3" (cl-who:str shipaddr)))
+	(:tr
+	 (:td :colspan "2" "GSTIN :")
+	 (:td :colspan "3" (cl-who:str custgstin))
+	 (:td :colspan "2" "GSTIN :")
+	 (:td :colspan="3" (cl-who:str custgstin)))
+	(:tr
+	 (:td :colspan "2" "State :")
+	 (:td :colspan "3" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*)))
+	 (:td :colspan "2" "State :")
+	 (:td :colspan "3" (cl-who:str (gethash statecode *NSTGSTSTATECODES-HT*))))
+	
+	(:tr
+	 (:th "Sr. No")
+	 (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) (list "Name of Product/Service" "HSN/SAC" "Qty Per Unit" "Qty" "Rate"  "Less: Discount%" "Taxable Value" "CGST" "SGST" "IGST" "Total" "Action")))
+	(let ((incr (let ((count 0)) (lambda () (incf count)))))
+	  (mapcar (lambda (item)
+		    (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall 'display-invoice-item-row item sessioninvkey))))  invoiceitems))
+	;;<!-- Repeat <tr> as needed for more items -->
+	(:tr
+	 (:td :colspan "3" "Total :")
+	 (:td :colspan "3" (cl-who:str (calculate-invoice-totalaftertax invoiceitems)))
+	 (:td :colspan "7"))
+	(:tr
+	 (:td :colspan "3" "Total Invoice Amount in Words:")
+	 (:td :colspan "3" (cl-who:str (convert-number-to-words-INR (calculate-invoice-totalaftertax invoiceitems))))
+	 (:td :colspan "7"))
+	(:tr
+	 (:td :colspan "7" "Bank Details :")
+	 (:td :colspan "3" "Total Amount Before Tax :")
+	 (:td :colspan "3" (cl-who:str (calculate-invoice-totalbeforetax invoiceitems))))
+	(:tr
+	 (:td :colspan "3" "Bank Account Number:")
+	 (:td :colspan "4" (cl-who:str bankaccnum))
+	 (:td :colspan "3" "Add : CGST :")
+	 (:td :colspan "3" (cl-who:str (calculate-invoice-totalcgst invoiceitems))))
+	(:tr
+	 (:td :colspan "2" "Bank Branch IFSC :")
+	 (:td :colspan "5" (cl-who:str bankifsccode))
+	 (:td :colspan "3" "Add : SGST :")
+	 (:td :colspan "3" (cl-who:str (calculate-invoice-totalsgst invoiceitems))))
+	(:tr
+	 (:td :colspan "7")
+	 (:td :colspan "3" "Add : IGST :")
+	 (:td :colspan "3" (cl-who:str (calculate-invoice-totaligst invoiceitems))))
+	(:tr
+	 (:td :colspan "7")
+	 (:td :colspan "3" "Tax Amount : GST :")
+	 (:td :colspan "3" (cl-who:str (calculate-invoice-totalgst invoiceheader invoiceitems))))
+	(:tr
+	 (:td :colspan "7")
+	 (:td :colspan "3" "Total Amount After Tax :")
+	 (:td :colspan "3" (cl-who:str (calculate-invoice-totalaftertax invoiceitems))))
+	(:tr
+	 (:td :colspan "7")
+	 (:td :colspan "6" "GST Payable on Reverse Charge :"))
+	(:tr
+	 (:td :colspan "7")
+	 (:td :colspan "4" "Certified that the particulars given above are true and correct.")
+	 (:td :colspan "2" "(Authorized Signatory)"))
+	(:tr
+	 (:td :colspan "7")
+	 (:td :colspan "6" "For, [Company Name]"))
+	(:tr
+	 (:td :colspan "13" "Terms and Conditions :"))
+	(:tr
+	 (:td :colspan "13" (cl-who:str tnc))))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -211,12 +204,14 @@
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
 	 (sessioninvitems (slot-value sessioninvoice 'InvoiceItems))
-	 (products (hunchentoot:session-value :login-prd-cache))) 
+	 (sessioninvproducts (slot-value sessioninvoice 'invoiceproducts))
+	 (products (hunchentoot:session-value :login-prd-cache)))
+
     (function (lambda ()
-      (values products sessioninvitems  sessioninvkey)))))
+      (values products sessioninvitems sessioninvproducts  sessioninvkey)))))
 
 (defun createwidgetsforaddprdtoinvoice (modelfunc)
-  (multiple-value-bind (products sessioninvitems sessioninvkey) (funcall modelfunc)
+  (multiple-value-bind (products sessioninvitems sessioninvproducts sessioninvkey) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-vendor-breadcrumb
@@ -224,18 +219,28 @@
 			  (:li :class "breadcrumb-item" (:a :href "addcusttoinvoice" "Select Customer")))
 			(with-html-div-row
 			  (:div :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"
-				(:span "Create Invoice - Step 3: ")
-				(:h2 "Select Products")))))))
+				(:span "Create Invoice - Step 3:")))))))
 	   (widget2 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-html-div-row
-			  (:div :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"    
+			  (:div :class "col-xs-12 col-sm-12 col-md-4 col-lg-4"    
+				
 				(with-html-search-form "idsearchproduct" "searchproduct" "idtxtsearchproduct" "txtsearchproduct" "vsearchproductforinvoice" "onkeyupsearchform1event();" "Product Name"
 				  (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
 				  (submitsearchform1event-js "#idtxtsearchproduct" "#vendorproductsearchforinvoiceresult" )))
-			  (:div :align "right" :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"
+			  (:div :class "col-xs-12 col-sm-12 col-md-4 col-lg-4"    
+				(with-html-form-having-submit-event  "barcodescanform" "vaddtocartusingbarcode"
+				  ;; here we would like to auto focus on the barcode textbox to input the next barcode upon page reload.
+				  (with-html-input-text "barcodeinput" "Product Barcode/UPC/EAN" "Enter Barcode/UPC/EAN" "" NIL "" 1 :autofocus "autofocus")
+				  (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
+				  (:input :type "submit" :style "display: none;")))
+			  (:div :class "col-xs-12 col-sm-12 col-md-4 col-lg-4"    
 				(:a :href (format nil "/hhub/vshowinvoiceconfirmpage?sessioninvkey=~A" sessioninvkey) 
 				    (:img :src  "/img/checkoutimage.png"  :height "100" :width "350" :alt "checkout"))))
+			  
+			(:h2 "Cart Items")
+			(cl-who:str (display-as-table (list "" "Name" "Qty Per Unit" "Price" "" "Discount" "In Cart") sessioninvproducts  'display-product-in-invoice-row sessioninvkey sessioninvitems))
+			(:h2 "Products")
 			(:div :id "vendorproductsearchforinvoiceresult"  :class "container"
 			      (cl-who:str (display-as-table (list "" "Name" "Qty Per Unit" "Price" "" "Discount" "Action") products  'display-add-product-to-invoice-row sessioninvkey sessioninvitems)))))))
 	   (widget3 (function (lambda ()
@@ -245,8 +250,9 @@
 (defun display-add-product-to-invoice-row (product &rest arguments)
   (let* ((sessioninvkey (first (first arguments)))
 	 (sessioninvitems (second (first arguments)))
-	 (prdincart-p (prdinlist-p (slot-value product 'row-id) sessioninvitems))
 	 (prd-id (slot-value product 'row-id))
+	 ;;(qtyincart 0)
+	 (prdincart-p (prdinlist-p prd-id sessioninvitems))
 	 (prdname (slot-value product 'prd-name))
 	 (prd-name (subseq prdname 0 (min 20 (length prdname))))
 	 (units-in-stock (slot-value product 'units-in-stock))
@@ -272,8 +278,48 @@
 		 (if (and units-in-stock (> units-in-stock 0))
 		     (cl-who:htm
 		      (:div :class "form-group"
-			    (:button :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) :type "button" :class "add-to-cart-btn" :data-toggle "modal" :data-target (format nil "#producteditqty-modal~A" prd-id) (:i :class "fa-solid fa-cart-shopping") "&nbsp;Add To Cart")
-			    (modal-dialog (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (vproduct-qty-add-for-invoice-html product ppricing sessioninvkey))))			
+			    (:button :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) :type "button" :class "add-to-cart-btn" :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id) (:i :class "fa-solid fa-cart-shopping") "&nbsp;Add To Cart")
+			    (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (vproduct-qty-add-for-invoice-html product ppricing sessioninvkey))))			
+		     ;; else
+		     (cl-who:htm
+		      (:div :class "col-6" 
+			    (:h5 (:span :class "label label-danger" "Out Of Stock"))))))))))
+
+(defun display-product-in-invoice-row (product &rest arguments)
+  (let* ((sessioninvkey (first (first arguments)))
+	 (sessioninvitems (second (first arguments)))
+	 (prd-id (slot-value product 'row-id))
+	 ;;(qtyincart 0)
+	 (prdincart-p (prdinlist-p prd-id sessioninvitems))
+	 (itemincart (if prdincart-p (search-item-in-list 'prd-id prd-id sessioninvitems) nil))
+	 (qtyincart (if itemincart (slot-value itemincart 'qty)))
+	 (prdname (slot-value product 'prd-name))
+	 (prd-name (subseq prdname 0 (min 20 (length prdname))))
+	 (units-in-stock (slot-value product 'units-in-stock))
+	 (qty-per-unit (slot-value product 'qty-per-unit))
+	 (prd-image-path (slot-value product 'prd-image-path))
+	 (company (get-login-vendor-company))
+	 (price (slot-value product 'unit-price))
+	 (ppricing (select-product-pricing-by-product-id prd-id company))
+	 (pprice (if ppricing (slot-value ppricing 'price)))
+	 (pdiscount (if ppricing (slot-value ppricing 'discount)))
+	 (pcurr (if ppricing (slot-value ppricing 'currency))))
+    (cl-who:with-html-output (*standard-output* nil)
+      (:td :height "10px" (:img :style "width: 30px; height: 30px;" :src prd-image-path))
+      (:td  :height "10px" (cl-who:str prd-name))
+      (:td  :height "10px" (cl-who:str qty-per-unit))
+      (:td  :height "10px" (cl-who:str (if ppricing pprice price)))
+      (:td  :height "10px" (cl-who:str pcurr))
+      (:td  :height "10px" (cl-who:str (if pdiscount pdiscount "NIL")))
+      (:td  :height "10px"
+	    (if  prdincart-p
+		 (cl-who:htm  (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" qtyincart))))
+		 ;; else 
+		 (if (and units-in-stock (> units-in-stock 0))
+		     (cl-who:htm
+		      (:div :class "form-group"
+			    (:button :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) :type "button" :class "add-to-cart-btn" :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id) (:i :class "fa-solid fa-cart-shopping") "&nbsp;Add To Cart")
+			    (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (vproduct-qty-add-for-invoice-html product ppricing sessioninvkey))))			
 		     ;; else
 		     (cl-who:htm
 		      (:div :class "col-6" 
@@ -330,14 +376,14 @@
 	 (prdqty (parse-integer (hunchentoot:parameter "prdqty")))
 	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
-	 (myshopcart (hunchentoot:session-value :login-shopping-cart))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
 	 (sessioninvitems (slot-value sessioninvoice 'InvoiceItems))
+	 (sessioninvproducts (slot-value sessioninvoice 'invoiceproducts))
 	 (context-id (slot-value sessioninvheader 'context-id))
 	 (customer (slot-value sessioninvoice 'customer))
 	 (productlist (hunchentoot:session-value :login-prd-cache))
-	 (product (search-prd-in-list prd-id productlist))
+	 (product (search-item-in-list 'row-id prd-id productlist))
 	 (gstvalues (get-gstvalues-for-product product))
 	 (unit-price (slot-value product 'unit-price))
 	 (qty-per-unit (slot-value product 'qty-per-unit))
@@ -351,7 +397,14 @@
 	 (statecode (slot-value sessioninvheader 'statecode))
 	 (intrastate (if (equal statecode placeofsupply) T NIL))
 	 (interstate (if (equal statecode placeofsupply) NIL T)) 
-		 (vendor (product-vendor product))
+	 (cgstrate (if gstvalues (first gstvalues) 0.00)) 
+	 (cgstamt (if intrastate (/ ( * taxablevalue cgstrate) 100) 0.00))
+	 (sgstrate (if gstvalues (second gstvalues) 0.00))
+	 (sgstamt (if intrastate (/ (* sgstrate taxablevalue) 100) 0.00))
+	 (igstrate (if gstvalues (third gstvalues) 0.00)) 
+	 (igstamt (if interstate (/ (* igstrate taxablevalue) 100) 0.00))
+	 (totalitemval (+ taxablevalue (if intrastate (+ cgstamt sgstamt) igstamt)))
+	 (vendor (product-vendor product))
 	 (wallet (get-cust-wallet-by-vendor customer vendor company))
 	 (ihdadapter (make-instance 'InvoiceHeaderAdapter))
 	 (ihdrequestmodel (make-instance 'InvoiceHeaderContextIDRequestModel
@@ -384,7 +437,8 @@
     (unless wallet (create-wallet customer vendor company))
     (when (and wallet (> prdqty 0) sessioninvoice)
       (setf (slot-value sessioninvoice 'InvoiceItems) (append sessioninvitems (list invoiceitem)))
-      (setf (hunchentoot:session-value :login-shopping-cart) (append myshopcart (list invoiceitem)))
+      (setf (slot-value sessioninvoice 'invoiceproducts) (append sessioninvproducts (list product)))
+      ;;(setf (hunchentoot:session-value :login-prd-cache) (remove product productlist))
       (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
       (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)
       (function (lambda ()
@@ -398,7 +452,7 @@
 
 (defun com-hhub-transaction-vendor-addtocart-for-invoice-action ()
   :documentation "This function is responsible for adding the product and product quantity to the shopping cart."
-  (with-cust-session-check
+  (with-vend-session-check
     (let ((uri (with-mvc-redirect-ui createmodelforvendaddtocartforinvoice createwidgetsforvendaddtocartforinvoice)))
       (format nil "~A" uri))))
 
@@ -406,6 +460,104 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;ADD TO CART USING BARCODE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun createmodelforvendaddtocartusingbarcode ()
+  (let* ((company (get-login-vendor-company))
+	 (barcode (hunchentoot:parameter "barcodeinput"))
+	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
+	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
+	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
+	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
+	 (sessioninvitems (slot-value sessioninvoice 'InvoiceItems))
+	 (sessioninvproducts (slot-value sessioninvoice 'invoiceproducts))
+	 (context-id (slot-value sessioninvheader 'context-id))
+	 (customer (slot-value sessioninvoice 'customer))
+	 (productlist (hunchentoot:session-value :login-prd-cache))
+	 (product (search-item-in-list 'upc barcode productlist))
+	 (prd-id (slot-value product 'row-id))
+	 (itemincart (if (iteminlist-p 'prd-id prd-id sessioninvitems) (search-item-in-list 'prd-id prd-id sessioninvitems)))
+	 (newqty (if itemincart (+ (slot-value itemincart 'qty) 1) 1))
+	 (gstvalues (get-gstvalues-for-product product))
+	 (unit-price (slot-value product 'unit-price))
+	 (qty-per-unit (slot-value product 'qty-per-unit))
+	 (pname (slot-value product 'prd-name))
+	 (prd-name (subseq pname 0 (min 30 (length pname))))
+	 (hsncode (slot-value product 'hsn-code))
+	 (product-pricing (select-product-pricing-by-product-id prd-id company))
+	 (prd-discount (if product-pricing (slot-value product-pricing 'discount) nil))
+	 (taxablevalue (- (* newqty unit-price) (if prd-discount (/ (* newqty unit-price prd-discount) 100) 0.00)))
+	 (placeofsupply (slot-value sessioninvheader 'placeofsupply))
+	 (statecode (slot-value sessioninvheader 'statecode))
+	 (intrastate (if (equal statecode placeofsupply) T NIL))
+	 (interstate (if (equal statecode placeofsupply) NIL T)) 
+	 (cgstrate (if gstvalues (first gstvalues) 0.00)) 
+	 (cgstamt (if intrastate (/ ( * taxablevalue cgstrate) 100) 0.00))
+	 (sgstrate (if gstvalues (second gstvalues) 0.00))
+	 (sgstamt (if intrastate (/ (* sgstrate taxablevalue) 100) 0.00))
+	 (igstrate (if gstvalues (third gstvalues) 0.00)) 
+	 (igstamt (if interstate (/ (* igstrate taxablevalue) 100) 0.00))
+	 (totalitemval (+ taxablevalue (if intrastate (+ cgstamt sgstamt) igstamt)))
+	 (vendor (product-vendor product))
+	 (wallet (get-cust-wallet-by-vendor customer vendor company))
+	 (ihdadapter (make-instance 'InvoiceHeaderAdapter))
+	 (ihdrequestmodel (make-instance 'InvoiceHeaderContextIDRequestModel
+					 :context-id context-id
+					 :company company))
+	 (invheader (ProcessReadRequest ihdadapter ihdrequestmodel))
+	 (redirectlocation (format nil "/hhub/vproductsforinvoicepage?sessioninvkey=~A" sessioninvkey))
+	 (invitmrequestmodel (make-instance 'InvoiceItemRequestModel
+					 :InvoiceHeader invheader
+					 :prd-id prd-id
+					 :prddesc prd-name
+					 :hsncode hsncode
+					 :qty newqty
+					 :uom qty-per-unit
+					 :price unit-price
+					 :discount prd-discount
+					 :taxablevalue taxablevalue
+					 :cgstrate cgstrate
+					 :cgstamt cgstamt
+					 :sgstrate sgstrate
+					 :sgstamt sgstamt
+					 :igstrate igstrate
+					 :igstamt igstamt
+					 :company company
+					 :totalitemval totalitemval
+					 :status "PENDING"))
+	 (invitmadapter (make-instance 'InvoiceItemAdapter))
+	 (InvoiceItem (if itemincart (ProcessUpdateRequest invitmadapter invitmrequestmodel) (ProcessCreateRequest invitmadapter invitmrequestmodel))))
+		    
+    (unless wallet (create-wallet customer vendor company))
+    (when (and wallet sessioninvoice)
+      (when  itemincart
+	;; if updated an item using barcode then, we need to replace the current item
+	(setf sessioninvitems (remove itemincart sessioninvitems))
+	(setf sessioninvproducts (remove product sessioninvproducts)))
+	;;(setf (hunchentoot:session-value :login-prd-cache) (remove product productlist)))
+      ;; if created an item using barcode use this 
+      (setf (slot-value sessioninvoice 'InvoiceItems) (append sessioninvitems (list invoiceitem)))
+      (setf (slot-value sessioninvoice 'invoiceproducts) (append sessioninvproducts (list product)))
+      (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
+      (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)
+      (function (lambda ()
+	(values redirectlocation))))))
+
+(defun createwidgetsforvendaddtocartusingbarcode (modelfunc)
+ (createwidgetsforgenericredirect modelfunc))
+
+
+(defun com-hhub-transaction-vendor-addtocart-using-barcode-action ()
+  :documentation "This function is responsible for adding the product and product quantity to the shopping cart."
+  (with-cust-session-check
+    (let ((uri (with-mvc-redirect-ui createmodelforvendaddtocartusingbarcode createwidgetsforvendaddtocartusingbarcode)))
+      (format nil "~A" uri))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 
@@ -433,8 +585,8 @@
 				(:span "Create Invoice - Step 1: ")
 				(:h2 "Select Customer (Optional)"))
 			  (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3"
-				(:button :type "button" :class "btn btn-lg btn-primary btn-block" :data-toggle "modal" :data-target (format nil "#vendorcreatecustomer-modal") (:i :class "fa-solid fa-user") "&nbsp;Add Customer")
-				(modal-dialog (format nil "vendorcreatecustomer-modal")  "Create Customer" (vendor-create-update-customer-dialog nil)))
+				(:button :type "button" :class "btn btn-lg btn-primary btn-block" :data-bs-toggle "modal" :data-bs-target (format nil "#vendorcreatecustomer-modal") (:i :class "fa-solid fa-user") "&nbsp;Add Customer")
+				(modal-dialog-v2 (format nil "vendorcreatecustomer-modal")  "Create Customer" (vendor-create-update-customer-dialog nil)))
 			  (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3 form-group"
 				(with-html-form (format nil "invoicecreateforcust~A" guestcustid) "editinvoicepage"
 				  (with-html-input-text-hidden "mode" "create")
@@ -449,7 +601,7 @@
 			  (:div :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"    
 				(with-html-search-form "idsearchmycustomerbyphone" "searchmycustomer" "idtxtsearchcustomerphone" "txtsearchcustomerphone" "vsearchcustbyphone" "onkeyupsearchform2event();" "Customer Phone"
 				  (submitsearchform2event-js "#idtxtsearchcustomerphone" "#vendormycustomerssearchresult" ))))
-			(:div :id "vendormycustomerssearchresult"  :class "container"
+			(:div :id "vendormycustomerssearchresult"  :class "container-fluid"
 			      (cl-who:str (display-as-table (list "Name" "Phone" "Action") mycustomers 'display-add-customer-to-invoice-row))))))))
       (list widget1 widget2))))
 
@@ -602,6 +754,7 @@
 	 (tnc (hunchentoot:parameter "tnc"))
 	 (authsign (hunchentoot:parameter "authsign"))
 	 (finyear (hunchentoot:parameter "finyear"))
+	 (status (hunchentoot:parameter "status"))
 	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
@@ -630,6 +783,7 @@
 					 :tnc tnc
 					 :authsign authsign
 					 :finyear finyear
+					 :status status
 					 :vendor vendor
 					 :company company))
 	 (adapterobj (make-instance 'InvoiceHeaderAdapter))
@@ -913,13 +1067,17 @@
 	 (mode (hunchentoot:parameter "mode"))
 	 (finyear (current-year-string))
 	 (adapter (make-instance 'InvoiceHeaderAdapter))
+	 (itmadapter (make-instance 'InvoiceItemAdapter))
 	 (customer (if custid (select-customer-by-id custid company)))
+	 (custaddress (if customer (slot-value customer 'address)))
 	 (busobj (make-instance 'InvoiceHeader
 				:context-id (format nil "~A" (uuid:make-v1-uuid))
 				:company company
 				:vendor vendor
 				:customer customer
+				:custaddr custaddress 
 				:finyear finyear
+				:status "DRAFT"
 				:placeofsupply *NSTGSTBUSINESSSTATE*
 				:statecode *NSTGSTBUSINESSSTATE*
 				:tnc *NSTGSTINVOICETERMS*
@@ -929,6 +1087,11 @@
 				      :invnum inum
 				      :company company))
 	 (invoiceobj (if inum (ProcessReadRequest adapter requestmodel) busobj))
+	 (invitemreqmodel (make-instance 'InvoiceItemRequestModel
+					 :invoiceheader invoiceobj
+					 :company company))
+	 (invitems (if inum (ProcessReadAllRequest itmadapter invitemreqmodel) '()))  
+	 
 	 ;; When we are creating a new invoice, we would like to save it in the session with context of
 	 ;; customer, invoice header and invoice items. Here we start with adding the customer context. 
 	 (sessioninvkey (if inum inum (format nil "NST000~A" (hhub-random-password 10))))
@@ -936,18 +1099,19 @@
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht)))
 	   ;; set the customer context for the invoice being created and add to the session invoice. 
     (setf (slot-value newsessioninvoice 'customer) (customer invoiceobj))
-    (setf (slot-value newsessioninvoice 'InvoiceItems) '())
+    (setf (slot-value newsessioninvoice 'InvoiceItems) invitems)
+    (setf (slot-value newsessioninvoice 'invoiceproducts) '())
     (setf (slot-value newsessioninvoice 'InvoiceHeader) invoiceobj)
     (setf (gethash sessioninvkey sessioninvoices-ht) newsessioninvoice)
     (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)
-  (with-slots (context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear customer ) invoiceobj
+  (with-slots (context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status customer ) invoiceobj
     (function (lambda()
-      (values context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear customer  mode sessioninvkey))))))
+      (values context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status customer  mode sessioninvkey))))))
 
 
 (defun createwidgetsforeditinvoiceheaderpage (modelfunc)
-  (multiple-value-bind (context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear customer  mode sessioninvkey) (funcall modelfunc)
-    (let* ((widget1 (editinvoicewidget-section1 sessioninvkey context-id invnum invdate  custgstin statecode finyear customer))
+  (multiple-value-bind (context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status customer  mode sessioninvkey) (funcall modelfunc)
+    (let* ((widget1 (editinvoicewidget-section1 sessioninvkey context-id invnum invdate  custgstin statecode finyear status customer))
 	   (widget2 (editinvoicewidget-section2 custaddr billaddr shipaddr))
 	   (widget3 (editinvoicewidget-section3 placeofsupply revcharge transmode vnum totalvalue totalinwords))
 	   (widget4 (editinvoicewidget-section4 bankaccnum bankifsccode tnc authsign))
@@ -977,13 +1141,21 @@
       (list widget6))))
 
 
-(defun editinvoicewidget-section1 (sessioninvkey context-id invnum invdate  custgstin statecode finyear customer)
+(defun editinvoicewidget-section1 (sessioninvkey context-id invnum invdate  custgstin statecode finyear status customer)
   (function (lambda ()
     (let ((charcountid1 (format nil "idchcount~A" (hhub-random-password 3)))
-	  (finyear-ht (make-hash-table :test 'equal)))
+	  (finyear-ht (make-hash-table :test 'equal))
+	  (status-ht (make-hash-table :test 'equal)))
+      
       (setf (gethash (current-year-string--) finyear-ht) (current-year-string--))
       (setf (gethash (current-year-string) finyear-ht) (current-year-string))
       (setf (gethash (current-year-string++) finyear-ht) (current-year-string++))
+      (setf (gethash 1 status-ht) "DRAFT")
+      (setf (gethash 2 status-ht) "PAID")
+      (setf (gethash 3 status-ht) "SHIPPED")
+      (setf (gethash 4 status-ht) "CANCELLED")
+      (setf (gethash 5 status-ht) "REFUNDED")
+      
       (unless statecode (setf statecode *NSTGSTBUSINESSSTATE*))
 
       (cl-who:with-html-output (*standard-output* nil)
@@ -997,6 +1169,9 @@
 	(:div :class "form-group"
 	    (:label :for "finyear" "Financial Year")
 	    (with-html-dropdown "finyear" finyear-ht finyear))
+	(:div :class "form-group"
+	      (:label :for "status" "Status")
+	      (with-html-dropdown "status" status-ht status))
 	(:div :class "form-group"
 	      (:label :for "invnum" "Invoice Number")
 	      (:input :class "form-control" :name "invnum" :maxlength "20"  :value  invnum :placeholder "Invoice Number (max 20 characters) " :type "text" :readonly t))
