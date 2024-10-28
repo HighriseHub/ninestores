@@ -8,6 +8,14 @@
 
 ;; INVOICE ITEM RELATED POLICIES START
 
+(defun com-hhub-policy-delete-invoiceitem-action (&optional (params nil))
+  :documentation "This policy governs updating the invoice item by the vendor"
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
+
 (defun com-hhub-policy-update-invoiceitem-action (&optional (params nil))
   :documentation "This policy governs updating the invoice item by the vendor"
   (let* ((company (cdr (assoc "company" params :test 'equal)))
