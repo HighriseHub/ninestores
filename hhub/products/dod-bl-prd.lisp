@@ -80,19 +80,11 @@
 		:caching *dod-database-caching* :flatp t )))
 
 
-
-
-(defun search-prd-in-list (row-id list)
-  ;;(car (member row-id (mapcar (lambda (item)
-;;				(slot-value item 'row-id)) list))))
-
-    (if (not (equal row-id (slot-value (car list) 'row-id))) (search-prd-in-list row-id (cdr list))
-	(car list)))
-
-(defun search-item-in-list (row-id list)
-  (if (not (equal row-id (slot-value (car list) 'row-id))) (search-item-in-list row-id (cdr list))
-      (car list)))
-
+(defun search-item-in-list (key value list)
+  (if (equal value (slot-value (car list) key))
+      (car list)
+      ;;else
+      (search-item-in-list key value (cdr list))))
 
 (defun filter-products-by-category (category-id list)
  (remove nil (mapcar (lambda (item)
@@ -104,9 +96,12 @@
 
 
 (defun prdinlist-p  (prd-id list)
-  (if (member prd-id (mapcar (lambda (item)
-			       (slot-value item 'prd-id)) list) :test #'equal) T NIL))
+  (member prd-id (mapcar (lambda (item)
+			   (slot-value item 'prd-id)) list) :test #'equal))
 
+(defun iteminlist-p  (key value list)
+  (member value (mapcar (lambda (item)
+			  (slot-value item key)) list) :test #'equal))
 
 
 (defun select-product-by-id (id company-instance ) 
@@ -308,12 +303,12 @@
 
 
 (defun search-prdcatg-in-list (row-id list)
-    (if (not (equal row-id (slot-value (car list) 'row-id))) (search-prdcatg-in-list row-id (cdr list))
-    (car list)))
+  (if (not (equal row-id (slot-value (car list) 'row-id))) (search-prdcatg-in-list row-id (cdr list))
+	(car list)))
 
 (defun prdcatginlist-p  (row-id list)
-(member row-id  (mapcar (lambda (item)
-		(slot-value item 'row-id)) list)))
+  (member row-id  (mapcar (lambda (item)
+			    (slot-value item 'row-id)) list)))
 
 
 (defun select-prdcatg-by-id (id company-instance ) 
