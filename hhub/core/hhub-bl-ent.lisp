@@ -437,8 +437,8 @@
 
 (defmethod init ((dbas DBAdapterService) (bo BusinessObject))
   :description "Set the domain object"
-  (setf (businessobject dbas) bo))
-
+  (setf (businessobject dbas) bo)
+  (setf (slot-value (dbobject dbas) 'deleted-state) "N"))
 
 (defmethod setcompany ((dbas DBAdapterService) company)
   (let ((dbobj (slot-value dbas 'dbobject))
@@ -485,19 +485,19 @@
 (defmethod db-delete ((dbas DBAdapterService))
   :description "Will be implementd by the derived class objects"
   (handler-case
-      (let ((dbobject (slot-value dbas 'dbobject)))
-	(setf (slot-value dbobject 'deleted-state) "Y")
-	(clsql:update-record-from-slot dbobject 'deleted-state))
-    (error (c)
-      (let ((exceptionstr (format nil  "HHUB General Business Function Error: ~a~%"  c)))
+      (when (company dbas) 
+	(let ((dbobject (slot-value dbas 'dbobject)))
+	  (setf (slot-value dbobject 'deleted-state) "Y")
+	  (clsql:update-record-from-slot dbobject 'deleted-state)))
+    (error (condition)
+      (let ((exceptionstr (format nil  "Database Error:~A: ~a~%" (mysql-now) condition)))
 	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
 				:direction :output
 				:if-exists :append
 				:if-does-not-exist :create)
-	  (format stream "~A" exceptionstr))
-	(setexception dbas c)
+	  (format stream "~A~A" exceptionstr (sb-debug:list-backtrace)))
 	;; return the exception.
-	c))))
+	(error 'hhub-database-error :errstring exceptionstr)))))
   
 
 (defmethod syncobjects ((dbas DBAdapterService))
