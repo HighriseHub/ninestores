@@ -253,6 +253,9 @@
 (defclass InvoiceHeaderContextIDRequestModel (InvoiceHeaderRequestModel)
   ())
 
+(defclass InvoiceHeaderStatusRequestModel (InvoiceHeaderRequestModel)
+  ())
+
 (defclass InvoiceHeader (BusinessObject)
   ((row-id)
    (context-id
