@@ -169,6 +169,13 @@
   (logiamhere "I am in processupdaterequest for InvoiceHeaderRequestModel")
   (call-next-method))
 
+(defmethod ProcessUpdateRequest ((adapter InvoiceHeaderAdapter) (requestmodel InvoiceHeaderStatusRequestModel))
+  :description "Adapter service method to call the BusinessService Update method"
+  (setf (slot-value adapter 'businessservice) (find-class 'InvoiceHeaderService))
+  ;; call the parent ProcessUpdate
+  (logiamhere "I am in processupdaterequest for InvoiceHeaderStatusRequestModel")
+  (call-next-method))
+
 ;; PROCESS READ ALL REQUEST.
 (defmethod ProcessReadAllRequest ((adapter InvoiceHeaderAdapter) (requestmodel InvoiceHeaderRequestModel))
   :description "Adapter service method to read UPI Payments"
@@ -328,6 +335,29 @@
       (setf (slot-value InvoiceHeaderdbobj 'vendor-id) vendor-id)
       (setf (slot-value InvoiceHeaderdbobj 'tenant-id) tenant-id)
       (setf (slot-value InvoiceHeaderdbobj 'finyear) finyear)
+      (setf (slot-value InvoiceHeaderdbobj 'status) status))
+    ;;  FIELD UPDATE CODE ENDS HERE. 
+    (setf (slot-value InvoiceHeaderdbservice 'dbobject) InvoiceHeaderdbobj)
+    (setf (slot-value InvoiceHeaderdbservice 'businessobject) domainobj)
+    
+    (setcompany InvoiceHeaderdbservice comp)
+    (db-save InvoiceHeaderdbservice)
+    ;; Return the newly created Invoice Header domain object
+    (copyInvoiceHeader-dbtodomain InvoiceHeaderdbobj domainobj)))
+
+
+(defmethod doupdate ((service InvoiceHeaderService) (requestmodel InvoiceHeaderStatusRequestModel))
+  (let* ((InvoiceHeaderdbservice (make-instance 'InvoiceHeaderDBService))
+	 (invnum (invnum requestmodel))
+	 (totalvalue (totalvalue requestmodel))
+	 (status (status requestmodel))
+	 (comp (company requestmodel))	 
+	 (InvoiceHeaderdbobj (select-invoice-header-by-invnum invnum comp))
+	 (domainobj (make-instance 'InvoiceHeader)))
+	 
+    ;; FIELD UPDATE CODE STARTS HERE 
+    (when InvoiceHeaderdbobj
+      (setf (slot-value InvoiceHeaderdbobj 'totalvalue) totalvalue)
       (setf (slot-value InvoiceHeaderdbobj 'status) status))
     ;;  FIELD UPDATE CODE ENDS HERE. 
     (setf (slot-value InvoiceHeaderdbservice 'dbobject) InvoiceHeaderdbobj)
