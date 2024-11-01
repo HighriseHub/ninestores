@@ -1043,6 +1043,8 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/vshowinvoiceconfirmpage"   'com-hhub-transaction-show-invoice-confirm-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/updateInvoiceItemaction"   'com-hhub-transaction-update-invoiceitem-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/deleteinvoiceitemaction"   'com-hhub-transaction-delete-invoiceitem-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaymentpage"   'com-hhub-transaction-show-invoice-payment-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaidaction"   'com-hhub-transaction-invoice-paid-action)
 ))
 
 
