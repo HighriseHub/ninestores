@@ -1039,9 +1039,12 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/vproductsforinvoicepage"   'com-hhub-transaction-add-product-to-invoice-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vsearchproductforinvoice"   'com-hhub-transaction-search-product-for-invoice-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vaddtocartforinvoice"   'com-hhub-transaction-vendor-addtocart-for-invoice-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vaddtocartusingbarcode"   'com-hhub-transaction-vendor-addtocart-using-barcode-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vshowinvoiceconfirmpage"   'com-hhub-transaction-show-invoice-confirm-page)
-	(hunchentoot:create-regex-dispatcher "^/hhub/updateInvoiceItemaction"   'com-hhub-transaction-update-InvoiceItem-action)
-
+	(hunchentoot:create-regex-dispatcher "^/hhub/updateInvoiceItemaction"   'com-hhub-transaction-update-invoiceitem-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/deleteinvoiceitemaction"   'com-hhub-transaction-delete-invoiceitem-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaymentpage"   'com-hhub-transaction-show-invoice-payment-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaidaction"   'com-hhub-transaction-invoice-paid-action)
 ))
 
 

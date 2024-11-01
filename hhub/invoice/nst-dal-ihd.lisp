@@ -26,6 +26,10 @@
    (invoiceitems
     :initarg :inivoiceitems
     :accessor invoiceitems
+    :initform '())
+   (invoiceproducts
+    :initarg :invoiceproducts
+    :accessor invoiceproducts
     :initform '())))
 
 (defclass InvoiceHeaderViewModel (ViewModel)
@@ -89,7 +93,9 @@
    (finyear
     :initarg :finyear
     :accessor finyear)
-
+   (status
+    :initarg :status
+    :accessor status)
    (company
     :initarg :company
     :accessor company)))
@@ -155,6 +161,9 @@
    (finyear
     :initarg :finyear
     :accessor finyear)
+   (status
+    :initarg :status
+    :accessor status)
    (company
     :initarg :company
     :accessor company)))
@@ -230,6 +239,9 @@
    (finyear
     :initarg :finyear
     :accessor finyear)
+   (status
+    :initarg :status
+    :accessor status)
    (company
     :initarg :company
     :accessor company)))
@@ -239,6 +251,9 @@
   ())
 
 (defclass InvoiceHeaderContextIDRequestModel (InvoiceHeaderRequestModel)
+  ())
+
+(defclass InvoiceHeaderStatusRequestModel (InvoiceHeaderRequestModel)
   ())
 
 (defclass InvoiceHeader (BusinessObject)
@@ -325,7 +340,10 @@
     :initarg :finyear
     :initform ""
     :accessor finyear)
-
+   (status
+    :initarg :status
+    :initform "DRAFT"
+    :accessor status)
    (company
     :initarg :company
     :accessor company)))
@@ -443,6 +461,10 @@
     :type (string 9)
     :initarg :finyear
     :accessor finyear)
+   (status
+    :type (string 20)
+    :initarg :status
+    :accessor status)
    
    (deleted-state
     :type (string 1)

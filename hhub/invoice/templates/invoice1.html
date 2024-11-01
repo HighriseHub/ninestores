@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .invoice-table {
+            width: 100%;
+            max-width: 1122px;
+            border-collapse: collapse;
+            margin: auto;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .highlight {
+            background-color: yellow;
+            font-weight: bold;
+        }
+        .left-align {
+            text-align: left;
+        }
+        .terms {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #000;
+        }
+        .header-row {
+            text-align: center;
+            font-weight: bold;
+        }
+        .empty-cell {
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+<h2 class="header-row">Your Company Name Here</h2>
+<h3 class="header-row">TAX INVOICE</h3>
+
+<table class="invoice-table">
+    <tr>
+        <td class="highlight">LOGO HERE</td>
+        <td colspan="10" class="empty-cell"></td>
+    </tr>
+    <tr>
+        <td>Invoice No. :</td>
+        <td colspan="2" class="left-align">NST00041/2024</td>
+        <td colspan="2">Place of Supply :</td>
+        <td colspan="4" class="left-align">KARNATAKA</td>
+    </tr>
+    <tr>
+        <td>Invoice Date:</td>
+        <td colspan="2" class="left-align">06/10/24</td>
+        <td colspan="2">Date of Supply :</td>
+        <td colspan="4" class="left-align"></td>
+    </tr>
+    <tr>
+        <th colspan="4">Details of Receiver / Billed to:</th>
+        <th colspan="4">Details of Consignee / Shipped to:</th>
+    </tr>
+    <tr>
+        <td>Name :</td>
+        <td colspan="3" class="left-align">Demo Customer</td>
+        <td>Name :</td>
+        <td colspan="3" class="left-align">Demo Customer</td>
+    </tr>
+    <tr>
+        <td>Address :</td>
+        <td colspan="3" class="left-align"></td>
+        <td>Address :</td>
+        <td colspan="3" class="left-align"></td>
+    </tr>
+    <tr>
+        <td>GSTIN :</td>
+        <td colspan="3" class="left-align"></td>
+        <td>GSTIN :</td>
+        <td colspan="3" class="left-align"></td>
+    </tr>
+    <tr>
+        <th>Sr. No</th>
+        <th>Product/Service</th>
+        <th>HSN/SAC</th>
+        <th>Qty Per Unit</th>
+        <th>Qty</th>
+        <th>Rate</th>
+        <th>Discount %</th>
+        <th>Taxable Value</th>
+        <th>CGST</th>
+        <th>SGST</th>
+        <th>IGST</th>
+        <th>Total</th>
+    </tr>
+    <tr>
+        <td>1</td>
+        <td class="left-align">Madhur Sugar</td>
+        <td>0</td>
+        <td>1 kg</td>
+        <td>10</td>
+        <td>100</td>
+        <td>5</td>
+        <td>950</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>950</td>
+    </tr>
+    <tr>
+        <td colspan="3" class="left-align">Total:</td>
+        <td colspan="4" class="left-align">1780</td>
+    </tr>
+</table>
+
+<div class="terms">
+    **Standard Invoice Terms:** Payment is due within [10] days from the invoice date. Late payments may attract interest at [2]% per month. GST will be applied as per Indian tax laws. Ownership of goods remains with the seller until full payment is received. Any disputes regarding the invoice must be raised within [7] days of receipt. Cancellations or returns are subject to prior approval and may incur additional charges. The invoice is governed by Indian law, and the courts of [Bengaluru/Bangalore City] shall have exclusive jurisdiction over any disputes arising from this transaction.
+</div>
+
+</body>
+</html>

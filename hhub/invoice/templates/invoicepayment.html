@@ -1,0 +1,101 @@
+    <style>
+        table {
+            width: 100%;
+            max-width: 400px;
+            margin: auto;
+            border-collapse: collapse;
+            font-family: Arial, sans-serif;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: right;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 5px;
+        }
+        #finish-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+        }
+        #finish-btn:disabled {
+            background-color: #ccc;
+        }
+    </style>
+<div id="invoice">
+    <table>
+        <tr>
+            <th>Pay By</th>
+            <th>Amount</th>
+        </tr>
+        <tr>
+            <td>CASH</td>
+            <td><input type="number" id="cash" min="0" placeholder="0" oninput="updateTotal()"></td>
+        </tr>
+        <tr>
+            <td>RENDER CHANGE</td>
+            <td id="render-change">0</td>
+        </tr>
+        <tr>
+            <td>UPI</td>
+            <td><input type="number" id="upi" min="0" placeholder="0" oninput="updateTotal()"></td>
+        </tr>
+        <tr>
+            <td>CREDIT CARD</td>
+            <td><input type="number" id="credit-card" min="0" placeholder="0" oninput="updateTotal()"></td>
+        </tr>
+        <tr>
+            <td>DEBIT CARD</td>
+            <td><input type="number" id="debit-card" min="0" placeholder="0" oninput="updateTotal()"></td>
+        </tr>
+        <tr>
+            <td>PENDING AMOUNT</td>
+            <td id="pending-amount">0</td>
+        </tr>
+        <tr>
+            <td>INVOICE AMOUNT</td>
+            <td id="invoice-amount"><strong>~d</strong></td>
+        </tr>
+    </table>
+    <button id="finish-btn" onclick="finishPayment()" disabled>Invoice Processing Done!</button>
+</div>
+
+<script>
+    const invoiceAmount = ~d; // Set the invoice amount here
+    const pendingAmountDisplay = document.getElementById('pending-amount');
+    const renderChangeDisplay = document.getElementById('render-change');
+    const finishButton = document.getElementById('finish-btn');
+
+    function updateTotal() {
+        // Get values from input fields, default to 0 if empty
+        const cash = parseFloat(document.getElementById('cash').value) || 0;
+        const upi = parseFloat(document.getElementById('upi').value) || 0;
+        const creditCard = parseFloat(document.getElementById('credit-card').value) || 0;
+        const debitCard = parseFloat(document.getElementById('debit-card').value) || 0;
+
+        // Calculate total payment and pending amount
+        const totalPayment = cash + upi + creditCard + debitCard;
+        const pendingAmount = Math.max(0, invoiceAmount - totalPayment);
+
+        // Update pending amount and render change (if overpayment)
+        pendingAmountDisplay.textContent = pendingAmount.toFixed(2);
+        renderChangeDisplay.textContent = totalPayment > invoiceAmount ? (totalPayment - invoiceAmount).toFixed(2) : "0";
+
+        // Enable finish button if payment is complete
+        finishButton.disabled = pendingAmount > 0;
+    }
+
+    function finishPayment() {
+        alert('Payment Completed!');
+        // Additional code to process payment or update database can be added here
+    }
+</script>

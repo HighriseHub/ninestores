@@ -1462,7 +1462,7 @@
 
 (defun product-subscribe-html (prd-id) 
   (let* ((productlist (hunchentoot:session-value :login-prd-cache))
-	 (product (search-prd-in-list prd-id  productlist))
+	 (product (search-item-in-list 'row-id prd-id  productlist))
 	 (prd-image-path (slot-value product 'prd-image-path))
 	 (prd-id (slot-value product 'row-id))
 	 (prd-name (slot-value product 'prd-name))
@@ -2067,7 +2067,7 @@
 	 (orderparams-ht (make-hash-table :test 'equal))
 	 (shopcart-products (mapcar (lambda (odt)
 				      (let ((prd-id (slot-value odt 'prd-id)))
-					(search-prd-in-list prd-id products ))) lstshopcart))
+					(search-item-in-list 'row-id prd-id products ))) lstshopcart))
 	 (vshipping-method (get-shipping-method-for-vendor singlevendor custcomp))
 	 (freeshipenabled (slot-value vshipping-method 'freeshipenabled))
 	 (storepickupenabled (slot-value vshipping-method 'storepickupenabled))
@@ -2281,17 +2281,15 @@
 				   ((and (equal payment-mode "OPY")
 					 (equal company-type "TRIAL"))
 				    (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "test" order-cxt email)))
-				   (T (with-html-form "placeorderform" "dodmyorderaddaction"  
+				   (T (with-html-form-having-submit-event "placeorderform" "dodmyorderaddaction"  
 					(:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary" :type "submit" "Place Order" ))))))))))))
 			  
-	  (widget3 (function (lambda () (cl-who:with-html-output (*standard-output* nil)
-					  (cl-who:str (ui-list-shopcart-readonly shopcart-products odts))))))
-
-	  (widget4 (function (lambda () (cl-who:with-html-output (*standard-output* nil)
-					  (submitformevent-js "#placeorderform")))))
-	  (widget5 (function (lambda ()
+	  (widget3 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (cl-who:str (ui-list-shopcart-readonly shopcart-products odts))))))
+	  (widget4 (function (lambda ()
 		     (if storepickupenabled (displaystorepickupwidget vendoraddress))))))
-      (list widget1 widget2 widget3 widget4 widget5))))
+      (list widget1 widget2 widget3 widget4))))
 
 
 
@@ -2354,7 +2352,7 @@
   (let* ((prd-id (hunchentoot:parameter "prd-id"))
 	 (prd-qty (hunchentoot:parameter "prdqty"))
 	 (myshopcart (hunchentoot:session-value :login-shopping-cart))
-	 (odt (if myshopcart (search-odt-by-prd-id  (parse-integer prd-id)  myshopcart )))
+	 (odt (if myshopcart (search-item-in-list  'prd-id (parse-integer prd-id)  myshopcart )))
 	 (redirectlocation "/hhub/dodcustshopcart"))
     (setf (slot-value odt 'prd-qty) (parse-integer prd-qty))
     (function (lambda ()
@@ -2384,7 +2382,7 @@
 	 (prdqty (parse-integer (hunchentoot:parameter "prdqty")))
 	 (productlist (hunchentoot:session-value :login-prd-cache))
 	 (myshopcart (hunchentoot:session-value :login-shopping-cart))
-	 (product (search-prd-in-list prd-id productlist))
+	 (product (search-item-in-list 'row-id prd-id productlist))
 	 (unit-price (slot-value product 'unit-price))
 	 (company (product-company product))
 	 (product-pricing (select-product-pricing-by-product-id prd-id company))
@@ -2496,7 +2494,7 @@
 	(lstshopcart lstproducts lstcount lstprodcatg  selectedcatgid selectedcatgname  lstvendors activevendor prdcount first100products)
       (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
-		     (shopping-cart-widget lstcount))))
+		     (shopping-cart-widget lstcount "dodcustshopcart"))))
 	   (widget2 (function (lambda ()
 		      (unless activevendor
 			(display-products-carousel 4 (hunchentoot:session-value :login-prd-cache))))))
@@ -2535,9 +2533,9 @@
   (with-cust-session-check
     (with-mvc-ui-page "Welcome Customer" createmodelforcustomerindexpage createwidgetsforcustomerindexpage :role :customer)))
    
-(defun shopping-cart-widget (itemscount)
+(defun shopping-cart-widget (itemscount target)
   (cl-who:with-html-output (*standard-output* nil) 
-    (:a :id "floatingcheckoutbutton" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;"  (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))
+    (:a :id "floatingcheckoutbutton" :href target :style "font-weight: bold; font-size: 20px !important;"  (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))
 
 (defun product-search-widget (itemscount)
   (cl-who:with-html-output (*standard-output* nil) 
@@ -2562,7 +2560,7 @@
 (defun createwidgetsforcustprodbycatg (modelfunc)
   (multiple-value-bind (lstshopcart lstprodcatg lstprodbycatg) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
-		     (shopping-cart-widget (length lstshopcart)))))
+		     (shopping-cart-widget (length lstshopcart) "dodcustshopcart"))))
 	  (widget2 (function (lambda ()
 		     (product-search-widget (length lstshopcart)))))
 	  (widget3 (function (lambda ()
@@ -2596,7 +2594,7 @@
 		     (cl-who:with-html-output (*standard-output* nil) 
 		       (:span (:h5 (cl-who:str (format nil "You are now in ~A Store" vname))))))))
 	  (widget2 (function (lambda ()
-		     (shopping-cart-widget (length lstshopcart)))))
+		     (shopping-cart-widget (length lstshopcart) "dodcustshopcart"))))
 	  (widget3 (function (lambda ()
 		     (product-search-widget (length lstshopcart)))))
 	  (widget4 (function (lambda ()
@@ -2640,7 +2638,7 @@
 	 (total  (get-shop-cart-total lstshopcart))
 	 (products (mapcar (lambda (odt)
 				   (let ((prd-id (slot-value odt 'prd-id)))
-				     (search-prd-in-list prd-id prd-cache ))) lstshopcart)))
+				     (search-item-in-list 'row-id prd-id prd-cache ))) lstshopcart)))
     (function (lambda ()
       (values lstshopcart lstcount  total products)))))
 
@@ -2696,7 +2694,7 @@
 	(prd-id (parse-integer (hunchentoot:parameter "id")))
 	(myshopcart (hunchentoot:session-value :login-shopping-cart))
 	(redirectlocation "/hhub/dodcustshopcart"))
-    (if (equal action "remitem" ) (setf (hunchentoot:session-value :login-shopping-cart) (remove (search-odt-by-prd-id  prd-id  myshopcart  ) myshopcart)))
+    (if (equal action "remitem" ) (setf (hunchentoot:session-value :login-shopping-cart) (remove (search-item-in-list 'prd-id  prd-id  myshopcart  ) myshopcart)))
     (when (= (length (hunchentoot:session-value :login-shopping-cart)) 0)
       (setf (hunchentoot:session-value :login-active-vendor) nil))
     (function (lambda ()

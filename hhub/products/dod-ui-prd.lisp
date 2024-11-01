@@ -139,8 +139,7 @@
 
 
 (defun modal.vendor-product-edit-html (product mode) 
-  (let* ((prd-image-path (slot-value product 'prd-image-path))
-	 (description (slot-value product 'description))
+  (let* ((description (slot-value product 'description))
 	 (subscribe-flag (slot-value product 'subscribe-flag))
 	 (qty-per-unit (slot-value product 'qty-per-unit))
 	 (units-in-stock (slot-value product 'units-in-stock))
@@ -149,52 +148,58 @@
 	 (catg-id (slot-value product 'catg-id))
 	 (prd-name (slot-value product 'prd-name))
 	 (prd-type (slot-value product 'prd-type))
+	 (hsncode (slot-value product 'hsn-code))
+	 (sku (slot-value product 'sku))
+	 (upc (slot-value product 'upc))
 	 (catglist (hhub-get-cached-product-categories))
 	 (idtextarea (format nil "~Atextarea~A" (gensym "hhub") prd-id))
 	 (idisserviceproduct (format nil "idserviceproduct~A~A" (gensym "hhub") prd-id))
-	 (prdcategory (when catg-id (search-prdcatg-in-list catg-id catglist))))
+	 (prdcategory (when catg-id (search-prdcatg-in-list catg-id catglist)))
+	 (charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
  (cl-who:with-html-output (*standard-output* nil)
    (with-html-div-row 
      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-	   (:form :id (format nil "form-vendorprod~A" mode) :data-toggle "validator"  :role "form" :method "POST" :action "dodvenaddproductaction" :enctype "multipart/form-data" 
-		  (if (and product (equal mode "EDIT")) (cl-who:htm (:input :class "form-control" :type "hidden" :value prd-id :name "id")))
-		  (:div :align "center"  :class "form-group" 
-			(:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
-		  (:h1 :class "text-center login-title"  "Edit/Copy Product")
-		  (:div :class "form-group"
-			(:label :for idisserviceproduct "This is a Service&nbsp;")
-			(if (equal prd-type "SERV")
-			    (cl-who:htm 
-			     (:input  :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :checked "true" :value "Y"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct)))))
-			    ;;else
-			    (cl-who:htm 
-			     (:input  :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :value "N"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct))))))
-			(:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
-		  (:div  :class "form-group"
-			 (:label :for "description" "Description")
-			 (text-editor-control idtextarea  description))
-		  (:textarea :style "display: block;" :id idtextarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup "countChar(this, 1000)" (cl-who:str (format nil "~A" description)))
-		  (:div :class "form-group" :id "charcount")
-		  
-		  (:div :class "form-group"
-			(:input :class "form-control" :name "prdprice"  :value (format nil "~$" prdprice)  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
-			
-		  (:div :class "form-group"
-			(:input :class "form-control" :name "qtyperunit" :value qty-per-unit :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
-		  (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
-			 (ui-list-prod-catg-dropdown catglist prdcategory))
-		  (:div :class "form-group"
-			(:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :value units-in-stock  :type "number" :min "1" :max "10000" :step "1"  ))
-		  
-		  (:br) 
-		  (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
-			    (if (equal subscribe-flag "Y") (ui-list-yes-no-dropdown "Y")
-				(ui-list-yes-no-dropdown "N")))
-
-		      (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
-			    (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
-		      (:div :class "form-group"
-			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))
+	   (with-html-form (format nil "form-vendorprod~A" mode) "dodvenaddproductaction" 
+	     (if (and product (equal mode "EDIT")) (cl-who:htm (:input :class "form-control" :type "hidden" :value prd-id :name "id")))
+	     (:div :class "form-group"
+		   (:label :for idisserviceproduct "This is a Service&nbsp;")
+		   (if (equal prd-type "SERV")
+		       (cl-who:htm 
+			(:input  :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :checked "true" :value "Y"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct)))))
+		       ;;else
+		       (cl-who:htm 
+			(:input  :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :value "N"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct))))))
+		   (:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
+	     (:div  :class "form-group"
+		    (:label :for "description" "Description")
+		    (text-editor-control idtextarea  description))
+	     (:textarea :style "display: block;" :id idtextarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 15)" charcountid1) (cl-who:str (format nil "~A" description)))
+	     (:div :class "form-group" :id charcountid1 )
+	     
+	     (:div :class "form-group"
+		   (:input :class "form-control" :name "prdprice"  :value (format nil "~$" prdprice)  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
+	     (:div :class "form-group"
+		   (with-html-input-text "hsn-code" "HSN/SAC Code" "HSN/SAC Code" hsncode T "Enter HSN/SAC Code" 4))
+	     (:div :class "form-group"
+		   (with-html-input-text "sku" "SKU" "SKU" sku nil "Enter SKU" 5))
+	     (:div :class "form-group"
+		   (with-html-input-text "upc" "UPC Barcode" "UPC Barcode" upc nil "Enter UPC Barcode" 6))
+	     (:div :class "form-group"
+		   (:input :class "form-control" :name "qtyperunit" :value qty-per-unit :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
+	     (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
+		    (ui-list-prod-catg-dropdown catglist prdcategory))
+	     (:div :class "form-group"
+		   (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :value units-in-stock  :type "number" :min "1" :max "10000" :step "1"  ))
+	     
+	     (:br) 
+	     (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
+		   (if (equal subscribe-flag "Y") (ui-list-yes-no-dropdown "Y")
+		       (ui-list-yes-no-dropdown "N")))
+	     
+	     (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
+		   (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
+	     (:div :class "form-group"
+		   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))
 
 (defun modal.vendor-product-shipping-html (product mode)
   (let* ((prd-id (slot-value product 'row-id))
@@ -354,74 +359,73 @@
       (cl-who:with-html-output (*standard-output* nil)
 	(with-html-div-row :style "border-radius: 5px;background-color:#e6f0ff; border-bottom: solid 1px; margin: -2px;"
 	    (if (equal active-flag "Y")
-		(cl-who:htm (:div :class "col-xs-1" :data-toggle "tooltip" :title "Turn Off" 
-				  (:a   :href (format nil "dodvenddeactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off"))))
+		(cl-who:htm
+		 (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Turn Off" 
+		   (:a   :href (format nil "dodvenddeactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off"))))
 					;else
-		(cl-who:htm (:div :class "col-xs-1" :data-toggle "tooltip" :title "Turn On" 
-				  (:a :href (format nil "dodvendactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off")))))
-	    (:div :class "col-xs-1" :data-toggle "tooltip" :title "Copy" 
-		  (:a :data-toggle "modal" :data-target (format nil "#dodvendcopyprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-clone"))
-		  (modal-dialog (format nil "dodvendcopyprod-modal~A" prd-id) "Copy Product" (modal.vendor-product-edit-html  product-instance "COPY")))
-	    (:div :class "col-xs-1" :align "right" :data-toggle "tooltip" :title "Edit" 
-		  (:a :data-toggle "modal" :data-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-pencil"))
-		  (modal-dialog (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
+		(cl-who:htm
+		 (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Turn On" 
+		   (:a :href (format nil "dodvendactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off")))))
+	  (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Copy" 
+	    (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendcopyprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-clone"))
+	    (modal-dialog-v2 (format nil "dodvendcopyprod-modal~A" prd-id) "Copy Product" (modal.vendor-product-edit-html  product-instance "COPY")))
+	  (with-html-div-col-1 :align "right" :data-bs-toggle "tooltip" :title "Edit" 
+		  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-pencil"))
+		  (modal-dialog-v2 (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
 	    
 	    (unless external-url
 	      (cl-who:htm 
-	       (:div :class "col-xs-1" :data-toggle "tooltip" :title "Information: Edit & Save to enable sharing" 
+	       (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Information: Edit & Save to enable sharing" 
 		     (:a :href "#" (:i :class  "fa-solid fa-share-nodes")))))
 	    (when external-url
 	      (cl-who:htm
-	       (:div :class "col-xs-1"  :data-toggle "tooltip" :title "Copy External URL" 
+	       (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Copy External URL" 
 		     (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes")))))
 	    
-	    (:div :class "col-xs-1"  :data-toggle "tooltip" :title "Shipping" 
+	    (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Shipping" 
 		  (if (and shipping-weight-kg (> shipping-weight-kg 0)) 
 		      (cl-who:htm
-		       (:a :data-toggle "modal" :data-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck")))
+		       (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck")))
 		      ;;else
 		      (cl-who:htm
-		       (:a :style "color:red;" :data-toggle "modal" :data-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck"))))
-		  (modal-dialog (format nil "dodprodshipping-modal~A" prd-id) "Shipping" (modal.vendor-product-shipping-html product-instance "EDIT")))
-	  (:div :class "col-xs-1"  :data-toggle "tooltip" :title "Discounts" 
+		       (:a :style "color:red;" :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck"))))
+		  (modal-dialog-v2 (format nil "dodprodshipping-modal~A" prd-id) "Shipping" (modal.vendor-product-shipping-html product-instance "EDIT")))
+	  (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Discounts" 
 		(if product-pricing 
 		    (cl-who:htm
-		     (:a :data-toggle "modal" :data-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
-		     (modal-dialog (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))
+		     (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
+		     (modal-dialog-v2 (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))
 		    ;; else
 		    (cl-who:htm
-		     (:a :style "color:red;" :data-toggle "modal" :data-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
-		     (modal-dialog (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))))
-	  (:div :class "col-xs-1" "&nbsp;")
-	  (:div :class "col-xs-1" "&nbsp;")
-	  (:div :class "col-xs-1" "&nbsp;")
-	  
-	  
-	  
-	  (:div :class "col-xs-1" :align "right" :data-toggle "tooltip" :title "Delete" 
-		  (:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:i :class "fa-solid fa-xmark"))))
-	  (with-html-div-row
-		(if (<= units-in-stock 0) 
-		    (cl-who:htm (:div :class "stampbox rotated" "NO STOCK" ))
-		    ;else
-		    (cl-who:htm (:div :class "col-xs-12" (:h5 (:span :class "badge" (cl-who:str (format nil "In stock ~A  units"  units-in-stock ))))))))
+		     (:a :style "color:red;" :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
+		     (modal-dialog-v2 (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))))
+	  (with-html-div-col-1 "&nbsp;")
+	  (with-html-div-col-1 "&nbsp;")
+	  (with-html-div-col-1 "&nbsp;")
+	 
+	 
+	  (with-html-div-col-1 :align "right" :data-bs-toggle "tooltip" :title "Delete" 
+		(:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:i :class "fa-solid fa-xmark"))))
+	(with-html-div-row
+	  (if (<= units-in-stock 0) 
+	      (cl-who:htm (:div :class "stampbox rotated" "NO STOCK" ))
+					;else
+	      (cl-who:htm (:div :class "col-12" (:h5 (:span :class "badge" (cl-who:str (format nil "In stock ~A  units"  units-in-stock ))))))))
 		      
-	  (with-html-div-row
-		(:div :class "col-xs-6" 
-		      (:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id)  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
-		(:div :class "col-xs-6" (product-price-with-discount-widget product-instance product-pricing)))
+	(with-html-div-row
+	  (with-html-div-col-6 
+		(:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id)  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
+	  (with-html-div-col-6 (product-price-with-discount-widget product-instance product-pricing)))
 	
-	  (with-html-div-row
-		(:div :class "col-xs-6"
-		      (:h5 :class "product-name" (cl-who:str (if (> (length prd-name) 30)  (subseq prd-name  0 30) prd-name))))
-		(:div :class "col-xs-6"
-		      (if (equal subscribe-flag "Y") (cl-who:htm (:div :class "col-xs-6"  (:h5 (:span :class "label label-default" "Can be Subscribed")))))))
-	  (with-html-div-row 
-		(:div :class "col-xs-12" 
-		      (:h6 (cl-who:str (if (> (length description) 90)  (subseq description  0 90) description)))))
-	
-	
-	  (if (equal active-flag "N") 
+	(with-html-div-row
+	  (with-html-div-col-6
+		(:h5 :class "product-name" (cl-who:str (if (> (length prd-name) 30)  (subseq prd-name  0 30) prd-name))))
+	  (with-html-div-col-6
+		(if (equal subscribe-flag "Y") (cl-who:htm (:div :class "col-xs-6"  (:h5 (:span :class "label label-default" "Can be Subscribed")))))))
+	(with-html-div-row 
+	  (with-html-div-col-8 
+		(:h6 (cl-who:str (if (> (length description) 90)  (subseq description  0 90) description)))))
+		(if (equal active-flag "N") 
 	      (cl-who:htm (:div :class "stampbox rotated" "INACTIVE" )))
 	  (if (equal approved-flag "N")
 	      (cl-who:htm (:div :class "stampbox rotated" (cl-who:str (format nil "~A" approval-status))))))))
@@ -443,7 +447,7 @@
 	    
 	(cl-who:with-html-output (*standard-output* nil)
 	  (:div :style "background-color:#E2DBCD; border-bottom: solid 1px; margin-bottom: 3px;" :class "row"
-		(:div :class "col-xs-12" (:h5 (cl-who:str (format nil "~A" company-name)))))
+		(:div :class "col-12" (:h5 (cl-who:str (format nil "~A" company-name)))))
 	  (with-html-div-row
 	    (:div :class "col-xs-5" 
 		  (:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id)  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
@@ -459,11 +463,11 @@
 	  
 	  (with-html-div-row
 	    (:div :class "col-xs-6"
-		  (:button :data-toggle "modal" :data-target (format nil "#dodvendrejectprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-ban") "Reject")
-		  (modal-dialog (format nil "dodvendrejectprod-modal~A" prd-id) "Reject Product" (modal.vendor-product-reject-html  prd-id tenant-id)))
+		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendrejectprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-ban") "Reject")
+		  (modal-dialog-v2 (format nil "dodvendrejectprod-modal~A" prd-id) "Reject Product" (modal.vendor-product-reject-html  prd-id tenant-id)))
 	    (:div :class "col-xs-6"
-		  (:button :data-toggle "modal" :data-target (format nil "#dodvendacceptprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") "Accept")
-		  (modal-dialog (format nil "dodvendacceptprod-modal~A" prd-id) "Accept Product" (modal.vendor-product-accept-html  prd-id tenant-id))))
+		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendacceptprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") "Accept")
+		  (modal-dialog-v2 (format nil "dodvendacceptprod-modal~A" prd-id) "Accept Product" (modal.vendor-product-accept-html  prd-id tenant-id))))
 	  )))
 
 
@@ -563,7 +567,7 @@
 		  (:p :class "product-title" (cl-who:str prd-name)
 		      (when external-url
 			(cl-who:htm
-			 (:div :class "col-xs-1"  :data-toggle "tooltip" :title "Copy External URL" 
+			 (:div :class "col-1"  :data-toggle "tooltip" :title "Copy External URL" 
 			       (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes"))))))
 		  
 		  (:p (cl-who:str qty-per-unit))
@@ -605,7 +609,7 @@
 	 (company (product-company product-instance))
 	 (product-pricing (select-product-pricing-by-product-id prd-id company)))
     (cl-who:with-html-output (*standard-output* nil)
-      (:div :class "container"
+      (:div :class "container-fluid"
 	    (with-html-div-row
 					; Product image only here
 	      (:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6 image-responsive"

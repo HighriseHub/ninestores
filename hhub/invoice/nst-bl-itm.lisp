@@ -15,6 +15,7 @@
     (clsql:select 'dod-invoice-items :where
 		  [and
 		  [= [:invheadid] invheadid]
+		  [= [:deleted-state] "N"]
 		  [= [:tenant-id] tenant-id]]
 		    :limit 100
 		    :caching *dod-database-caching* :flatp t )))
@@ -27,9 +28,19 @@
 		  [and
 		  [= [:prd-id] product-id]
 		  [= [:invheadid] invheadid]
+		  [= [:deleted-state] "N"]
 		  [= [:tenant-id] tenant-id]]
 		    :limit 100
 		    :caching *dod-database-caching* :flatp t ))))
+
+
+
+
+(defmethod ProcessDeleteRequest ((adapter InvoiceItemAdapter) (requestmodel InvoiceItemRequestModel))
+  :description "This method is responsible for Deleting a web push notification record for a given vendor"
+  ;; Set the business service
+  (setf (slot-value adapter 'businessservice) (find-class 'InvoiceItemService))
+  (call-next-method))
 
 
 (defmethod ProcessCreateRequest ((adapter InvoiceItemAdapter) (requestmodel InvoiceItemRequestModel))
@@ -51,6 +62,19 @@
     (call-next-method)))
 
 
+
+
+(defmethod doDelete ((service InvoiceItemService) (requestmodel InvoiceItemRequestModel))
+  :description "This method is responsible for Deleting a Web push notification subscription for a given vendor"
+  (let* ((company (company requestmodel))
+	 (invoiceheader (invoiceheader requestmodel))
+	 (prd-id (prd-id requestmodel))
+	 (invoiceitem (select-invoice-item-by-product-id prd-id invoiceheader company))
+	 (InvoiceItemdbservice (make-instance 'InvoiceItemDBService)))
+    (setf (slot-value InvoiceItemdbservice 'company) company)
+    (setf (slot-value InvoiceItemdbservice 'dbobject) invoiceitem)
+    ;; Delete the record
+    (db-delete InvoiceItemdbservice)))
 
 (defmethod doCreate ((service InvoiceItemService) (requestmodel InvoiceItemRequestModel))
   (let* ((InvoiceItemdbservice (make-instance 'InvoiceItemDBService))
@@ -98,6 +122,7 @@
 				    :igstrate igstrate
 				    :igstamt igstamt
 				    :totalitemval totalitemval
+				    :status "PENDING"
 				    :company company)))
     domainobj))
 
@@ -111,7 +136,7 @@
 (defun copyInvoiceItem-domaintodb (source destination) 
   (let ((company (slot-value source 'company))
 	(invheader (slot-value source 'InvoiceHeader)))
-    (with-slots (invheadid prd-id prddesc hsncode qty uom price discount taxable-value cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval tenant-id) destination
+    (with-slots (invheadid prd-id prddesc hsncode qty uom price discount taxable-value cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval status tenant-id) destination
       (setf tenant-id (slot-value company 'row-id))
       (setf invheadid (slot-value invheader 'row-id))
       (setf prd-id (slot-value source 'prd-id))
@@ -129,6 +154,7 @@
       (setf igstrate (slot-value source 'igstrate))
       (setf igstamt (slot-value source 'igstamt))
       (setf totalitemval (slot-value source 'totalitemval))
+      (setf status (slot-value source 'status))
       destination)))
 
 
@@ -158,7 +184,7 @@
 
 (defmethod CreateViewModel ((presenter InvoiceItemPresenter) (responsemodel InvoiceItemResponseModel))
   (let ((viewmodel (make-instance 'InvoiceItemViewModel)))
-    (with-slots (InvoiceHeader prd-id prddesc hsncode qty uom price discount taxablevalue cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval company) responsemodel
+    (with-slots (InvoiceHeader prd-id prddesc hsncode qty uom price discount taxablevalue cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval status company) responsemodel
       (setf (slot-value viewmodel 'InvoiceHeader) InvoiceHeader)
       (setf (slot-value viewmodel 'prd-id) prd-id)
       (setf (slot-value viewmodel 'prddesc) prddesc)
@@ -175,6 +201,7 @@
       (setf (slot-value viewmodel 'igstrate) igstrate)
       (setf (slot-value viewmodel 'igstamt) igstamt)
       (setf (slot-value viewmodel 'totalitemval) totalitemval)
+      (setf (slot-value viewmodel 'status) status)
       (setf (slot-value viewmodel 'company) company)
       viewmodel)))
   
@@ -195,7 +222,7 @@
 
 (defmethod CreateResponseModel ((adapter InvoiceItemAdapter) (source InvoiceItem) (destination InvoiceItemResponseModel))
   :description "source = InvoiceItem destination = InvoiceItemResponseModel"
-  (with-slots (InvoiceHeader prd-id prddesc hsncode qty uom price discount taxablevalue cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval company) destination  
+  (with-slots (InvoiceHeader prd-id prddesc hsncode qty uom price discount taxablevalue cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval status company) destination  
     (setf InvoiceHeader (slot-value source 'InvoiceHeader))
     (setf prd-id (slot-value source 'prd-id))
     (setf prddesc (slot-value source 'prddesc))
@@ -212,6 +239,7 @@
     (setf igstrate (slot-value source 'igstrate))
     (setf igstamt (slot-value source 'igstamt))
     (setf totalitemval (slot-value source 'totalitemval))
+    (setf status (slot-value source 'status))
     (setf company (slot-value source 'company))
     destination))
 
@@ -229,6 +257,7 @@
 	 (sgstamt (sgstamt requestmodel))
 	 (igstamt (igstamt requestmodel))
 	 (totalitemval (totalitemval requestmodel))
+	 (status (status requestmodel))
 	 (comp (company requestmodel))
 	 (InvoiceItemdbobj (select-invoice-item-by-product-id prd-id invoiceheader comp))
 	 (domainobj (make-instance 'InvoiceItem)))
@@ -241,7 +270,8 @@
       (setf (slot-value InvoiceItemdbobj 'cgstamt) cgstamt)
       (setf (slot-value InvoiceItemdbobj 'sgstamt) sgstamt)
       (setf (slot-value InvoiceItemdbobj 'igstamt) igstamt)
-      (setf (slot-value InvoiceItemdbobj 'totalitemval) totalitemval))
+      (setf (slot-value InvoiceItemdbobj 'totalitemval) totalitemval)
+      (setf (slot-value InvoiceItemdbobj 'status) status))
     ;;  FIELD UPDATE CODE ENDS HERE. 
     
     (setf (slot-value InvoiceItemdbservice 'dbobject) InvoiceItemdbobj)
@@ -273,7 +303,7 @@
 
 (defun copyInvoiceItem-dbtodomain (source destination)
   (let* ((comp (select-company-by-id (slot-value source 'tenant-id))))
-    (with-slots (row-id InvoiceHeader prd-id prddesc hsncode qty uom price discount taxablevalue cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval  company) destination
+    (with-slots (row-id InvoiceHeader prd-id prddesc hsncode qty uom price discount taxablevalue cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval status  company) destination
       (setf company comp)
       (setf row-id (slot-value source 'row-id))
       (setf prd-id (slot-value source 'prd-id))
@@ -291,5 +321,6 @@
       (setf igstrate (slot-value source 'igstrate))
       (setf igstamt (slot-value source 'igstamt))
       (setf totalitemval (slot-value source 'totalitemval))
+      (setf status (slot-value source 'status))
       destination)))
 

@@ -438,7 +438,7 @@
 
 (defun save-order-items-in-db (order order-items products company-instance)
   (mapcar (lambda (odt)
-	    (let* ((prd (search-prd-in-list (slot-value odt 'prd-id) products))
+	    (let* ((prd (search-item-in-list 'row-id (slot-value odt 'prd-id) products))
 		   (units-in-stock (slot-value prd 'units-in-stock))
 		   (unit-price (slot-value odt 'unit-price))
 		   (discount (slot-value odt 'disc-rate))
@@ -459,7 +459,7 @@
 		     (vitems (filter-order-items-by-vendor vendor order-items))
 		     (vproducts (mapcar (lambda (odt)
 					  (let ((prd-id (slot-value odt 'prd-id)))
-					    (search-prd-in-list prd-id products))) vitems))
+					    (search-item-in-list 'row-id prd-id products))) vitems))
 		     (total (get-order-items-total-for-vendor vendor vitems))
 		     (vendor-id (slot-value vendor 'row-id))
 		     (custinst (if (equal cust-type "GUEST") guest-customer customer-instance))

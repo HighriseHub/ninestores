@@ -3,7 +3,138 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
-(defun createmodelforvendorprodpricingaction ()
+
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defun render-sidebar-offcanvas ()
+    (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+      (:div :class "offcanvas offcanvas-start" :tabindex"-1" :id "offcanvasExample" :aria-labelledby "offcanvasExampleLabel"
+	    (:div :class "offcanvas-header"
+		  (:img :src "/img/logo.png" :alt "" :width "32" :height "32" :class "rounded-circle me-2")
+		  (:h5 :class "offcanvas-title" :id "offcanvasExampleLabel" "Nine Stores")
+		  (:button :type "button" :class "btn-close" :data-bs-dismiss "offcanvas" :aria-label "Close"))
+	    (:div :class "offcanvas-body"
+		  (:ul :class "nav nav-pills flex-column mb-auto"
+		       (:li :class "nav-item" (:a :href "dodvendindex?context=home" (:i :class "fa-solid fa-house")  "Home"))
+		  (:li :class "nav-item" 
+		       (:a :href "/hhub/dodvenproducts" :class "nav-link link-body-emphasis" 
+			   (:i :class "fa-regular fa-rectangle-list") " Products/Services"))
+		  (:li :class "nav-item"
+		       (:a :href "/hhub/dodvendindex?context=pendingorders"  :class "nav-link link-body-emphasis"
+			   (:i :class "fa-regular fa-rectangle-list")  " Pending Orders"))
+		  (:li :class "nav-item"
+		       (:a :href "/hhub/dodvendindex?context=completedorders"  :class "nav-link link-body-emphasis"
+			   (:i :class "fa-regular fa-rectangle-list")  " Completed Orders"))
+		  (:li :class "nav-item"
+		       (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
+			   (:i :class "fa-regular fa-rectangle-list")  " Invoices"))
+		  (:li :class "nav-item"
+		       (:a :href "/hhub/hhubvendorupitransactions"  :class "nav-link link-body-emphasis"
+			   (:i :class "fa-regular fa-rectangle-list")  " UPI Transactions"))
+		  
+		  (:li :class "nav-item"
+		       (:a :href "/hhub/hhubvendmycustomers" :class "nav-link link-body-emphasis"
+			   (:i :class "fa-regular fa-user") " Customers"))
+		  (:li :class "nav-item"
+		       (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
+			   :data-bs-target "#reports" :aria-expanded "true" :aria-controls "reports"
+			   (:i :class "fa-solid fa-circle-info") " Reports")
+		       (:ul :id "reports" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
+			    (:li :class "sidebar-item"
+				 (:a :href "/hhub/dodvendindex?context=ctxordprd" :class "nav-link" "Orders By Products"))
+			    (:li :class "sidebar-item"
+				 (:a :href "/hhub/dodvendrevenue" :class "nav-link" "Today's Revenue"))))
+		  (:li :class "nav-item"
+		       (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
+			   :data-bs-target "#settings" :aria-expanded "true" :aria-controls "settings"
+			   (:i :class "fa-solid fa-gear") " Settings")
+		       (:ul :id "settings" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
+			    (:li :class "sidebar-item"
+				 (:a :href "/hhub/hhubvendorshipmethods" :class "nav-link" "Shipping Methods"))
+			    (:li :class "sidebar-item"
+				 (:a :href "/hhub/dodvendprofile?context=home" :class "nav-link" "Vendor Settings"))
+			    (:li :class "sidebar-item"
+				 (:a :href "hhubvendpushsubscribepage" :class "nav-link" "Browser Push Notification")))))
+		  (:div :class "dropdown" 
+			(:a :href "#" :class "d-flex align-items-center link-body-emphasis text-decoration-none dropdown-toggle" :data-bs-toggle "dropdown" :aria-expanded "false"
+			    
+			    (:ul :class "dropdown-menu text-small shadow" :style=""
+			    (:li (:a :class "dropdown-item" :href "#" "New project..."))
+			    (:li (:a :href "/hhub/dodvendlogout" :class="nav-link"
+				     (:i :class "fa-solid fa-arrow-right-from-bracket") (:span "Sign Out"))))))
+		  (:div :class "dropdown mt-3"
+			 (:button :class "btn btn-secondary dropdown-toggle" :type "button" :data-bs-toggle "dropdown"
+				  "Dropdown button")
+			 (:ul :class "dropdown-menu"
+			      (:li (:a :class "dropdown-item" :href "#" "Action"))
+			      (:li (:a :class "dropdown-item" :href "#" "Another action")
+				   (:li (:a :class "dropdown-item" :href "#" "Something else here"))))))))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defmacro with-vendor-sidebar ()
+    `(cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+       ;;<!-- sidebar -->
+       ;;<!-- Sidebar -->
+       (:nav :id "nstvendorsidebar" :class "collapse d-lg-block sidebar collapse bg-white" :style "width: 280px;"
+	     (:a :href "dodvendindex?context=home" :class "d-flex align-items-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none"
+		 (:span :class "fs-4" "Sidebar"))
+	     (:hr)
+	     (:ul :class "nav nav-pills flex-column mb-auto"
+		  (:li :class "nav-item" (:a :href "dodvendindex?context=home" (:i :class "fa-solid fa-house")  "Home"))
+		  (:li :class "nav-item" 
+		       (:a :href "/hhub/dodvenproducts" :class "nav-link link-body-emphasis" 
+			   (:i :class "fa-regular fa-rectangle-list") "My Products"))
+		  (:li :class "nav-item"
+		       (:a :href "/hhub/dodvendindex?context=completedorders"  :class "nav-link link-body-emphasis"
+			   (:svg :class "bi me-2" :width "16" :height "16" (:use :xlink\:href "#table")) "Completed Orders"))
+		  (:li :class "nav-item"
+		       (:a :href "/hhub/hhubvendmycustomers" :class "nav-link link-body-emphasis"
+			   (:svg :class "bi me-2" :width "16" :height "16" (:use :xlink\:href "#people-circle")) "Customers"))
+		  (:li :class "nav-item"
+		       (:a :href "/hhub/dodvendprofile" :class "nav-link link-body-emphasis"
+			   (:svg :class "bi me-2" :width "16" :height "16" (:use :xlink\:href "#grid")) "Settings"))
+		  (:li :class "nav-item"
+		       (:a :href "#" :class "nav-link collapsed has-dropdown" :data-bs-toggle "collapse"
+			   :data-bs-target "#auth" :aria-expanded "true" :aria-controls "auth"
+			   (:class "fa-solid fa-person-military-pointing" (:span "Auth")))
+		       (:ul :id "auth" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#nstvendorsidebar"
+			    (:li :class "sidebar-item"
+				 (:a :href "#" :class "nav-link" "Login")))))
+	     (:div :class "dropdown" 
+		   (:a :href "#" :class "d-flex align-items-center link-body-emphasis text-decoration-none dropdown-toggle" :data-bs-toggle "dropdown" :aria-expanded "false"
+		       (:img :src "/img/logo.png" :alt "" :width "32" :height "32" :class "rounded-circle me-2" "Profile")
+		       (:ul :class "dropdown-menu text-small shadow" :style=""
+			    (:li (:a :class "dropdown-item" :href "#" "New project..."))
+			    (:li (:a :class "dropdown-item" :href "#" "New project..."))
+			    (:li (:a :class "dropdown-item" :href "#" "New project..."))
+			    (:li (:a :class "dropdown-item" :href "#" "New project..."))
+			    (:li (:a :href "/hhub/dodvendlogout" :class="nav-link"
+				     (:i :class "fa-solid fa-arrow-right-from-bracket") (:span "Sign Out"))))))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defun with-vendor-navigation-bar-v2 ()
+    :documentation "this macro returns the html text for generating a navigation bar using bootstrap."
+    (cl-who:with-html-output (*standard-output* nil)
+      (:nav :class "navbar navbar-expand-sm  sticky-top navbar-dark bg-dark" :id "hhubcustnavbar"  
+	    (:div :class "container-fluid"
+		  (:a :class "navbar-brand" :href "/hhub/dodvendindex" (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" ))
+		  (:button :class "navbar-toggler" :type "button" :data-bs-toggle "collapse" :data-bs-target "#navbarSupportedContent" :aria-controls "navbarSupportedContent" :aria-expanded "false" :aria-label "Toggle navigation" 
+			   (:span :class "navbar-toggler-icon" ))
+		  (:div :class "collapse navbar-collapse justify-content-between" :id "navbarSupportedContent"
+			(:ul :class "navbar-nav me-auto mb-2 mb-lg-0" 
+			     (:li :class "nav-item"
+				  (:a :class "btn btn-primary" :data-bs-toggle "offcanvas" :href "#offcanvasExample" :role "button" :aria-controls "offcanvasExample" (:i :class "fa-solid fa-bars")))
+			     (:li :class "nav-item" 	
+				  (:a :class "nav-link active" :aria-current "page" :href "/hhub/dodvendindex?context=home" (:i :class "fa-solid fa-house") "&nbsp;Home"))
+			     (:li :class "nav-item"  (:a :class "nav-link" :href "dodvenproducts" "Products/Services"))
+			     (:li :class "nav-item"  (:a :class "nav-link" :href "dodvendindex?context=completedorders"  "Completed Orders"))
+			     (:li :class "nav-item"  (:a :class "nav-link" :href "#" (print-vendor-web-session-timeout))))
+			(:ul :class "navbar-nav ms-auto"
+			     (:li :class "nav-item"  (:a :class "nav-link" :href "#"  (:i :class "fa-regular fa-bell")))
+			     (:li :class "nav-item"  (:a :class "nav-link" :href "dodvendprofile?context=home" (:i :class "fa-regular fa-user")))
+			     (:li :class "nav-item" (:a :class "nav-link" :href "dodvendlogout" (:i :class "fa-solid fa-arrow-right-from-bracket"))))))))))
+
+  (defun createmodelforvendorprodpricingaction ()
   (let* ((company (get-login-vendor-company))
 	 (prd-price (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
 			     (read in))))
@@ -71,7 +202,7 @@
 
 (defun modal.upload-product-images  ()
   (cl-who:with-html-output (*standard-output* nil)
-    (:form :class "hhub-formprodimagesupload"  :role "form" :method "POST" :action "dodvenuploadproductsimagesaction" :data-toggle "validator" :enctype "multipart/form-data" 
+    (:form :class "hhub-formprodimagesupload"  :role "form" :method "POST" :action "dodvenuploadproductsimagesaction" :data-bs-toggle "validator" :enctype "multipart/form-data" 
 	   (:div :class "row"
 		 (:div :class "form-group"
 		       (:input :type "file" :multiple "true" :name "uploadedimagefiles"))
@@ -121,7 +252,7 @@
 
 (defun modal.upload-csv-file ()
   (cl-who:with-html-output (*standard-output* nil)
-    (:form :class "hhub-formcsvfileupload"  :role "form" :method "POST" :action "dodvenuploadproductscsvfileaction" :data-toggle "validator" :enctype "multipart/form-data" 
+    (:form :class "hhub-formcsvfileupload"  :role "form" :method "POST" :action "dodvenuploadproductscsvfileaction" :data-bs-toggle "validator" :enctype "multipart/form-data" 
 	   (:div :class "row"
 	    (:div :class "form-group"
 		  (:input :type "file" :name "uploadedcsvfile"))
@@ -181,15 +312,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		     (:li :class "list-group-item" "Step 4: Upload the Products.csv file")))
 	  
 	  (:div :class "list-group col-xs-12 col-sm-6 col-md-6 col-lg-6" 
-		(:a :class "list-group-item list-group-item-action" :data-toggle "modal" :data-target (format nil "#hhubvendprodimagesupload-modal")  :href "#" " Upload Product Images")
+		(:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodimagesupload-modal")  :href "#" " Upload Product Images")
 		;; This download will be enabled when the file is ready for download. 
 		(if (probe-file (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id))
 		    (cl-who:htm (:a :href (format nil "/img/temp/products-ven-~a.csv" vendor-id) :class "list-group-item list-group-item-action" "click here to download Products.csv"))) 
-		(:a :class "list-group-item list-group-item-action"  :data-toggle "modal" :data-target (format nil "#hhubvendprodcsvupload-modal")  :href "#"  " Upload CSV File"))
+		(:a :class "list-group-item list-group-item-action"  :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodcsvupload-modal")  :href "#"  " Upload CSV File"))
 	  ;; Modal dialog for Uploading  product images
-	  (modal-dialog (format nil "hhubvendprodimagesupload-modal") " Upload Product Images " (modal.upload-product-images))
+	  (modal-dialog-v2 (format nil "hhubvendprodimagesupload-modal") " Upload Product Images " (modal.upload-product-images))
 	  ;; Modal dialog for CSV file upload
-	  (modal-dialog (format nil "hhubvendprodcsvupload-modal") " Upload CSV File " (modal.upload-csv-file)))))))
+	  (modal-dialog-v2 (format nil "hhubvendprodcsvupload-modal") " Upload CSV File " (modal.upload-csv-file)))))))
 
 
 
@@ -373,7 +504,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-div-row
 	(:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-	(:a  :target "_blank"  :data-toggle "tooltip" :title "Create a Merchant account with our payment partner Tyche Payments. Click here."  :href "https://www.tychepayment.com/merchantform.php" (:i :class "fa-solid fa-circle-info"))))
+	(:a  :target "_blank"  :data-bs-toggle "tooltip" :title "Create a Merchant account with our payment partner Tyche Payments. Click here."  :href "https://www.tychepayment.com/merchantform.php" (:i :class "fa-solid fa-circle-info"))))
 	
       (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
@@ -581,7 +712,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (with-standard-vendor-page "Welcome to DAS Platform- Your Demand And Supply destination."
 	(:div :class "row" 
 	      (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-		    (:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-toggle "validator" :enctype "multipart/form-data" 
+		    (:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-bs-toggle "validator" :enctype "multipart/form-data" 
 			   (:div :class "account-wall"
 				 (:img :class "profile-img" :src "/img/logo.png" :alt "")
 				 (:h1 :class "text-center login-title"  "Add new product")
@@ -663,6 +794,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (company (get-login-vendor-company))
 	   (product (if id (select-product-by-id id company)))
 	   (description (hunchentoot:parameter "description"))
+	   (hsn-code (hunchentoot:parameter "hsn-code"))
+	   (sku (hunchentoot:parameter "sku"))
+	   (upc (hunchentoot:parameter "upc"))
 	   (isserviceproduct (hunchentoot:parameter "isserviceproduct"))
 	   (prd-type (if (equal isserviceproduct "Y") "SERV" "SALE")) 
 	   (prodprice (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
@@ -703,6 +837,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		(setf (slot-value product 'subscribe-flag) subscriptionflag)
 		(setf (slot-value product 'external-url) external-url)
 		(setf (slot-value product 'prd-type) prd-type)
+		(setf (slot-value product 'hsn-code) hsn-code)
+		(setf (slot-value product 'sku) sku)
+		(setf (slot-value product 'upc) upc)
 		;; Save the image in AWS S3 bucket if we are in production.
 		(if *HHUBUSELOCALSTORFORRES* 
 		    (if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name)))
@@ -865,8 +1002,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					     (:div :class "form-group"
 						   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))
 				      (:div :class "form-group"
-					    (:a :data-toggle "modal" :data-target (format nil "#dasvendforgotpass-modal") :href "#" "Forgot Password" )))))
-		    (modal-dialog (format nil "dasvendforgotpass-modal") "Forgot Password?" (modal.vendor-forgot-password)))))
+					    (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dasvendforgotpass-modal") :href "#" "Forgot Password" )))))
+		    (modal-dialog-v2 (format nil "dasvendforgotpass-modal") "Forgot Password?" (modal.vendor-forgot-password)))))
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
@@ -874,28 +1011,33 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 							       (hunchentoot:redirect "/hhub/vendor-login.html"))))))
 
 
+
+
+
 (defun dod-controller-vendor-otploginpage ()
-  (handler-case
-      (progn
-	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)	      
+  (handler-case 
+      (progn  
+	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
 	(if (is-dod-vend-session-valid?)
 	    (hunchentoot:redirect "/hhub/dodvendindex?context=home")
-	    (with-standard-vendor-page  "Welcome to Nine Stores Platform - Vendor Login "
-	      (:div :class "row" 
-		    (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-			  (:div :class "account-wall"
-				      (with-html-form "form-vendorsignin" "hhubvendloginotpstep"
-					     (:a :href *siteurl*  (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-					     (:h1 :class "text-center login-title"  "Vendor - Login to Nine Stores")
-					     (:div :class "form-group"
-						   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex:9999999990" :type "text" ))
-					(:div :class "form-group"
-					      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
+	    (with-standard-vendor-page-v2  "Welcome to Nine Stores Platform - Vendor Login "
+	      (with-html-div-row
+		(with-html-div-col
+		  (:div :class "account-wall"
+			(with-html-form  "form-vendorsignin" "hhubvendloginotpstep"
+			  (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
+			  (:h1 :class "text-center login-title"  "Vendor - Login to Nine Stores")
+			  (:div :class "form-group"
+				(:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
+			  (:div :class "form-group"
+				(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
+    
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
 							       (start-das)
 							       (hunchentoot:redirect "/hhub/hhubvendloginv2"))))))
+
 
 
 (defun dod-controller-vendor-my-customers-page ()
@@ -919,7 +1061,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-html-search-form "idsearchmycustomer" "searchmycustomer" "idtxtsearchcustomer" "txtsearchcustomer" "hhubsearchmycustomer" "onkeyupsearchform1event();" "Customer Name"
 			  (submitsearchform1event-js "#idtxtsearchcustomer" "#vendormycustomerssearchresult" ))
-			(:div :id "vendormycustomerssearchresult"  :class "container"
+			(:div :id "vendormycustomerssearchresult"  :class "container-fluid"
 			      (cl-who:str (display-as-table (list "Name" "Phone" "Address" "Balance" "Actions") mycustomers 'display-my-customers-row))))))))
       (list widget1))))
 
@@ -985,8 +1127,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(:td  :height "10px" (cl-who:str address))
 	(:td  :height "10px" (cl-who:str (slot-value wallet 'balance)))
 	(:td  :height "10px"
-	      (:a :data-toggle "modal" :data-target (format nil "#vendormycustomerwallet~A" cust-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency) :aria-hidden "true"))
-	      (modal-dialog (format nil "vendormycustomerwallet~A" cust-id) "Recharge Wallet" (modal.vendor-my-customer-wallet-recharge wallet phone)))
+	      (:a :data-bs-toggle "modal" :data-bs-target (format nil "#vendormycustomerwallet~A" cust-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency) :aria-hidden "true"))
+	      (modal-dialog-v2 (format nil "vendormycustomerwallet~A" cust-id) "Recharge Wallet" (modal.vendor-my-customer-wallet-recharge wallet phone)))
 	      (:td :height "10px" (:a :href chatonwhatsappurl :target "_blank" (:i :class "fa-brands fa-whatsapp fa-xl" :style "color: #39dd30;")))))))
  
 (defun modal.vendor-my-customer-wallet-recharge (wallet phone)
@@ -1081,23 +1223,20 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
        (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-vendor-name))))
        (:hr)
       (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
-	    (:a :class "list-group-item" :href "hhubvendmycustomers" "My Customers")
 	    (:a :class "list-group-item" :href "dodvendortenants" "My Groups")
-	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupdate-modal")  :href "#"  "Contact Information")
-	    (modal-dialog (format nil "dodvendupdate-modal") "Update Vendor" (modal.vendor-update-details)) 
+	    (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendupdate-modal")  :href "#"  "Contact Information")
+	    (modal-dialog-v2 (format nil "dodvendupdate-modal") "Update Vendor" (modal.vendor-update-details)) 
 	    ;; Since we are enabling the OTP based login for Vendor, we do not need password. 
-	    ;;(:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendchangepin-modal")  :href "#"  "Change Password")
-	    ;;(modal-dialog (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
+	    ;;(:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendchangepin-modal")  :href "#"  "Change Password")
+	    ;;(modal-dialog-v2 (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
 	    ;; (:a :class "list-group-item" :href "/pushsubscribe.html" "Push Notifications")
 	    (:a :class "list-group-item" :href "/hhub/hhubvendpushsubscribepage" "Push Notifications")
-	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendpaymentmethods-modal")  :href "#"  "Payment Methods")
-	    (modal-dialog (format nil "dodvendpaymentmethods-modal") "Payment Methods " (modal.vendor-payment-methods-page vpaymentmethods))
-	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendsettings-modal")  :href "#"  "Payment Gateway")
-	    (modal-dialog (format nil "dodvendsettings-modal") "Payment Gateway Settings" (modal.vendor-update-payment-gateway-settings-page))
-	    (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendupisettings-modal") :href "#" "UPI Settings")
-	    (modal-dialog (format nil "dodvendupisettings-modal") "UPI Payment Settings" (modal.vendor-update-UPI-payment-settings-page))
-	    (:a :class "list-group-item" :href "hhubvendorupitransactions" "UPI Transactions")
-	    (:a :class "list-group-item" :href "hhubvendorshipmethods" "Shipping Methods"))))))
+	    (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendpaymentmethods-modal")  :href "#"  "Payment Methods")
+	    (modal-dialog-v2 (format nil "dodvendpaymentmethods-modal") "Payment Methods " (modal.vendor-payment-methods-page vpaymentmethods))
+	    (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendsettings-modal")  :href "#"  "Payment Gateway")
+	    (modal-dialog-v2 (format nil "dodvendsettings-modal") "Payment Gateway Settings" (modal.vendor-update-payment-gateway-settings-page))
+	    (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendupisettings-modal") :href "#" "UPI Settings")
+	    (modal-dialog-v2 (format nil "dodvendupisettings-modal") "UPI Payment Settings" (modal.vendor-update-UPI-payment-settings-page)))))))
 
 (defun dod-controller-vend-shipping-methods ()
   (let* ((vendor (get-login-vendor))
@@ -1114,15 +1253,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (with-vend-session-check
       (with-standard-vendor-page "Nine Stores - Vendor Shipping Methods"
 	(:div :class "list-group col-sm-6 col-md-6 col-lg-6"
-	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendfreeshipping-modal")  :href "#"  "Free Shipping")
-	      (modal-dialog (format nil "dodvendfreeshipping-modal") "Free Shipping Configuration" (modal.vendor-free-shipping-config freeshipenabled minorderamt))
-	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendflatrateshipping-modal")  :href "#"  "Flat Rate Shipping")
-	      (modal-dialog (format nil "dodvendflatrateshipping-modal") "Flat Rate Shipping Configuration" (modal.vendor-flatrate-shipping-config flatrateshipenabled flatratetype flatrateprice))
+	      (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendfreeshipping-modal")  :href "#"  "Free Shipping")
+	      (modal-dialog-v2 (format nil "dodvendfreeshipping-modal") "Free Shipping Configuration" (modal.vendor-free-shipping-config freeshipenabled minorderamt))
+	      (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendflatrateshipping-modal")  :href "#"  "Flat Rate Shipping")
+	      (modal-dialog-v2 (format nil "dodvendflatrateshipping-modal") "Flat Rate Shipping Configuration" (modal.vendor-flatrate-shipping-config flatrateshipenabled flatratetype flatrateprice))
 	      (:a :class "list-group-item" :href "hhubvendshipzoneratetablepage"  "Zonewise Shipping")
-	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvendextshipping-modal")  :href "#"  "External Shipping Partners")
-	      (modal-dialog (format nil "dodvendextshipping-modal") "External Shipping Partners Configuration" (modal.vendor-external-shipping-partners-config shippartnerkey shippartnersecret extshipenabled))
-	      (:a :class "list-group-item" :data-toggle "modal" :data-target (format nil "#dodvenddefaultshipmethod-modal")  :href "#"  "Select Default Shipping Method")
-	      (modal-dialog (format nil "dodvenddefaultshipmethod-modal") "Default Shipping Method Configuration" (modal.vendor-default-shipping-method-config shippingmethod vendor)))
+	      (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendextshipping-modal")  :href "#"  "External Shipping Partners")
+	      (modal-dialog-v2 (format nil "dodvendextshipping-modal") "External Shipping Partners Configuration" (modal.vendor-external-shipping-partners-config shippartnerkey shippartnersecret extshipenabled))
+	      (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvenddefaultshipmethod-modal")  :href "#"  "Select Default Shipping Method")
+	      (modal-dialog-v2 (format nil "dodvenddefaultshipmethod-modal") "Default Shipping Method Configuration" (modal.vendor-default-shipping-method-config shippingmethod vendor)))
 	     	      
 	(:script "function enableminorderamt() {
     const freeshipenabled = document.getElementById('freeshipenabled');
@@ -1464,6 +1603,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
     
 
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-vendor-navigation-bar ()
     :documentation "This macro returns the html text for generating a navigation bar using bootstrap."
@@ -1471,7 +1611,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
        (:div :class "navbar  navbar-inverse navbar-static-top"
 	     (:div :class "container-fluid"
 		   (:div :class "navbar-header"
-			 (:button :type "button" :class "navbar-toggle" :data-toggle "collapse" :data-target "#navheadercollapse"
+			 (:button :type "button" :class "navbar-toggle" :data-bs-toggle "collapse" :data-bs-target "#navheadercollapse"
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar")
 				  (:span :class "icon-bar"))
@@ -1749,7 +1889,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 	
-(defun vendor-product-category-row (category)
+(defun vendor-product-category-row (category &rest arguments)
+  (declare (ignore arguments))
   (with-slots (row-id catg-name) category 
       (cl-who:with-html-output (*standard-output* nil)
 	(:td  :height "10px" (cl-who:str catg-name)))))
@@ -1774,7 +1915,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" :align "right" 
 		    (:span :class "badge" (cl-who:str (format nil " ~d " (length vendor-products)))))) 
 	(:hr)
-	(:div :id "txtvendsearchproductresult" 
+	(:div :id "txtvendsearchproductresult" :class "all-products"
 	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card")))))))
 
 

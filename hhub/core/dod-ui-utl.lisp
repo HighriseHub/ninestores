@@ -160,7 +160,7 @@
     `(cl-who:with-html-output (*standard-output* nil)
        (:nav :aria-label "breadcrumb"
 	     (:ol :class "breadcrumb"
-		  (:li :class "breadcrumb-item" (:a :href "/hhub/dodvendindex?context=home" "Home"))
+		  (:li :class "breadcrumb-item no-print" (:a :href "/hhub/dodvendindex?context=home" "Home"))
 		  ,@body)))))
 
 
@@ -299,6 +299,10 @@
 	 (:img :class "profile-img" :src (format nil "~A/img/logo.png" *siteurl*) :alt "Welcome to Nine Stores")
 	 (:p
 	  ,@body))))))
+
+
+
+       
   
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-standard-page-template (title nav-func  &body body)
@@ -335,7 +339,7 @@
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.9/validator.min.js"))
 		;; header completes here.
 	        (:body
-		 (:div :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
+		 (:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;"
@@ -345,9 +349,9 @@
 		       (:script :src "/js/hhubbusy.js")
 		       (if hunchentoot:*session* (,nav-func)) 
 					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
-		       (:div :class "container theme-showcase" :style "background-color: white; min-height: calc(100vh - 100px);" :role "main" 
+		       (:div :class "container-fluid" :style "background-color: white; min-height: calc(100vh - 50px);" :role "main" 
 			     (:div :class "sidebar-nav" 
-				   (:div :id "hhubmaincontent"  ,@body))))
+				   (:div :class "container-fluid" :id "hhubmaincontent"  ,@body))))
 		 ;; rangeslider
 		      ;; bootstrap core javascript
 		 (:script :src "/js/bootstrap.js")
@@ -401,12 +405,69 @@
 		       (if hunchentoot:*session* (,nav-func)) 
 					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
 		       (:div :class "container" :role "main" :style "background-color: white; min-height: calc(100vh - 100px);" 
-			     (:div :class "sidebar-nav" 
-				   (:div :id "hhubmaincontent"   ,@body))))
+			     (:div :id "hhubmaincontent"   ,@body))))
 		 ;; rangeslider
 		      ;; bootstrap core javascript
 		 
-		 (:script :src "/js/dod.js"))))))
+		(:script :src "/js/dod.js")))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defmacro with-standard-page-template-with-sidebar (title nav-func  &body body)
+    `(cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+       (:html  :xmlns "http://www.w3.org/1999/xhtml" 
+	       :xml\:lang "en" 
+	       :lang "en" :data-bs-theme "light"
+	       
+	       (:head
+		(:meta :http-equiv "content-type" 
+		       :content    "text/html;charset=utf-8")
+		(:meta :name "viewport" :content "width=device-width,user-scalable=no")
+		(:meta :name "theme-color" :content "#5382EE")
+		(:meta :names "description" :content "A marketplace app.")
+		(:meta :name "author" :content "Nine Stores")
+		(:link :rel "icon" :href "/favicon.ico")
+		(:title ,title )
+					; Link to the app manifest for PWA. 
+		(:link :rel "manifest" :href "/manifest.json")
+		;; Bootstrap CSS
+		
+		(:link :href "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" :rel "stylesheet")
+		;;(:link :href "/css/bs5.3/css/bootstrap.min.css" :rel "stylesheet" )
+
+		(:link :href "/css/bootstrap5.3.css" :rel "stylesheet" )
+		(:link :href "/css/style.css" :rel "stylesheet")
+		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/themes/cupertino/jquery-ui.min.css" :rel "stylesheet")
+		(:link :href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" :rel "stylesheet")
+		(:link :href "https://fonts.googleapis.com/css?family=Merriweather:400,900,900i" :rel "stylesheet")
+		;; js files related to bootstrap and jquery. Jquery must come first. 
+		(:script :src "https://code.jquery.com/jquery-3.5.1.min.js" :integrity "sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" :crossorigin "anonymous")
+		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin "anonymous")
+		(:script :src "/js/spin.min.js")
+		(:script :src "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js")
+		;;(:script :src "/js/bs5.3/js/bootstrap.bundle.min.js")
+		(:script :src "https://www.google.com/recaptcha/api.js")
+		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
+		) ;; header completes here.
+	       (:body
+		(:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
+		       (:a :id "scrollup" "" )
+		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
+		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;" )
+		       (:div :id "busy-indicator")
+		       (:script :src "/js/hhubbusy.js")
+		       ;;
+					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
+		       (when hunchentoot:*session*
+			   (,nav-func)
+			   (render-sidebar-offcanvas)))
+		       (:div :class "container-fluid" :style "background-color: white; min-height: calc(100vh - 50px);" :role "main" 
+			     ,@body)))
+		 ;; rangeslider
+		      ;; bootstrap core javascript
+		 
+		 (:script :src "/js/dod.js"))))
+
+
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
@@ -436,7 +497,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-vendor-page ( title  &body body)
-    `(with-standard-page-template  ,title with-vendor-navigation-bar ,@body)))
+    `(with-standard-page-template-with-sidebar  ,title with-vendor-navigation-bar-v2  ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-admin-page ( title &body body)
@@ -578,7 +639,7 @@
   (let ((incr (let ((count 0)) (lambda () (incf count)))))
     (cl-who:with-html-output-to-string (*standard-output* nil)
       ;; searchresult div will be used to store the search result. 
-      (:div :id "searchresult"  :class "container" 
+      (:div :id "searchresult"  :class "container-fluid" 
 	    (:table :class "table table-sm  table-striped  table-hover"
 		    (:thead (:tr
 			     (:th "Sr. No")
@@ -594,11 +655,11 @@
 individual tiles. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizingrefer to style.css. " 
   (cl-who:with-html-output-to-string (*standard-output* nil)
     ; searchresult div will be used to store the search result. 
-    (:div :class "container" 
+    (:div :class "container-fluid" 
 	  (:div :class "row-fluid"
 		(mapcar (lambda (item)
-			  (cl-who:htm (:div :class "col-xs-12 col-sm-12 col-md-6 col-lg-4" 
-					    (:div :class tile-css-class (funcall displayfunc item)))))  listdata)))))
+			  (cl-who:htm
+			   (:div :class tile-css-class (funcall displayfunc item))))  listdata)))))
 
 ;; This macro will be used for the MVC pattern on the UI display of pages. We need
 ;; to pass the model generating and view generating functions and specify for which persona this request is for.
@@ -671,13 +732,11 @@ individual tiles. It also supports search functionality by including the searchr
   (defmacro  with-html-search-form (form-id form-name txtctrlid txtctrlname  search-form-action onkeyupfunc  search-placeholder &body body)
     :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"
     `(cl-who:with-html-output (*standard-output* nil ) 
-       (:hr)
-       (with-html-div-col-6
-	   (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
-		  (:div :class "input-group"
-			(:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder   :onkeyup ,onkeyupfunc)
-			(:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
-		  ,@body)))))
+       (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
+	      (:div :class "input-group"
+		    (:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder   :onkeyup ,onkeyupfunc)
+		    (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
+	      ,@body))))
 
   
 
@@ -692,9 +751,10 @@ individual tiles. It also supports search functionality by including the searchr
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form ( form-name form-action  &body body) 
     :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js. To have submit form event for this form create it outside the macro."  
+    (let ((id (format nil "id~A~A" form-name (hhub-random-password 3))))
     `(cl-who:with-html-output (*standard-output* nil) 
-       (:form :class ,form-name :id ,form-name :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
-	      ,@body))))
+       (:form :class ,form-name :id ,id :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
+	      ,@body)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form-having-submit-event ( form-name form-action  &body body) 
@@ -703,6 +763,16 @@ individual tiles. It also supports search functionality by including the searchr
        (:form :class ,form-name :id (format nil "id~A" ,form-name) :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
 	      ,@body)
        (submitformevent-js (format nil "#id~A" ,form-name)))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-catch-submit-event (&body body)
+    :documentation "Arguments: NIL. This macro is used where there are many forms having submit events in a page and we want to catch them all when the event is propogated to the div level."
+    (let ((id (format nil "idformultiformsubmitevent~A" (hhub-random-password 3))))
+      `(cl-who:with-html-output (*standard-output* nil) 
+	 (:div :id ,id
+	       ,@body)
+	 (submitformevent-js (format nil "#~A" ,id))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-html-card (cardimage cardimagealt cardtitle cardtext  &body body)
@@ -788,11 +858,12 @@ individual tiles. It also supports search functionality by including the searchr
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-input-text (name label placeholder  value brequired validation-error-msg tabindex &body other-attributes)
+    (let ((textid (format nil "id~A~A" name (hhub-random-password 3))))
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "form-group"
-	     (:label :for ,name ,label)
-	     (:input :class "form-control"  :type "text" :id ,name :name ,name :placeholder ,placeholder :required ,brequired :value ,value :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
-	     (:div :class "help-block with-errors")))))
+	     (:label :for ,textid ,label)
+	     (:input :class "form-control"  :type "text" :id ,textid :name ,name :placeholder ,placeholder :required ,brequired :value ,value :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
+	     (:div :class "help-block with-errors"))))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
