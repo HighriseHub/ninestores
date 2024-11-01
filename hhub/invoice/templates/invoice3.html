@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice - Template 2</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .header-section {
+            text-align: left;
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .company-name {
+            color: #004080;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .invoice-table {
+            width: 100%;
+            max-width: 1122px;
+            border-collapse: collapse;
+            margin: 10px auto;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 8px;
+        }
+        th {
+            background-color: #d9edf7;
+        }
+        .left-align {
+            text-align: left;
+            padding-left: 10px;
+        }
+        .highlight {
+            background-color: #f9f9f9;
+            font-weight: bold;
+        }
+        .terms {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #000;
+            background-color: #fcfcfc;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header-section">
+    <div class="company-name">Your Company Name</div>
+    <div>TAX INVOICE</div>
+</div>
+
+<table class="invoice-table">
+    <tr>
+        <td class="highlight left-align">Invoice No. :</td>
+        <td class="left-align">NST00041/2024</td>
+        <td class="highlight left-align">Invoice Date:</td>
+        <td class="left-align">06/10/24</td>
+    </tr>
+    <tr>
+        <td class="highlight left-align">Place of Supply :</td>
+        <td class="left-align">KARNATAKA</td>
+        <td class="highlight left-align">Date of Supply :</td>
+        <td class="left-align"></td>
+    </tr>
+</table>
+
+<table class="invoice-table">
+    <tr>
+        <th>Receiver / Billed to:</th>
+        <th>Consignee / Shipped to:</th>
+    </tr>
+    <tr>
+        <td class="left-align">Name: Demo Customer<br> Address: [Billing Address]</td>
+        <td class="left-align">Name: Demo Customer<br> Address: [Shipping Address]</td>
+    </tr>
+</table>
+
+<table class="invoice-table">
+    <tr>
+        <th>Sr. No</th>
+        <th>Product/Service</th>
+        <th>HSN/SAC</th>
+        <th>Qty</th>
+        <th>Rate</th>
+        <th>Discount %</th>
+        <th>Taxable Value</th>
+        <th>CGST</th>
+        <th>SGST</th>
+        <th>Total</th>
+    </tr>
+    <tr>
+        <td>1</td>
+        <td class="left-align">Madhur Sugar</td>
+        <td>0</td>
+        <td>10</td>
+        <td>100</td>
+        <td>5</td>
+        <td>950</td>
+        <td>0</td>
+        <td>0</td>
+        <td>950</td>
+    </tr>
+    <tr>
+        <td colspan="8" class="highlight left-align">Total Amount</td>
+        <td colspan="2">1780</td>
+    </tr>
+</table>
+
+<div class="terms">
+    **Terms and Conditions:** Payment is due within 10 days. Late payments incur a 2% monthly interest. Ownership of goods remains with the seller until full payment is made. Disputes must be raised within 7 days. This invoice is subject to Indian law and jurisdiction of Bengaluru/Bangalore.
+</div>
+
+</body>
+</html>
