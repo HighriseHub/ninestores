@@ -237,7 +237,7 @@
     (display-as-table (list "Product" "HSN Code" "UOM" "Qty" "Rate" "Amount" "Less:Discount" "Taxable Value" "CGST" "SGST" "IGST" "Total") viewmodellist 'display-InvoiceItem-row)))
 
 
-(defun display-invoice-item-row (invitem sessioninvkey)
+(defun display-invoice-item-row (invitem invoicepaid-p sessioninvkey)
   (cl-who:with-html-output (*standard-output* nil)
       (with-slots (prd-id prddesc hsncode qty uom price discount  taxablevalue  cgstamt  sgstamt  igstamt totalitemval) invitem
 	(cl-who:htm
@@ -252,11 +252,13 @@
 	 (:td :height "10px" (cl-who:str sgstamt))
 	 (:td :height "10px" (cl-who:str igstamt))
 	 (:td :height "10px" (cl-who:str totalitemval))
-	 (:td :height "10px"
-	      (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#editInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-pencil") "&nbsp;&nbsp;")
-	      (modal-dialog-v2 (format nil "editInvoiceItem-modal~A" prd-id) "Add/Edit InvoiceItem" (edit-invoiceitem-dialog invitem sessioninvkey))
-	      (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#deleteInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-trash-can"))
-	      (modal-dialog-v2 (format nil "deleteInvoiceItem-modal~A" prd-id) "Delete InvoiceItem" (delete-invoiceitem-dialog invitem sessioninvkey)))))))
+	 (unless invoicepaid-p
+	   (cl-who:htm
+	    (:td :height "10px"
+		 (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#editInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-pencil") "&nbsp;&nbsp;")
+		 (modal-dialog-v2 (format nil "editInvoiceItem-modal~A" prd-id) "Add/Edit InvoiceItem" (edit-invoiceitem-dialog invitem sessioninvkey))
+		 (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#deleteInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-trash-can"))
+		 (modal-dialog-v2 (format nil "deleteInvoiceItem-modal~A" prd-id) "Delete InvoiceItem" (delete-invoiceitem-dialog invitem sessioninvkey)))))))))
 
 
 
