@@ -163,6 +163,15 @@
 		  (:li :class "breadcrumb-item no-print" (:a :href "/hhub/dodvendindex?context=home" "Home"))
 		  ,@body)))))
 
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defmacro with-compadmin-breadcrumb (&body body)
+    :description "Takes link attributes like HREF and Link name as pair and processes it to display the breadcrumb"
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:nav :aria-label "breadcrumb"
+	     (:ol :class "breadcrumb"
+		  (:li :class "breadcrumb-item no-print" (:a :href "/hhub/hhubcadindex" "Home"))
+		  ,@body)))))
+
 
 (defun whatsapp-widget (phone)
   :description "This function returns the HTML required for the floating whatsapp button"
@@ -412,7 +421,7 @@
 		(:script :src "/js/dod.js")))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
-  (defmacro with-standard-page-template-with-sidebar (title nav-func  &body body)
+  (defmacro with-standard-page-template-with-sidebar (title nav-func sidebar-func  &body body)
     `(cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
        (:html  :xmlns "http://www.w3.org/1999/xhtml" 
 	       :xml\:lang "en" 
@@ -459,7 +468,7 @@
 					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
 		       (when hunchentoot:*session*
 			   (,nav-func)
-			   (render-sidebar-offcanvas)))
+			   (,sidebar-func)))
 		       (:div :class "container-fluid" :style "background-color: white; min-height: calc(100vh - 50px);" :role "main" 
 			     ,@body)))
 		 ;; rangeslider
@@ -484,7 +493,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-compadmin-page-v2 (title &body body)
-    `(with-standard-page-template-v2  ,title with-compadmin-navigation-bar-v2  ,@body)))
+    `(with-standard-page-template-with-sidebar  ,title with-compadmin-navigation-bar-v2 render-compadmin-sidebar-offcanvas  ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-no-navbar-page-v2 (title &body body)
@@ -497,7 +506,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-vendor-page ( title  &body body)
-    `(with-standard-page-template-with-sidebar  ,title with-vendor-navigation-bar-v2  ,@body)))
+    `(with-standard-page-template-with-sidebar  ,title with-vendor-navigation-bar-v2 render-sidebar-offcanvas  ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-admin-page ( title &body body)
