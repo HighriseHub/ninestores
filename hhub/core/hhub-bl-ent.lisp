@@ -67,6 +67,18 @@
    (vorderitems)
    (vproductfunclist)
    (vwebsession)))
+
+(defclass UserSessionObject (BusinessSession)
+  ((user)
+   (user-id)
+   (user-tenant-id)
+   (user-name)
+   (company)
+   (companyname)
+   (uorderfunclist)
+   (uorderitems)
+   (uproductfunclist)
+   (uwebsession)))
    
   
 
@@ -370,7 +382,8 @@
 (defmethod deleteBusinessSession ((bctx BusinessContext) key)
   :description "Deletes the business session"
   (let ((bs-ht (businesssessions-ht bctx)))
-    (remhash key bs-ht)))
+    (remhash key bs-ht)
+    (logiamhere (format nil "removing key ~A Size of business sessions hashtable is ~A" key (hash-table-size bs-ht)))))
 
 (defmethod  getBusinessSession ((bctx BusinessContext) key)
   :description "Get the business session"
