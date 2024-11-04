@@ -64,7 +64,6 @@
 (defvar *HHUBBUSINESSSESSIONS-HT* NIL) 
 (defvar *HHUBBUSINESSLOCATION-VENDOR* NIL)
 (defvar *HHUBBUSINESSSERVER* NIL)
-(defvar *HHUBBUSINESSDOMAIN* NIL) 
 
 (defvar *HHUBGLOBALROLES* NIL) 
 (defvar *HHUBFEATURESWISHLISTURL* "https://goo.gl/forms/hI9LIM9ebPSFwOrm1")
@@ -90,7 +89,8 @@
 (defvar *HHUBDEFAULTSHIPZONESCSV*  "defaultshipzonepincodes.csv")
 (defvar *HHUBSHIPPINGPARTNERSITE* "https://www.ithinklogistics.com/")
 (defvar *HHUBFREESHIPMINORDERAMT* 500.00)
-(defvar *HHUBMAXVENDORLOGINS* 4)
+(defvar *HHUBMAXVENDORLOGINS* 2)
+(defvar *HHUBMAXUSERLOGINS* 2)
 (defvar *HHUBMEMOIZEDFUNCTIONS* nil)
 (defvar *HHUBDEFAULTCURRENCY* "INR")
 (defvar *HHUBDEFAULTCOUNTRY* "India")
@@ -180,7 +180,7 @@ the hunchentoot server with ssl settings"
        ;(setf *HHUBENTITY-WEBPUSHNOTIFYVENDOR-HT* (make-hash-table))
        (setf *HHUBBUSINESSSESSIONS-HT* (make-hash-table)) 
        (hhub-init-business-functions)
-       (setf *HHUBBUSINESSDOMAIN* (initbusinessdomain))
+       (setf *HHUBBUSINESSSERVER* (initbusinessserver))
        (setf *NSTGSTSTATECODES-HT* (init-gst-statecodes))
        (init-gst-invoice-terms)
        (define-shipping-zones)))
@@ -216,7 +216,7 @@ the hunchentoot server with ssl settings"
 (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* NIL)
 ;(setf *HHUBENTITY-WEBPUSHNOTIFYVENDOR-HT* NIL)
 (setf *HHUBBUSINESSSESSIONS-HT* NIL)
-(setf *HHUBBUSINESSDOMAIN* NIL)))
+(deletebusinessserver)))
 
 
 ;;;;*********** Globally Cached lists and their accessor functions *********************************
@@ -402,18 +402,22 @@ the hunchentoot server with ssl settings"
     contexts))
 
     
-(defun initBusinessDomain ()
+(defun initBusinessServer ()
   (let ((business-server  (make-instance 'BusinessServer)))
     (setf (slot-value business-server 'ipaddress) "127.0.0.1") ;; Not useful Today. May be on future.
     (setf (slot-value business-server 'name) "NineStores")
     (setf (slot-value business-server 'id)  (format nil "~A" (uuid:make-v1-uuid )))
-    (setf (slot-value business-server 'BusinessContexts) (initBusinessContexts business-server (list "vendorsite")))
+    (setf (slot-value business-server 'BusinessContexts) (initBusinessContexts business-server (list "vendorsite" "compadminsite")))
     business-server))
 
 
-(defun deleteBusinessDomain ()
-  (setf *HHUBBUSINESSSERVER* NIL)
-  (sb-ext:gc :full t))
+(defun deleteBusinessServer ()
+  (let ((businesscontexts (slot-value *HHUBBUSINESSSERVER* 'BusinessContexts)))
+    (loop for bc in businesscontexts do
+      (let ((name (slot-value bc 'name)))
+	(deletebusinesscontext *HHUBBUSINESSSERVER* name))) 
+    (setf *HHUBBUSINESSSERVER* NIL)
+    (sb-ext:gc :full t)))
 
 
 
