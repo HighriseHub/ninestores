@@ -154,13 +154,13 @@
 
 
 (defun get-login-userid ()
-     (hunchentoot:session-value :login-userid))
+     (hunchentoot:session-value :login-user-id))
     
 (defun hhub-session-validp ()
-  (if hunchentoot:*session* T))
+  (if hunchentoot:*session* T NIL))
 
 (defun get-login-user-name ()
-  (hunchentoot:session-value :login-username))
+  (hunchentoot:session-value :login-user-name))
 
 
 (defun verify-superadmin ();;"Verifies whether username is superadmin" 
