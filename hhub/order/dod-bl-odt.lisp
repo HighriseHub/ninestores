@@ -85,6 +85,7 @@
  (clsql:select 'dod-order-items  :where
 	       [and [= [:deleted-state] "N"]
 	       [= [:status] "CMP"]
+	       [= [:fulfilled] "Y"]
 	       [in [:order-id] (get-orderids-for-vendor vendor-instance company "Y")]
 	       [= [:tenant-id] tenant-id]
 	       [= [:vendor-id] vendor-id]] :order-by :order-id  :limit rowcount
@@ -99,7 +100,9 @@
  (clsql:select 'dod-order-items  :where
 	       [and [= [:deleted-state] "N"]
 	       [between [:created] strfromdate strtodate]
-	      ; [in [:order-id] (get-orderids-for-vendor vendor-instance company fulfilled recordsfordays)]
+	       [= [:status] "PEN"]
+	       [= [:fulfilled] "N"]
+	       ;; [in [:order-id] (get-orderids-for-vendor vendor-instance company fulfilled recordsfordays)]
 	       [= [:tenant-id] tenant-id]
 	       [= [:vendor-id] vendor-id]] :order-by :order-id
 	       :caching nil :flatp t )))
