@@ -1,7 +1,7 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 
-(clsql:def-view-class dod-currency ()
+(clsql:def-view-class dod-currncy ()
   ((country 
     :accessor country
     :type (string 100)

@@ -5,10 +5,6 @@
 (defvar *logged-in-users* nil)
 (defvar *current-user-session* nil)
 
-
-
-
-
 (defun hhub-controller-permission-denied ()
   (let ((message (hunchentoot:parameter "message")))
     (with-no-navbar-page "Permission Denied"
