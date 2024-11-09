@@ -810,6 +810,13 @@ individual tiles. It also supports search functionality by including the searchr
 	     ,@body))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-10 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-10"
+	     ,@body))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-div-col-8 ( &body body) 
     :documentation "A HTML Div element having class as 'col' and also having column sizing" 
     `(cl-who:with-html-output (*standard-output* nil) 
