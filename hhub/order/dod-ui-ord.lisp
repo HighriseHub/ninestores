@@ -62,17 +62,15 @@
 					 (disc-rate (slot-value odt 'disc-rate))
 					 (unit-price (slot-value odt 'unit-price)))
 				    (cl-who:str (format nil "~a,~a,~a,Rs. ~$,~$,Rs. ~$,~C~C" prd-name prd-qty qty-per-unit unit-price disc-rate subtotal  #\return #\linefeed)))) odtlst)
-		
 			(cl-who:str (format nil ",,,,Total, Rs. ~$~C~C" total #\return #\linefeed)))))) ordlist)))
 
 
-
-
+;; This function takes more time, please make it more efficient in future. 
 (defun ui-list-vendor-orders-by-products (ordlist)
     (let*  ((vendor (get-login-vendor))
 	    (tenant-id (get-login-vendor-tenant-id))
 	    (vendor-company (get-login-vendor-company))
-	    (products  (select-products-by-vendor vendor vendor-company))
+	    (products  (hunchentoot:session-value :login-prd-cache))
 	    (odtlst (mapcar (lambda (prd)
 			      (let ((prd-id (slot-value prd 'row-id)))
 				(delete nil (mapcar (lambda (ord)
@@ -81,7 +79,6 @@
 			    products)))
 
 	 (cl-who:with-html-output (*standard-output* nil)	       
-	
 	   (mapcar (lambda (prd odtlstbyprd)
 		     (let ((quantity (reduce #'+ (mapcar (lambda (odt)
 							   (if odt (slot-value odt 'prd-qty)))   odtlstbyprd)))
@@ -92,26 +89,26 @@
 								       (get-vendor-order-instance order-id vendor))) odtlstbyprd))))
 		       (if (>  subtotal 0)  
 			   (cl-who:htm  (:div :class "thumbnail row"
-					      (:div :class "col-sm-12 col-xs-12 col-md-2 col-lg-2"
-						    (cl-who:str (slot-value prd 'prd-name)))
-					      (:div :class "col-sm-12 col-xs-12 col-md-2 col-lg-2"
-						    (cl-who:str (slot-value prd 'qty-per-unit)))
-					      
-					      (:div :class "col-sm-12 col-xs-12 col-md-2 col-lg-2"
-						    (:h5 (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* ( slot-value prd 'unit-price)))))
-					      (:div :class "col-sm-12 col-xs-12 col-md-2 col-lg-2"
-						    (:span :class "badge" (cl-who:str quantity)))
-					      
-					      (:div :class "col-sm-12 col-xs-12 col-md-2 col-lg-2"
-						    (:h4 (:span :class "label label-default" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal))))))
+					      (with-html-div-col-2
+						(cl-who:str (slot-value prd 'prd-name)))
+					      (with-html-div-col-2
+						(cl-who:str (slot-value prd 'qty-per-unit)))
+					      (with-html-div-col-2
+					   	(:h5 (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* ( slot-value prd 'unit-price)))))
+					      (with-html-div-col-2
+					  	(:span :class "badge" (cl-who:str quantity)))
+					      (with-html-div-col-2
+						(:h4 (:span :class "label label-default" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal))))))
 					
 					(:div :class "row"
 					      (mapcar (lambda (order)
 						  (let ((order-id (slot-value order 'row-id)))
 						    (cl-who:htm
-						     (:div :class "col-sm-12 col-xs-12 col-md-1 col-lg-1" (:a :data-toggle "modal" :data-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id)))))
-						     (modal-dialog (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details order vendor-company))))) orders))
+						     (with-html-div-col-2
+						       (:a :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
+						       (modal-dialog-v2 (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details order vendor-company)))))) orders))
 					(:hr))))) products odtlst))))
+
 
 
 (defun ui-list-vendor-orders-by-customers (ordlist)
@@ -202,14 +199,14 @@
 	 (storepickupenabled (if (equal (slot-value vorder-instance 'storepickupenabled) "Y") T NIL))
 	 (address (if customer (slot-value customer 'address))))
     (cl-who:with-html-output (*standard-output* nil)
-      (:div :class "row"
-	    (:div :class "col-sm-12"  (cl-who:str name)))
-      (:div :class "row" 
-	    (:div :class "col-sm-12" (cl-who:str (if (> (length address) 20)  (subseq (slot-value customer 'address) 0 20) address))))
-      (:div :class "row"
-	    (:div :class "col-sm-12"
-		  (:a :data-toggle "modal" :data-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
-		  (modal-dialog (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details vorder-instance company))
+      (with-html-div-row
+	    (with-html-div-col-8  (cl-who:str name)))
+      (with-html-div-row
+	    (with-html-div-col-8 (cl-who:str (if (> (length address) 20)  (subseq (slot-value customer 'address) 0 20) address))))
+      (with-html-div-row
+	    (with-html-div-col-8
+		  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
+		  (modal-dialog-v2 (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details vorder-instance company))
 		  (if storepickupenabled
 		      (cl-who:htm (:a :data-toggle "tooltip" :title "Store Pickup" :href "#" (:i :class "fa-solid fa-person-walking-luggage")))))))))
       

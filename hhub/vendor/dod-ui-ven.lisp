@@ -1675,7 +1675,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	  T)
 	(if dbvendor T NIL))
     ;; Lets work on the domain objects here.
-    ;; (setup-domain-vendor *HHUBBUSINESSDOMAIN* phone))))
+    ;; (setup-domain-vendor *HHUBBUSINESSSERVER* phone))))
     ;;handle the exception. 
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2006 ) 
@@ -1705,7 +1705,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    (setf hunchentoot:*session-max-time* (* 3600 8))
 	    (set-vendor-session-params  vendor-company dbvendor))))
 	    ;; Lets work on the domain objects here.
-	   ;; (setup-domain-vendor *HHUBBUSINESSDOMAIN* phone))))
+	   ;; (setup-domain-vendor *HHUBBUSINESSSERVER* phone))))
 
 					;handle the exception. 
     (clsql:sql-database-data-error (condition)
@@ -1751,12 +1751,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (if vendor (setf (hunchentoot:session-value :vendor-order-items-hashtable) (make-hash-table)))
     (if vendor (setf (hunchentoot:session-value :login-vendor-products-functions) (dod-gen-vendor-products-functions vendor company)))
     (if vendor (setf (hunchentoot:session-value :login-vendor-settings-ht) (make-hash-table :test 'equal)))
-    (if vendor (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-vendor vendor  company)))
+    (if vendor (setf (hunchentoot:session-value :login-prd-cache )  (remove nil (select-products-by-vendor vendor  company))))
     (if vendor (setf (hunchentoot:session-value :session-invoices-ht) (make-hash-table :test 'equal)))
     (if vendor (setf (hunchentoot:session-value :login-shopping-cart) '()))
     ;; Add vendor settings to the session. 
     (addloginvendorsettings)
-    (let ((sessionkey (createBusinessSession (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite") vsessionobj)))
+    (let ((sessionkey (createBusinessSession (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite") vsessionobj)))
       (setf (hunchentoot:session-value :login-vendor-business-session-id) sessionkey)
       (logiamhere (format nil "web session is ~A" (slot-value vsessionobj 'vwebsession)))
       (logiamhere (format nil "session key is ~A" sessionkey))
@@ -1787,12 +1787,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun getloginvendorcount ()
-  (let* ((bcontext (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite"))
+  (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite"))
 	 (bsessions-ht (businesssessions-ht bcontext)))
     (hash-table-count bsessions-ht)))
 
 (defun getloginvendorsessionstarttime ()
-  (let* ((bcontext (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite"))
+  (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite"))
 	 (sessionkey (hunchentoot:session-value :login-vendor-business-session-id))
 	 (bsession (when sessionkey (getbusinesssession bcontext sessionkey)))
 	 (start-time (when bsession (start-time bsession))))
@@ -1801,7 +1801,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun enforcesinglevendorsession (sessionkey)
-  (let* ((bcontext (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite"))
+  (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite"))
 	 (bsessions-ht (businesssessions-ht bcontext))
 	 (bvendsession (gethash sessionkey bsessions-ht))
 	 (vendor (slot-value bvendsession 'vendor))
@@ -1946,7 +1946,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-reset-order-functions (vendor company)
   (let ((order-func-list (dod-gen-order-functions vendor company)))
-    (setf (hunchentoot:session-value :order-func-list) order-func-list)))
+    (setf (hunchentoot:session-value :order-func-list) order-func-list)
+    (setf (hunchentoot:session-value :vendor-order-items-hashtable) (make-hash-table))))
 
 
 (defun hhub-get-cached-vendor-products ()
@@ -1975,7 +1976,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   ;; Discovered in May 2020
   ;; If the order-items are not found in the hash table, search them and add them to hash table.                                                                               
   (let ((order-items-from-ht (get-ht-val order-id (hunchentoot:session-value :vendor-order-items-hashtable))))
-    (if (null order-items-from-ht)
+    (if (null order-items-from-ht) 
 	(let* ((order-items-func (nth 2 order-func-list))
                (order-items-list (funcall order-items-func))
 	       (order-items (remove nil (mapcar (lambda (item)
@@ -1985,9 +1986,27 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    (setf (gethash order-id (hunchentoot:session-value :vendor-order-items-hashtable)) order-items)
 	    ;; return order items
 	    order-items))
-          ;;otherwise, return the retrieved items list from the hash table.
-          order-items-from-ht)))
+	;;otherwise, return the retrieved items list from the hash table.
+        order-items-from-ht)))
 
+
+(defun dod-get-cached-order-items-by-product-id (prd-id order-func-list)
+  ;; Add the order item to a hash table. Key - product-id to improve performance.
+  ;; Discovered in Nov 2024
+  ;; If the order-items are not found in the hash table, search them and add them to hash table.                                                                               
+  (let ((order-items-from-ht (get-ht-val prd-id (hunchentoot:session-value :vendor-order-items-hashtable))))
+    (if (null order-items-from-ht) 
+	(let* ((order-items-func (nth 2 order-func-list))
+               (order-items-list (funcall order-items-func))
+	       (order-items (delete nil (mapcar (lambda (item)
+						  (if (equal (slot-value item 'prd-id) prd-id) item)) order-items-list))))
+	  (when (> (length order-items) 0)
+            ;; save in the order items hashtable for faster access next time.
+	    (setf (gethash prd-id (hunchentoot:session-value :vendor-order-items-hashtable)) order-items)
+	      ;; return order items
+	      order-items))
+	;;otherwise, return the retrieved items list from the hash table.
+        order-items-from-ht)))
 
 (defun dod-controller-vend-index () 
   (with-vend-session-check 
@@ -2111,7 +2130,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (let* ((vc (get-login-vendor-company))
 	   (company-website (if vc (slot-value vc 'website))))
       (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
-      (deleteBusinessSession (getBusinessContext *HHUBBUSINESSDOMAIN* "vendorsite") (hunchentoot:session-value :login-vendor-business-session-id)) 
+      (deleteBusinessSession (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite") (hunchentoot:session-value :login-vendor-business-session-id)) 
       
       (if (> (length company-website) 0)  (hunchentoot:redirect (format nil "http://~A" company-website)) 
 	  ;;else

@@ -9,8 +9,10 @@
 
 (defun createmodelforinvoicepaidaction ()
   (let* ((company (get-login-vendor-company))
+	 (vendor (get-login-vendor))
 	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
 	 (status (hunchentoot:parameter "status"))
+	 (productlist (hhub-get-cached-vendor-products))
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
@@ -27,16 +29,16 @@
 	 (params nil))
     (setf params (acons "company" (get-login-vendor-company) params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-    (with-hhub-transaction "com-hhub-transaction-invoice-paid-action" params 
+    (with-hhub-transaction "com-hhub-transaction-invoice-paid-action" params
       (handler-case 
 	  (let ((domainobj (ProcessUpdateRequest adapterobj requestmodel)))
 	    (when sessioninvoice
 	      (setf (slot-value sessioninvoice 'invoiceheader) domainobj)
 	      (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
-	      (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht))	   
+	      (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)
+	      (updateinvoiceitemsstockinventory productlist invoiceitems vendor company))
 	    (function (lambda ()
 	      (values redirectlocation domainobj))))
-
 	(error (c)
 	  (let ((exceptionstr (format nil  "Business Error:~A: ~a~%" (mysql-now) (getexceptionstr c))))
 	    (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
@@ -49,6 +51,17 @@
 
 (defun createwidgetsforinvoicepaidaction (modelfunc)
   (createwidgetsforgenericredirect modelfunc))
+
+
+(defun updateinvoiceitemsstockinventory (products invoiceitems vendor company)
+  (mapcar (lambda (item)
+	    (let* ((prd-id (slot-value item 'prd-id))
+		   (qty (slot-value item 'qty))
+		   (prd (search-item-in-list 'row-id prd-id products)))
+	      (if prd (update-stock-inventory prd qty)))) invoiceitems)
+  ;; reset the vendor order functions
+  (dod-reset-vendor-products-functions vendor company))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;; SHOW THE INVOICE PAYMENT PAGE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -62,27 +75,29 @@
 	 (status (hunchentoot:parameter "status"))
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
+	 (invoiceheader (slot-value sessioninvoice 'invoiceheader))
+	 (invnum (slot-value invoiceheader 'invnum))
 	 (invoiceitems (slot-value sessioninvoice 'InvoiceItems))
 	 (totalvalue (calculate-invoice-totalaftertax invoiceitems))
 	 (requestmodel (make-instance 'InvoiceHeaderStatusRequestModel
-					 :invnum sessioninvkey
+					 :invnum invnum
 					 :status status
 					 :totalvalue totalvalue
 					 :company company))
 	 (headeradapter (make-instance 'InvoiceHeaderAdapter))
 	 (params nil))
-    (setf params (acons "company" (get-login-vendor-company) params))
+    
+    (setf params (acons "company" company params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-
-    (with-hhub-transaction "com-hhub-transaction-show-invoice-payment-page" params 
+    (with-hhub-transaction "com-hhub-transaction-show-invoice-payment-page" params
       (handler-case 
-	  (let ((domainobj (ProcessUpdateRequest headeradapter requestmodel)))
-	    (when sessioninvoice
-	      (setf (slot-value sessioninvoice 'invoiceheader) domainobj)
-	      (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
-	      (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht))	   
-	    (function (lambda ()
-	      (values sessioninvkey  totalvalue))))
+      (let ((domainobj (ProcessUpdateRequest headeradapter requestmodel)))
+	(when sessioninvoice
+	  (setf (slot-value sessioninvoice 'invoiceheader) domainobj)
+	  (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
+	  (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht))	   
+	(function (lambda ()
+	  (values sessioninvkey totalvalue invnum))))
 	(error (c)
 	  (let ((exceptionstr (format nil  "Business Error:~A: ~a~%" (mysql-now) (getexceptionstr c))))
 	    (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
@@ -94,11 +109,11 @@
 	    (error 'hhub-business-function-error :errstring exceptionstr)))))))
 
 (defun createwidgetsforshowinvoicepaymentpage (modelfunc)
-  (multiple-value-bind (sessioninvkey totalvalue) (funcall modelfunc)
+  (multiple-value-bind (sessioninvkey totalvalue invnum) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (with-vendor-breadcrumb
 			(:li :class "breadcrumb-item no-print" (:a :href "displayinvoices" "Invoices"))
-			(:li :class "breadcrumb-item no-print" (:a :href (format nil "editinvoicepage?invnum=~A" sessioninvkey) "Edit Invoice"))
+			(:li :class "breadcrumb-item no-print" (:a :href (format nil "editinvoicepage?invnum=~A" invnum) "Edit Invoice"))
 			(:li :class "breadcrumb-item no-print" (:a :href (format nil "vproductsforinvoicepage?sessioninvkey=~A" sessioninvkey) "Select Products"))
 			(:li :class "breadcrumb-item no-print" (:a :href (format nil "vshowinvoiceconfirmpage?sessioninvkey=~A" sessioninvkey) "Confirm Invoice"))))))
 	   (widget2 (function (lambda ()
@@ -147,6 +162,7 @@
 				      :company company))
 	 (headeradapter (make-instance 'InvoiceHeaderAdapter))
 	 (invheader (processreadrequest headeradapter hrequestmodel))
+         (invnum (slot-value invheader 'invnum))
 	 (irequestmodel (make-instance 'InvoiceItemRequestModel
 				       :company company
 				       :invoiceheader invheader))
@@ -164,11 +180,11 @@
     
     (with-hhub-transaction "com-hhub-transaction-show-invoice-confirm-page" params 
       (function (lambda ()
-	(values sessioninvkey  invheader sessioninvitems qrcodepath))))))
+	(values sessioninvkey invnum invheader sessioninvitems qrcodepath))))))
 
 
 (defun createwidgetsforshowinvoiceconfirmpage (modelfunc)
-  (multiple-value-bind (sessioninvkey  sessioninvheader  sessioninvitems qrcodepath) (funcall modelfunc)
+  (multiple-value-bind (sessioninvkey  invnum  sessioninvheader  sessioninvitems qrcodepath) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (with-vendor-breadcrumb
 			(:li :class "breadcrumb-item no-print" (:a :href "displayinvoices" "Invoices"))
@@ -177,14 +193,13 @@
 	   (widget2 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-html-div-row
-			  (with-html-div-col-4
-			    (:h5 :class "no-print" "Finalize Invoice - Step 4:")
-			    (:a :class "btn btn-primary btn-lg no-print" :role "button" :onclick "window.print();" :href "#" "Print&nbsp;&nbsp;"(:i :class "fa-solid fa-print")))
+			  (with-html-div-col-4 "")
 			  (with-html-div-col-4
 			    (:a :role "button" :class "btn btn-lg btn-primary btn-block no-print" :href (format nil "vproductsforinvoicepage?sessioninvkey=~A" sessioninvkey) "Previous"))
 			  (with-html-div-col-4
 			    (with-html-form  (format nil "form-invoicepaymentpage")  "vinvoicepaymentpage" 
 			      (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
+			      (with-html-input-text-hidden "invnum" invnum)
 			      (with-html-input-text-hidden "status" "PENDINGPAYMENT")
 			      (:button :class "btn btn-lg btn-primary btn-block no-print" :type "submit" "NEXT"))))))))
 	   (widget3 (function (lambda ()
@@ -229,16 +244,14 @@
   (logiamhere (format nil "inv number - ~A" (slot-value invoiceheader 'invnum)))
   (with-slots (row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor company) invoiceheader
     (cl-who:with-html-output (*standard-output* nil)
-      (with-html-div-row
-	(with-html-div-col-8
-	(:style "table {width: 100%; border-collapse: collapse;} table.center {margin-left: auto; margin-right: auto;} table, th, td {border: 0.5px dashed grey;} th, td { padding: 1px; text-align: left;} td img{ display: block; margin-left: auto; margin-right: auto; } ")
-	  (:table 
-	   (:thead
-	    (:tr 
-	     (:th :colspan "2" "TAX INVOICE")
-	     (:th :colspan "3" "Original For Recipient")
-	     (:th :colspan "3" "Duplicate for Supplier")
-	     (:th :colspan "3" "Triplicate for Supplier")))
+      (:style "table {width: 100%; border-collapse: collapse;} table.center {margin-left: auto; margin-right: auto;} table, th, td {border: 0.5px dashed grey;} th, td { padding: 1px; text-align: left;} td img{ display: block; margin-left: auto; margin-right: auto; } ")
+      (:table 
+       (:thead
+	(:tr 
+	 (:th :colspan "2" "TAX INVOICE")
+	 (:th :colspan "3" "Original For Recipient")
+	 (:th :colspan "3" "Duplicate for Supplier")
+	 (:th :colspan "3" "Triplicate for Supplier")))
 	   (:tbody
 	    (:tr
 	     (:td :colspan "2" "Invoice No. :")
@@ -330,7 +343,7 @@
 	    (:tr
 	     (:td :colspan "13" "Terms and Conditions :"))
 	    (:tr
-	     (:td :colspan "13" (cl-who:str tnc))))))))))
+	     (:td :colspan "13" (cl-who:str tnc))))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -346,21 +359,22 @@
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
+	 (invnum (slot-value sessioninvheader 'invnum))
 	 (headerstatus (slot-value sessioninvheader 'status))
 	 (sessioninvitems (slot-value sessioninvoice 'InvoiceItems))
 	 (sessioninvproducts (slot-value sessioninvoice 'invoiceproducts))
-	 (products (hunchentoot:session-value :login-prd-cache)))
+	 (products (hhub-get-cached-vendor-products)))
 
     (function (lambda ()
-      (values products sessioninvitems sessioninvproducts  headerstatus sessioninvkey)))))
+      (values products sessioninvitems sessioninvproducts  headerstatus sessioninvkey invnum)))))
 
 (defun createwidgetsforaddprdtoinvoice (modelfunc)
-  (multiple-value-bind (products sessioninvitems sessioninvproducts headerstatus sessioninvkey) (funcall modelfunc)
+  (multiple-value-bind (products sessioninvitems sessioninvproducts headerstatus sessioninvkey invnum) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-vendor-breadcrumb
 			  (:li :class "breadcrumb-item" (:a :href "displayinvoices" "Invoices"))
-			  (:li :class "breadcrumb-item" (:a :href (format nil "editinvoicepage?invnum=~A" sessioninvkey) "Edit Invoice")))
+			  (:li :class "breadcrumb-item" (:a :href (format nil "editinvoicepage?invnum=~A" invnum) "Edit Invoice")))
 			(with-html-div-row
 			  (:div :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"
 				(:span "Create Invoice - Step 3:")))))))
@@ -528,7 +542,7 @@
 	 (sessioninvproducts (slot-value sessioninvoice 'invoiceproducts))
 	 (context-id (slot-value sessioninvheader 'context-id))
 	 (customer (slot-value sessioninvoice 'customer))
-	 (productlist (hunchentoot:session-value :login-prd-cache))
+	 (productlist (hhub-get-cached-vendor-products))
 	 (product (search-item-in-list 'row-id prd-id productlist))
 	 (gstvalues (get-gstvalues-for-product product))
 	 (unit-price (slot-value product 'unit-price))
@@ -584,7 +598,7 @@
     (when (and wallet (> prdqty 0) sessioninvoice)
       (setf (slot-value sessioninvoice 'InvoiceItems) (append sessioninvitems (list invoiceitem)))
       (setf (slot-value sessioninvoice 'invoiceproducts) (append sessioninvproducts (list product)))
-      ;;(setf (hunchentoot:session-value :login-prd-cache) (remove product productlist))
+      ;;(setf (hhub-get-cached-vendor-products) (remove product productlist))
       (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
       (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)
       (function (lambda ()
@@ -622,7 +636,7 @@
 	 (sessioninvproducts (slot-value sessioninvoice 'invoiceproducts))
 	 (context-id (slot-value sessioninvheader 'context-id))
 	 (customer (slot-value sessioninvoice 'customer))
-	 (productlist (hunchentoot:session-value :login-prd-cache))
+	 (productlist (hhub-get-cached-vendor-products))
 	 (product (search-item-in-list 'upc barcode productlist))
 	 (prd-id (slot-value product 'row-id))
 	 (itemincart (if (iteminlist-p 'prd-id prd-id sessioninvitems) (search-item-in-list 'prd-id prd-id sessioninvitems)))
@@ -1020,21 +1034,26 @@
 				      :finyear finyear
 				      :company company))
 	 (adapterobj (make-instance 'InvoiceHeaderAdapter))
+	 (hrequestmodel (make-instance 'InvoiceHeaderContextIDRequestModel
+				      :context-id context-id
+				      :company company))
 	 (redirectlocation  (format nil "/hhub/vproductsforinvoicepage?sessioninvkey=~A"  sessioninvkey))
 	 (params nil))
     (setf params (acons "company" company params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (with-hhub-transaction "com-hhub-transaction-create-invoice-action" params 
       (handler-case 
-	  (let* ((domainobj (ProcessCreateRequest adapterobj requestmodel))
-	    	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
+	  (let* ((createdobj (ProcessCreateRequest adapterobj requestmodel))
+		 ;; as soon as we create a invoice header object, we would like to read it as well
+		 ;; this will pull in the row-id from database and also the invoice number. 
+		 (domainobj (ProcessReadRequest adapterobj hrequestmodel))
+		 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 		 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht)))
-
-	    (logiamhere (format nil "~A" sessioninvoices-ht))
-	    (logiamhere (format nil "~A" sessioninvoice))
-	    (logiamhere (format nil "session invoice customer is ~A" (slot-value (slot-value sessioninvoice 'customer) 'name)))
-	;; set the InvoiceHeader context for the invoice being created and add to the session invoice. 
-	    (when sessioninvoice
+	    ;;  (logiamhere (format nil "~A" sessioninvoices-ht))
+	    ;; (logiamhere (format nil "~A" sessioninvoice))
+	    ;;  (logiamhere (format nil "session invoice customer is ~A" (slot-value (slot-value sessioninvoice 'customer) 'name)))
+	    ;; set the InvoiceHeader context for the invoice being created and add to the session invoice. 
+	    (when (and createdobj sessioninvoice)
 	      (setf (slot-value sessioninvoice 'invoiceheader) domainobj)
 	      (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
 	      (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht))

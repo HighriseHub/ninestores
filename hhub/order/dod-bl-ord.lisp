@@ -439,14 +439,20 @@
 (defun save-order-items-in-db (order order-items products company-instance)
   (mapcar (lambda (odt)
 	    (let* ((prd (search-item-in-list 'row-id (slot-value odt 'prd-id) products))
-		   (units-in-stock (slot-value prd 'units-in-stock))
 		   (unit-price (slot-value odt 'unit-price))
 		   (discount (slot-value odt 'disc-rate))
-		   (prd-qty (slot-value odt 'prd-qty))
-		   (updated-units-in-stock  (if (and units-in-stock (> units-in-stock 0)) (- units-in-stock  prd-qty) 0)))
+		   (prd-qty (slot-value odt 'prd-qty)))
 	      (create-order-items order prd  prd-qty unit-price discount company-instance)
-	      (setf (slot-value prd 'units-in-stock) updated-units-in-stock)
-	      (update-prd-details prd))) order-items))
+	      (update-stock-inventory prd prd-qty))) order-items))
+
+
+(defun update-stock-inventory (product prd-qty)
+  :description "A rudimentary stock inventory update function" 
+  (let* ((units-in-stock (slot-value product 'units-in-stock))
+	(updated-units-in-stock  (if (and units-in-stock (> units-in-stock 0)) (- units-in-stock  prd-qty) 0)))
+    (setf (slot-value product 'units-in-stock) updated-units-in-stock)
+    (update-prd-details product)))
+
 
 (defun save-vendor-orders-in-db (order order-date request-date ship-date ship-address payment-mode  storepickupenabled  order-items products  shipping-info shipping-cost  guest-customer customer-instance company-instance utrnum)
   (let* ((order-id (slot-value order 'row-id))
