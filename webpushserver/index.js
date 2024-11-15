@@ -68,7 +68,7 @@ app.get("/push/notify/user", function(req, res) {
     subscribers.push(pushSubscription);      
     
     let message = req.query.message || `Welcome to HighriseHub!`;
-    let clickTarget = req.query.clickTarget || `http://www.highrisehub.com`;
+    let clickTarget = req.query.clickTarget || `http://www.ninestores.in`;
     let title = req.query.title || `Push notification received!`;
 
   subscribers.forEach(pushSubscription => {
@@ -106,7 +106,7 @@ app.get("/push/notify/all", function(req, res) {
   }
 
     let message = req.query.message || `Welcome to HighriseHub!`;
-    let clickTarget = req.query.clickTarget || `http://www.highrisehub.com`;
+    let clickTarget = req.query.clickTarget || `http://www.ninestores.in`;
     let title = req.query.title || `Push notification received!`;
 
   subscribers.forEach(pushSubscription => {

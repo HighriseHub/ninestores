@@ -116,17 +116,19 @@
   (hunchentoot:session-value :login-user))
 
 (defun get-login-tenant-id ()
-  (hunchentoot:session-value :login-tenant-id))
+  (hunchentoot:session-value :login-user-tenant-id))
 
 (defun get-login-user-role-name ()
   (hunchentoot:session-value :login-user-role-name))
+
+(defun get-login-company ()
+  (hunchentoot:session-value :login-user-company))
+
 
 (defun get-login-cust-tenant-id ()
   (hunchentoot:session-value :login-customer-tenant-id))
 
 
-(defun get-login-company ()
-  ( hunchentoot:session-value :login-company))
 
 
 (defun get-login-customer-company ()

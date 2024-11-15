@@ -18,11 +18,11 @@
 
 server {
     listen 443 ssl;
-    server_name highrisehub.com www.highrisehub.com;
-    root /data/www/highrisehub.com/public;
+    server_name ninestores.in www.ninestores.in;
+    root /data/www/ninestores.in/public;
 
-    ssl_certificate /etc/letsencrypt/live/highrisehub.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/highrisehub.com/privkey.pem; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/ninestores.in/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/ninestores.in/privkey.pem; # managed by Certbot
    
     include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
@@ -96,15 +96,15 @@ server {
 server { 
 
 	      listen 80; 
-	      server_name highrisehub.com www.highrisehub.com;
+	      server_name ninestores.in www.ninestores.in;
 	      listen [::]:80 default_server ipv6only=on;
 
-    if ($host = www.highrisehub.com) {
+    if ($host = www.ninestores.in) {
         return 301 https://$host$request_uri;
     } # managed by Certbot
 
 
-    if ($host = highrisehub.com) {
+    if ($host = ninestores.in) {
         return 301 https://$host$request_uri;
     } # managed by Certbot
 

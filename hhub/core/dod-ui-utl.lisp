@@ -493,7 +493,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-compadmin-page-v2 (title &body body)
-    `(with-standard-page-template-with-sidebar  ,title with-compadmin-navigation-bar-v2 render-compadmin-sidebar-offcanvas  ,@body)))
+    `(with-standard-page-template-with-sidebar  ,title with-compadmin-navigation-bar render-compadmin-sidebar-offcanvas  ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-no-navbar-page-v2 (title &body body)
@@ -551,7 +551,7 @@
 
 (defun print-vendor-web-session-timeout ()
   (with-vend-session-check 
-    (let ((weseti ( get-vendor-web-session-timeout)))
+    (let ((weseti (get-vendor-web-session-timeout)))
       (if weseti (format t "~2,'0d:~2,'0d"
 			 (nth 0  weseti)(nth 1 weseti))))))
 

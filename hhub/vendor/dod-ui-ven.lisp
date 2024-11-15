@@ -54,20 +54,21 @@
 				 (:a :href "/hhub/dodvendprofile?context=home" :class "nav-link" "Vendor Settings"))
 			    (:li :class "sidebar-item"
 				 (:a :href "hhubvendpushsubscribepage" :class "nav-link" "Browser Push Notification")))))
-		  (:div :class "dropdown" 
-			(:a :href "#" :class "d-flex align-items-center link-body-emphasis text-decoration-none dropdown-toggle" :data-bs-toggle "dropdown" :aria-expanded "false"
+		  ;; (:div :class "dropdown"
+		  ;; 	(:a :href "#" :class "d-flex align-items-center link-body-emphasis text-decoration-none dropdown-toggle" :data-bs-toggle "dropdown" :aria-expanded "false"
 			    
-			    (:ul :class "dropdown-menu text-small shadow" :style=""
-			    (:li (:a :class "dropdown-item" :href "#" "New project..."))
-			    (:li (:a :href "/hhub/dodvendlogout" :class="nav-link"
-				     (:i :class "fa-solid fa-arrow-right-from-bracket") (:span "Sign Out"))))))
-		  (:div :class "dropdown mt-3"
-			 (:button :class "btn btn-secondary dropdown-toggle" :type "button" :data-bs-toggle "dropdown"
-				  "Dropdown button")
-			 (:ul :class "dropdown-menu"
-			      (:li (:a :class "dropdown-item" :href "#" "Action"))
-			      (:li (:a :class "dropdown-item" :href "#" "Another action")
-				   (:li (:a :class "dropdown-item" :href "#" "Something else here"))))))))))
+		  ;; 	    (:ul :class "dropdown-menu text-small shadow" :style=""
+		  ;; 	    (:li (:a :class "dropdown-item" :href "#" "New project..."))
+		  ;; 	    (:li (:a :href "/hhub/dodvendlogout" :class="nav-link"
+		  ;; 		     (:i :class "fa-solid fa-arrow-right-from-bracket") (:span "Sign Out"))))))
+		  ;; (:div :class "dropdown mt-3"
+		  ;; 	 (:button :class "btn btn-secondary dropdown-toggle" :type "button" :data-bs-toggle "dropdown"
+		  ;; 		  "Dropdown button")
+		  ;; 	 (:ul :class "dropdown-menu"
+		  ;; 	      (:li (:a :class "dropdown-item" :href "#" "Action"))
+		  ;; 	      (:li (:a :class "dropdown-item" :href "#" "Another action")
+		  ;; 		   (:li (:a :class "dropdown-item" :href "#" "Something else here")))))
+		  )))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
@@ -115,28 +116,28 @@
   (defun with-vendor-navigation-bar-v2 ()
     :documentation "this macro returns the html text for generating a navigation bar using bootstrap."
     (cl-who:with-html-output (*standard-output* nil)
-      (:nav :class "navbar navbar-expand-sm  sticky-top navbar-dark bg-dark" :id "hhubcustnavbar"  
-	    (:div :class "container-fluid"
-		  (:a :class "navbar-brand" :href "/hhub/dodvendindex" (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" ))
-		  (:button :class "navbar-toggler" :type "button" :data-bs-toggle "collapse" :data-bs-target "#navbarSupportedContent" :aria-controls "navbarSupportedContent" :aria-expanded "false" :aria-label "Toggle navigation" 
-			   (:span :class "navbar-toggler-icon" ))
-		  (:div :class "collapse navbar-collapse justify-content-between" :id "navbarSupportedContent"
-			(:ul :class "navbar-nav me-auto mb-2 mb-lg-0" 
-			     (:li :class "nav-item"
-				  (:a :class "btn btn-primary" :data-bs-toggle "offcanvas" :href "#offcanvasExample" :role "button" :aria-controls "offcanvasExample" (:i :class "fa-solid fa-bars")))
+	(:nav :class "navbar navbar-expand-sm  sticky-top navbar-dark bg-dark" :id "hhubcustnavbar"  
+	      (:div :class "container-fluid"
+		    (:a :class "navbar-brand" :href "/hhub/dodvendindex" (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" ))
+		    (:button :class "navbar-toggler" :type "button" :data-bs-toggle "collapse" :data-bs-target "#navbarSupportedContent" :aria-controls "navbarSupportedContent" :aria-expanded "false" :aria-label "Toggle navigation" 
+			     (:span :class "navbar-toggler-icon" ))
+		    (:div :class "collapse navbar-collapse justify-content-between" :id "navbarSupportedContent"
+			  (:ul :class "navbar-nav me-auto mb-2 mb-lg-0" 
+			       (:li :class "nav-item"
+				    (:a :class "btn btn-primary" :data-bs-toggle "offcanvas" :href "#offcanvasExample" :role "button" :aria-controls "offcanvasExample" (:i :class "fa-solid fa-bars")))
 			     (:li :class "nav-item" 	
 				  (:a :class "nav-link active" :aria-current "page" :href "/hhub/dodvendindex?context=home" (:i :class "fa-solid fa-house") "&nbsp;Home"))
-			     (:li :class "nav-item"  (:a :class "nav-link" :href "dodvenproducts" "Products/Services"))
-			     (:li :class "nav-item"  (:a :class "nav-link" :href "dodvendindex?context=completedorders"  "Completed Orders"))
+			     ;;(:li :class "nav-item"  (:a :class "nav-link" :href "dodvenproducts" "Products/Services"))
+			     ;;(:li :class "nav-item"  (:a :class "nav-link" :href "dodvendindex?context=completedorders"  "Completed Orders"))
 			     (:li :class "nav-item"  (:a :class "nav-link" :href "#" (print-vendor-web-session-timeout))))
-			(:ul :class "navbar-nav ms-auto"
-			     (:li :class "nav-item"  (:a :class "nav-link" :href "#"  (:i :class "fa-regular fa-bell")))
-			     (:li :class "nav-item"  (:a :class "nav-link" :href "dodvendprofile?context=home" (:i :class "fa-regular fa-user")))
-			     (:li :class "nav-item" (:a :class "nav-link" :href "dodvendlogout" (:i :class "fa-solid fa-arrow-right-from-bracket"))))))))))
-
+			  (:ul :class "navbar-nav ms-auto"
+			       (:li :class "nav-item"  (:a :class "nav-link" :href "#"  (:i :class "fa-regular fa-bell")))
+			       (:li :class "nav-item"  (:a :class "nav-link" :href "dodvendprofile?context=home" (:i :class "fa-regular fa-user")))
+			       (:li :class "nav-item" (:a :class "nav-link" :href "dodvendlogout" (:i :class "fa-solid fa-arrow-right-from-bracket"))))))))))
+  
   (defun createmodelforvendorprodpricingaction ()
-  (let* ((company (get-login-vendor-company))
-	 (prd-price (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
+    (let* ((company (get-login-vendor-company))
+	   (prd-price (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
 			     (read in))))
 	 (prd-discount (float (with-input-from-string (in (hunchentoot:parameter "prddiscount"))
 			       (read in))))
@@ -1230,7 +1231,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    ;;(:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendchangepin-modal")  :href "#"  "Change Password")
 	    ;;(modal-dialog-v2 (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
 	    ;; (:a :class "list-group-item" :href "/pushsubscribe.html" "Push Notifications")
-	    (:a :class "list-group-item" :href "/hhub/hhubvendpushsubscribepage" "Push Notifications")
+	    ;;(:a :class "list-group-item" :href "/hhub/hhubvendpushsubscribepage" "Push Notifications")
 	    (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendpaymentmethods-modal")  :href "#"  "Payment Methods")
 	    (modal-dialog-v2 (format nil "dodvendpaymentmethods-modal") "Payment Methods " (modal.vendor-payment-methods-page vpaymentmethods))
 	    (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendsettings-modal")  :href "#"  "Payment Gateway")
@@ -1795,7 +1796,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite"))
 	 (sessionkey (hunchentoot:session-value :login-vendor-business-session-id))
 	 (bsession (when sessionkey (getbusinesssession bcontext sessionkey)))
-	 (start-time (when bsession (start-time bsession))))
+	 (start-time (if (and hunchentoot:*session* (eql bsession hunchentoot:*session*)) (start-time bsession) 0)))
     start-time))
 
 
@@ -1805,7 +1806,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (bsessions-ht (businesssessions-ht bcontext))
 	 (bvendsession (gethash sessionkey bsessions-ht))
 	 (vendor (slot-value bvendsession 'vendor))
-	 (sessionlist '()))
+	 (sessionlist '())
+	 (keylist '()))
     
     (maphash (lambda (k v)
 	       (let ((prevvendorid (slot-value v 'vendor-id))
