@@ -14,59 +14,9 @@
 	    (:div :class "offcanvas-body"
 		  (:ul :class "nav nav-pills flex-column mb-auto"
 		       (:li :class "nav-item" (:a :href "dodvendindex?context=home" (:i :class "fa-solid fa-house")  "Home"))
-		  (:li :class "nav-item" 
-		       (:a :href "/hhub/dodvenproducts" :class "nav-link link-body-emphasis" 
-			   (:i :class "fa-regular fa-rectangle-list") " Products/Services"))
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/dodvendindex?context=pendingorders"  :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-rectangle-list")  " Pending Orders"))
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/dodvendindex?context=completedorders"  :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-rectangle-list")  " Completed Orders"))
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-rectangle-list")  " Invoices"))
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/hhubvendorupitransactions"  :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-rectangle-list")  " UPI Transactions"))
-		  
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/hhubvendmycustomers" :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-user") " Customers"))
-		  (:li :class "nav-item"
-		       (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
-			   :data-bs-target "#reports" :aria-expanded "true" :aria-controls "reports"
-			   (:i :class "fa-solid fa-circle-info") " Reports")
-		       (:ul :id "reports" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
-			    (:li :class "sidebar-item"
-				 (:a :href "/hhub/dodvendindex?context=ctxordprd" :class "nav-link" "Orders By Products"))
-			    (:li :class "sidebar-item"
-				 (:a :href "/hhub/dodvendrevenue" :class "nav-link" "Today's Revenue"))))
-		  (:li :class "nav-item"
-		       (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
-			   :data-bs-target "#settings" :aria-expanded "true" :aria-controls "settings"
-			   (:i :class "fa-solid fa-gear") " Settings")
-		       (:ul :id "settings" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
-			    (:li :class "sidebar-item"
-				 (:a :href "/hhub/hhubvendorshipmethods" :class "nav-link" "Shipping Methods"))
-			    (:li :class "sidebar-item"
-				 (:a :href "/hhub/dodvendprofile?context=home" :class "nav-link" "Vendor Settings"))
-			    (:li :class "sidebar-item"
-				 (:a :href "hhubvendpushsubscribepage" :class "nav-link" "Browser Push Notification")))))
-		  (:div :class "dropdown" 
-			(:a :href "#" :class "d-flex align-items-center link-body-emphasis text-decoration-none dropdown-toggle" :data-bs-toggle "dropdown" :aria-expanded "false"
-			    
-			    (:ul :class "dropdown-menu text-small shadow" :style=""
-			    (:li (:a :class "dropdown-item" :href "#" "New project..."))
-			    (:li (:a :href "/hhub/dodvendlogout" :class="nav-link"
-				     (:i :class "fa-solid fa-arrow-right-from-bracket") (:span "Sign Out"))))))
-		  (:div :class "dropdown mt-3"
-			 (:button :class "btn btn-secondary dropdown-toggle" :type "button" :data-bs-toggle "dropdown"
-				  "Dropdown button")
-			 (:ul :class "dropdown-menu"
-			      (:li (:a :class "dropdown-item" :href "#" "Action"))
-			      (:li (:a :class "dropdown-item" :href "#" "Another action")
-				   (:li (:a :class "dropdown-item" :href "#" "Something else here"))))))))))
+		       (:li  (:a :href "/hhub/dasproductapprovals" "Customer Approvals"))
+		       (:li  (:a :href "/hhub/hhubvendorapprovalpage" "Vendor Approvals"))))))))
+
 
 (defun com-hhub-transaction-vendor-reject-action ()
   (with-cad-session-check
@@ -88,7 +38,7 @@
 
       (setf params (acons "uri" (hunchentoot:request-uri*)  params))
       (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
-      (setf params (acons "company" (get-login-user-company) params))
+      (setf params (acons "company" (get-login-company) params))
       
       (with-hhub-transaction "com-hhub-transaction-vendor-approve-action"  params
 	(let* ((requestmodel (make-instance 'RequestModelVendorApproval
@@ -110,7 +60,7 @@
 
 
 (defun createmodelforproductcategoriespage ()
-  (let* ((company (get-login-user-company))
+  (let* ((company (get-login-company))
 	 (categories (select-prdcatg-by-company company))
 	 (catgcount (length categories)))
     (function (lambda ()
@@ -162,7 +112,7 @@
 (defun com-hhub-transaction-prodcatg-add-action ()
   (with-cad-session-check
     (let* ((catg-name (hunchentoot:parameter "catg-name"))
-	   (company (get-login-user-company))
+	   (company (get-login-company))
 	   (params nil))
       
       (setf params (acons "company" company params))
@@ -178,7 +128,7 @@
 (defun dod-controller-delete-product-category ()
   (with-cad-session-check
     (let ((id (hunchentoot:parameter "id"))
-	  (company (get-login-user-company)))
+	  (company (get-login-company)))
       (when id (delete-prd-catg id company))
       (hunchentoot:redirect "/hhub/hhubcadlistprodcatg"))))
 
@@ -190,7 +140,7 @@
     (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
     (with-hhub-transaction "com-hhub-transaction-publish-account-exturl" params 
       (let* ((redirectto (hunchentoot:parameter "redirectto"))
-	     (account (get-login-user-company))
+	     (account (get-login-company))
 	     (ext-url (slot-value account 'external-url)))
 	(unless ext-url
 	  (let ((url (generate-account-ext-url account)))
@@ -206,7 +156,7 @@
       (format nil "~A" uri))))
 
 (defun createmodelforcadprofile ()
-  (let ((account (get-login-user-company))
+  (let ((account (get-login-company))
 	(loginusername (get-login-user-name)))
     (function (lambda ()
       (values account loginusername)))))
@@ -300,37 +250,11 @@
   (with-cad-session-check
     (let ((uri (with-mvc-redirect-ui createmodelforcadupdatedetailsaction createwidgetsforgenericredirect)))
       (format nil "~A" uri))))
-  
-  
-(eval-when (:compile-toplevel :load-toplevel :execute) 
-  (defmacro with-compadmin-navigation-bar ()
-    :documentation "This macro returns the html text for generating a navigation bar using bootstrap."
-    `(cl-who:with-html-output (*standard-output* nil)
-       (:div :class "navbar navbar-default navbar-inverse navbar-static-top"
-	     (:div :class "container-fluid"
-		   (:div :class "navbar-header"
-			 (:button :type "button" :class "navbar-toggle" :data-toggle "collapse" :data-target "#navHeaderCollapse"
-				  (:span :class "icon-bar")
-				  (:span :class "icon-bar")
-				  (:span :class "icon-bar"))
-			 (:a :class "navbar-brand" :href "#" :title "Nine Stores" (:img :style "width: 30px; height: 30px;" :src "/img/logo.png" )  ))
-		   (:div :class "collapse navbar-collapse" :id "navHeaderCollapse"
-			 (:ul :class "nav navbar-nav navbar-left"
-			      (:li :class "active" :align "center" (:a :href "/hhub/hhubcadindex"  (:i :class "fa-solid fa-house-user")  " Home"))
-			      (:li  (:a :href "/hhub/dasproductapprovals" "Customer Approvals"))
-			      (:li  (:a :href "/hhub/hhubvendorapprovalpage" "Vendor Approvals"))
-			      (:li :align "center" (:a :href "#" (cl-who:str (format nil "Group: ~a" (slot-value (get-login-user-company) 'name)))))
-			      (:li :align "center" (:a :href "#" (print-web-session-timeout))))
-			 
-			 (:ul :class "nav navbar-nav navbar-right"
-			      (:li :align "center" (:a :href "/hhub/hhubcadprofile"   (:i :class "fa-solid fa-user") " My Profile" )) 
-			      (:li :align "center" (:a :href "/hhub/hhubcadlogout"  (:span :class "fa-solid fa-power-off"))))))))))
-
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro with-compadmin-navigation-bar-v2 ()
+ (defun with-compadmin-navigation-bar ()
     :documentation "This macro returns the html text for generating a navigation bar using bootstrap."
-    `(cl-who:with-html-output (*standard-output* nil)
+    (cl-who:with-html-output (*standard-output* nil)
        (:nav :class "navbar navbar-expand-sm  sticky-top navbar-dark bg-dark" :id "hhubcompadminnavbar"  
      	     (:div  :class "container-fluid"
 		   (:a :class "navbar-brand" :href "/hhub/hhubcadindex" (:img :style "width: 30px; height: 24px;" :src "/img/logo.png" ))
@@ -342,9 +266,7 @@
 				  (:a :class "btn btn-primary" :data-bs-toggle "offcanvas" :href "#offcanvasExample" :role "button" :aria-controls "offcanvasExample" (:i :class "fa-solid fa-bars")))
 			      (:li :class "nav-item" 	
 				   (:a :class "nav-link active" :aria-current "page" :href "/hhub/hhubcadindex" (:i :class "fa-solid fa-house") "&nbsp;Home"))
-		   	      (:li  :class "nav-item" (:a :class "nav-link" :href "/hhub/dasproductapprovals" "Customer Approvals"))
-			      (:li  :class "nav-item" (:a :class "nav-link" :href "/hhub/hhubvendorapprovalpage" "Vendor Approvals"))
-			      ;;(:li :class "nav-item" :align "center" (:a :class "nav-link" :href "#" (cl-who:str (format nil "Group: ~a" (slot-value (get-login-user-company) 'name)))))
+		   	      ;;(:li :class "nav-item" :align "center" (:a :class "nav-link" :href "#" (cl-who:str (format nil "Group: ~a" (slot-value (get-login-company) 'name)))))
 			      (:li :class "nav-item" :align "center" (:a :class "nav-link" :href "#" (print-web-session-timeout))))
 			 (:ul :class "navbar-nav ms-auto"
 			      (:li :class "nav-item"  (:a :class "nav-link" :href "#"  (:i :class "fa-regular fa-bell")))
@@ -463,87 +385,9 @@
 	T))))
 
 
-(defun set-user-session-params (company  user)
-  ;; Add the vendor object and the tenant to the Business Session 
-  ;;set vendor company related params
-  (let ((usessionobj (make-instance 'UserSessionObject)))
-	
-    (setf (slot-value usessionobj 'uwebsession) hunchentoot:*session*)
-    (setf (hunchentoot:session-value :login-user ) user)
-    (setf (slot-value usessionobj 'user) user)
-    (setf (hunchentoot:session-value :login-user-name) (slot-value user 'name))
-    (setf (slot-value usessionobj 'user-name) (slot-value user 'name))
-    (setf (hunchentoot:session-value :login-user-id) (slot-value user 'row-id))
-    (setf (slot-value usessionobj 'user-id) (slot-value user 'row-id))
-    (setf (hunchentoot:session-value :login-user-tenant-id) (slot-value company 'row-id ))
-    (setf (slot-value usessionobj 'user-tenant-id) (slot-value company 'row-id))
-    (setf (hunchentoot:session-value :login-user-company-name) (slot-value company 'name))
-    (setf (slot-value usessionobj 'companyname) (slot-value company 'name))
-    (setf (hunchentoot:session-value :login-user-company) company)
-    (setf (hunchentoot:session-value :login-user-currency) (get-account-currency company))
-    (setf (hunchentoot:session-value :login-attribute-cart) '())
-    ;;(setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company company))
-    ;;set vendor related params 
-    (if user (setf (hunchentoot:session-value :order-func-list) '()))
-    (if user (setf (hunchentoot:session-value :vendor-order-items-hashtable) (make-hash-table)))
-    (if user (setf (hunchentoot:session-value :login-user-products-functions) '()))
-    (if user (setf (hunchentoot:session-value :login-user-settings-ht) (make-hash-table :test 'equal)))
-    (if user (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company  company)))
-    (if user (setf (hunchentoot:session-value :session-invoices-ht) (make-hash-table :test 'equal)))
-    ;; Add vendor settings to the session. 
-    (addloginusersettings)
-    (let ((sessionkey (createBusinessSession (getBusinessContext *HHUBBUSINESSDOMAIN* "compadminsite") usessionobj)))
-      (setf (hunchentoot:session-value :login-user-business-session-id) sessionkey)
-      (logiamhere (format nil "web session is ~A" (slot-value usessionobj 'uwebsession)))
-      (logiamhere (format nil "session key is ~A" sessionkey))
-      (enforcesingleusersession sessionkey)
-      sessionkey)))
 
 
-(defun enforcesingleusersession (sessionkey)
-  (let* ((bcontext (getBusinessContext *HHUBBUSINESSDOMAIN* "compadminsite"))
-	 (bsessions-ht (businesssessions-ht bcontext))
-	 (busersession (gethash sessionkey bsessions-ht))
-	 (user (slot-value busersession 'user))
-	 (sessionlist '())
-	 (keylist '()))
-    
-    (maphash (lambda (k v)
-	       (let ((prevuserid (slot-value v 'user-id))
-		     (prevwebsession (slot-value v 'uwebsession))
-		     (loginuserid (slot-value user 'row-id))
-		     (username (slot-value user 'name)))
-		 (when (and
-			(not (equal k sessionkey)) ;; There are 2 separate sessions from same user. 
-			(= prevuserid loginuserid)) ;; Same user is login again.
-		   (logiamhere (format nil "User is ~A. key is ~A. Websession is ~A" username k prevwebsession))
-		   (setf sessionlist (append sessionlist (list v)))
-		   (setf keylist (append keylist (list k)))))) bsessions-ht)
-    ;; If there are exactly 1 item in the list that means that user has logged in previouly. 
-    (when (>= (length sessionlist) *HHUBMAXUSERLOGINS*)
-      (let* ((sessiontoremove (nth 0 sessionlist))
-	     (websession (slot-value sessiontoremove 'uwebsession))
-	     (firstkey (nth 0 keylist)))
-	(hunchentoot:remove-session websession)
-	(deleteBusinessSession bcontext firstkey)))
-    (logiamhere (format nil "there are ~d items in session list " (length sessionlist)))))
 
-
-(defun addloginusersettings ()
-  (let* ((company (get-login-user-company))
-	 (user (get-login-user))
-	 (adapter (make-instance 'VPaymentMethodsAdapter))
-	 (requestmodel (make-instance 'VPaymentMethodsRequestModel
-				      :company company
-				      :vendor user))
-	(vpaymentmethods (processreadrequest adapter requestmodel)))
-    (when vpaymentmethods 
-      (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) vpaymentmethods
-	(addloginvendorsetting "codenabled" codenabled)
-	(addloginvendorsetting "upienabled" upienabled)
-	(addloginvendorsetting "payprovidersenabled" payprovidersenabled)
-	(addloginvendorsetting "walletenabled" walletenabled)
-	(addloginvendorsetting "paylaterenabled" paylaterenabled)))))
 
 
 ;;;;;;;;;;;;;;com-hhub-transaction-cad-logout;;;;;;;;;;;;;;;
@@ -568,7 +412,7 @@
 
 (defun createmodelforcadproductrejectaction ()
   (let ((params nil)
-	(company (get-login-user-company))
+	(company (get-login-company))
 	(redirectlocation "/hhub/hhubcadindex"))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
@@ -594,7 +438,7 @@
     (with-hhub-transaction "com-hhub-transaction-cad-product-approve-action" params
       (let ((id (hunchentoot:parameter "id"))
 	    (description (hunchentoot:parameter "description")))
-	(approve-product id description (get-login-user-company))
+	(approve-product id description (get-login-company))
 	(function (lambda ()
 	  redirectlocation))))))
 
