@@ -21,10 +21,10 @@
 (defvar *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "23:00:00")
 (defvar *HHUB-DEMO-TENANT-ID* 2)
 
-(defvar *HHUB-COMPILE-FILES-LOCATION* "/home/ubuntu/hhubplatform/bin/hhubcompilelog.txt") 
+(defvar *HHUB-COMPILE-FILES-LOCATION* "/home/ubuntu/ninestores/bin/hhubcompilelog.txt") 
 (defvar *HHUB-EMAIL-CSS-FILE* "/data/www/ninestores.in/public/css")
 (defvar *HHUB-EMAIL-CSS-CONTENTS* NIL)
-(defvar *HHUB-EMAIL-TEMPLATES-FOLDER* "/home/ubuntu/hhubplatform/hhub/email/templates")
+(defvar *HHUB-EMAIL-TEMPLATES-FOLDER* "/home/ubuntu/ninestores/hhub/email/templates")
 (defvar *HHUB-CUST-REG-TEMPLATE-FILE* "cust-reg.html")
 (defvar *HHUB-CUST-PASSWORD-RESET-FILE* "cust-pass-reset.html")
 (defvar *HHUB-CUST-TEMP-PASSWORD-FILE* "temppass.html")
@@ -33,7 +33,7 @@
 (defvar *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE* "guestcustorder.html")
 (defvar *HHUB-TERMSANDCONDITIONS-FILE* "tnc.html")
 (defvar *HHUB-PRIVACY-FILE* "privacy.html")
-(defvar *HHUB-STATIC-FILES* "/home/ubuntu/hhubplatform/site/public")
+(defvar *HHUB-STATIC-FILES* "/home/ubuntu/ninestores/site/public")
 
 (defvar *dod-db-instance*)
 (defvar *siteurl* "https://www.ninestores.in")
@@ -153,14 +153,14 @@ Database type: Supported type is ':odbc'"
 
 
 (defun start-das(&optional (withssl nil) (debug-mode T)  )
-  :documentation "Start hhubplatform server with or without ssl. If withssl is T, then start 
+  :documentation "Start ninestores server with or without ssl. If withssl is T, then start 
 the hunchentoot server with ssl settings"
   
   (setf *dod-debug-mode* debug-mode)
   (setf *random-state* (make-random-state t))
   ;; # this initializes the global random state by
   ;;   "some means" (e.g. current time.)
-  (setf *http-server* (make-instance 'hunchentoot:easy-acceptor :port 4244 :document-root #p"~/hhubplatform/"))
+  (setf *http-server* (make-instance 'hunchentoot:easy-acceptor :port 4244 :document-root #p"~/ninestores/"))
   (setf (hunchentoot:acceptor-access-log-destination *http-server*)   #p"~/hhublogs/ninestores-access.log")
   (setf (hunchentoot:acceptor-message-log-destination *http-server*) #p"~/hhublogs/ninestores-messages.log")
   ;;Support double quotes for parenscript. 
@@ -195,9 +195,9 @@ the hunchentoot server with ssl settings"
 
 (progn 
   (setf *ssl-http-server* (make-instance 'hunchentoot:easy-ssl-acceptor :port 9443 
-							  :document-root #p"~/hhubplatform/hhub/"
-							  :ssl-privatekey-file #p"~/hhubplatform/privatekey.key"
-							  :ssl-certificate-file #p"~/hhubplatform/certificate.crt" ))
+							  :document-root #p"~/ninestores/hhub/"
+							  :ssl-privatekey-file #p"~/ninestores/privatekey.key"
+							  :ssl-certificate-file #p"~/ninestores/certificate.crt" ))
 (setf (hunchentoot:acceptor-access-log-destination *ssl-http-server* )  #p"~/hhublogs/ninestores-ssl-access.log")
        (setf  (hunchentoot:acceptor-message-log-destination *ssl-http-server*)   #p"~/hhublogs/ninestores-ssl-messages.log")))
 

@@ -53,7 +53,7 @@
 
 (defun create-entity-bl-template (entityname fieldnames destfile)
   :description "This function will create a set of business layer functions based on the business object / entity name"
-  (let* ((filecontent (hhub-read-file "~/hhubplatform/hhub/core/hhub-bl-egn.lisp"))
+  (let* ((filecontent (hhub-read-file "~/ninestores/hhub/core/hhub-bl-egn.lisp"))
 	 (count 65)
 	 (fieldname ""))
     (loop for field in fieldnames do
@@ -66,7 +66,7 @@
 	  (terpri stream)))))
 (defun create-entity-ui-template (entityname fieldnames destfile)
   :description "This function will create a set of business layer functions based on the business object / entity name"
-  (let* ((filecontent (hhub-read-file "~/hhubplatform/hhub/core/hhub-ui-egn.lisp"))
+  (let* ((filecontent (hhub-read-file "~/ninestores/hhub/core/hhub-ui-egn.lisp"))
 	 (count 65)
 	 (fieldname ""))
     (loop for field in fieldnames do
@@ -79,7 +79,7 @@
 	(terpri stream)))))
 (defun create-entity-dal-template (entityname fieldnames destfile)
   :description "This function will create a set of business layer functions based on the business object / entity name"
-  (let* ((filecontent (hhub-read-file "~/hhubplatform/hhub/core/hhub-dal-egn.lisp"))
+  (let* ((filecontent (hhub-read-file "~/ninestores/hhub/core/hhub-dal-egn.lisp"))
 	 (count 65)
 	 (fieldname ""))
     (loop for field in fieldnames do

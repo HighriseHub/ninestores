@@ -139,7 +139,7 @@
 		     ;; "core/unit-tests.lisp"
 		     ))
 	  
-	  (path "/home/ubuntu/hhubplatform/hhub/"))
+	  (path "/home/ubuntu/ninestores/hhub/"))
       
       (mapcar (lambda (file)
 		(format t "_____________________________________________________________~C~C" #\return #\linefeed)

@@ -78,7 +78,7 @@
 
 (defun create-auth-attr-lookup (name description attr-func  attr-type company-instance)
   (let ((tenant-id (slot-value company-instance 'row-id))
-	(filename "~/hhubplatform/hhub/core/dod-ui-attr.lisp"))
+	(filename "~/ninestores/hhub/core/dod-ui-attr.lisp"))
     (persist-auth-attr-lookup name description attr-func attr-type tenant-id)
      (with-open-file (stream filename :if-exists :append :direction :output)
        (unless (symbolp attr-func) (print (format stream "(defun ~A ())" attr-func)))

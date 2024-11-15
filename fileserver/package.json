@@ -8,7 +8,7 @@
   },
   "repository": {
   "type": "git",
-  "url": "git+https://github.com/highrisehub/hhubplatform.git"
+  "url": "git+https://github.com/highrisehub/ninestores.git"
   },
 
   "keywords": [
@@ -19,9 +19,9 @@
   "author": "HighriseHub",
   "license": "MIT ",
   "bugs": {
-    "url": "https://github.com/highrisehub/hhubplatform/issues"
+    "url": "https://github.com/highrisehub/ninestores/issues"
   },
-  "homepage": "https://github.com/highrisehub/hhubplatform#readme",
+  "homepage": "https://github.com/highrisehub/ninestores#readme",
   "dependencies": {
     "aws-sdk": "^2.823.0",  
       "dotenv": "^8.0.0",

@@ -135,7 +135,7 @@
       (list widget1 widget2 widget3))))
 
 (defun display-invoice-payment-widget ( amountdue)
-  (let ((filecontent (hhub-read-file "~/hhubplatform/hhub/invoice/templates/invoicepayment.html")))
+  (let ((filecontent (hhub-read-file "~/ninestores/hhub/invoice/templates/invoicepayment.html")))
     (setf filecontent (format nil filecontent amountdue amountdue))
     (cl-who:with-html-output (*standard-output* nil)
       (cl-who:str filecontent))))
