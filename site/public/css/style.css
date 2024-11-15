@@ -1308,3 +1308,11 @@ input[type=range]:focus::-moz-range-track {
   margin-left: -5px;
   margin-top: -1px;
 }
+
+@media print
+{    
+    .no-print, .no-print *
+    {
+        display: none !important;
+    }
+}
