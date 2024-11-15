@@ -7,4 +7,4 @@ Disallow:
 User-agent: *
 Allow: /
 
-Sitemap: https://www.highrisehub.com/sitemap.xml
+Sitemap: https://www.ninestores.in/sitemap.xml
