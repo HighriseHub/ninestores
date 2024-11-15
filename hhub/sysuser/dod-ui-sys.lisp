@@ -630,7 +630,7 @@
 	 (pwd (if login-user (slot-value login-user 'password)))
 	 (salt (if login-user (slot-value login-user 'salt)))
 	 (password-verified (if login-user  (check-password password salt pwd)))
-	 (login-userid (if login-user (slot-value login-user 'row-id)))
+	 (login-user-id (if login-user (slot-value login-user 'row-id)))
 	 (login-attribute-cart '())
 	 (login-tenant-id (if login-user (slot-value  (users-company login-user) 'row-id)))
 	 (login-company (if login-user (slot-value login-user 'company)))
@@ -640,12 +640,12 @@
 	   password-verified 
 	   (equal  login-company-name company-name)
 	   login-user 
-	   (null (hunchentoot:session-value :login-username))) ;; User should not be logged-in in the first place.
+	   (null (hunchentoot:session-value :login-user-name))) ;; User should not be logged-in in the first place.
       (progn (add-login-user username  login-user)
 	     (setf (hunchentoot:session-value :login-user) login-user)
 	     (setf *current-user-session* (hunchentoot:start-session))
-	     (setf (hunchentoot:session-value :login-username) username)
-	     (setf (hunchentoot:session-value :login-userid) login-userid)
+	     (setf (hunchentoot:session-value :login-user-name) username)
+	     (setf (hunchentoot:session-value :login-user-id) login-user-id)
 	     (setf (hunchentoot:session-value :login-attribute-cart) login-attribute-cart)
 	     (setf (hunchentoot:session-value :login-tenant-id) login-tenant-id)
 	     (setf (hunchentoot:session-value :login-company-name) company-name)
