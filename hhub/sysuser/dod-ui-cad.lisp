@@ -401,7 +401,7 @@
       (progn
 	(dod-logout username)
 	(when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
-	;;(deleteBusinessSession (getBusinessContext *HHUBBUSINESSDOMAIN* "compadminsite") (hunchentoot:session-value :login-user-business-session-id)) 
+	(deleteBusinessSession (getBusinessContext *HHUBBUSINESSSERVER* "compadminsite") (hunchentoot:session-value :login-user-business-session-id)) 
 	(function (lambda ()
 	  redirectlocation))))))
 

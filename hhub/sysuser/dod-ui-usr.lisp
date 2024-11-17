@@ -10,7 +10,7 @@
 	  (params nil))
 
      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-     (setf params (acons "username" (get-login-user-name)  params))
+     (setf params (acons "username" (get-login-username)  params))
      
      (with-hhub-transaction "com-hhub-transaction-sadmin-create-users-page" params
        (with-standard-admin-page "List HHUB Users"
@@ -23,7 +23,8 @@
 
 
 
-(defun user-card (user-instance)
+(defun user-card (user-instance &rest arguments)
+  (declare (ignore arguments))
   (let ((name (slot-value user-instance 'name))
 	(phone-mobile (slot-value user-instance 'phone-mobile))
 	(email (slot-value user-instance 'email))
@@ -159,14 +160,17 @@
 (defun hhub-session-validp ()
   (if hunchentoot:*session* T NIL))
 
+(defun get-login-username ()
+  (hunchentoot:session-value :login-username))
+
 (defun get-login-user-name ()
   (hunchentoot:session-value :login-user-name))
 
 
 (defun verify-superadmin ();;"Verifies whether username is superadmin" 
-  (if (equal (get-login-user-name) "superadmin") T NIL ))
+  (if (equal (get-login-username) "superadmin") T NIL ))
 
 (defun superadmin-login ()
-(if (verify-superadmin )
-  (setf ( hunchentoot:session-value :login-company) "super")))
+  (if (verify-superadmin )
+      (setf ( hunchentoot:session-value :login-company) "super")))
 

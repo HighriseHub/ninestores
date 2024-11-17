@@ -10,6 +10,7 @@
     (setf (slot-value usessionobj 'uwebsession) hunchentoot:*session*)
     (setf (hunchentoot:session-value :login-user ) user)
     (setf (slot-value usessionobj 'user) user)
+    (setf (hunchentoot:session-value :login-username) (slot-value user 'username))
     (setf (hunchentoot:session-value :login-user-name) (slot-value user 'name))
     (setf (slot-value usessionobj 'user-name) (slot-value user 'name))
     (setf (hunchentoot:session-value :login-user-id) (slot-value user 'row-id))

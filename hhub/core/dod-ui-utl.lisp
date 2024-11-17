@@ -664,11 +664,10 @@
 individual tiles. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizingrefer to style.css. " 
   (cl-who:with-html-output-to-string (*standard-output* nil)
     ; searchresult div will be used to store the search result. 
-    (:div :class "container-fluid" 
-	  (:div :class "row-fluid"
-		(mapcar (lambda (item)
-			  (cl-who:htm
-			   (:div :class tile-css-class (funcall displayfunc item))))  listdata)))))
+    (:div :class "all-products"
+	  (mapcar (lambda (item)
+		    (cl-who:htm
+		     (:div :class tile-css-class (funcall displayfunc item))))  listdata))))
 
 ;; This macro will be used for the MVC pattern on the UI display of pages. We need
 ;; to pass the model generating and view generating functions and specify for which persona this request is for.
