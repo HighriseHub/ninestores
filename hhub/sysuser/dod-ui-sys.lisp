@@ -457,29 +457,37 @@
 
 
 
-
 (defun com-hhub-transaction-sadmin-home () 
   (with-opr-session-check
-    (let ((params nil))
-      (setf params (acons "username" (get-login-user-name) params))
-      (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-      (with-hhub-transaction "com-hhub-transaction-sadmin-home" params 
-	(let (( companies (hhub-get-cached-companies)))
-	  (with-standard-admin-page  "Welcome to Nine Stores."
-	    (:div :id "row"
-		  (:div :id "col-xs-6" 
-			(:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))))
-	    (company-search-html)
-	    (:div :id "row"
-		(:div :id "col-xs-6"
-					;  (:a :class "btn btn-primary" :role "button" :href "new-company" :data-toggle "modal" :data-target "#editcompany-modal" (:span :class "glyphicon glyphicon-shopping-plus") " Add New Group  ")
-		      (:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target "#editcompany-modal" "Add New Group"))
-		(:div :id "col-xs-6" :align "right" 
-		      (:span :class "badge" (cl-who:str (format nil "~A" (length companies))))))
-	  (:hr)
-	    (modal-dialog "editcompany-modal" "Add/Edit Group" (com-hhub-transaction-create-company-dialog))
-	    (:div :id "accountlivesearchresult"
-		  (cl-who:str (display-as-tiles companies 'company-card "tenant-box")))))))))
+    (with-mvc-ui-page "Welcome Super Administrator" createmodelforsadminhome createwidgetsforsadminhome :role :superadmin)))
+
+(defun createmodelforsadminhome ()
+  (let ((companies (hhub-get-cached-companies))
+	(params nil))
+    (setf params (acons "username" (get-login-username) params))
+    (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+    (with-hhub-transaction "com-hhub-transaction-sadmin-home" params 
+      (function (lambda ()
+	(values companies))))))
+
+(defun createwidgetsforsadminhome (modelfunc)
+  (multiple-value-bind (companies) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)   
+		       (:div :id "row"
+			     (:div :id "col-xs-6" 
+				   (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-user-name))))))
+		       (company-search-html)
+		       (:div :id "row"
+			     (:div :id "col-xs-6"
+				   (:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target "#editcompany-modal" "Add New Group"))
+			     (:div :id "col-xs-6" :align "right" 
+				   (:span :class "badge" (cl-who:str (format nil "~A" (length companies))))))
+		       (:hr)
+		       (modal-dialog "editcompany-modal" "Add/Edit Group" (com-hhub-transaction-create-company-dialog))
+		       (:div :id "accountlivesearchresult"
+			     (cl-who:str (display-as-tiles companies 'company-card "tenant-box"))))))))
+      (list widget1))))
 
 
 
@@ -572,34 +580,37 @@
 		  (hunchentoot:redirect "/hhub/sadminhome")
 		  ;else
 		  (with-standard-admin-page "Welcome to Nine Stores"
-		    (:div :class "row background-image: url(resources/login-background.png);background-color:lightblue;" 
+		    (:div :class "row background-image: url(resources/login-background.png);background-color:lightblue;" :id "idoprlogin" 
 			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
 				(:div :class "account-wall"
+				      (:img :class "profile-img" :src "/img/logo.png" :alt "")
 				      (:h1 :class "text-center login-title"  "Login to Nine Stores")
-				      (:form :class "form-signin" :role "form" :method "POST" :action "sadminlogin"
-					     (:div :class "form-group"
-						   (:input :class "form-control" :name "company" :placeholder "Company Name"  :type "text"))
-					     (:div :class "form-group"
-						   (:input :class "form-control" :name "username" :placeholder "User name" :type "text"))
-					     (:div :class "form-group"
-						   (:input :class "form-control" :name "password"  :placeholder "Password" :type "password"))
-					     (:input :type "submit"  :class "btn btn-primary" :value "Login      "))))))))
-	      (clsql:sql-database-data-error (condition)
-					     (if (equal (clsql:sql-error-error-id condition) 2006 ) (progn
-												      (stop-das) 
-												      (start-das)
-												      (hunchentoot:redirect "/hhub/opr-login.html"))))))
-
-
-
-
+				      (with-html-form "formoperatorlogin" "sadminlogin" 
+					(:div :class "form-group"
+					      (:input :class "form-control" :name "company" :placeholder "Company Name"  :type "text"))
+					(:div :class "form-group"
+					      (:input :class "form-control" :name "username" :placeholder "User name" :type "text"))
+					(:div :class "form-group"
+					      (:input :class "form-control" :name "password"  :placeholder "Password" :type "password"))
+					(:input :type "submit"  :class "btn btn-lg btn-block btn-primary" :value "Login")))))
+		    (submitformevent-js "#idoprlogin")))) 
+    (clsql:sql-database-data-error (condition)
+      (if (equal (clsql:sql-error-error-id condition) 2006)
+	  (progn
+	    (stop-das) 
+	    (start-das)
+	    (hunchentoot:redirect "/hhub/opr-login.html"))))))
 
 (defun com-hhub-transaction-sadmin-login ()
+  (let ((uri (with-mvc-redirect-ui createmodelforsadminlogin createwidgetsforgenericredirect)))
+    (format nil "~A" uri)))
+
+(defun createmodelforsadminlogin ()
  (let  ((uname (hunchentoot:parameter "username"))
 	(passwd (hunchentoot:parameter "password"))
 	(cname (hunchentoot:parameter "company"))
+	(redirectlocation "/hhub/opr-login.html")
 	(params nil))
-   
    (setf params (acons "uri" (hunchentoot:request-uri*)  params))
    (setf params (acons "username" uname params))
    (setf params (acons "company" cname params))
@@ -608,19 +619,33 @@
 	       ( or (null cname) (zerop (length cname)))
 	       ( or (null uname) (zerop (length uname)))
 	       ( or (null passwd) (zerop (length passwd))))
-      (if (equal (dod-login :company-name cname :username uname :password passwd) NIL) (hunchentoot:redirect "/hhub/opr-login.html") (hunchentoot:redirect  "/hhub/sadminhome"))))))
+	(if (dod-login :company-name cname :username uname :password passwd)
+	    (setf redirectlocation "/hhub/sadminhome"))
+	(function (lambda ()
+	  (values redirectlocation)))))))
 
-  
+
+;;;;;;;;;;;;;;com-hhub-transaction-cad-logout;;;;;;;;;;;;;;;
+(defun createmodelforsadminlogout ()
+  (let ((username (get-login-username))
+	(redirectlocation "/hhub/opr-login.html"))
+    (progn
+      (dod-logout username)
+      (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
+      (deleteBusinessSession (getBusinessContext *HHUBBUSINESSSERVER* "compadminsite") (hunchentoot:session-value :login-user-business-session-id)) 
+      (function (lambda ()
+	redirectlocation)))))
+
 (defun dod-controller-logout ()
-  (progn
-    (dod-logout (get-login-user-name))
-    (when hunchentoot:*session* (hunchentoot:remove-session hunchentoot:*session*))
-    (hunchentoot:redirect "/hhub/opr-login.html")))
+  (let ((uri (with-mvc-redirect-ui createmodelforsadminlogout createwidgetsforgenericredirect)))
+    (hunchentoot:redirect (format nil "~A" uri))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  
+
 
 (defun is-dod-session-valid? ()
- ;(if  (null (get-login-user-name)) NIL T))
+ ;(if  (null (get-login-username)) NIL T))
  (if hunchentoot:*session* T))
- ; (if (get-login-user-name) T))
+ ; (if (get-login-username) T))
 
 (defun dod-login (&key company-name username password)
   (let* ((login-user (car (clsql:select 'dod-users :where [and
@@ -631,17 +656,17 @@
 	 (salt (if login-user (slot-value login-user 'salt)))
 	 (password-verified (if login-user  (check-password password salt pwd)))
 	 (login-company (if login-user (slot-value login-user 'company)))
-	 (login-company-name (if login-user (slot-value (users-company login-user) 'name))))
-
+	 (login-company-name (if login-user (slot-value login-company 'name))))
     (when (and   
-	   password-verified 
-	   (equal  login-company-name company-name)
-	   login-user 
+	   login-user
+	   (equal login-company-name company-name)
+	   password-verified
 	   (null (hunchentoot:session-value :login-user-name))) ;; User should not be logged-in in the first place.
-      (progn (add-login-user username  login-user)
-	     (setf (hunchentoot:session-value :login-user) login-user)
-	     (setf *current-user-session* (hunchentoot:start-session))
-	     (set-user-session-params login-company login-user)))))
+      (progn
+	(hunchentoot:start-session)
+	(setf hunchentoot:*session-max-time* (* 3600 8))
+	(set-user-session-params login-company login-user)
+	T))))
   
 (defun get-tenant-id (company-name)
   ( car ( clsql:select [row-id] :from [dod-company] :where [= [slot-value 'dod-company 'name] company-name]
