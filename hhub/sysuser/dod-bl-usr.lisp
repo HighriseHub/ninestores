@@ -40,7 +40,6 @@
 	 (user (slot-value busersession 'user))
 	 (sessionlist '())
 	 (keylist '()))
-    
     (maphash (lambda (k v)
 	       (let ((prevuserid (slot-value v 'user-id))
 		     (prevwebsession (slot-value v 'uwebsession))

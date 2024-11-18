@@ -205,7 +205,7 @@
 	   (widget3 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-html-div-row
-			  (with-catch-submit-event
+			  (with-catch-submit-event "idinvoiceconfirmpage"
 			    (cl-who:str (display-invoice-confirm-page-widget  sessioninvheader sessioninvitems qrcodepath sessioninvkey)))))))))
 	   (list widget1 widget2 widget3))))
 	
