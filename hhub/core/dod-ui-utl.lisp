@@ -35,12 +35,28 @@
 				    (:strong "This is test")))))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun with-modal-dialog-link (name linktext dialogheadertext modalfunc)
+  (defun with-modal-dialog-link (name linkhtmlfunc dialogheadertext modalfunc)
     (cl-who:with-html-output (*standard-output* nil)
-      (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#~A-modal" name)  :href "#" linktext)
+      (:a :data-bs-toggle "modal" :data-bs-target (format nil "#~A-modal" name)  :href "#" (funcall linkhtmlfunc))
       (modal-dialog-v2 (format nil "~A-modal" name) dialogheadertext (funcall modalfunc)))))
 
 
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-form-having-submit-event ( form-name form-action  &body body) 
+    :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js. Use this macro when you have individual form which needs submit event."  
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:form :class ,form-name :id (format nil "id~A" ,form-name) :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
+	      ,@body)
+       (submitformevent-js (format nil "#id~A" ,form-name)))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-catch-submit-event (id  &body body)
+    :documentation "Arguments: NIL. This macro is used where there are many forms having submit events in a page and we want to catch them all when the event is propogated to the div level."    
+      `(cl-who:with-html-output (*standard-output* nil) 
+	 (:div :id ,id
+	       ,@body)
+	 (submitformevent-js (format nil "#~A" ,id)))))
 	  
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -741,7 +757,7 @@ individual tiles. It also supports search functionality by including the searchr
     :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"
     `(cl-who:with-html-output (*standard-output* nil ) 
        (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
-	      (:div :class "input-group"
+	      (:div :class "input-group" :style "border: 1px solid black; margin-top: 10px;margin-bottom: 10px; margin-right: 20px; margin-left: 15px;"
 		    (:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder   :onkeyup ,onkeyupfunc)
 		    (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
 	      ,@body))))
@@ -764,23 +780,6 @@ individual tiles. It also supports search functionality by including the searchr
        (:form :class ,form-name :id ,id :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
 	      ,@body)))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-form-having-submit-event ( form-name form-action  &body body) 
-    :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js. Use this macro when you have individual form which needs submit event."  
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:form :class ,form-name :id (format nil "id~A" ,form-name) :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
-	      ,@body)
-       (submitformevent-js (format nil "#id~A" ,form-name)))))
-
-
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-catch-submit-event (&body body)
-    :documentation "Arguments: NIL. This macro is used where there are many forms having submit events in a page and we want to catch them all when the event is propogated to the div level."
-    (let ((id (format nil "idformultiformsubmitevent~A" (hhub-random-password 3))))
-      `(cl-who:with-html-output (*standard-output* nil) 
-	 (:div :id ,id
-	       ,@body)
-	 (submitformevent-js (format nil "#~A" ,id))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-html-card (cardimage cardimagealt cardtitle cardtext  &body body)
