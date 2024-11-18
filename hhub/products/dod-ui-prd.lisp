@@ -320,7 +320,7 @@
 		      (:input :class "form-control" :name "enddate" :id idpricingenddate :placeholder  (cl-who:str (format nil "~A. Click to change" (get-date-string (clsql::date+ (clsql::get-date) (clsql::make-duration :day 180))))) :type "text" :value (if end-date end-date (get-date-string (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day 180))))))
 				 
 		(:div :class "form-group"
-		      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))
+		      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))
 	(:script (cl-who:str (format nil "$(document).ready(
         function() {    
         $('#~A').datepicker({dateFormat: 'dd/mm/yy', minDate: 0} ).attr('readonly', 'true'); 

@@ -283,7 +283,8 @@
     (display-as-table (list "Date" "Customer" "Phone" "Amount" "UTR Number" "Status" "Action") viewmodellist 'display-upi-transaction-row)))
 
 
-(defun display-upi-transaction-row (upiviewmodel)
+(defun display-upi-transaction-row (upiviewmodel &rest arguments)
+  (declare (ignore arguments))
   (let* ((vendor (slot-value upiviewmodel 'vendor))
 	 (company (slot-value upiviewmodel 'company))
 	 (order-id (subseq (slot-value upiviewmodel 'transaction-id) 5))
@@ -298,37 +299,41 @@
 	(:td  :height "10px" (cl-who:str utrnum))
 	(:td  :height "10px" (cl-who:str status))
 	(:td :height "10px"
-	     (:a :data-toggle "modal" :data-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
-	     (modal-dialog (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (if vorder (modal.vendor-order-details vorder company))))
-    	(cond ((and (equal vendorconfirm "N") (equal status "CAN"))
+	     (with-modal-dialog-link
+		 (format nil "hhubvendorderdetails~A-modal"  order-id)
+	       (function (lambda () (cl-who:with-html-output (*standard-output* nil) (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))))
+	       "Vendor Order Details" (function (lambda () (if vorder (modal.vendor-order-details vorder company)))))
+	     (cond ((and (equal vendorconfirm "N") (equal status "CAN"))
 	       (cl-who:htm
 		(:td :height "10px" (:i :class "fa fa-inr" :aria-hidden "true") "Payment Not Received")))
 	      ((equal vendorconfirm "N") 
 	       (cl-who:htm
-		(:td  :height "10px" 
-		      (:a :data-toggle "modal" :data-target (format nil "#vendorupipaymentconfirm~A" utrnum)  :href "#"  (:i :class "fa fa-inr" :aria-hidden "true"))
-		      (modal-dialog (format nil "vendorupipaymentconfirm~A" utrnum) "Confirm UPI Payment" (modal.vendor-upi-payment-confirm upiviewmodel)))))
+		(:td  :height "10px"
+		      (with-modal-dialog-link (format nil "vendorupipaymentconfirm~A" utrnum)
+			(function (lambda () (cl-who:with-html-output (*standard-output* nil) (:i :class "fa fa-inr" :aria-hidden "true"))))
+			"Confirm UPI Payment"
+			(function (lambda () (modal.vendor-upi-payment-confirm upiviewmodel))))))) 
 	      ((and (equal vendorconfirm "Y") (equal status "CNF"))
 	       (cl-who:htm
-		(:td :height "10px" (:i :class "fa fa-inr" :aria-hidden "true") " Received")))))))))
+		(:td :height "10px" (:i :class "fa fa-inr" :aria-hidden "true") " Received"))))))))))
 
 (defun modal.vendor-upi-payment-confirm (upiviewmodel)
   (with-slots (utrnum status) upiviewmodel
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-div-row 
-	(:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-	      (:h3 (cl-who:str (format nil "UTR Number - ~A." utrnum)))
-	      (:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipayconfirm" :enctype "multipart/form-data"
-		     (:div :class "form-group" :style "display: none"
-			    (:input :class "form-control":name "utrnum" :value utrnum :placeholder "UTR Number" :type "text" :readonly T ))
-		     (:div :class "form-group"
-			   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Payment Received")))))
+	(with-html-div-col
+	  (:h3 (cl-who:str (format nil "UTR Number - ~A." utrnum)))
+	  (:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipayconfirm" :enctype "multipart/form-data"
+		 (:div :class "form-group" :style "display: none"
+		       (:input :class "form-control":name "utrnum" :value utrnum :placeholder "UTR Number" :type "text" :readonly T ))
+		 (:div :class "form-group"
+		       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Payment Received")))))
 	(with-html-div-row
-	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		(:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipaycancel" :enctype "multipart/form-data"
-		       (:div :class "form-group" :style "display: none"
-			     (:input :class "form-control" :name "utrnum" :value utrnum :placeholder "UTR Number" :type "numeric"   :readonly T ))
-		       (:div :class "form-group"
-			     (:button :class "btn btn-lg btn-danger btn-block" :type "submit" "Payment Not Received"))))))))
+	  (with-html-div-col
+	    (:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipaycancel" :enctype "multipart/form-data"
+		   (:div :class "form-group" :style "display: none"
+			 (:input :class "form-control" :name "utrnum" :value utrnum :placeholder "UTR Number" :type "numeric"   :readonly T ))
+		   (:div :class "form-group"
+			 (:button :class "btn btn-lg btn-danger btn-block" :type "submit" "Payment Not Received"))))))))
 
 

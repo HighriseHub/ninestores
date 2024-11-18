@@ -14,46 +14,61 @@
 		  (:button :type "button" :class "btn-close" :data-bs-dismiss "offcanvas" :aria-label "Close"))
 	    (:div :class "offcanvas-body"
 		  (:ul :class "nav nav-pills flex-column mb-auto"
-		       (:li :class "nav-item" (:a :href "dodvendindex?context=home" (:i :class "fa-solid fa-house")  "Home"))
-		  (:li :class "nav-item" 
-		       (:a :href "/hhub/dodvenproducts" :class "nav-link link-body-emphasis" 
-			   (:i :class "fa-regular fa-rectangle-list") " Products/Services"))
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/dodvendindex?context=pendingorders"  :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-rectangle-list")  " Pending Orders"))
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/dodvendindex?context=completedorders"  :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-rectangle-list")  " Completed Orders"))
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-rectangle-list")  " Invoices"))
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/hhubvendorupitransactions"  :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-rectangle-list")  " UPI Transactions"))
-		  
-		  (:li :class "nav-item"
-		       (:a :href "/hhub/hhubvendmycustomers" :class "nav-link link-body-emphasis"
-			   (:i :class "fa-regular fa-user") " Customers"))
-		  (:li :class "nav-item"
-		       (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
-			   :data-bs-target "#reports" :aria-expanded "true" :aria-controls "reports"
-			   (:i :class "fa-solid fa-circle-info") " Reports")
-		       (:ul :id "reports" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
-			    (:li :class "sidebar-item"
-				 (:a :href "/hhub/dodvendindex?context=ctxordprd" :class "nav-link" "Orders By Products"))
-			    (:li :class "sidebar-item"
-				 (:a :href "/hhub/dodvendrevenue" :class "nav-link" "Today's Revenue"))))
-		  (:li :class "nav-item"
-		       (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
-			   :data-bs-target "#settings" :aria-expanded "true" :aria-controls "settings"
-			   (:i :class "fa-solid fa-gear") " Settings")
-		       (:ul :id "settings" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
-			    (:li :class "sidebar-item"
-				 (:a :href "/hhub/hhubvendorshipmethods" :class "nav-link" "Shipping Methods"))
-			    (:li :class "sidebar-item"
-				 (:a :href "/hhub/dodvendprofile?context=home" :class "nav-link" "Vendor Settings"))
-			    (:li :class "sidebar-item"
-				 (:a :href "hhubvendpushsubscribepage" :class "nav-link" "Browser Push Notification")))))
+		       (:li :class "nav-item"
+			    (:a :href "dodvendindex?context=home"
+				(:i :class "fa-solid fa-house")  "&nbsp;&nbsp;Home"))
+		       (:li :class "nav-item"
+			    (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
+				:data-bs-target "#productmaster" :aria-expanded "true" :aria-controls "productmaster"
+			   (:i :class "fa-solid fa-rectangle-list") " Product Master")
+			    (:ul :id "productmaster" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
+				 (:li :class "sidebar-item"
+				      (:a :href "/hhub/dodvenproducts" :class "nav-link" "Product List"))
+				 (:li :class "sidebar-item"
+				      (:a :href "/hhub/dodvendprodcategories" :class "nav-link" "Product Categories"))
+				 (:li :class "sidebar-item"
+				      (:a :href "/hhub/dodvenaddprodpage" :class "nav-link" "Add New Product"))))
+		       (:li :class "nav-item"
+			    (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
+				:data-bs-target "#orders" :aria-expanded "true" :aria-controls "orders"
+			   (:i :class "fa-solid fa-rectangle-list") " Orders")
+			    (:ul :id "orders" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
+				 (:li :class "nav-item"
+				      (:a :href "/hhub/dodvendindex?context=pendingorders"  :class "nav-link link-body-emphasis"
+					  (:i :class "fa-regular fa-rectangle-list")  " Pending Orders"))
+				 (:li :class "nav-item"
+				      (:a :href "/hhub/dodvendindex?context=ctxordprd"  :class "nav-link link-body-emphasis"
+					  (:i :class "fa-regular fa-rectangle-list")  " Pending Orders By Products"))
+				 (:li :class "nav-item"
+				      (:a :href "/hhub/dodvendindex?context=completedorders"  :class "nav-link link-body-emphasis"
+					  (:i :class "fa-regular fa-rectangle-list")  " Completed Orders"))))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
+				(:i :class "fa-regular fa-rectangle-list")  " Invoices"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/hhubvendorupitransactions"  :class "nav-link link-body-emphasis"
+				(:i :class "fa-regular fa-rectangle-list")  " UPI Transactions"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/hhubvendmycustomers" :class "nav-link link-body-emphasis"
+				(:i :class "fa-regular fa-user") " Customers"))
+		       (:li :class "nav-item"
+			    (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
+				:data-bs-target "#reports" :aria-expanded "true" :aria-controls "reports"
+				(:i :class "fa-solid fa-circle-info") " Reports")
+			    (:ul :id "reports" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
+				 (:li :class "sidebar-item"
+				      (:a :href "/hhub/dodvendrevenue" :class "nav-link" "Today's Revenue"))))
+		       (:li :class "nav-item"
+			    (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
+				:data-bs-target "#settings" :aria-expanded "true" :aria-controls "settings"
+				(:i :class "fa-solid fa-gear") " Settings")
+			    (:ul :id "settings" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
+				 (:li :class "sidebar-item"
+				      (:a :href "/hhub/hhubvendorshipmethods" :class "nav-link" "Shipping Methods"))
+				 (:li :class "sidebar-item"
+				      (:a :href "/hhub/dodvendprofile?context=home" :class "nav-link" "Vendor Settings"))
+				 (:li :class "sidebar-item"
+				      (:a :href "hhubvendpushsubscribepage" :class "nav-link" "Browser Push Notification")))))
 		  ;; (:div :class "dropdown"
 		  ;; 	(:a :href "#" :class "d-flex align-items-center link-body-emphasis text-decoration-none dropdown-toggle" :data-bs-toggle "dropdown" :aria-expanded "false"
 			    
@@ -709,37 +724,38 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-add-product-page ()
   (with-vend-session-check 
-    (let ((catglist (hhub-get-cached-product-categories)))
+    (let ((catglist (hhub-get-cached-product-categories))
+	  (charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
       (with-standard-vendor-page "Welcome to DAS Platform- Your Demand And Supply destination."
-	(:div :class "row" 
-	      (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-		    (:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-bs-toggle "validator" :enctype "multipart/form-data" 
-			   (:div :class "account-wall"
-				 (:img :class "profile-img" :src "/img/logo.png" :alt "")
-				 (:h1 :class "text-center login-title"  "Add new product")
-				 (with-html-custom-checkbox "isserviceproduct" "N" "This is a Service" nil)
-				 (:div :class "form-group"
-				       (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
-				 
-				 (:div :class "form-group"
-				     (:label :for "description")
-				     (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup "countChar(this, 1000)"  ))
-				 (:div :class "form-group" :id "charcount")
-				 (:div :class "form-group"
-				       (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
-				 (:div :class "form-group"
-				       (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :type "number" :min "1" :max "10000" :step "1" ))
-				 (:div :class "form-group"
-				       (:input :class "form-control" :name "qtyperunit" :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
-				 (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
-					(ui-list-prod-catg-dropdown catglist nil))
-				 (:br) 
-				 (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
-				       (ui-list-yes-no-dropdown "N"))
-				 (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
-				       (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
-				 (:div :class "form-group"
-				       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))))
+	(with-html-div-row
+	  (with-html-div-col-3 "")
+	  (with-html-div-col-6
+	    (:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-bs-toggle "validator" :enctype "multipart/form-data" 
+		   (:div :class "account-wall" 
+			 (:img :class "profile-img" :src "/img/logo.png" :alt "")
+			 (:h1 :class "text-center login-title"  "Add new product")
+			 (with-html-custom-checkbox "isserviceproduct" "N" "This is a Service" nil)
+			 (:div :class "form-group"
+			       (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
+			 (:div :class "form-group"
+			       (:label :for "description")
+			       (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 1000)" charcountid1)))
+			 (:div :class "form-group" :id charcountid1)
+			 (:div :class "form-group"
+			       (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
+			 (:div :class "form-group"
+			       (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :type "number" :min "1" :max "10000" :step "1" ))
+			 (:div :class "form-group"
+			       (:input :class "form-control" :name "qtyperunit" :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
+			 (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
+				(ui-list-prod-catg-dropdown catglist nil))
+			 (:br) 
+			 (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
+			       (ui-list-yes-no-dropdown "N"))
+			 (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
+			       (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
+			 (:div :class "form-group"
+			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))))
 
 
 
@@ -1761,7 +1777,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (setf (hunchentoot:session-value :login-vendor-business-session-id) sessionkey)
       (logiamhere (format nil "web session is ~A" (slot-value vsessionobj 'vwebsession)))
       (logiamhere (format nil "session key is ~A" sessionkey))
-      (enforcesinglevendorsession sessionkey)
+      (enforcevendorsession sessionkey "vendorsite"  *HHUBMAXVENDORLOGINS*)
       sessionkey)))
 
 
@@ -1800,33 +1816,33 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     start-time))
 
 
-
-(defun enforcesinglevendorsession (sessionkey)
-  (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite"))
+(defun enforcevendorsession (sessionkey contextname maxusersallowed)
+  (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* contextname))
 	 (bsessions-ht (businesssessions-ht bcontext))
-	 (bvendsession (gethash sessionkey bsessions-ht))
-	 (vendor (slot-value bvendsession 'vendor))
+	 (busersession (gethash sessionkey bsessions-ht))
+	 (user (slot-value busersession 'vendor))
 	 (sessionlist '())
 	 (keylist '()))
-    
     (maphash (lambda (k v)
-	       (let ((prevvendorid (slot-value v 'vendor-id))
+	       (let ((prevuserid (slot-value v 'vendor-id))
 		     (prevwebsession (slot-value v 'vwebsession))
-		     (loginvendorid (slot-value vendor 'row-id))
-		     (vendorname (slot-value vendor 'name)))
+		     (loginuserid (slot-value user 'row-id))
+		     (username (slot-value user 'name)))
 		 (when (and
-			(not (equal k sessionkey)) ;; There are 2 separate sessions from same vendor. 
-			(= prevvendorid loginvendorid)) ;; Same vendor is login again.
-		   (logiamhere (format nil "Vendor is ~A. key is ~A. Websession is ~A" vendorname k prevwebsession))
-		   (setf sessionlist (append sessionlist (list prevwebsession)))))) bsessions-ht)
-    
-    ;; If there are exactly 1 item in the list that means that vendor has logged in previouly. 
-    (when (> (length sessionlist) *HHUBMAXVENDORLOGINS*) 
-      (logiamhere (format nil "there are ~d items in session list " (length sessionlist)))
-      (hunchentoot:remove-session (nth 0 sessionlist))
-      (deleteBusinessSession bcontext sessionkey))))
+			(not (equal k sessionkey)) ;; There are 2 separate sessions from same user. 
+			(= prevuserid loginuserid)) ;; Same user is login again.
+		   (logiamhere (format nil "User is ~A. key is ~A. Websession is ~A" username k prevwebsession))
+		   (setf sessionlist (append sessionlist (list v)))
+		   (setf keylist (append keylist (list k)))))) bsessions-ht)
+    ;; If there are exactly 1 item in the list that means that user has logged in previouly. 
+    (when (>= (length sessionlist) maxusersallowed)
+      (let* ((sessiontoremove (nth 0 sessionlist))
+	     (websession (slot-value sessiontoremove 'vwebsession))
+	     (firstkey (nth 0 keylist)))
+	(hunchentoot:remove-session websession)
+	(deleteBusinessSession bcontext firstkey)))
+    (logiamhere (format nil "there are ~d items in session list " (length sessionlist)))))
 
-	
    
 (defun dod-controller-vendor-delete-product () 
  (if (is-dod-vend-session-valid?)
@@ -1897,30 +1913,45 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (cl-who:with-html-output (*standard-output* nil)
 	(:td  :height "10px" (cl-who:str catg-name)))))
 
+
 (defun dod-controller-vendor-products ()
-  (with-vend-session-check 
-    (let* ((vendor-products (hhub-get-cached-vendor-products))
-	   (vendor-company (get-login-vendor-company))
-	   (cmp-type (slot-value vendor-company 'cmp-type))
-	   (subscription-plan (slot-value vendor-company 'subscription-plan)))
-      (with-standard-vendor-page "Welcome to Nine Stores  - Vendor"
-	(with-html-search-form "idvendsearchproduct" "vendsearchproduct" "idtxtvendsearchproduct" "txtvendsearchproduct" "hhubvendsearchproduct" "onkeyupsearchform1event();" "Product Name"
-	   (submitsearchform1event-js "#idtxtvendsearchproduct" "#txtvendsearchproductresult"))  
-	(:div :class "row" 
-	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
-		    (:a :class "btn btn-primary" :role "button" :href "dodvenaddprodpage" (:i :class "fa-solid fa-cart-shopping") " Add New Product  "))
-	      (when (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan cmp-type)
-		(cl-who:htm   (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" 
-				    (:a :class "btn btn-primary" :role "button" :href "dodvenbulkaddprodpage" (:i :class "fa-solid fa-cart-shopping") " Bulk Add Products "))))
-	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" :align "right"
-		        (:a :class "btn btn-primary" :role "button" :href "dodvendprodcategories" (:i :class "fa-solid fa-cart-shopping")  " Product Categories "))
-	      (:div :class "col-xs-3 col-sm-3 col-md-3 col-lg-3" :align "right" 
-		    (:span :class "badge" (cl-who:str (format nil " ~d " (length vendor-products)))))) 
-	(:hr)
-	(:div :id "txtvendsearchproductresult" :class "all-products"
-	      (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card")))))))
+  (with-vend-session-check
+    (with-mvc-ui-page "Vendor Products" createmodelforshowvendorproducts createwidgetsforshowvendorproducts :role :vendor)))
 
-
+(defun createmodelforshowvendorproducts ()
+  (let* ((vendor-products (hhub-get-cached-vendor-products))
+	 (vendor-company (get-login-vendor-company))
+	 (cmp-type (slot-value vendor-company 'cmp-type))
+	 (subscription-plan (slot-value vendor-company 'subscription-plan))
+	 (numproducts (length vendor-products))
+	 (compbulkupload-p (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan cmp-type)))
+    (function (lambda ()
+      (values vendor-products numproducts compbulkupload-p)))))
+	
+(defun createwidgetsforshowvendorproducts (modelfunc)
+  (multiple-value-bind (vendor-products   numproducts compbulkupload-p) (funcall modelfunc)
+  (let ((widget1 (function (lambda ()
+		   (cl-who:with-html-output (*standard-output* nil)    
+		     (:br)
+		     (with-html-div-row
+		       (with-html-div-col-6
+			 (with-html-search-form "idvendsearchproduct" "vendsearchproduct" "idtxtvendsearchproduct" "txtvendsearchproduct" "hhubvendsearchproduct" "onkeyupsearchform1event();" "Type few letters of Product Name"
+			   (submitsearchform1event-js "#idtxtvendsearchproduct" "#txtvendsearchproductresult")))
+		       (with-html-div-col-6 
+			 (:span :class "position-absolute top-50 start-50 translate-middle badge rounded-pill bg-danger" (:h5 (cl-who:str (format nil "~A" numproducts))))))))))
+	(widget2 (function (lambda ()
+		   (cl-who:with-html-output (*standard-output* nil)    
+		     (with-html-div-row
+		       (when compbulkupload-p
+			 (cl-who:htm
+			  (with-html-div-col-6
+			    (:a :class "btn btn-primary" :role "button" :href "dodvenbulkaddprodpage" (:i :class "fa-solid fa-cart-shopping") " Bulk Add Products ")))))))))
+	(widget3 (function (lambda ()
+		   (cl-who:with-html-output (*standard-output* nil)    
+		     (:hr)
+		     (with-catch-submit-event "txtvendsearchproductresult"
+		       (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card"))))))))
+    (list widget1 widget2 widget3))))
 
 (defun dod-gen-vendor-products-functions (vendor company)
   (let ((vendor-products (select-products-by-vendor vendor company))
