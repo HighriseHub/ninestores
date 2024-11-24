@@ -61,14 +61,15 @@
 	 (vendor-list (get-shopcart-vendorlist odts))
 	 (vendor (first vendor-list))
 	 (upiurls (generateupiurlsforvendor vendor "ABC" order-cxt upitotal))
-	 (qrcodepath (generateqrcodeforvendor vendor "ABC" order-cxt upitotal)))
+	 (qrcodepath (generateqrcodeforvendor vendor "ABC" order-cxt upitotal))
+	 (charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
     (function (lambda ()
-      (values upitotal qrcodepath upiurls vendor)))))
+      (values upitotal qrcodepath upiurls vendor charcountid1)))))
 
 
 (defun createwidgetsforcustorderpaymentpage (modelfunc)
   (multiple-value-bind
-	(upitotal qrcodepath upiurls vendor)
+	(upitotal qrcodepath upiurls vendor charcountid1)
       (funcall modelfunc) 
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -84,11 +85,13 @@
 				   (:label :for "utrnum" "UTR No")
 				   (:input :class "form-control" :name "paymentmode" :value "UPI" :type "hidden")
 				   (:input :class "form-control" :name "amount" :value upitotal :type "hidden")
-				   (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup "countChar(this, 12)" :max "999999999999" :maxlength "12"  :required T)))
-		       (:div :id "charcount" :class "form-group")
-		       (:div :class "row mb-3"
-			     (:div :class "col-sm-4" :style "text-align: center;"
-				   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+				   (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup (format nil "countChar(~A.id, this, 12)" charcountid1)  :max "999999999999" :maxlength "12"  :required T)))
+		       (:div :id charcountid1 :class "form-group")
+		       (with-html-div-row
+			 (with-html-div-col-6
+			   (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "hhubcustpaymentmethodspage" "Previous"))
+			 (with-html-div-col-6
+			   (:input :type "submit" :class "btn btn-lg btn-primary btn-block checkout-button"  :value "Next"))))))))
 		 ;; If Vendor UPI ID is not defined, then redirect to the UPI ID not found page. 
       (unless (slot-value vendor 'upi-id) (hunchentoot:redirect "/hhub/vendorupinotfound"))
       (list widget1 widget2 widget3))))

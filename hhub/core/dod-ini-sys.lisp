@@ -18,7 +18,7 @@
 (defvar *dod-dbconn-spec* (list *crm-database-server* *crm-database-name* *crm-database-user* *crm-database-password*))
 
 
-(defvar *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "23:00:00")
+(defvar *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "23:59:00")
 (defvar *HHUB-DEMO-TENANT-ID* 2)
 
 (defvar *HHUB-COMPILE-FILES-LOCATION* "/home/ubuntu/ninestores/bin/hhubcompilelog.txt") 

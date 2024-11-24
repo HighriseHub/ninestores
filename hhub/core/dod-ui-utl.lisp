@@ -616,7 +616,8 @@
 	    (uri (cdr (assoc "uri" params :test 'equal)))
 	    (returnlist (has-permission transaction ,params))
 	    (returnvalue (nth 0 returnlist))
-	    (exceptionstr (nth 1 returnlist)))
+	    (exceptionstr (nth 1 returnlist))
+	    (redirecturl (format nil "/hhub/permissiondenied?message=~A" (hunchentoot:url-encode "Permission Denied"))))
        (unless transaction
 	 (error 'hhub-abac-transaction-error :errstring (format nil "Did not find the transaction by name ~A. Create a new transaction and a related policy." ,name)))
        
@@ -630,8 +631,9 @@
 	   (progn 
 	     (logiamhere (format nil "Permission denied for transaction ~A. Error: ~A " (slot-value transaction 'trans-func) exceptionstr))
 	     ;;(setf (hunchentoot:return-code hunchentoot:*reply*) 500)
-	     (unless returnvalue 
-	       (hunchentoot:redirect (format nil "/hhub/permissiondenied?message=~A" (hunchentoot:url-encode "Permission Denied")))))))))
+	     (unless returnvalue
+	       (function (lambda ()
+		 (values redirecturl)))))))))
 
 
 

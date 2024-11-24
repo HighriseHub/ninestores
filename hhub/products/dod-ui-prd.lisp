@@ -227,7 +227,7 @@
 	     (:div :class "form-group"
 		   (with-html-input-text "shipping-weight-kg" "Shipping Weight" "Enter Product weight in KG" shipping-weight-kg T "Enter Shipping Weight in KG" 1))
 	     (:div :class "form-group"
-		   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+		   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))
 
 	
 
@@ -298,7 +298,9 @@
 	(end-date (if product-pricing (get-date-string (slot-value product-pricing 'end-date))))
 	(vendprodpricingform-id (format nil "vendprodpricingform~A" (gensym)))
 	(idpricingstartdate (format nil "idpricingstartdate~A" (gensym)))
-	(idpricingenddate (format nil "idpricingenddate~A" (gensym))))
+	(idpricingenddate (format nil "idpricingenddate~A" (gensym)))
+	(startdateplaceholder (format nil "~A. Click to change" (get-date-string (clsql-sys::get-date))))
+	(enddateplaceholder (format nil "~A. Click to change" (get-date-string (clsql::date+ (clsql::get-date) (clsql::make-duration :day 180))))))
 			    
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-div-row
@@ -315,9 +317,9 @@
 		      (:label :for "prddiscount" "Discount % - Enter a number" )
 		      (:input :class "form-control" :name "prddiscount"  :value (format nil "~$" discount)  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
 		(:div :class "form-group"  (:label :for "startdate" "Start Date - Click To Change" )
-		      (:input :class "form-control" :name "startdate" :id idpricingstartdate :placeholder  (cl-who:str (format nil "~A. Click to change" (cl-who:str (get-date-string (clsql-sys::get-date))))) :type "text" :value (if start-date start-date (get-date-string (clsql-sys::get-date)))))
+		      (:input :class "form-control" :name "startdate" :id idpricingstartdate :placeholder  (cl-who:str startdateplaceholder)  :type "text" :value (if start-date start-date (get-date-string (clsql-sys::get-date)))))
 		(:div :class "form-group"  (:label :for "enddate" "End Date - Click To Change" )
-		      (:input :class "form-control" :name "enddate" :id idpricingenddate :placeholder  (cl-who:str (format nil "~A. Click to change" (get-date-string (clsql::date+ (clsql::get-date) (clsql::make-duration :day 180))))) :type "text" :value (if end-date end-date (get-date-string (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day 180))))))
+		      (:input :class "form-control" :name "enddate" :id idpricingenddate :placeholder  (cl-who:str enddateplaceholder)  :type "text" :value (if end-date end-date (get-date-string (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day 180))))))
 				 
 		(:div :class "form-group"
 		      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))
@@ -326,19 +328,66 @@
         $('#~A').datepicker({dateFormat: 'dd/mm/yy', minDate: 0} ).attr('readonly', 'true'); 
         $('#~A' ).datepicker({dateFormat: 'dd/mm/yy', minDate: 1} ).attr('readonly', 'true');    
          }
-);" idpricingstartdate idpricingenddate)))
-	(:script (cl-who:str (format nil "$(document).ready(function(){
-    const vendprodpricingform = document.querySelector(\"#~A\");
-    if(null != vendprodpricingform){
-	vendprodpricingform.addEventListener('submit', (e) => {
-	    e.preventDefault();
-	    let targetform = e.target;
-	    submitformandredirect(targetform);
-	    console.log(\"A Vendor product pricing form got submitted\");
-	});
-    }
-});" vendprodpricingform-id)))))))
+);" idpricingstartdate idpricingenddate)))))))
 		
+
+(defun vendor-product-actions-menu (product-instance)
+  (let* ((prd-id (slot-value product-instance 'row-id))
+	 (active-flag (slot-value product-instance 'active-flag))
+	 (external-url (slot-value product-instance 'external-url))
+	 (shipping-weight-kg (slot-value product-instance 'shipping-weight-kg))
+	 (company (product-company product-instance))
+	 (currency (get-account-currency company))
+	 (product-pricing (select-product-pricing-by-product-id prd-id company)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-div-row :style "border-radius: 5px;background-color:#e6f0ff; border-bottom: solid 1px; margin: 15px; height: 30px; font-size: 1rem;"
+	(if (equal active-flag "Y")
+	    (cl-who:htm
+	     (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Turn Off" 
+	       (:a   :href (format nil "dodvenddeactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off"))))
+					;else
+	    (cl-who:htm
+	     (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Turn On" 
+	       (:a :href (format nil "dodvendactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off")))))
+	(with-html-div-col-1 :data-bs-toggle "tooltip" :title "Copy" 
+	  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendcopyprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-clone"))
+	  (modal-dialog-v2 (format nil "dodvendcopyprod-modal~A" prd-id) "Copy Product" (modal.vendor-product-edit-html  product-instance "COPY")))
+	(with-html-div-col-1 :align "right" :data-bs-toggle "tooltip" :title "Edit" 
+	  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-pencil"))
+	  (modal-dialog-v2 (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
+	
+	(unless external-url
+	  (cl-who:htm 
+	   (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Information: Edit & Save to enable sharing" 
+	     (:a :href "#" (:i :class  "fa-solid fa-share-nodes")))))
+	(when external-url
+	  (cl-who:htm
+	   (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Copy External URL" 
+	     (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes")))))
+	
+	    (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Shipping" 
+	      (if (and shipping-weight-kg (> shipping-weight-kg 0)) 
+		  (cl-who:htm
+		   (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck")))
+		  ;;else
+		  (cl-who:htm
+		   (:a :style "color:red;" :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck"))))
+	      (modal-dialog-v2 (format nil "dodprodshipping-modal~A" prd-id) "Shipping" (modal.vendor-product-shipping-html product-instance "EDIT")))
+	(with-html-div-col-1  :data-bs-toggle "tooltip" :title "Discounts" 
+		(if product-pricing 
+		    (cl-who:htm
+		     (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
+		     (modal-dialog-v2 (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))
+		    ;; else
+		    (cl-who:htm
+		     (:a :style "color:red;" :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
+		     (modal-dialog-v2 (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))))
+	(with-html-div-col-1 "&nbsp;")
+	(with-html-div-col-1 "&nbsp;")
+	(with-html-div-col-1 "&nbsp;")
+	(with-html-div-col-1 "&nbsp;")
+	(with-html-div-col-2 :align "right" :data-bs-toggle "tooltip" :title "Delete" 
+	  (:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:i :class "fa-solid fa-remove")))))))
 
 
 (defun product-card-for-vendor (product-instance)
@@ -351,10 +400,7 @@
 	 (approved-flag (slot-value product-instance 'approved-flag))
 	 (approval-status (slot-value product-instance 'approval-status))
 	 (subscribe-flag (slot-value product-instance 'subscribe-flag))
-	 (external-url (slot-value product-instance 'external-url))
-	 (shipping-weight-kg (slot-value product-instance 'shipping-weight-kg))
 	 (company (product-company product-instance))
-	 (currency (get-account-currency company))
 	 (product-pricing (select-product-pricing-by-product-id prd-id company)))
       (cl-who:with-html-output (*standard-output* nil)
 	(with-html-div-row :style "border-radius: 5px;background-color:#e6f0ff; border-bottom: solid 1px; margin: -2px;"
@@ -362,55 +408,19 @@
 		(cl-who:htm
 		 (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Turn Off" 
 		   (:a   :href (format nil "dodvenddeactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off"))))
-					;else
+		;;else
 		(cl-who:htm
 		 (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Turn On" 
 		   (:a :href (format nil "dodvendactivateprod?id=~A" prd-id) (:i :class "fa-solid fa-power-off")))))
-	  (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Copy" 
-	    (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendcopyprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-clone"))
-	    (modal-dialog-v2 (format nil "dodvendcopyprod-modal~A" prd-id) "Copy Product" (modal.vendor-product-edit-html  product-instance "COPY")))
-	  (with-html-div-col-1 :align "right" :data-bs-toggle "tooltip" :title "Edit" 
-		  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-pencil"))
-		  (modal-dialog-v2 (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
-	    
-	    (unless external-url
-	      (cl-who:htm 
-	       (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Information: Edit & Save to enable sharing" 
-		     (:a :href "#" (:i :class  "fa-solid fa-share-nodes")))))
-	    (when external-url
-	      (cl-who:htm
-	       (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Copy External URL" 
-		     (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes")))))
-	    
-	    (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Shipping" 
-		  (if (and shipping-weight-kg (> shipping-weight-kg 0)) 
-		      (cl-who:htm
-		       (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck")))
-		      ;;else
-		      (cl-who:htm
-		       (:a :style "color:red;" :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck"))))
-		  (modal-dialog-v2 (format nil "dodprodshipping-modal~A" prd-id) "Shipping" (modal.vendor-product-shipping-html product-instance "EDIT")))
-	  (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Discounts" 
-		(if product-pricing 
-		    (cl-who:htm
-		     (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
-		     (modal-dialog-v2 (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))
-		    ;; else
-		    (cl-who:htm
-		     (:a :style "color:red;" :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
-		     (modal-dialog-v2 (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))))
+	  (with-html-div-col-6 "&nbsp;")
 	  (with-html-div-col-1 "&nbsp;")
-	  (with-html-div-col-1 "&nbsp;")
-	  (with-html-div-col-1 "&nbsp;")
-	 
-	 
-	  (with-html-div-col-1 :align "right" :data-bs-toggle "tooltip" :title "Delete" 
-		(:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:i :class "fa-solid fa-xmark"))))
+	  (with-html-div-col-1 :align "right" :data-bs-toggle "tooltip" :title "Delete"
+	  (:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id) (:i :class "fa-solid fa-chevron-right"))))
 	(with-html-div-row
 	  (if (<= units-in-stock 0) 
 	      (cl-who:htm (:div :class "stampbox rotated" "NO STOCK" ))
 					;else
-	      (cl-who:htm (:div :class "col-12" (:h5 (:span :class "badge" (cl-who:str (format nil "In stock ~A  units"  units-in-stock ))))))))
+	      (cl-who:htm (with-html-div-col (:h5 (:span :class "badge badge-pill badge-light" (cl-who:str (format nil "In stock ~A  units"  units-in-stock ))))))))
 		      
 	(with-html-div-row
 	  (with-html-div-col-6 
@@ -425,10 +435,10 @@
 	(with-html-div-row 
 	  (with-html-div-col-8 
 		(:h6 (cl-who:str (if (> (length description) 90)  (subseq description  0 90) description)))))
-		(if (equal active-flag "N") 
-	      (cl-who:htm (:div :class "stampbox rotated" "INACTIVE" )))
-	  (if (equal approved-flag "N")
-	      (cl-who:htm (:div :class "stampbox rotated" (cl-who:str (format nil "~A" approval-status))))))))
+	(if (equal active-flag "N") 
+	    (cl-who:htm (:div :class "stampbox rotated" "INACTIVE" )))
+	(if (equal approved-flag "N")
+	    (cl-who:htm (:div :class "stampbox rotated" (cl-who:str (format nil "~A" approval-status))))))))
 
 
 (defun product-card-for-approval (product-instance &rest arguments)
@@ -608,18 +618,29 @@
 	 (description (slot-value product-instance 'description))   
 	 (prd-image-path (slot-value product-instance 'prd-image-path))
 	 (company (product-company product-instance))
+	 (units-in-stock (slot-value product-instance 'units-in-stock))
+	 (active-flag (slot-value product-instance 'active-flag))
+	 (approved-flag (slot-value product-instance 'approved-flag))
+	 (approval-status (slot-value product-instance 'approval-status))
 	 (product-pricing (select-product-pricing-by-product-id prd-id company)))
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "container-fluid"
 	    (with-html-div-row
-					; Product image only here
-	      (:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6 image-responsive"
-		    (:img :src  (format nil "~A" prd-image-path) :height "300" :width "400" :alt prd-name " "))
-	      (:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6"
-		    (:form :class "form-product" :method "POST" :action "dodcustaddtocart" 
-			   (:h1  (cl-who:str prd-name))
-			   (:hr)
-			   (product-price-with-discount-widget product-instance product-pricing)
-			   (:hr)
-			   (:div (:h4 (cl-who:str description))))))))))
-
+	      ;; Product image only here
+	      (with-html-div-col-6 
+	     	(:img :src  (format nil "~A" prd-image-path) :height "300" :width "400" :alt prd-name " "))
+	      (with-html-div-col-6
+		(:h1  (cl-who:str prd-name))
+		(:hr)
+		(if (<= units-in-stock 0) 
+		    (cl-who:htm (:div :class "stampbox rotated" "NO STOCK" ))
+					;else
+		    (cl-who:htm (with-html-div-col (:h4 (:span :class "badge badge-pill badge-light" (cl-who:str (format nil "In stock ~A  units"  units-in-stock )))))))
+		(:hr)
+		(product-price-with-discount-widget product-instance product-pricing)
+		(:hr)
+		(:div (:h4 (cl-who:str description)))))
+	    (if (equal active-flag "N") 
+		(cl-who:htm (:div :class "stampbox rotated" "INACTIVE" )))
+	    (if (equal approved-flag "N")
+		(cl-who:htm (:div :class "stampbox rotated" (cl-who:str (format nil "~A" approval-status)))))))))
