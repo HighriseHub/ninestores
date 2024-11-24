@@ -471,7 +471,7 @@
   (handler-case 
       (when (company dbas) 
 	;; when saving to database from another thread, there should be no logging messages. 
-	(hunchentoot:log-message* :info (format nil "Company is ~A" (slot-value (slot-value dbas 'company) 'name)))
+	;;(hunchentoot:log-message* :info (format nil "Company is ~A" (slot-value (slot-value dbas 'company) 'name)))
 	;;(hunchentoot:log-message* :info (format nil "DB obj amount is ~A" (slot-value (slot-value dbas 'dbobject) 'amount)))
 	;;(logiamhere  "I am going to db save now")
 	(clsql:update-records-from-instance (dbobject dbas)))
