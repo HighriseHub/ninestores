@@ -68,53 +68,49 @@
          (freeshipminorderamt (nth 2 shipping-options)))
 
     (cl-who:with-html-output (*standard-output* nil)
-      (with-html-form "form-custshippingmethod" "hhubcustpaymentmethodspage"
-        
-        (when (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y") (> shipping-cost 0))
-          (cl-who:htm
-           (:div :class "custom-control custom-switch"
-                 (:input :type "checkbox" :class "custom-control-input" :id "idstorepickup" :name "storepickup" :value "Y"
-                         :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
-                 (:label :class "custom-control-label" :for "idstorepickup" "Pickup In Store"))))
-
-        (with-html-div-row :id "costwithshipping" :class "shipping-cost-section"
-          (with-html-div-col-8
-            (cond ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
-                   (cl-who:htm
-                    (:br)
-                    (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
-                    (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
-                    (:hr)
-                    (:p :id "costwithshipping" :class "total-cost"
-                        (:h3 :style "color: green;" 
-                             (:span :class "text-bg-success" 
+      (when (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y") (> shipping-cost 0))
+        (cl-who:htm
+         (:div :class "custom-control custom-switch"
+               (:input :type "checkbox" :class "custom-control-input" :id "idstorepickup" :name "storepickup" :value "Y"
+                       :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
+               (:label :class "custom-control-label" :for "idstorepickup" "Pickup In Store"))))
+      (with-html-div-row :id "costwithshipping" :class "shipping-cost-section"
+        (with-html-div-col-8
+          (cond ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
+                 (cl-who:htm
+                  (:br)
+                  (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
+                  (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
+                  (:hr)
+                  (:p :id "costwithshipping" :class "total-cost"
+                      (:h3 :style "color: green;" 
+                           (:span :class "text-bg-success" 
                                     (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
-                    (:p :class "info-message"
-                        (if (equal freeshipenabled "Y") (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total)))))))
-                  
-                  ((and (equal vshipping-enabled "Y") (= shipping-cost 0))
-                   (cl-who:htm (:p :class "info-message" (cl-who:str "Shipping: FREE!"))))
-                  
-                  ((equal vshipping-enabled "N")
-                   (cl-who:htm (:p "Please pick up your items from our store")
-                               (:p :class "location-info" 
-                                   (cl-who:str (format nil "Address: ~A, ~A, ~A" vaddress vcity vzipcode)))
-                               (:p :class "location-info" (cl-who:str (format nil "Phone: ~A" phone))))))))
-          
-        (with-html-div-row :id "costwithoutshipping" :style "display: none;" :class "shipping-cost-section"
-          (with-html-div-col-8
-            (:br)
-            (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
-            (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* 0.00)))
-            (:hr)
-            (:p :id "costwithoutshipping" :class "total-cost"
-                (:h3 :style "color: green;" 
-                     (:span :class "text-bg-success" 
-                            (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  shopcart-total)))))
-            (:hr)))
-        
-        (:input :type "submit" :class "btn btn-primary checkout-button" :tabindex "13" :value "Checkout")
-        (:script "function togglepickupinstore () {
+                  (:p :class "info-message"
+                      (if (equal freeshipenabled "Y") (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total)))))))
+                
+                ((and (equal vshipping-enabled "Y") (= shipping-cost 0))
+                 (cl-who:htm (:p :class "info-message" (cl-who:str "Shipping: FREE!"))))
+                
+                ((equal vshipping-enabled "N")
+                 (cl-who:htm (:p "Please pick up your items from our store")
+                             (:p :class "location-info" 
+                                 (cl-who:str (format nil "Address: ~A, ~A, ~A" vaddress vcity vzipcode)))
+                             (:p :class "location-info" (cl-who:str (format nil "Phone: ~A" phone))))))))
+      
+      (with-html-div-row :id "costwithoutshipping" :style "display: none;" :class "shipping-cost-section"
+        (with-html-div-col-8
+          (:br)
+          (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
+          (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* 0.00)))
+          (:hr)
+          (:p :id "costwithoutshipping" :class "total-cost"
+              (:h3 :style "color: green;" 
+                   (:span :class "text-bg-success" 
+                          (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  shopcart-total)))))
+          (:hr)))
+      
+      (:script "function togglepickupinstore () {
                       const storepickup = document.getElementById('idstorepickup');
                       if( storepickup.checked ){
                           $('#costwithoutshipping').show();
@@ -124,7 +120,7 @@
                           $('#costwithoutshipping').hide();
                           $('#costwithshipping').show();
                       }
-                  }")))))
+                  }"))))
 
 
 (defun dod-controller-customer-payment-methods-page ()
@@ -144,11 +140,12 @@
 		     (cl-who:with-html-output (*standard-output* nil)  
 		       (with-html-div-row
 			 (with-html-div-col
-			    (:h5 :class "text-center"  "Choose Payment Method")
-			   (:hr)))))))
+			    (:h5 :class "text-center"  "Choose Payment Method")))))))
 	  (widget3 (function (lambda ()
 		     (if (> lstcount 0)
-		       (custpaymentmethods (function (lambda () (values cust-type vendor-list customer custcomp phone singlevendor-p vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled paylaterenabled)))))))))
+			 (custpaymentmethods
+			  (function (lambda ()
+			    (values cust-type vendor-list customer custcomp phone singlevendor-p vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled paylaterenabled)))))))))
       (list widget1 widget2 widget3))))
 
 
@@ -557,7 +554,8 @@
 
 
 ;; This is a pure function. 
-(defun cust-wallet-as-row (wallet)
+(defun cust-wallet-as-row (wallet &rest arguments)
+  (declare (ignore arguments))
   (let* ((vendor (slot-value wallet 'vendor))
 	 (balance (slot-value wallet 'balance))
 	 (wallet-id (slot-value wallet 'row-id))
@@ -1570,41 +1568,42 @@
 	      (:input :class "form-control" :type "email" :class "form-control" :name "email" :value email :placeholder "Email" :data-error "That email address is invalid" :tabindex (+ tabindex 1)))))))
 
 (defun display-shipping&billing-widget (address zipcode city state )
-  (cl-who:with-html-output-to-string (*standard-output* nil)
-   ;; Row for Shipping and Billing Address. 
-    (with-html-div-row
-      (with-html-div-col-6
-	(:p "Shipping"))
-      (with-html-div-col-6
-	(:p "Billing")
-	(:div :class "form-check"
-	      (:input :type "checkbox" :id "billsameasshipchecked" :name "billsameasshipchecked" :value  "billsameasshipchecked" :onclick "displaybillingaddress();" :tabindex "9"  :checked "true")
-	      (:label :class "form-check-label" :style "font-size: 0.7rem;" :for "billsameasshipchecked" "&nbsp;&nbsp;Same as Shipping Address"))))
-    
-    (with-html-div-row
-      (with-html-div-col-8
-	(:div :class "form-group" (:label :for "shipaddress" "Shipping Address" )
-	      (:textarea :class "form-control" :id "shipaddress" :name "shipaddress"  :rows "3" :onkeyup "countChar(this, 200)" :tabindex "5" (cl-who:str (format nil "~A" address))))
-	(:div :id "charcount" :class "form-group")
-	(:div :class "form-group" (:label :for "shipzipcode" "Pincode" )
-	      (:input :class "form-control" :type "text" :class "form-control" :inputmode "numeric" :maxlength "6" :id "shipzipcode" :name "shipzipcode" :value zipcode :placeholder "Pincode" :tabindex "8"  :oninput "this.value=this.value.replace(/[^0-9]/g,'');"  ))
-	(:div :class "form-group"
-	      (:span :id "areaname" :class "label label-info" ""))
-	(:div :class "form-group" (:label :for "city" "City" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "shipcity" :value city :id "shipcity" :placeholder "City" :readonly T :required T))
-	(:div :class "form-group" (:label :for "state" "State" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "shipstate" :value state :id "shipstate"  :placeholder "State"  :readonly T :required T ))))
+  (let ((charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      ;; Row for Shipping and Billing Address. 
+      (with-html-div-row
+	(with-html-div-col-6
+	  (:p "Shipping"))
+	(with-html-div-col-6
+	  (:p "Billing")
+	  (:div :class "form-check"
+		(:input :type "checkbox" :id "billsameasshipchecked" :name "billsameasshipchecked" :value  "billsameasshipchecked" :onclick "displaybillingaddress();" :tabindex "9"  :checked "true")
+		(:label :class "form-check-label" :style "font-size: 0.7rem;" :for "billsameasshipchecked" "&nbsp;&nbsp;Same as Shipping Address"))))
       
-    (with-html-div-row :id "billingaddressrow" :style "display: none;" 
-      (with-html-div-col-8
-	(:div :class "form-group" (:label :for "shipaddress" "Billing Address" )
-	      (:textarea :class "form-control" :name "billaddress" :id "billaddress" :rows "3"  :tabindex "7"))
-	(:div :class "form-group" (:label :for "zipcode" "Pincode" )
-	      (:input :class "form-control" :type "text" :class "form-control" :inputmode "numeric" :maxlength "6" :id "billzipcode" :name "billzipcode" :tabindex "8" :placeholder "Pincode" ))
-	(:div :class "form-group" (:label :for "city" "City" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "billcity" :id "billcity"  :placeholder "City" ))
-	(:div :class "form-group" (:label :for "state" "State" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "billstate" :id "billstate" :placeholder "State" ))))))
+      (with-html-div-row
+	(with-html-div-col-8
+	  (:div :class "form-group" (:label :for "shipaddress" "Shipping Address")
+		(:textarea :class "form-control" :id "shipaddress" :name "shipaddress"  :rows "3" :onkeyup (format nil "countChar(~A.id, this, 200)" charcountid1)  :tabindex "5" (cl-who:str (format nil "~A" address))))
+	  (:div :id charcountid1 :class "form-group")
+	  (:div :class "form-group" (:label :for "shipzipcode" "Confirm Pincode." )
+		(:input :class "form-control" :type "text" :class "form-control" :inputmode "numeric" :maxlength "6" :id "shipzipcode" :name "shipzipcode" :value zipcode :placeholder "Pincode" :tabindex "8"  :oninput "this.value=this.value.replace(/[^0-9]/g,'');"))
+	  (:div :class "form-group"
+		(:span :id "areaname" :class "label label-info" ""))
+	  (:div :class "form-group" (:label :for "city" "City" )
+		(:input :class "form-control" :type "text" :class "form-control" :name "shipcity" :value city :id "shipcity" :placeholder "City" :readonly T :required T))
+	  (:div :class "form-group" (:label :for "state" "State" )
+		(:input :class "form-control" :type "text" :class "form-control" :name "shipstate" :value state :id "shipstate"  :placeholder "State"  :readonly T :required T ))))
+      
+      (with-html-div-row :id "billingaddressrow" :style "display: none;" 
+	(with-html-div-col-8
+	  (:div :class "form-group" (:label :for "shipaddress" "Billing Address" )
+		(:textarea :class "form-control" :name "billaddress" :id "billaddress" :rows "3"  :tabindex "7"))
+	  (:div :class "form-group" (:label :for "zipcode" "Pincode" )
+		(:input :class "form-control" :type "text" :class "form-control" :inputmode "numeric" :maxlength "6" :id "billzipcode" :name "billzipcode" :tabindex "8" :placeholder "Pincode" ))
+	  (:div :class "form-group" (:label :for "city" "City" )
+		(:input :class "form-control" :type "text" :class "form-control" :name "billcity" :id "billcity"  :placeholder "City" ))
+	  (:div :class "form-group" (:label :for "state" "State" )
+		(:input :class "form-control" :type "text" :class "form-control" :name "billstate" :id "billstate" :placeholder "State" )))))))
 
 (defun display-gst-widget ()
   (cl-who:with-html-output-to-string (*standard-output* nil) 
@@ -1623,16 +1622,21 @@
 	(:div :class "form-group" (:label :for "gstorgname" "Organization/Firm/Company Name" )
 	      (:input :class "form-control" :type "text" :class "form-control" :name "gstorgname" :tabindex "10"  :placeholder "Org/Firm/Company Name" ))))))
 
-(defun display-terms&captcha-widget ()
+(defun display-captcha-widget ()
+  (cl-who:with-html-output-to-string (*standard-output* nil) 
+    (with-html-div-row :style "display:block;"
+      (with-html-div-col
+	(:div :class "form-group"
+	      (:div :class "g-recaptcha" :required T  :data-sitekey *HHUBRECAPTCHAV2KEY* ))))))
+
+(defun display-terms-widget ()
   (cl-who:with-html-output-to-string (*standard-output* nil) 
     (with-html-div-row :style "display:block;"
       (with-html-div-col
 	(:div :class "form-check"
 	      (:input :type "checkbox" :name "tnccheck" :value  "tncagreed" :tabindex "11" :required T)
 	      (:label :class= "form-check-label" :for "tnccheck" "&nbsp;&nbsp;Agree Terms and Conditions&nbsp;&nbsp;")
-	      (:a  :href "/hhub/tnc" (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms"))
-	(:div :class "form-group"
-	      (:div :class "g-recaptcha" :required T  :data-sitekey *HHUBRECAPTCHAV2KEY* ))))))
+	      (:a  :href "/hhub/tnc" (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms"))))))
 
 
 (defun guest-cust-information-page (temp-customer)
@@ -1646,20 +1650,23 @@
    
   (cl-who:with-html-output-to-string (*standard-output* nil)
     (:form :class "form-guestcustorder" :role "form" :id "hhubordcustdetails"  :method "POST" :action "hhubcustshippingmethodspage" :data-toggle "validator"
+	   (with-html-div-row
+	     (with-html-div-col-6
+	       (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" "Previous"))
+	     (with-html-div-col-6
+	       (:input :type "submit"  :class "btn btn-lg btn-primary btn-block" :tabindex "13" :value "Next")))
 	   (cl-who:str (display-orddatereqdate-text-widget))
 	   (cl-who:str (display-phone-text-widget temp-cust-phone 1))
 	   (cl-who:str (display-name&email-widget temp-cust-name temp-cust-email 2))
 	   (with-html-div-row
 	     (:hr))
 	   (cl-who:str (display-shipping&billing-widget temp-cust-address temp-cust-zipcode temp-cust-city temp-cust-state))
-	   (:div :class "row"
-		 (:hr))
-	   (:div :class "row"
-		 (:hr))
-	   (cl-who:str (display-terms&captcha-widget))
-	   (:input :type "submit"  :class "btn btn-primary" :tabindex "13" :value "Checkout"))
-	   (:div :class "row"
-		 (:hr)))))
+	   ;;(cl-who:str (display-captcha-widget))
+	   (with-html-div-row
+	     (with-html-div-col-6
+	       (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" "Previous"))
+	     (with-html-div-col-6
+	       (:input :type "submit"  :class "btn btn-lg btn-primary btn-block" :tabindex "13" :value "Next")))))))
 
 
 (defun dod-controller-cust-add-order-page()
@@ -1946,8 +1953,6 @@
 	 (custname (slot-value cust 'name))
 	 (lowwalletbalanceflag nil)
 	 (redirectlocation "/hhub/dodcustordsuccess"))
-	 
-  
     (declare (ignore billaddress billzipcode billcity billstate billsameasshipchecked claimitcchecked gstnumber gstorgname order-cxt shipzipcode shipcity shipstate custname ))
     ;;(logiamhere (format nil "payment mode is ~A" payment-mode))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
@@ -2121,12 +2126,14 @@
 		       (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address"))))))
 	  (widget2 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
-		       (:div :class "card" :style "width: 50rem;"
-			     (:div :class "card-body"
-				   (:h5 :class "card-title" "Shipping & Handling"
-					(:hr)
-					(display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor freeshipenabled)))))))))
-      (list widget1 widget2))))
+		       (with-html-form "form-custshippingmethod" "hhubcustpaymentmethodspage"
+			 (display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor freeshipenabled)
+			 (with-html-div-row
+			   (with-html-div-col-6
+			     (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "dodcustorderaddpage" "Previous"))
+			   (with-html-div-col-6
+			     (:input :type "submit" :class "btn btn-lg btn-primary btn-block checkout-button" :tabindex "13" :value "Next")))))))))
+	  (list widget1 widget2))))
 
 
 (defun dod-controller-cust-shipping-methods-page ()
@@ -2282,7 +2289,7 @@
 					 (equal company-type "TRIAL"))
 				    (cl-who:str (make-payment-request-html (format nil "~A" shopcart-total)   (format nil "~A" wallet-id) "test" order-cxt email)))
 				   (T (with-html-form-having-submit-event "placeorderform" "dodmyorderaddaction"  
-					(:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary" :type "submit" "Place Order" ))))))))))))
+					(:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Place Order" ))))))))))))
 			  
 	  (widget3 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -2541,12 +2548,12 @@
   (cl-who:with-html-output (*standard-output* nil) 
     (:br)
     (with-html-div-row
-      (with-html-search-form "idsearchproducts" "searchproducts" "idprdlivesearch" "prdlivesearch" "dodsearchproducts" "onkeyupsearchform2event();"  "Search Products..."
-	(submitsearchform2event-js "#idprdlivesearch" "#prdlivesearchresult" ))
-       
+      (with-html-div-col-6
+	(with-html-search-form "idsearchproducts" "searchproducts" "idprdlivesearch" "prdlivesearch" "dodsearchproducts" "onkeyupsearchform2event();"  "Search Products..."
+	  (submitsearchform2event-js "#idprdlivesearch" "#prdlivesearchresult" )))
       ;; Display the My Cart button.
-      (with-html-div-col-1 :style "align: right;" 
-	(:a :class "btn btn-primary" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;" (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))))
+      (with-html-div-col-6 
+	(:a :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;" "Checkout " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))))
 
 (defun createmodelforcustprodbycatg()
   (let* ((catg-id (parse-integer (hunchentoot:parameter "id")))
@@ -2654,17 +2661,16 @@
 			 (with-html-div-row (:br))
 			 (with-html-div-row
 			   (:div :class "col-6"
-				 (:p (cl-who:str (format nil "Shopping Cart (~A Items)" (length products)))))
-			   (:div :class "col-6" :align "right"
-				 (cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping"  ))))
-			   (:hr)
+				 (:p (cl-who:str (format nil "Shopping Cart (~A Items)" (length products))))))
 			 (with-html-div-row
-			   (:div :class "col-6"
+			   (:div :class "col-6" 
+				 (cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping"  ))))
+			 (:hr)
+			 (with-html-div-row
+			   (with-html-div-col-6
 				 (:h4 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total)))))
-			   (:div :class "col-6" :align "right"
-				   (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustorderaddpage") "Checkout"
-				       (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-					      (cl-who:str lstcount))))))))))
+			   (with-html-div-col-6 :style "align: right;" 
+			     (:a :class "btn btn-lg btn-primary btn-block" :href "dodcustorderaddpage" :style "font-weight: bold; font-size: 20px !important;" "Checkout " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" lstcount)))))))))))
 	  (widget3 (function (lambda ()
 		     (if (> lstcount 0)
 			 (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)   
@@ -2672,8 +2678,13 @@
 			 ;;else
 			 (show-empty-shopping-cart)))))
 	  (widget4 (function (lambda ()
-		     (submitformevent-js "#idcustshoppingcartitems")))))
-      (list widget1 widget2 widget3 widget4))))
+		     (submitformevent-js "#idcustshoppingcartitems"))))
+	  (widget5 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil) 
+			(with-html-div-row
+			  (:div :class "col-6" 
+				(cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping" )))))))))
+      (list widget1 widget2 widget3 widget4 widget5))))
 	    
 (defun dod-controller-cust-show-shopcart ()
     :documentation "This is a function to display the shopping cart."
