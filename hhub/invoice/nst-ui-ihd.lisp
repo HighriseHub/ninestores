@@ -363,8 +363,7 @@
 	 (headerstatus (slot-value sessioninvheader 'status))
 	 (sessioninvitems (slot-value sessioninvoice 'InvoiceItems))
 	 (sessioninvproducts (slot-value sessioninvoice 'invoiceproducts))
-	 (products (hhub-get-cached-vendor-products)))
-
+	 (products (hhub-get-cached-vendor-products-to-sell)))
     (function (lambda ()
       (values products sessioninvitems sessioninvproducts  headerstatus sessioninvkey invnum)))))
 
@@ -379,9 +378,12 @@
 			  (:div :class "col-xs-6 col-sm-6 col-md-6 col-lg-6"
 				(:span "Create Invoice - Step 3:")))))))
 	   (widget2 (function (lambda ()
-		      (if (equal headerstatus "PAID")
+		      (if (or (equal headerstatus "PAID")
+			      (equal headerstatus "SHIPPED")
+			      (equal headerstatus "CANCELLED")
+			      (equal headerstatus "REFUNDED"))
 			  (cl-who:with-html-output (*standard-output* nil)
-			    (:h2 "INVOICE IS ALREADY PAID"))
+			    (:h2 (cl-who:str (format nil "INVOICE IS ~A" headerstatus))))
 			    ;;else
 			  (cl-who:with-html-output (*standard-output* nil)
 			    (with-html-div-row
