@@ -74,6 +74,14 @@
 		  (format t "I am in the async event loop. Exiting loop")))) :name "Background Task Thread")))
     (format t "I am in the main task. Thread info ~A" asynceventsthread)))
 		    
+(defun hhub-background-task-with-async-delay ()
+  (as:with-event-loop (:catch-app-errors t)
+    (let* ((result nil))
+      (as:delay
+       (lambda ()
+	 (setf result 10)
+	 (format T "Timer Fired. Exiting. Result is ~A ~%" result)) :time 3))))
+ 
 
 (defun func1 ()
   "Hello1")

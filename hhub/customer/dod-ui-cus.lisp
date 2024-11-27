@@ -2553,7 +2553,7 @@
 	  (submitsearchform2event-js "#idprdlivesearch" "#prdlivesearchresult" )))
       ;; Display the My Cart button.
       (with-html-div-col-6 
-	(:a :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;" "Checkout " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))))
+	(:a :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;" "Buy Now " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" itemscount))))))))
 
 (defun createmodelforcustprodbycatg()
   (let* ((catg-id (parse-integer (hunchentoot:parameter "id")))
@@ -2609,8 +2609,15 @@
 	  (widget5 (function (lambda ()
 		     (ui-list-customer-products lstprodbyvendor lstshopcart))))
 	  (widget6 (function (lambda()
-		     (whatsapp-widget vphone)))))
-      (list widget1 widget2 widget3 widget4 widget5 widget6))))
+		     (whatsapp-widget vphone))))
+	  (widget7 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col-2 "")
+			 (with-html-div-col-8
+			   (:a :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" :style "font-weight: bold; font-size: 20px !important;" "Buy Now " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" (length lstshopcart))))))
+			   (with-html-div-col-2 "")))))))
+	  (list widget1 widget2 widget3 widget4 widget5 widget6 widget7))))
 
 (defun dod-controller-customer-products-by-vendor ()
   :documentation "This function lists the customer products by category"
@@ -2661,7 +2668,7 @@
 			 (with-html-div-row (:br))
 			 (with-html-div-row
 			   (:div :class "col-6"
-				 (:p (cl-who:str (format nil "Shopping Cart (~A Items)" (length products))))))
+				 (:h3 (cl-who:str (format nil "Shopping Cart - ~A Items" (length products))))))
 			 (with-html-div-row
 			   (:div :class "col-6" 
 				 (cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping"  ))))
@@ -2670,7 +2677,7 @@
 			   (with-html-div-col-6
 				 (:h4 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total)))))
 			   (with-html-div-col-6 :style "align: right;" 
-			     (:a :class "btn btn-lg btn-primary btn-block" :href "dodcustorderaddpage" :style "font-weight: bold; font-size: 20px !important;" "Checkout " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" lstcount)))))))))))
+			     (:a :class "btn btn-lg btn-primary btn-block" :href "dodcustorderaddpage" :style "font-weight: bold; font-size: 20px !important;" "Buy Now " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" lstcount)))))))))))
 	  (widget3 (function (lambda ()
 		     (if (> lstcount 0)
 			 (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)   
@@ -2682,8 +2689,10 @@
 	  (widget5 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil) 
 			(with-html-div-row
-			  (:div :class "col-6" 
-				(cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping" )))))))))
+			  (with-html-div-col-6
+				(cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping" )))
+			  (with-html-div-col-6 :style "align: right;" 
+			     (:a :class "btn btn-lg btn-primary btn-block" :href "dodcustorderaddpage" :style "font-weight: bold; font-size: 20px !important;" "Buy Now " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" lstcount)))))))))))
       (list widget1 widget2 widget3 widget4 widget5))))
 	    
 (defun dod-controller-cust-show-shopcart ()
