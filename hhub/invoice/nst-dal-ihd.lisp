@@ -93,6 +93,9 @@
    (finyear
     :initarg :finyear
     :accessor finyear)
+   (external-url
+    :initarg :external-url
+    :accessor external-url)
    (status
     :initarg :status
     :accessor status)
@@ -161,6 +164,9 @@
    (finyear
     :initarg :finyear
     :accessor finyear)
+   (external-url
+    :initarg :external-url
+    :accessor external-url)
    (status
     :initarg :status
     :accessor status)
@@ -239,6 +245,9 @@
    (finyear
     :initarg :finyear
     :accessor finyear)
+   (external-url
+    :initarg :external-url
+    :accessor external-url)
    (status
     :initarg :status
     :accessor status)
@@ -340,6 +349,9 @@
     :initarg :finyear
     :initform ""
     :accessor finyear)
+   (external-url
+    :initarg :external-url
+    :accessor external-url)
    (status
     :initarg :status
     :initform "DRAFT"
@@ -461,6 +473,10 @@
     :type (string 9)
     :initarg :finyear
     :accessor finyear)
+   (external-url
+    :type (string 512)
+    :initarg :external-url
+    :accessor external-url)
    (status
     :type (string 20)
     :initarg :status
