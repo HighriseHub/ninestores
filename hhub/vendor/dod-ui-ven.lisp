@@ -803,9 +803,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(setf (slot-value product 'shipping-height-cms) shipping-height-cms)
 	(setf (slot-value product 'shipping-weight-kg) shipping-weight-kg)
 	(update-prd-details product)
-	(dod-reset-vendor-products-functions vendor (get-login-vendor-company))
+	(dod-reset-vendor-products-functions vendor (get-login-vendor-company))))
 	(function (lambda ()
-	  (values redirecturl)))))))
+	  (values redirecturl)))))
 
 
 (defun com-hhub-transaction-vendor-product-add-action () 
@@ -837,7 +837,6 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (external-url (if product (generate-product-ext-url product)))
 	 (redirecturl (format nil "/hhub/dodprddetailsforvendor?id=~A" id))
 	 (params nil))
-    (logiamhere (format nil "service product is ~A" isserviceproduct))
     (if product
 	(setf params (acons "mode" "edit" params))
 	;;else
@@ -874,9 +873,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (update-prd-details product))
 	    ;;else
 	    (create-product prodname description vendor (select-prdcatg-by-id catg-id company) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag prd-type company))
-	(dod-reset-vendor-products-functions vendor company)
+	(dod-reset-vendor-products-functions vendor company)))
 	(function (lambda ()
-	  (values redirecturl)))))))
+	  (values redirecturl)))))
 
 
 
@@ -1047,7 +1046,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    (hunchentoot:redirect "/hhub/dodvendindex?context=home")
 	    (with-standard-vendor-page-v2  "Welcome to Nine Stores Platform - Vendor Login "
 	      (with-html-div-row
-		(with-html-div-col
+		(with-html-div-col :align "center"
 		  (:div :class "account-wall"
 			(with-html-form  "form-vendorsignin" "hhubvendloginotpstep"
 			  (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
@@ -1055,7 +1054,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			  (:div :class "form-group"
 				(:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
 			  (:div :class "form-group"
-				(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save")))))))))
+				(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Login")))))))))
     
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
@@ -1694,14 +1693,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	     (vendor-company (if dbvendor  (get-vendor-company dbvendor))))
 	(when (and  dbvendor
 		    (null (hunchentoot:session-value :login-vendor-name))) ;; vendor should not be logged-in in the first place.
-	  (hunchentoot:start-session)  
-	  (setf hunchentoot:*session-max-time* (* 3600 8))
-	  (set-vendor-session-params  vendor-company dbvendor)
-	  T)
-	(if dbvendor T NIL))
-    ;; Lets work on the domain objects here.
-    ;; (setup-domain-vendor *HHUBBUSINESSSERVER* phone))))
-    ;;handle the exception. 
+	  (set-vendor-session-params  vendor-company dbvendor)))
+	;; Lets work on the domain objects here.
+	;; (setup-domain-vendor *HHUBBUSINESSSERVER* phone))))
+	;;handle the exception. 
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2006 ) 
 	  (progn
@@ -1722,17 +1717,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	     (password-verified (if dbvendor  (check-password password salt pwd)))
 	     (vendor-company (if dbvendor  (get-vendor-company dbvendor))))
 					;(log (if password-verified (hunchentoot:log-message* :info (format nil  "phone : ~A password : ~A" phone password)))))
-	(when (and  dbvendor
-		    password-verified
-		    (null (hunchentoot:session-value :login-vendor-name))) ;; vendor should not be logged-in in the first place.
-	  (progn
-	    (hunchentoot:start-session)
-	    (setf hunchentoot:*session-max-time* (* 3600 8))
-	    (set-vendor-session-params  vendor-company dbvendor))))
-	    ;; Lets work on the domain objects here.
-	   ;; (setup-domain-vendor *HHUBBUSINESSSERVER* phone))))
-
-					;handle the exception. 
+	(when (and dbvendor
+		   password-verified
+		   (null (hunchentoot:session-value :login-vendor-name))) ;; vendor should not be logged-in in the first place.
+	  (set-vendor-session-params  vendor-company dbvendor)))
+    ;; handle the exception
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2006 ) 
 	  (progn
@@ -1754,9 +1743,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun set-vendor-session-params (company  vendor)
   ;; Add the vendor object and the tenant to the Business Session 
   ;;set vendor company related params
+  
   (let ((vsessionobj (make-instance 'VendorSessionObject)))
-	
-    (setf (slot-value vsessionobj 'vwebsession) hunchentoot:*session*)
+    (setf (slot-value vsessionobj 'vwebsession) (hunchentoot:start-session))
+    (setf hunchentoot:*session-max-time* (* 3600 8))
     (setf (hunchentoot:session-value :login-vendor ) vendor)
     (setf (slot-value vsessionobj 'vendor) vendor)
     (setf (hunchentoot:session-value :login-vendor-name) (slot-value vendor 'name))
@@ -1781,12 +1771,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (if vendor (setf (hunchentoot:session-value :login-shopping-cart) '()))
     ;; Add vendor settings to the session. 
     (addloginvendorsettings)
-    (let ((sessionkey (createBusinessSession (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite") vsessionobj)))
+    (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite"))
+	   (sessionkey (createBusinessSession bcontext vsessionobj)))
       (setf (hunchentoot:session-value :login-vendor-business-session-id) sessionkey)
-      (logiamhere (format nil "web session is ~A" (slot-value vsessionobj 'vwebsession)))
-      (logiamhere (format nil "session key is ~A" sessionkey))
-      (enforcevendorsession sessionkey "vendorsite"  *HHUBMAXVENDORLOGINS*)
+      (logiamhere (format nil "current web session is ~A" (slot-value vsessionobj 'vwebsession)))
+      (logiamhere (format nil "current session key is ~A" sessionkey))
+      (enforcevendorsession sessionkey bcontext  *HHUBMAXVENDORLOGINS*)
+      (logiamhere (format nil "after enforcing sessions current web session is ~A" (slot-value vsessionobj 'vwebsession)))
       sessionkey)))
+
 
 
 (defun addloginvendorsettings ()
@@ -1824,32 +1817,42 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     start-time))
 
 
-(defun enforcevendorsession (sessionkey contextname maxusersallowed)
-  (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* contextname))
+
+(defun resetvendorsessions (sessionkey)
+  (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite"))
 	 (bsessions-ht (businesssessions-ht bcontext))
-	 (busersession (gethash sessionkey bsessions-ht))
-	 (user (slot-value busersession 'vendor))
+	 (bvendorsession (gethash sessionkey bsessions-ht))
+	 (vendorwebsession (slot-value bvendorsession 'vwebsession)))
+    (if vendorwebsession (hunchentoot:remove-session vendorwebsession))  
+    (deleteBusinessSession bcontext sessionkey)))
+
+(defun enforcevendorsession (sessionkey bcontext maxvendorsallowed)
+  (let* ((bsessions-ht (businesssessions-ht bcontext))
+	 (bvendorsession (gethash sessionkey bsessions-ht))
+	 (currentwebsession (slot-value bvendorsession 'vwebsession))
+	 (vendor (slot-value bvendorsession 'vendor))
 	 (sessionlist '())
 	 (keylist '()))
     (maphash (lambda (k v)
-	       (let ((prevuserid (slot-value v 'vendor-id))
+	       (let ((prevvendorid (slot-value v 'vendor-id))
 		     (prevwebsession (slot-value v 'vwebsession))
-		     (loginuserid (slot-value user 'row-id))
-		     (username (slot-value user 'name)))
+		     (loginvendorid (slot-value vendor 'row-id))
+		     (vendorname (slot-value vendor 'name)))
 		 (when (and
 			(not (equal k sessionkey)) ;; There are 2 separate sessions from same user. 
-			(= prevuserid loginuserid)) ;; Same user is login again.
-		   (logiamhere (format nil "User is ~A. key is ~A. Websession is ~A" username k prevwebsession))
+			(= prevvendorid loginvendorid)) ;; Same user is login again.
+		   (logiamhere (format nil "Vendor is ~A. key is ~A. Websession is ~A" vendorname k prevwebsession))
 		   (setf sessionlist (append sessionlist (list v)))
 		   (setf keylist (append keylist (list k)))))) bsessions-ht)
     ;; If there are exactly 1 item in the list that means that user has logged in previouly. 
-    (when (>= (length sessionlist) maxusersallowed)
+    (when (>= (length sessionlist) maxvendorsallowed)
       (let* ((sessiontoremove (nth 0 sessionlist))
 	     (websession (slot-value sessiontoremove 'vwebsession))
 	     (firstkey (nth 0 keylist)))
+	(logiamhere (format nil "logging off vendor websession ~A" websession))
 	(hunchentoot:remove-session websession)
 	(deleteBusinessSession bcontext firstkey)))
-    (logiamhere (format nil "there are ~d items in session list " (length sessionlist)))))
+    (logiamhere (format nil "After logging off current session is ~A" currentwebsession))))
 
    
 (defun dod-controller-vendor-delete-product () 
@@ -1967,10 +1970,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun dod-gen-vendor-products-functions (vendor company)
   (let ((vendor-products (select-products-by-vendor vendor company))
 	(product-categories (select-prdcatg-by-company company))
-	(vendor-products-for-sell (select-products-by-company company)))
+	(active-vendor-products (select-active-products-by-vendor vendor company))
+	(company-products (select-products-by-company company)))
     (list (function (lambda () vendor-products))
 	  (function (lambda () product-categories))
-	  (function (lambda () vendor-products-for-sell)))))
+	  (function (lambda () active-vendor-products))
+	  (function (lambda () company-products)))))
 
 (defun dod-gen-order-functions (vendor company)
 (let ((pending-orders (get-orders-for-vendor vendor 500 company ))
@@ -2004,8 +2009,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (let ((vendor-products-func (second (hunchentoot:session-value :login-vendor-products-functions))))
     (funcall vendor-products-func)))
 
-(defun hhub-get-cached-vendor-products-to-sell ()
+(defun hhub-get-cached-active-vendor-products ()
   (let ((vendor-products-func (third (hunchentoot:session-value :login-vendor-products-functions))))
+    (funcall vendor-products-func)))
+
+(defun hhub-get-cached-company-products ()
+  (let ((vendor-products-func (fourth (hunchentoot:session-value :login-vendor-products-functions))))
     (funcall vendor-products-func)))
 
 (defun dod-get-cached-pending-orders()
