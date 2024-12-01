@@ -365,7 +365,8 @@ function fallbackCopyTextToClipboard(text) {
     console.error('Fallback: Oops, unable to copy', err);
   }
 
-  document.body.removeChild(textArea);
+    document.body.removeChild(textArea);
+    displaySuccess("#hhub-success","Copied To Clipboard");   
 }
 
 
@@ -520,7 +521,7 @@ $formvendsignin.submit ( function() {
 })
 
 function displayError(elem, message, timeout) {
-     $(elem).show().html('<div class="alert alert-danger alert-dismissible"><button type="button" class="closebtn" data-dismiss="alert" aria-hidden="true"><span aria-hidden="true">&times;</span></button><strong class="text-primary">Warning!&nbsp;&nbsp;</strong><span class="text-primary">'+message+'</span></div>');
+     $(elem).show().html('<div class="alert alert-danger alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button><strong>Danger!</strong>' + message + '</div>');
     if (timeout || timeout === 0) {
     setTimeout(function() { 
       $(elem).alert('close');
@@ -529,7 +530,7 @@ function displayError(elem, message, timeout) {
 };
 
 function displaySuccess(elem, message, timeout) {
-    $(elem).show().html('<div class="alert alert-success alert-dismissible"><button type="button" class="closebtn" data-dismiss="alert" aria-hidden="true"><span aria-hidden="true">&times;</span></button><strong class="text-primary">Success!&nbsp;&nbsp;</strong><span class="text-primary">'+message+'</span></div>');
+    $(elem).show().html('<div class="alert alert-success alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button><strong>Success!</strong>' + message + '</div>');
     if (timeout || timeout === 0) {
     setTimeout(function() { 
 	$(elem).alert('close');
