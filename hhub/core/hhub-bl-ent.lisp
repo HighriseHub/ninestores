@@ -383,7 +383,8 @@
   :description "Deletes the business session"
   (let ((bs-ht (businesssessions-ht bctx)))
     (remhash key bs-ht)
-    (logiamhere (format nil "removing key ~A Size of business sessions hashtable is ~A" key (hash-table-size bs-ht)))))
+    ;;(logiamhere (format nil "removing key ~A Size of business sessions hashtable is ~A" key (hash-table-size bs-ht)))
+    ))
 
 (defmethod  getBusinessSession ((bctx BusinessContext) key)
   :description "Get the business session"
