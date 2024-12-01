@@ -1,6 +1,111 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 
+
+(defun generate-invoice-ext-url (invnum vendor company)
+  :description "Generates an external URL for a product, which can be shared with external entities"
+  (let* ((tenant-id (slot-value company 'row-id))
+	 (vendor-id (slot-value vendor 'row-id))
+	 (param-csv (format nil "tenant-id,invnum,vendor-id~C~A,~A,~A" #\linefeed tenant-id invnum vendor-id))
+	 (param-base64 (cl-base64:string-to-base64-string param-csv)))
+    (format nil "~A/hhub/displayinvoicepublic?key=~A" *siteurl* param-base64)))
+
+
+(defun createmodelfordisplayinvoicepublic ()
+  (let* ((parambase64 (hunchentoot:parameter "key"))
+	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
+	 (paramslist (first (cl-csv:read-csv param-csv
+					     :skip-first-p T
+					     :map-fn #'(lambda (row)
+							 row))))
+	 (tenant-id (nth 0 paramslist))
+	 (invnum (nth 1 paramslist))
+	 (vendor-id (nth 2 paramslist))
+	 (vendor (select-vendor-by-id vendor-id))
+	 (company (select-company-by-id tenant-id))
+	 (hrequestmodel (make-instance 'InvoiceHeaderRequestModel
+				      :invnum invnum
+				      :company company))
+	 (headeradapter (make-instance 'InvoiceHeaderAdapter))
+	 (invheader (processreadrequest headeradapter hrequestmodel))
+         (invnum (slot-value invheader 'invnum))
+	 (irequestmodel (make-instance 'InvoiceItemRequestModel
+				       :company company
+				       :invoiceheader invheader))
+	 (itemsadapter (make-instance 'InvoiceItemAdapter))
+	 (sessioninvitems (processreadallrequest itemsadapter irequestmodel))
+	 (totalvalue (calculate-invoice-totalaftertax sessioninvitems))
+	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" invnum totalvalue)))
+	 (sessioninvkey invnum))
+
+      (function (lambda ()
+	(values sessioninvkey invheader sessioninvitems qrcodepath)))))
+
+(defun createwidgetsfordisplayinvoicepublic (modelfunc)
+  (multiple-value-bind (sessioninvkey sessioninvheader  sessioninvitems qrcodepath) (funcall modelfunc)
+    (let* ((widget1 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(with-html-div-row
+			  (with-catch-submit-event "idinvoiceconfirmpage"
+			    (cl-who:str (display-invoice-confirm-page-widget  sessioninvheader sessioninvitems qrcodepath sessioninvkey)))))))))
+	   (list widget1))))
+    
+(defun com-hhub-transaction-display-invoice-public ()
+    (with-mvc-ui-page "Display Invoice Public" createmodelfordisplayinvoicepublic createwidgetsfordisplayinvoicepublic :role :vendor))
+
+;;;;;;;;;;;;;;;;;;;;;;;; INVOICE ACTION MENU ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun invoice-header-actions-menu (external-url status sessioninvkey customer)
+  (let ((phone (slot-value customer 'phone)))
+    (cl-who:with-html-output (*standard-output* nil)
+    (with-html-div-row :style "border-radius: 5px;background-color:#e6f0ff; border-bottom: solid 1px; margin: 15px; height: 30px; font-size: 1rem;"
+      (if (equal status "PAID")
+	  (cl-who:htm
+	   (with-html-div-col-1 :data-bs-toggle "popover" :title "Print Invoice"
+	     (:a :href (format nil "vshowinvoiceconfirmpage?sessioninvkey=~A" sessioninvkey) :onclick (format nil "window.open(this.href).print(); return false;") (:i :class "fa-solid fa-print"))))
+	  ;;else
+	  (cl-who:htm
+	   (with-html-div-col-1 :data-bs-toggle "popover" :title "Pay Invoice to Activate" 
+	     (:a :href "#" (:i :class "fa-solid fa-print")))))
+      (if (or (equal status "PAID")
+	      (equal status "PENDINGPAYMENT"))
+	  (cl-who:htm
+	   (with-html-div-col-1 :data-bs-toggle "popover" :title "Send Invoice Email"
+	     (:a :href "#" (:i :class "fa-regular fa-envelope"))))
+	  ;;else
+	  (cl-who:htm
+	   (with-html-div-col-1 :data-bs-toggle "popover" :title "Pay Invoice to Activate" 
+	     (:a :href "#" (:i :class "fa-regular fa-envelope")))))
+      (if (equal status "PENDINGPAYMENT")
+	  (cl-who:htm
+	   (with-html-div-col-1 :data-bs-toggle "popover" :title "Send Payment Reminder"
+	     (:a :href "#" (:i :class "fa-solid fa-hourglass-start"))))
+	  ;;else
+	  (cl-who:htm
+	   (with-html-div-col-1 "&nbsp;")))
+
+      (with-html-div-col-1 :data-bs-toggle "popover" :title "Duplicate Invoice"
+	(:a :href "#" (:i :class "fa-regular fa-clone")))
+      (with-html-div-col-1 :data-bs-toggle "popover" :title "Download Invoice PDF"
+	(:a :href "#" (:i :class "fa-regular fa-file-pdf")))
+      (with-html-div-col-1 :data-bs-toggle "popover" :title "Send Draft/Proforma Invoice"
+	(:a :href "#" (:i :class "fa-regular fa-pen-to-square")))
+      (if external-url
+	  (cl-who:htm
+	   (with-html-div-col-1  :data-bs-toggle "popover" :title "Copy Link" 
+	     (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-link"))))
+	  ;;else
+	  (cl-who:htm
+	   (with-html-div-col-1 "&nbsp;")))
+      
+      (with-html-div-col-1 :data-bs-toggle "popover" :title "Customer WhatsApp" 
+	(:a :target "_blank" :style "font-weight: bold; font-size: 1.2rem !important;"  :href (format nil "createwhatsapplinkwithmessage?phone=~A&message=Hi" phone)  (:i :class "fa-brands fa-whatsapp")))
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-2 :align "right" :data-bs-toggle "popover" :title "Delete" 
+	(:a :onclick "return DeleteConfirm();"  :href "#" (:i :class "fa-solid fa-trash-can")))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;;;;;;;;;;;;;;;;;;;;; INVOICE PAID ACTION ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun com-hhub-transaction-invoice-paid-action ()
   (with-vend-session-check ;; delete if not needed. 
@@ -169,7 +274,7 @@
 	 (itemsadapter (make-instance 'InvoiceItemAdapter))
 	 (sessioninvitems (processreadallrequest itemsadapter irequestmodel))
 	 (totalvalue (calculate-invoice-totalaftertax sessioninvitems))
-	 (qrcodepath (generateqrcodeforvendor vendor "ABC" sessioninvkey totalvalue)) 
+	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" invnum totalvalue)))
 	 (params nil))
 
     (setf (slot-value sessioninvoice 'InvoiceItems) sessioninvitems)
@@ -241,7 +346,6 @@
 
  
 (defun display-invoice-confirm-page-widget (invoiceheader invoiceitems qrcodepath sessioninvkey)
-  (logiamhere (format nil "inv number - ~A" (slot-value invoiceheader 'invnum)))
   (with-slots (row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor company) invoiceheader
     (cl-who:with-html-output (*standard-output* nil)
       (:style "table {width: 100%; border-collapse: collapse;} table.center {margin-left: auto; margin-right: auto;} table, th, td {border: 0.5px dashed grey;} th, td { padding: 1px; text-align: left;} td img{ display: block; margin-left: auto; margin-right: auto; } ")
@@ -323,7 +427,7 @@
 	     (:td :colspan "3" "Add : SGST :")
 	     (:td :colspan "3" (cl-who:str (calculate-invoice-totalsgst invoiceitems))))
 	    (:tr
-	     (:td :rowspan "6" :colspan "7" (:img :style "width: 150px; height: 150px;" :src (cl-who:str (format nil "/img~A" qrcodepath)) (:span "Pay By UPI")))
+	     (:td :rowspan "6" :colspan "7" (:img :style "width: 150px; height: 150px;" :src qrcodepath (:span "Pay By UPI")))
 	     (:td :colspan "3" "Add : IGST :")
 	     (:td :colspan "3" (cl-who:str (calculate-invoice-totaligst invoiceitems))))
 	    (:tr
@@ -363,7 +467,7 @@
 	 (headerstatus (slot-value sessioninvheader 'status))
 	 (sessioninvitems (slot-value sessioninvoice 'InvoiceItems))
 	 (sessioninvproducts (slot-value sessioninvoice 'invoiceproducts))
-	 (products (hhub-get-cached-vendor-products-to-sell)))
+	 (products (hhub-get-cached-active-vendor-products)))
     (function (lambda ()
       (values products sessioninvitems sessioninvproducts  headerstatus sessioninvkey invnum)))))
 
@@ -829,13 +933,13 @@
 			 (:hr)))))
 	  (widget2 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
-		       
 		       (:div :id "InvoiceHeaderlivesearchresult" 
-			     (:div :class "row"
-				   (:div :class"col-3"
-					 (:a :href "/hhub/addcusttoinvoice" :role "button" :class "btn btn-lg btn-primary btn-block" (:i :class "fa-solid fa-plus") "&nbsp;&nbsp;Create Invoice"))
-				   (:div :class "col-6" :align "right" 
-					 (:span :class "badge" (cl-who:str (format nil "~A" (length viewallmodel))))))
+			     (with-html-div-row
+			       (with-html-div-col-3
+				 (:a :href "/hhub/addcusttoinvoice" :role "button" :class "btn btn-lg btn-primary btn-block" (:i :class "fa-solid fa-plus") "&nbsp;&nbsp;Create Invoice"))
+			       (with-html-div-col-6 "")
+			       (with-html-div-col-3 :align "right"
+				 (:span :class "badge bg-info" (:h5 (cl-who:str (format nil "~A" (length viewallmodel)))))))
 			     (:hr)
 			     (cl-who:str (RenderListViewHTML htmlview viewallmodel))))))))
       (list widget1 widget2))))
@@ -876,11 +980,12 @@
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
-		       (:div :class "row"
-			     (:div :class"col-xs-6"
-				   (:a :href "/hhub/addcusttoinvoice" (:i :class "fa-solid fa-plus") "&nbsp;&nbsp;Create Invoice"))
-			     (:div :class "col-xs-6" :align "right" 
-				   (:span :class "badge" (cl-who:str (format nil "~A" (length viewallmodel))))))
+		       (with-html-div-row
+			 (with-html-div-col-3
+			   (:a :href "/hhub/addcusttoinvoice" :role "button" :class "btn btn-lg btn-primary btn-block" (:i :class "fa-solid fa-plus") "&nbsp;&nbsp;Create Invoice"))
+			 (with-html-div-col-6 "")
+			 (with-html-div-col-3 :align "right"
+			   (:span :class "badge bg-info" (:h5 (cl-who:str (format nil "~A" (length viewallmodel)))))))
 		       (:hr)
 		       (cl-who:str (RenderListViewHTML htmlview viewallmodel)))))))
       (list widget1))))
@@ -921,6 +1026,7 @@
 	 (company (get-login-vendor-company)) ;; or get ABAC subject specific login company function. 
 	 (customer (select-customer-by-id custid company))
 	 (vendor (get-login-vendor))
+	 (external-url (generate-invoice-ext-url invnum vendor company)) 
 	 (requestmodel (make-instance 'InvoiceHeaderRequestModel
 					 :invnum invnum
 					 :invdate invdate
@@ -943,6 +1049,7 @@
 					 :tnc tnc
 					 :authsign authsign
 					 :finyear finyear
+					 :external-url external-url
 					 :status status
 					 :vendor vendor
 					 :company company))
@@ -953,7 +1060,7 @@
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (with-hhub-transaction "com-hhub-transaction-update-invoice-action" params 
       (handler-case 
-	  (let ((domainobj (ProcessUpdateRequest adapterobj requestmodel)))
+	  (let* ((domainobj (ProcessUpdateRequest adapterobj requestmodel)))
 	    (when sessioninvoice
 	      (setf (slot-value sessioninvoice 'invoiceheader) domainobj)
 	      (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
@@ -1034,6 +1141,7 @@
 				      :tnc tnc
 				      :authsign (if authsign authsign vname)
 				      :finyear finyear
+				      :external-url ""
 				      :company company))
 	 (adapterobj (make-instance 'InvoiceHeaderAdapter))
 	 (hrequestmodel (make-instance 'InvoiceHeaderContextIDRequestModel
@@ -1243,6 +1351,7 @@
 				:customer customer
 				:custaddr custaddress 
 				:finyear finyear
+				:external-url ""
 				:status "DRAFT"
 				:placeofsupply *NSTGSTBUSINESSSTATE*
 				:statecode *NSTGSTBUSINESSSTATE*
@@ -1272,22 +1381,25 @@
     (setf (slot-value newsessioninvoice 'InvoiceHeader) invoiceobj)
     (setf (gethash sessioninvkey sessioninvoices-ht) newsessioninvoice)
     (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)
-  (with-slots (context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status customer ) invoiceobj
+  (with-slots (context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear external-url status customer ) invoiceobj
     (function (lambda()
-      (values context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status customer  mode sessioninvkey))))))
+      (values context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear external-url status customer  mode sessioninvkey))))))
 
 
 (defun createwidgetsforeditinvoiceheaderpage (modelfunc)
-  (multiple-value-bind (context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status customer  mode sessioninvkey) (funcall modelfunc)
+  (multiple-value-bind (context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear external-url status customer  mode sessioninvkey) (funcall modelfunc)
     (let* ((widget1 (editinvoicewidget-section1 sessioninvkey context-id invnum invdate  custgstin finyear status customer))
 	   (widget2 (editinvoicewidget-section2 custaddr billaddr shipaddr))
 	   (widget3 (editinvoicewidget-section3 statecode placeofsupply revcharge transmode vnum totalvalue totalinwords))
 	   (widget4 (editinvoicewidget-section4 bankaccnum bankifsccode tnc authsign))
 	   (widget5 (function (lambda ()
+		      (invoice-header-actions-menu external-url status sessioninvkey customer))))  
+	   (widget5 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-vendor-breadcrumb
 			  (:li :class "breadcrumb-item" (:a :href "displayinvoices" "Invoices"))
 			  (:li :class "breadcrumb-item" (:a :href "addcusttoinvoice" "Select Customer")))
+			(funcall widget5)
 			(:span "Create Invoice - Step 2: ")
 			(:span (cl-who:str sessioninvkey))
 			(:h2 "Fill Invoice Details For")
