@@ -170,12 +170,12 @@
 	 (price  (if domainobj (slot-value domainobj 'price)))
 	 (discount  (if domainobj (slot-value domainobj 'discount)))
 	 (row-id (if domainobj (slot-value domainobj 'row-id)))
-	 (form-name (format nil "form-addInvoiceItem~A" row-id))
+	 (form-name (format nil "form-editInvoiceItem~A" row-id))
 	 (logopath (format nil "~A/img/logo.png" *siteurl*)))
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-div-row
 	(with-html-div-col-12
-	  (with-html-form form-name  (if domainobj "updateInvoiceItemaction" "createInvoiceItemaction")
+	  (with-html-form form-name (if domainobj "updateInvoiceItemaction" "createInvoiceItemaction")
 	    (:img :class "profile-img" :src logopath :alt "Logo")
 	    (with-html-input-text-hidden "prd-id" prdid)
 	    (with-html-input-text-hidden "row-id" row-id)
