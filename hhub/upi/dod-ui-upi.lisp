@@ -324,7 +324,7 @@
   (with-slots (utrnum status) upiviewmodel
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-div-row 
-	(with-html-div-col
+	(with-html-div-col-10
 	  (:h3 (cl-who:str (format nil "UTR Number - ~A." utrnum)))
 	  (:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipayconfirm" :enctype "multipart/form-data"
 		 (:div :class "form-group" :style "display: none"
@@ -332,7 +332,7 @@
 		 (:div :class "form-group"
 		       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Payment Received")))))
 	(with-html-div-row
-	  (with-html-div-col
+	  (with-html-div-col-10
 	    (:form :id (format nil "form-vendorupiconfirm") :data-toggle "validator"  :role "form" :method "POST" :action "hhubvendupipaycancel" :enctype "multipart/form-data"
 		   (:div :class "form-group" :style "display: none"
 			 (:input :class "form-control" :name "utrnum" :value utrnum :placeholder "UTR Number" :type "numeric"   :readonly T ))

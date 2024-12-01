@@ -169,21 +169,23 @@
 	 (qty  (if domainobj (slot-value domainobj 'qty)))
 	 (price  (if domainobj (slot-value domainobj 'price)))
 	 (discount  (if domainobj (slot-value domainobj 'discount)))
-	 (row-id (if domainobj (slot-value domainobj 'row-id))))
+	 (row-id (if domainobj (slot-value domainobj 'row-id)))
+	 (form-name (format nil "form-addInvoiceItem~A" row-id))
+	 (logopath (format nil "~A/img/logo.png" *siteurl*)))
     (cl-who:with-html-output (*standard-output* nil)
-      (:div :class "row" 
-	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		  (with-html-form (format nil "form-addInvoiceItem~A" row-id)  (if domainobj "updateInvoiceItemaction" "createInvoiceItemaction")
-		    (:img :class "profile-img" :src "/img/logo.png" :alt "")
-		    (with-html-input-text-hidden "prd-id" prdid)
-		    (with-html-input-text-hidden "row-id" row-id)
-		    (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
-		    (with-html-input-text-readonly "prddesc" "Product Description" "Product Description"  prddesc nil nil 0)
-		    (with-html-input-text "qty" "Quantity" "Quantity" qty T "Enter/Update Quantity" 1)
-		    (with-html-input-text "price" "Price" "Price" price T "Enter/Update Price" 2)
-		    (with-html-input-text "discount" "Discount%" "Discount%" discount T "Enter/Update Discount" 3)
-		    (:div :class "form-group"
-			  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+      (with-html-div-row
+	(with-html-div-col-12
+	  (with-html-form form-name  (if domainobj "updateInvoiceItemaction" "createInvoiceItemaction")
+	    (:img :class "profile-img" :src logopath :alt "Logo")
+	    (with-html-input-text-hidden "prd-id" prdid)
+	    (with-html-input-text-hidden "row-id" row-id)
+	    (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
+	    (with-html-input-text-readonly "prddesc" "Product Description" "Product Description"  prddesc nil nil 0)
+	    (with-html-input-text "qty" "Quantity" "Quantity" qty T "Enter/Update Quantity" 1)
+	    (with-html-input-text "price" "Price" "Price" price T "Enter/Update Price" 2)
+	    (with-html-input-text "discount" "Discount%" "Discount%" discount T "Enter/Update Discount" 3)
+	    (:div :class "form-group"
+		  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
 
 
 (defun delete-invoiceitem-dialog (domainobj sessioninvkey)
