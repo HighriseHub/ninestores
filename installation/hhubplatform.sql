@@ -74,6 +74,7 @@ CREATE TABLE `DOD_INVOICE_HEADER` (
   `TNC` text,
   `AUTHSIGN` varchar(100) DEFAULT NULL,
   `FINYEAR` varchar(9) NOT NULL,
+  `EXTERNAL_URL` varchar(2048) character set utf8 collate utf8_general_ci null default null,
   `USER_ID` mediumint DEFAULT NULL,
   `CREATED` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `UPDATED` timestamp NULL DEFAULT NULL,
