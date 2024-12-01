@@ -1054,6 +1054,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/deleteinvoiceitemaction"   'com-hhub-transaction-delete-invoiceitem-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaymentpage"   'com-hhub-transaction-show-invoice-payment-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaidaction"   'com-hhub-transaction-invoice-paid-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/displayinvoicepublic"   'com-hhub-transaction-display-invoice-public)
 ))
 
 
