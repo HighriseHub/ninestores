@@ -77,6 +77,18 @@
 		[= [:deleted-state] "N"]
 		[= [:tenant-id] tenant-id]
 		[=[:vendor-id] vendor-id]]  :limit 200 :order-by '( ([row-id] :desc)) 
+					    :caching *dod-database-caching* :flatp t )))
+
+(defun select-active-products-by-vendor (vendor company-instance)
+    (let ((tenant-id (slot-value company-instance 'row-id))
+	     (vendor-id (slot-value vendor 'row-id)))
+ (clsql:select 'dod-prd-master  :where
+		[and 
+		[= [:deleted-state] "N"]
+		[= [:tenant-id] tenant-id]
+		[= [:active-flag] "Y"]
+		[= [:approved-flag] "Y"]  
+		[=[:vendor-id] vendor-id]]  :limit 200 :order-by '( ([row-id] :desc)) 
 		:caching *dod-database-caching* :flatp t )))
 
 
