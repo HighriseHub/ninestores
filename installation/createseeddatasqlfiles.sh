@@ -7,5 +7,6 @@ mysqldump -u hhubuser -p --column-statistics=0 --no-tablespaces --set-gtid-purge
 mysqldump -u hhubuser -p --column-statistics=0 --no-tablespaces --set-gtid-purged=OFF --single-transaction hhubdb  DOD_ROLES > DOD_ROLES.sql
 mysqldump -u hhubuser -p --column-statistics=0 --no-tablespaces --set-gtid-purged=OFF --single-transaction hhubdb  DOD_USERS > DOD_USERS.sql
 mysqldump -u hhubuser -p --column-statistics=0 --no-tablespaces --set-gtid-purged=OFF --single-transaction hhubdb  DOD_USER_ROLES > DOD_USER_ROLES.sql
+mysqldump -u hhubuser -p --column-statistics=0 --no-tablespaces --set-gtid-purged=OFF --single-transaction hhubdb  DOD_GST_HSN_CODES > DOD_GST_HSN_CODES.sql
 mysqldump -u hhubuser -p --column-statistics=0 --no-tablespaces --set-gtid-purged=OFF --single-transaction hhubdb   > completedatabase.sql
 
