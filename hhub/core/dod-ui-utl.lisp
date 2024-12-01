@@ -430,11 +430,8 @@
 		       (if hunchentoot:*session* (,nav-func)) 
 					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
 		       (:div :class "container" :role "main" :style "background-color: white; min-height: calc(100vh - 100px);" 
-			     (:div :id "hhubmaincontent"   ,@body))))
-		 ;; rangeslider
-		      ;; bootstrap core javascript
-		 
-		(:script :src "/js/dod.js")))))
+			     (:div :id "hhubmaincontent"   ,@body)))
+		 (:script :src "/js/dod.js"))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-standard-page-template-with-sidebar (title nav-func sidebar-func  &body body)
@@ -486,11 +483,10 @@
 			   (,nav-func)
 			   (,sidebar-func)))
 		       (:div :class "container-fluid" :style "background-color: white; min-height: calc(100vh - 50px);" :role "main" 
-			     ,@body)))
-		 ;; rangeslider
-		      ;; bootstrap core javascript
-		 
-		 (:script :src "/js/dod.js"))))
+			     ,@body)
+		       ;; rangeslider
+		       ;; bootstrap core javascript
+		       (:script :src "/js/dod.js"))))))
 
 
 
@@ -775,12 +771,12 @@ individual tiles. It also supports search functionality by including the searchr
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-form ( form-name form-action  &body body) 
+  (defmacro with-html-form (form-name form-action  &body body) 
     :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js. To have submit form event for this form create it outside the macro."  
-    (let ((id (format nil "id~A~A" form-name (hhub-random-password 3))))
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:form :class ,form-name :id ,id :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
-	      ,@body)))))
+    `(let ((id (format nil "id~A~A" ,form-name (hhub-random-password 3))))
+       (cl-who:with-html-output (*standard-output* nil) 
+	 (:form :class ,form-name :id id :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
+		,@body)))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -807,6 +803,13 @@ individual tiles. It also supports search functionality by including the searchr
     :documentation "A HTML Div element having class as 'row' and also having column sizing" 
     `(cl-who:with-html-output (*standard-output* nil) 
        (:div :class "row-fluid"
+	     ,@body))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-12 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-12"
 	     ,@body))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
