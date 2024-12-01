@@ -1,9 +1,9 @@
 This repository contains the common lisp source code for E-Commerce Stores, Digital Marketplaces. You can create your own e-commerce SAAS application where you can host your customers. Your site will provide e-commerce store building capabilities for Individual Sellers/Social groups/Small communities who want to buy/sell goods and services. Some of the salient features of this project are as under. 
 There are two kinds of people involved in this marketplace. The Customers and Vendors. It has got all the features of e-commerce marketplace such as 
 
-* GST Invoices
+* GST Invoice/Proforma Invoice with HSN/SAC, GST Return Filing, GST Receipts, Invoice Templates with Branding and Logo. Share invoice link on WhatsApp, Download Invoice PDF, Send payment reminder, Send Invoice by Email.
 * POS Solution (coming soon...)
-* Order Management & Fulfillment
+* Customer Order Management & Fulfillment
 * Product Subscriptions 
 * Product listings, Product Discounts, Bundled Products (coming soon...)
 * Basic Inventory control with Stock Management. 
