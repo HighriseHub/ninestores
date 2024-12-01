@@ -173,7 +173,6 @@ the hunchentoot server with ssl settings"
        (if withssl  (hunchentoot:start *ssl-http-server*) (hunchentoot:start *http-server*) )
        (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql)
        (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))
-       (setf *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "00:00:00")
        (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
        (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
        ;(setf *HHUBENTITYINSTANCES-HT* (make-hash-table))
