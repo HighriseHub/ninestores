@@ -7,7 +7,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defun render-sidebar-offcanvas ()
     (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
-      (:div :class "offcanvas offcanvas-start" :tabindex"-1" :id "offcanvasExample" :aria-labelledby "offcanvasExampleLabel"
+      (:div :class "offcanvas offcanvas-start" :tabindex"-1" :id "offcanvasExample" :aria-labelledby "offcanvasExampleLabel" :style "background-image: linear-gradient(to top, #accbee 0%, #e7f0fd 100%);"
 	    (:div :class "offcanvas-header"
 		  (:img :src "/img/logo.png" :alt "" :width "32" :height "32" :class "rounded-circle me-2")
 		  (:h5 :class "offcanvas-title" :id "offcanvasExampleLabel" "Nine Stores")
@@ -44,7 +44,7 @@
 					  (:i :class "fa-regular fa-rectangle-list")  " Completed Orders"))))
 		       (:li :class "nav-item"
 			    (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
-				(:i :class "fa-regular fa-rectangle-list")  " Invoices"))
+				(:i :class "fa-regular fa-rectangle-list")  " Sale Invoices"))
 		       (:li :class "nav-item"
 			    (:a :href "/hhub/hhubvendorupitransactions"  :class "nav-link link-body-emphasis"
 				(:i :class "fa-regular fa-rectangle-list")  " UPI Transactions"))
@@ -2098,7 +2098,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 							  (:a :class "list-group-item" :href "dodvendindex?context=pendingorders" " Orders " (:span :class "badge" (cl-who:str (format nil " ~d " (length dodorders)))))
 							  (:a :class "list-group-item" :href "dodvendindex?context=ctxordprd" "Todays Demand")
 							  (:a :class "list-group-item" :href (cl-who:str (format nil "dodvendrevenue"))  "Today's Revenue")
-							  (:a :class "list-group-item" :href (cl-who:str (format nil "displayinvoices"))  "Invoices"))))
+							  (:a :class "list-group-item" :href (cl-who:str (format nil "displayinvoices"))  "Sale Invoices"))))
 							  
 	      
 	      ((equal context "pendingorders") 
