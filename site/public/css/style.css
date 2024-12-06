@@ -10,6 +10,8 @@ body {
   font-family: "Roboto", sans-serif;
   font-size: 1em;
   line-height: 1;
+  background: rgb(244,246,255);
+  background: linear-gradient(175deg, rgba(244,246,255,0.5732493681066176) 0%, rgba(239,255,253,0.6124650543811274) 100%); 
 }
 
 .datepicker {
@@ -77,21 +79,22 @@ body {
 
 
 #scrollup {
-  display: inline-block;
-  background-color: #FF9800;
-  width: 37px;
-  height: 37px;
-  text-align: center;
-  border-radius: 5px;
-  position: fixed;
-  bottom: 30px;
-  right: 18px;
-  transition: background-color .3s, 
-    opacity .5s, visibility .5s;
-  opacity: 0;
-  visibility: hidden;
-  font-size:0.8rem
-  z-index: 1000;
+    display: inline-block;
+    background: rgb(214,8,8);
+    background: linear-gradient(175deg, rgba(214,8,8,1) 0%, rgba(254,163,10,0.6124650543811274) 100%); 
+    width: 37px;
+    height: 37px;
+    text-align: center;
+    border-radius: 5px;
+    position: fixed;
+    bottom: 30px;
+    right: 18px;
+    transition: background-color .3s, 
+		opacity .5s, visibility .5s;
+    opacity: 0;
+    visibility: hidden;
+    font-size:0.8rem;
+    z-index: 1000;
 }
 #scrollup::after {
   content: "\f077";
@@ -119,7 +122,8 @@ body {
 
 #floatingcheckoutbutton {
     display: inline-block;
-    background-color: #52c228;
+    background: rgb(142,236,11);
+    background: linear-gradient(175deg, rgba(142,236,11,1) 0%, rgba(21,204,25,0.6124650543811274) 100%); 
     width: 37px;
     height: 37px;
     text-align: center;
@@ -127,7 +131,7 @@ body {
     position: fixed;
     color: #FFFFFF;
     top: 72px;
-    right: 18px;
+    right: 20px;
     transition: background-color .3s, 
 		opacity .5s, visibility .5s;
     opacity: 0;
@@ -373,10 +377,9 @@ body {
 .prd-catg-card{
     overflow-x: auto;
     background: #ffffff;
-    color: #21301f;
     text-align: center;
-    width: 100px;
-    height: 53px;
+    width: 120px;
+    height: 70px;
     padding: 0.6rem;
     display: flex;
     border: 0.1rem solid rgba(0, 0, 0, 0.1);
@@ -386,7 +389,12 @@ body {
     justify-content: center;
     border-radius: 0.6rem;
     margin: 0.6rem;
-    font-size:0.8rem;
+    font-family: Tahoma, sans-serif;
+    font-weight:400;
+    font-size: 0.9rem;
+    background: rgb(217,222,251);
+    background: linear-gradient(175deg, rgba(217,222,251,0.5732493681066176) 0%, rgba(255,231,224,0.6124650543811274) 100%); 
+                
 }
 
 .prd-catg-card:hover {
@@ -394,17 +402,16 @@ body {
     border: 0.1rem solid rgba(0, 0, 0, 0.1);
     border-color: grey;;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-    background: rgb(16 141 83 / 57%);
-    
+    background: rgb(234,197,246);
+    background: linear-gradient(175deg, rgba(234,197,246,0.5732493681066176) 0%, rgba(252,255,224,0.6124650543811274) 100%); 
+
 }
 
 .prd-catg-card a:hover {
-
-    color:#ffffff;
-        
+    font-family: Tahoma, sans-serif;
+    font-weight:400;
+    font-size: 1.0rem;
 }
-
-
 
 .all-products{
 	display: flex;
@@ -438,6 +445,8 @@ body {
     border-color: grey;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
     transition: all 0.3s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+    background: rgb(255,255,255);
+    background: linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(247,255,255,1) 100%); 
 } 
 
 .product-card-row{
@@ -604,14 +613,15 @@ body {
 
 .product-card {
     overflow: hidden;
-    color: #21301f;
+    background: rgb(244,246,255);
+    background: linear-gradient(175deg, rgba(244,246,255,0.5732493681066176) 0%, rgba(239,255,253,0.6124650543811274) 100%); 
     text-align: center;
     width: 178px;
     height: 300px;
     padding: 5px;
     display: flex;
     border: 0.1rem solid rgba(0, 0, 0, 0.1);
-    border-color: darkgrey;
+    border-color: gray;
     flex-direction: column;
     align-items: center;
     justify-content: normal;
@@ -674,7 +684,7 @@ body {
   text-decoration: none;
   border-radius: 10px;
   transition: background-color 0.3s ease;
-  font-size:0.8rem;
+  font-size:1.0rem;
 }
 
 .product-details .add-to-cart-btn:hover {
@@ -725,9 +735,11 @@ body {
 .product-card:hover {
  
     border: 0.1rem solid rgba(0, 0, 0, 0.1);
-    border-color: #009933;
+    border-color: #aaaabb;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-
+    background: rgb(240,241,255);
+    background: linear-gradient(90deg, rgba(240,241,255,1) 0%, rgba(255,255,255,0.6124650543811274) 100%); 
+   
 }
 
 .product-card a:visited{
@@ -811,15 +823,27 @@ margin: 10px;
     display: inline-block;
     border-radius: 5px;
     padding: 20px;
-    background-color: #ffffff;
-    border: 1px sxbolid;
-    border-color: #0080fd;
+    border: 1px solid;
+    border-color: gray;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
     width: 150px; 
     height:200px;
     margin: 10px;
     font-size: 0.9rem;
+    background: rgb(225,228,247);
+    background: linear-gradient(175deg, rgba(225,228,247,0.5732493681066176) 0%, rgba(238,255,224,0.6124650543811274) 100%); 
 }
+
+.vendor-card:hover {
+ 
+    border: 0.1rem solid rgba(0, 0, 0, 0.1);
+    border-color: grey;;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+    background: rgb(197,204,247);
+    background: linear-gradient(175deg, rgba(197,204,247,0.5732493681066176) 0%, rgba(238,255,224,0.6124650543811274) 100%); 
+    
+}
+
 
 
 .vendor-product-card {

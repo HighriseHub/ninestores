@@ -87,8 +87,16 @@
 	(:a :href "#" (:i :class "fa-regular fa-clone")))
       (with-html-div-col-1 :data-bs-toggle "popover" :title "Download Invoice PDF"
 	(:a :href "#" (:i :class "fa-regular fa-file-pdf")))
-      (with-html-div-col-1 :data-bs-toggle "popover" :title "Send Draft/Proforma Invoice"
-	(:a :href "#" (:i :class "fa-regular fa-pen-to-square")))
+
+
+      (if (equal status "DRAFT")
+	  (cl-who:htm
+	   (with-html-div-col-1 :data-bs-toggle "popover" :title "Send Draft/Proforma Invoice"
+	     (:a :href "#" (:i :class "fa-regular fa-pen-to-square"))))
+	  ;;else
+	  (cl-who:htm
+	   (with-html-div-col-1 "&nbsp;")))
+
       (if external-url
 	  (cl-who:htm
 	   (with-html-div-col-1  :data-bs-toggle "popover" :title "Copy Link" 

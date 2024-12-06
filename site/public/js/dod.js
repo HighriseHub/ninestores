@@ -521,7 +521,7 @@ $formvendsignin.submit ( function() {
 })
 
 function displayError(elem, message, timeout) {
-     $(elem).show().html('<div class="alert alert-danger alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button><strong>Danger!</strong>' + message + '</div>');
+    $(elem).show().html('<div class="alert alert-warning alert-dismissible"> <button type="button" class="close" data-dismiss="alert" aria-label="Close" style="outline: none;"><span aria-hidden="true">&times;</span></button><strong>Warning!&nbsp;</strong>' + message + '</div>');
     if (timeout || timeout === 0) {
     setTimeout(function() { 
       $(elem).alert('close');
@@ -530,7 +530,7 @@ function displayError(elem, message, timeout) {
 };
 
 function displaySuccess(elem, message, timeout) {
-    $(elem).show().html('<div class="alert alert-success alert-dismissible"><button type="button" class="btn-close" data-bs-dismiss="alert"></button><strong>Success!</strong>' + message + '</div>');
+    $(elem).show().html('<div class="alert alert-success alert-dismissible"> <button type="button" class="close" data-dismiss="alert" aria-label="Close" style="outline: none;"><span aria-hidden="true">&times;</span></button><strong>Success!&nbsp;</strong>' + message + '</div>');
     if (timeout || timeout === 0) {
     setTimeout(function() { 
 	$(elem).alert('close');
