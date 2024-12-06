@@ -76,6 +76,26 @@
 
 
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun sharetextorurlonclick (id-bind-element data)
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str
+		(parenscript:ps
+		  (parenscript:chain ($ "document") 
+				     (ready (lambda ()
+					      (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
+					      (if (not (null element))
+						  (parenscript:chain element (add-event-listener "click" (lambda (e)
+													   (parenscript:chain e (prevent-default))
+													   (parenscript:try 
+													    (parenscript:chain navigator (share (parenscript:create title "URL" url (parenscript:lisp data))))
+													   (parenscript:chain console (log "Data was shared successfully"))
+													   (:catch (err)
+													     (parenscript:chain console (log "Share failed: use HTTPS only: " (parenscript:chain err message)))
+													     (copy-to-clipboard (parenscript:lisp data))
+													     )))))))))))))))
+
 
 				    
 		
@@ -367,18 +387,13 @@
 		 (:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
-		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;"
-			     (:span :class "closebtn" :onclick "this.parentElement.style.display='none';" "&times;" )
-			     (:strong "Success:&nbsp;") "Y")
+		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;")
 		       (:div :id "busy-indicator")
 		       (:script :src "/js/hhubbusy.js")
 		       (if hunchentoot:*session* (,nav-func)) 
-					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
 		       (:div :class "container-fluid" :style "background-color: white; min-height: calc(100vh - 50px);" :role "main" 
 			     (:div :class "sidebar-nav" 
 				   (:div :class "container-fluid" :id "hhubmaincontent"  ,@body))))
-		 ;; rangeslider
-		      ;; bootstrap core javascript
 		 (:script :src "/js/bootstrap.js")
 		 (:script :src "/js/dod.js"))))))
 
@@ -391,7 +406,6 @@
        (:html  :xmlns "http://www.w3.org/1999/xhtml" 
 	       :xml\:lang "en" 
 	       :lang "en" :data-bs-theme "light"
-	       
 	       (:head
 		(:meta :http-equiv "content-type" 
 		       :content    "text/html;charset=utf-8")
@@ -418,20 +432,20 @@
 		;;(:script :src "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js")
 		(:script :src "/js/bs5.3/js/bootstrap.bundle.min.js")
 		(:script :src "https://www.google.com/recaptcha/api.js")
-		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
-		) ;; header completes here.
-	        (:body
-		 (:div :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
-		       (:a :id "scrollup" "" )
-		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
-		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;" )
-		       (:div :id "busy-indicator")
-		       (:script :src "/js/hhubbusy.js")
-		       (if hunchentoot:*session* (,nav-func)) 
-					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
-		       (:div :class "container" :role "main" :style "background-color: white; min-height: calc(100vh - 100px);" 
-			     (:div :id "hhubmaincontent"   ,@body)))
-		 (:script :src "/js/dod.js"))))))
+		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js"))
+	       ;; header completes here.
+	       (:body
+		(:div :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
+		      (:a :id "scrollup" "" )
+		      (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
+		      (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;")
+		      (:div :id "busy-indicator")
+		      (:script :src "/js/hhubbusy.js")
+		      (if hunchentoot:*session* (,nav-func)) 
+		      (:div :class "container" :style "background-color: white; min-height: calc(100vh - 100px);" 
+			    (:div :id "hhubmaincontent"
+				  ,@body))
+		 (:script :src "/js/dod.js")))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-standard-page-template-with-sidebar (title nav-func sidebar-func  &body body)
@@ -754,11 +768,13 @@ individual tiles. It also supports search functionality by including the searchr
   (defmacro  with-html-search-form (form-id form-name txtctrlid txtctrlname  search-form-action onkeyupfunc  search-placeholder &body body)
     :documentation "Arguments: search-form-action - the form's action, search-placeholder - placeholder for search text box, body - any additional hidden form input elements"
     `(cl-who:with-html-output (*standard-output* nil ) 
-       (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
-	      (:div :class "input-group" :style "border: 1px solid black; margin-top: 10px;margin-bottom: 10px; margin-right: 20px; margin-left: 15px;"
-		    (:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder   :onkeyup ,onkeyupfunc)
-		    (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
-	      ,@body))))
+       (with-html-div-row
+	 (with-html-div-col-10
+	 (:form :id ,form-id  :name ,form-name :method "POST" :action ,search-form-action :onSubmit "return false"
+		(:div :class "input-group" :style "border: 1px solid black; margin-top: 10px;margin-bottom: 10px; margin-right: 20px; margin-left: 15px;"
+		      (:input :type "text" :name ,txtctrlname  :id ,txtctrlid  :class "form-control" :placeholder ,search-placeholder   :onkeyup ,onkeyupfunc)
+		      (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
+		,@body))))))
 
   
 
@@ -773,9 +789,9 @@ individual tiles. It also supports search functionality by including the searchr
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form (form-name form-action  &body body) 
     :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js. To have submit form event for this form create it outside the macro."  
-    `(let ((id (format nil "id~A~A" ,form-name (hhub-random-password 3))))
+    `(let ((formid (format nil "id~A~A" ,form-name (hhub-random-password 3))))
        (cl-who:with-html-output (*standard-output* nil) 
-	 (:form :class ,form-name :id id :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
+	 (:form :class ,form-name :id formid :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
 		,@body)))))
 
 
