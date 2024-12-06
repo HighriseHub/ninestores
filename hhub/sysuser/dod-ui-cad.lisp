@@ -13,9 +13,13 @@
 		  (:button :type "button" :class "btn-close" :data-bs-dismiss "offcanvas" :aria-label "Close"))
 	    (:div :class "offcanvas-body"
 		  (:ul :class "nav nav-pills flex-column mb-auto"
-		       (:li :class "nav-item" (:a :href "dodvendindex?context=home" (:i :class "fa-solid fa-house")  "Home"))
-		       (:li  (:a :href "/hhub/dasproductapprovals" "Customer Approvals"))
-		       (:li  (:a :href "/hhub/hhubvendorapprovalpage" "Vendor Approvals"))))))))
+		       (:li :class "nav-item"
+			    (:a :href "hhubcadindex" :class "nav-link link-body-emphasis"    
+				(:i :class "fa-solid fa-house")  "Home"))
+		       (:li :class "nav-item" (:a :href "/hhub/dasproductapprovals" :class "nav-link link-body-emphasis"    
+						  " Customer Approvals"))
+		       (:li :class "nav-item"  (:a :href "/hhub/hhubvendorapprovalpage" :class "nav-link link-body-emphasis"    
+						   " Vendor Approvals"))))))))
 
 
 (defun com-hhub-transaction-vendor-reject-action ()
@@ -165,16 +169,17 @@
   (multiple-value-bind (account loginusername) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
-		       (:h3 "Welcome " (cl-who:str (format nil "~A" loginusername)))
-		       (:hr)
-		       (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
-			     (:a :class "list-group-item"  :href "hhubcadlistprodcatg"  "Product Categories")
-			     (:a :data-bs-toggle "modal" :class "list-group-item"  :data-bs-target (format nil "#dodaccountexturl-modal")  :href "#"  "Account External URL")
-			     (modal-dialog-v2 (format nil "dodaccountexturl-modal") "Account External URL" (modal.account-external-url account))
-			     (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodaccountadminupdate-modal")  :href "#"  "Contact Information")
-			     (modal-dialog-v2 (format nil "dodaccountadminupdate-modal") "Update Account Administrator" (modal.account-admin-update-details)) 
-			     (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodaccadminchangepin-modal")  :href "#"  "Change Password")
-			     (modal-dialog-v2 (format nil "dodaccadminchangepin-modal") "Change Password" (modal.account-admin-change-pin))))))))
+		       (with-catch-submit-event "idcadprofile" 
+			 (:h3 "Welcome " (cl-who:str (format nil "~A" loginusername)))
+			 (:hr)
+			 (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
+			       (:a :class "list-group-item"  :href "hhubcadlistprodcatg"  "Product Categories")
+			       (:a :data-bs-toggle "modal" :class "list-group-item"  :data-bs-target (format nil "#dodaccountexturl-modal")  :href "#"  "Account External URL")
+			       (modal-dialog-v2 (format nil "dodaccountexturl-modal") "Account External URL" (modal.account-external-url account))
+			       (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodaccountadminupdate-modal")  :href "#"  "Contact Information")
+			       (modal-dialog-v2 (format nil "dodaccountadminupdate-modal") "Update Account Administrator" (modal.account-admin-update-details)) 
+			       (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodaccadminchangepin-modal")  :href "#"  "Change Password")
+			       (modal-dialog-v2 (format nil "dodaccadminchangepin-modal") "Change Password" (modal.account-admin-change-pin)))))))))
       (list widget1))))
 
 (defun dod-controller-cad-profile ()
@@ -452,7 +457,7 @@
   :documentation "This controller function is used by the System admin and Company Admin to approve products" 
  (with-cad-session-check
    (let ((products (get-products-for-approval (get-login-tenant-id))))
-     (with-standard-compadmin-page "New products approval" 
+     (with-standard-compadmin-page-v2 "New products approval" 
        (welcomemessage (get-login-user-name))
        (:hr)
        (with-html-div-row
@@ -466,7 +471,7 @@
   :documentation "This controller function is used by the System admin and Company Admin to approve vendors" 
  (with-cad-session-check
    (let ((pendingvendors (get-vendors-for-approval (get-login-tenant-id))))
-     (with-standard-compadmin-page "New Vendor approval" 
+     (with-standard-compadmin-page-v2 "New Vendor approval" 
        (welcomemessage (get-login-user-name))
        (:hr)
        (with-html-div-row
