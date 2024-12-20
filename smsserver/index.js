@@ -1,5 +1,6 @@
 /**
 1;95;0c * Created by HighriseHub on 06-Jan-2021 
+Updated the SMS HEADER in Nov 2024. 
 */
 const express = require('express');
 const app = express();
@@ -29,7 +30,15 @@ app.get('/sms/sendsms', (req, res) => {
 	'MessageAttributes': {
             'AWS.SNS.SMS.SenderID': {
                 DataType: 'String',
-                StringValue: 'HIGHUB'
+                StringValue: process.env.SENDERID
+            },
+	    'AWS.MM.SMS.TemplateId': {
+                DataType: 'String',
+                StringValue: process.env.TEMPLATEID
+            },
+	    'AWS.MM.SMS.EntityId': {
+                DataType: 'String',
+                StringValue: process.env.ENTITYID
             },
 	    'AWS.SNS.SMS.SMSType' : {
 		DataType : 'String',
