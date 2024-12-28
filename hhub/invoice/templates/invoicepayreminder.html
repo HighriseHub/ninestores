@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Payment Reminder Email </title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      background-color: #f9f9f9;
+      background-image: linear-gradient(90deg, #e3ffe7 0%, #d9e7ff 100%);
+      margin: 0;
+      padding: 0;
+    }
+         
+    .email-container {
+      max-width: 600px;
+      margin: 20px auto;
+      background: #ffffff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .header img {
+      max-width: 150px;
+    }
+    .body-content {
+      margin: 20px 0;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #777;
+      text-align: center;
+    }
+    .signature {
+      margin-top: 20px;
+      font-style: italic;
+    }
+    
+    .btn-grad {background-image: linear-gradient(to right, #00d2ff 0%, #3a7bd5  51%, #00d2ff  100%)}
+    .btn-grad {
+        margin: 10px;
+        padding: 15px 45px;
+        text-align: center;
+        text-transform: uppercase;
+        transition: 0.5s;
+        background-size: 200% auto;
+        color: white;            
+        box-shadow: 0 0 20px #eee;
+        border-radius: 10px;
+        display: block;
+    }
+    
+    .btn-grad:hover {
+        background-position: right center; /* change the direction of the change here */
+        color: #fff;
+        text-decoration: none;
+    }
+         
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <!-- Header Section -->
+    <div class="header">
+      <img src="%LOGO_URL%" alt="Company Logo">
+    </div>
+
+    <!-- Body Content -->
+    <div class="body-content">
+      <h2>Dear %Customer Name%,</h2>
+      <p>
+	I hope this email finds you well. This is a gentle reminder regarding the outstanding payment for invoice.
+      </p>
+
+      <table style="width: 100%; margin-top: 20px; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; background-color: #f4f4f4;">
+            <strong>Invoice Number:</strong>
+          </td>
+          <td style="padding: 10px; border: 1px solid #ddd;">%Invoice Number%</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd; background-color: #f4f4f4;">
+            <strong>Date:</strong>
+          </td>
+          <td style="padding: 10px; border: 1px solid #ddd;">%Invoice Date%</td>
+        </tr>
+	
+	<tr>
+          <td style="padding: 10px; border: 1px solid #ddd; background-color: #f4f4f4;">
+            <strong>Total Amount Due:</strong>
+          </td>
+          <td style="padding: 10px; border: 1px solid #ddd;">%Total Amount with GST%</td>
+        </tr>
+      </table>
+
+      <p>
+	Please let us know if you’ve already made the payment or require any assistance. We’d be happy to help!
+      </p>
+      <p>
+	Thank you for your prompt attention to this matter.
+      </p>
+      
+      <a href="%INVOICE_LINK%" class="btn-grad">View Invoice</a>
+    </div>
+
+    <!-- Signature -->
+    <div class="signature">
+      Best regards,<br>
+      %Your Name%  
+      <br>%Company Name%
+      <br>%Contact Information%
+      
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      This is an automated email. Please do not reply to this message.
+    </div>
+  </div>
+</body>
+</html>

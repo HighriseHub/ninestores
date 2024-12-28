@@ -168,14 +168,12 @@
   :description "Adapter service method to call the BusinessService Update method"
   (setf (slot-value adapter 'businessservice) (find-class 'InvoiceHeaderService))
   ;; call the parent ProcessUpdate
-  (logiamhere "I am in processupdaterequest for InvoiceHeaderRequestModel")
   (call-next-method))
 
 (defmethod ProcessUpdateRequest ((adapter InvoiceHeaderAdapter) (requestmodel InvoiceHeaderStatusRequestModel))
   :description "Adapter service method to call the BusinessService Update method"
   (setf (slot-value adapter 'businessservice) (find-class 'InvoiceHeaderService))
   ;; call the parent ProcessUpdate
-  (logiamhere "I am in processupdaterequest for InvoiceHeaderStatusRequestModel")
   (call-next-method))
 
 ;; PROCESS READ ALL REQUEST.

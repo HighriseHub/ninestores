@@ -119,6 +119,7 @@
 	 (discount (float (with-input-from-string (in (hunchentoot:parameter "discount"))
 			    (read in))))
 	 (taxablevalue (- (* prdqty price) (if discount (/ (* prdqty price discount) 100) 0.00)))
+	 (hsncode (slot-value product 'hsn-code))
 	 (gstvalues (get-gstvalues-for-product product))
 	 (placeofsupply (slot-value sessioninvheader 'placeofsupply))
 	 (statecode (slot-value sessioninvheader 'statecode))
@@ -136,6 +137,7 @@
 					 :prd-id prd-id
 					 :qty prdqty
 					 :price price
+					 :hsncode hsncode
 					 :discount discount
 					 :taxablevalue taxablevalue
 					 :cgstamt cgstamt
@@ -181,11 +183,11 @@
 	    (with-html-input-text-hidden "row-id" row-id)
 	    (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
 	    (with-html-input-text-readonly "prddesc" "Product Description" "Product Description"  prddesc nil nil 0)
-	    (with-html-input-text "qty" "Quantity" "Quantity" qty T "Enter/Update Quantity" 1)
+	    (with-html-input-number "qty" "Quantity" "Quantity" qty 1 100 T "Enter/Update Quantity" 1)
 	    (with-html-input-text "price" "Price" "Price" price T "Enter/Update Price" 2)
 	    (with-html-input-text "discount" "Discount%" "Discount%" discount T "Enter/Update Discount" 3)
 	    (:div :class "form-group"
-		  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+		  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))
 
 
 (defun delete-invoiceitem-dialog (domainobj sessioninvkey)
@@ -241,29 +243,55 @@
 
 (defun display-invoice-item-row (invitem invoicepaid-p sessioninvkey)
   (cl-who:with-html-output (*standard-output* nil)
-      (with-slots (prd-id prddesc hsncode qty uom price discount  taxablevalue  cgstamt  sgstamt  igstamt totalitemval) invitem
-	(cl-who:htm
-	 (:td :height "10px" (cl-who:str prddesc))
-	 (:td :height "10px" (cl-who:str hsncode))
-	 (:td :height "10px" (cl-who:str uom))
-	 (:td :height "10px" (cl-who:str qty))
-	 (:td :height "10px" (cl-who:str price))
-	 (:td :height "10px" (cl-who:str discount))
-	 (:td :height "10px" (cl-who:str taxablevalue))
-	 (:td :height "10px" (cl-who:str cgstamt))
-	 (:td :height "10px" (cl-who:str sgstamt))
-	 (:td :height "10px" (cl-who:str igstamt))
-	 (:td :height "10px" (cl-who:str totalitemval))
-	 (unless invoicepaid-p
-	   (cl-who:htm
-	    (:td :height "10px"
-		 (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#editInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-pencil") "&nbsp;&nbsp;")
-		 (modal-dialog-v2 (format nil "editInvoiceItem-modal~A" prd-id) "Add/Edit InvoiceItem" (edit-invoiceitem-dialog invitem sessioninvkey))
-		 (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#deleteInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-trash-can"))
-		 (modal-dialog-v2 (format nil "deleteInvoiceItem-modal~A" prd-id) "Delete InvoiceItem" (delete-invoiceitem-dialog invitem sessioninvkey)))))))))
+    (with-slots (prd-id prddesc hsncode qty uom price discount  taxablevalue  cgstamt  sgstamt  igstamt totalitemval) invitem
+      (cl-who:htm
+       (:td :height "10px" (cl-who:str prddesc))
+       (:td :height "10px" (cl-who:str hsncode))
+       (:td :height "10px" (cl-who:str uom))
+       (:td :height "10px" (cl-who:str qty))
+       (:td :height "10px" (cl-who:str price))
+       (:td :height "10px" (cl-who:str discount))
+       (:td :height "10px" (cl-who:str taxablevalue))
+       (:td :height "10px" (cl-who:str cgstamt))
+       (:td :height "10px" (cl-who:str sgstamt))
+       (:td :height "10px" (cl-who:str igstamt))
+       (:td :height "10px" (cl-who:str totalitemval))
+       (unless invoicepaid-p
+	 (cl-who:htm
+	  (:td :height "10px"
+	       (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#editInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-pencil") "&nbsp;&nbsp;")
+	       (modal-dialog-v2 (format nil "editInvoiceItem-modal~A" prd-id) "Add/Edit InvoiceItem" (edit-invoiceitem-dialog invitem sessioninvkey))
+	       (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#deleteInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-trash-can"))
+	       (modal-dialog-v2 (format nil "deleteInvoiceItem-modal~A" prd-id) "Delete InvoiceItem" (delete-invoiceitem-dialog invitem sessioninvkey)))))))))
+
+(defun display-invoice-item-row-public (invitem)
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-slots (prd-id prddesc hsncode qty uom price discount  taxablevalue  cgstamt  sgstamt  igstamt totalitemval) invitem
+      (cl-who:htm
+       (:td :height "10px" (cl-who:str prddesc))
+       (:td :height "10px" (cl-who:str hsncode))
+       (:td :height "10px" (cl-who:str uom))
+       (:td :height "10px" (cl-who:str qty))
+       (:td :height "10px" (cl-who:str price))
+       (:td :height "10px" (cl-who:str discount))
+       (:td :height "10px" (cl-who:str taxablevalue))
+       (:td :height "10px" (cl-who:str cgstamt))
+       (:td :height "10px" (cl-who:str sgstamt))
+       (:td :height "10px" (cl-who:str igstamt))
+       (:td :height "10px" (cl-who:str totalitemval))))))
 
 
+(defun invoicetemplatefillitemrows (sessioninvitems invoicepaid-p sessioninvkey)
+  (function (lambda ()
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+	(let ((incr (let ((count 0)) (lambda () (incf count)))))
+	  (mapcar (lambda (item) (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (display-invoice-item-row item invoicepaid-p sessioninvkey))))  sessioninvitems))))))
 
+(defun invoicetemplatefillitemrowspublic (sessioninvitems)
+  (function (lambda ()
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+	(let ((incr (let ((count 0)) (lambda () (incf count)))))
+	  (mapcar (lambda (item) (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (display-invoice-item-row-public item))))  sessioninvitems))))))
 
 
 (defun com-hhub-transaction-update-invoiceitem-action ()

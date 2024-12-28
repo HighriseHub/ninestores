@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shipped Invoice Email</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 0;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 20px auto;
+      background-color: #ffffff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .header img {
+      max-width: 150px;
+    }
+    .content {
+      margin: 20px 0;
+    }
+    .content h2 {
+      color: #333;
+    }
+    .content p {
+      color: #555;
+    }
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .details-table th, .details-table td {
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+    .details-table th {
+      background-color: #f4f4f4;
+      text-align: left;
+    }
+
+    
+    .btn-grad {background-image: linear-gradient(to right, #00d2ff 0%, #3a7bd5  51%, #00d2ff  100%)}
+    .btn-grad {
+        margin: 10px;
+        padding: 15px 45px;
+        text-align: center;
+        text-transform: uppercase;
+        transition: 0.5s;
+        background-size: 200% auto;
+        color: white;            
+        box-shadow: 0 0 20px #eee;
+        border-radius: 10px;
+        display: block;
+    }
+
+    .btn-grad:hover {
+        background-position: right center; /* change the direction of the change here */
+        color: #fff;
+        text-decoration: none;
+    }
+         
+      .footer {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 12px;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <!-- Header -->
+    <div class="header">
+      <img src="%LOGO_URL%" alt="Company Logo">
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <h2>Hello %Customer Name%,</h2>
+      <p>We’re excited to let you know that your order has been shipped! Please find the details of your shipment below along with your invoice.</p>
+
+      <!-- Shipment Details -->
+      <table class="details-table">
+        <tr>
+          <th>Invoice Number</th>
+          <td>%Invoice Number%</td>
+        </tr>
+        <tr>
+          <th>Shipping Date</th>
+          <td>%Shipping Date%</td>
+        </tr>
+        <tr>
+          <th>Carrier</th>
+          <td>%Shipping Carrier%</td>
+        </tr>
+        <tr>
+          <th>Tracking Number</th>
+          <td>%Tracking Number%</td>
+        </tr>
+        <tr>
+          <th>Total Amount</th>
+          <td>%Total Amount with GST%</td>
+        </tr>
+      </table>
+
+      <!-- Call-to-Action -->
+      <p>You can track your shipment using the tracking number above or view your invoice by clicking the button below:</p>
+      <a href="%INVOICE_LINK%" class="btn-grad">View Invoice</a>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      Thank you for shopping with us! If you have any questions, feel free to contact us at %Support Email%.<br>
+      <strong>%Company Name%</strong>
+    </div>
+  </div>
+</body>
+</html>
