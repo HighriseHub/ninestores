@@ -2,6 +2,21 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+(defun generatepdf (inputhtmlfile outpdffilename)
+  (let* ((filename (format nil "~A~A.pdf" outpdffilename (get-universal-time)))
+	 (filepath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* filename))
+	 (htmlpath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* inputhtmlfile))
+	 (pdfcmd (format nil "wkhtmltopdf --disable-javascript ~A ~A" htmlpath filepath)))
+    (sb-ext:run-program "/bin/sh" (list "-c" pdfcmd) :input nil :output *standard-output*)
+    filename))
+
+(defun downloadhtmlfile (url)
+  (let* ((filename (format nil "download~A.html" (get-universal-time)))
+	 (filepath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* filename))
+	 (command (format nil "wget -O ~A ~A" filepath url)))
+    (sb-ext:run-program "/bin/sh" (list "-c" command) :input nil :output *standard-output*)
+    filename))
+
 (defun convert-number-to-words-INR (number)
   (let* ((ones (make-array '(10) :initial-contents (list ""  "one"  "two"  "three"  "four"  "five"  "six"  "seven"  "eight"  "nine")))
 	 (tens (make-array '(10) :initial-contents (list  ""  "ten"  "twenty"  "thirty"  "forty"  "fifty"  "sixty"  "seventy"  "eighty"  "ninety")))
@@ -45,7 +60,7 @@
 	     (paise (round (* (- number rupees) 100)))
 	     (rupees-words (if (equal rupees 0) "zero rupees" (format nil "~A rupees" (convert-crores rupees))))
 	     (paise-words (if (> paise 0) (format nil "~A paise" (convert-hundreds paise)))))
-	(format nil "~A~A" rupees-words (if paise-words (concatenate 'string " and " paise-words) ""))))))
+	(format nil "~A~A" (string-capitalize rupees-words) (if paise-words (concatenate 'string " and " paise-words) ""))))))
 
 (defun convert-number-to-words-USD (number)
   (declare (ignore number))
@@ -112,13 +127,13 @@
   (hhub-register-business-function "com.hhub.businessfunction.tempstorage.createpushnotifysubscriptionforvendor" "com-hhub-businessfunction-tempstorage-createpushnotifysubscriptionforvendor")
   (hhub-register-business-function "com.hhub.businessfunction.db.createpushnotifysubscriptionforvendor" "com-hhub-businessfunction-db-createpushnotifysubscriptionforvendor"))
 
-(defun hhub-execute-network-function (name input-params outputparams) 
+(defun hhub-execute-network-function (name input-params)
   :documentation "This is a general business function adapter for HHub. It takes parameters in a association list"
   (handler-case 
       (let ((funcsymbol (gethash name *HHUBGLOBALBUSINESSFUNCTIONS-HT*)))
 	(if (null funcsymbol) (error 'hhub-business-function-error :errstring "Business function not registered"))
 	(multiple-value-bind (returnvalues exception) (funcall (intern (string-upcase funcsymbol) :hhub) input-params)
-					;Return a list of return values and exception as nil. 
+	  ;;Return a list of return values and exception as nil. 
 	  (list returnvalues exception)))
     (hhub-business-function-error (condition)
       (list nil (format nil "HHUB Business Function error triggered in Function - ~A. Error: ~A" (string-upcase name) (getExceptionStr condition))))
