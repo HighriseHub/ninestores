@@ -99,7 +99,7 @@
 (defmethod send-test-email (customer)
   (let* ((reg-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-REG-TEMPLATE-FILE*)))
 	(cust-reg-email (format nil reg-templ-str (slot-value customer 'name)))) 
-  (hhubsendmail "pawan.deshpande@gmail.com" "Welcome to Nine Stores" cust-reg-email)))
+  (hhubsendmail "<<enter email to send>>" "Welcome to Nine Stores" cust-reg-email)))
 
 
 
@@ -146,7 +146,9 @@
   :documentation "Here we are using the cl-async library to asynchronously send the email"
   (let* ((order-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*)))
 	     (cust-order-email (format nil order-templ-str order-disp-str)))
-	(hhubsendmail email subject cust-order-email)))
+    (sb-thread:make-thread
+     (lambda ()
+       (hhubsendmail email subject cust-order-email)) :name "Order email thread")))
 
 
 

@@ -1394,17 +1394,16 @@
 	(if (is-dod-cust-session-valid?)
 	    (hunchentoot:redirect "/hhub/dodcustindex")
 	    (with-standard-customer-page-v2 "Welcome Customer" 
-	      (with-html-div-row
-		(with-html-div-col
-		  (:div :class "account-wall"
-			(with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
-			  (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-			  (:h1 :class "text-center login-title"  "Customer - Login")
-			  (:div :class "form-group"
-				(:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
-			  (:div :class "form-group"
-				(:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
-    
+	       (:div :class "account-wall"
+		     (with-html-div-row
+		       (with-html-div-col-12
+			 (with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
+			   (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
+			   (:h1 :class "text-center login-title"  "Customer - Login")
+			   (:div :class "form-group"
+				 (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
+			   (:div :class "form-group"
+				 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
@@ -1878,15 +1877,10 @@
   
 (defun send-order-email-guest-customer(order-id email temp-customer products shopcart shipping-cost) 
   (let* ((shopcart-total (get-shop-cart-total shopcart))
-       	 (order-disp-str (create-order-email-content products shopcart temp-customer order-id shipping-cost shopcart-total)))
-    (as:with-event-loop (:catch-app-errors t)
-      (let* ((result nil)
-	     (notifier (as:make-notifier (lambda () (format t "Job finished! ~a~%" result)))))
-	(bt:make-thread 
-	 (lambda ()
-	   (send-order-mail email (format nil "Nine Stores order ~A" order-id) order-disp-str)
-	   (setf result 1)
-	   (as:trigger-notifier notifier)) :name (format T "Order Loop Thread: ~d" order-id))))))
+	 (subject (format nil "Nine Stores order ~A" order-id))
+	 (order-disp-str (create-order-email-content products shopcart temp-customer order-id shipping-cost shopcart-total)))
+    (send-order-mail email subject order-disp-str)))
+    
   
 
 (defun send-order-sms-guest-customer (order-id phone)
