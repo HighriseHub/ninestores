@@ -173,7 +173,7 @@
 	     (:div  :class "form-group"
 		    (:label :for "description" "Description")
 		    (text-editor-control idtextarea  description))
-	     (:textarea :style "display: block;" :id idtextarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 15)" charcountid1) (cl-who:str (format nil "~A" description)))
+	     (:textarea :style "display: block;" :id idtextarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 2000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 2000)" charcountid1) (cl-who:str (format nil "~A" description)))
 	     (:div :class "form-group" :id charcountid1 )
 	     
 	     (:div :class "form-group"
@@ -340,7 +340,7 @@
 	 (currency (get-account-currency company))
 	 (product-pricing (select-product-pricing-by-product-id prd-id company)))
     (cl-who:with-html-output (*standard-output* nil)
-      (with-html-div-row :style "border-radius: 5px;background-color:#e6f0ff; border-bottom: solid 1px; margin: 15px; height: 30px; font-size: 1rem;background-image: linear-gradient(to top, #accbee 0%, #e7f0fd 100%);"
+      (with-html-div-row :style "border-radius: 5px;background-color:#e6f0ff; border-bottom: solid 1px; margin: 15px; padding: 10px; height: 35px; font-size: 1rem;background-image: linear-gradient(to top, #accbee 0%, #e7f0fd 100%);"
 	(if (equal active-flag "Y")
 	    (cl-who:htm
 	     (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Turn Off" 
@@ -387,7 +387,7 @@
 	(with-html-div-col-1 "&nbsp;")
 	(with-html-div-col-1 "&nbsp;")
 	(with-html-div-col-2 :align "right" :data-bs-toggle "tooltip" :title "Delete" 
-	  (:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:i :class "fa-solid fa-remove")))))))
+	  (:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:i :class "fa-solid fa-trash-can")))))))
 
 
 (defun product-card-for-vendor (product-instance)
