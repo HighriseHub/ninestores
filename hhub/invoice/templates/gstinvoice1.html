@@ -4,141 +4,184 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice</title>
+
     <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        table, th, td {
-            border: 1px solid black;
-        }
-        th, td {
-            padding: 8px;
-            text-align: left;
-        }
-    </style>
-</head>
-<body>
-    <table>
-        <thead>
-            <tr>
-                <th colspan="2">INVOICE</th>
-                <th colspan="3">Original for Recipient</th>
-                <th colspan="3">Duplicate for Supplier/Transporter</th>
-                <th colspan="3">Triplicate for Supplier</th>
+      table {
+          width: 100%;
+          border-collapse: collapse;
+      }
+      table.center {
+          margin-left: auto;
+          margin-right: auto;
+      }
+      table,
+      th,
+      td {
+          border: 0.5px dashed grey;
+      }
+      th,
+      td {
+          padding: 1px;
+          text-align: left;
+      }
+
+      td img {
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
+      }
+      .inv-amount {
+	  font-size: 1.5rem;
+	  line-height: 1.1;
+	  background: rgb(249,251,224);
+	  background: linear-gradient(180deg, rgba(249,251,224,1) 0%, rgba(178,203,255,1) 100%); 
+      }
+  </style>
+  <table>
+      <thead>
+          <tr>
+              <th colspan="3">TAX INVOICE</th>
+              <th colspan="4">Original For Recipient</th>
+              <th colspan="3">Duplicate for Supplier</th>
+              <th colspan="3">Triplicate for Supplier</th>
+          </tr>
+      </thead>
+      <tbody>
+          <tr>
+            <td colspan="2">Invoice No.</td>
+            <td colspan="3">%Invoice Number%</td>
+	    <td colspan="2">Invoice Date : </td>
+	    <td colspan="2"> %Invoice Date%</td>
+	    <td colspan="2">Status: </td>
+            <td colspan="2">%Invoice Status%</td>
+	  </tr>
+	    <tr>
+	    <td colspan="2">Date of Supply : </td>
+	    <td colspan="3">%Date of Supply%</td>
+	    <td colspan="2">State Code :</td>
+            <td colspan="2">%State Code%</td>
+	    <td colspan="2">Place of Supply :</td>
+	    <td colspan="2">%Place of Supply%</td>
+          </tr>
+	  <tr>
+	    <td colspan="2">GST Payable on Reverse Charge : </td>
+	    <td colspan="3">%Reverse Charge%</td>
+	    <td colspan="2">Vehicle Number : </td>
+	    <td colspan="2">%Vehicle Number%</td>
+	    <td colspan="2">Transportation Mode :</td>
+	    <td colspan="2">%Transportation Mode%</td>
+          </tr>
+          <tr>
+              <th colspan="7">Details of Receiver / Billed to:</th>
+              <th colspan="6">Details of Consignee / Shipped to:</th>
+          </tr>
+          <tr>
+            <td colspan="2">Name :</td>
+            <td colspan="5">%Billed To%</td>
+            <td colspan="2">Name :</td>
+            <td colspan="4">%Shipped To%</td>
+          </tr>
+          <tr>
+	    <td colspan="2">Address :</td>
+	    <td colspan="5">%Billed to Address%</td>
+	    <td colspan="2">Address :</td>
+	    <td colspan="4">%Shipped to Address%</td>
+          </tr>
+          <tr>
+	    <td colspan="2">GSTIN :</td>
+            <td colspan="5">%Billed to GSTIN%</td>
+            <td colspan="2">GSTIN :</td>
+            <td colspan="4">%Shipped to GSTIN%</td>
+          </tr>
+          <tr>
+	    <td colspan="2">State :</td>
+            <td colspan="5">%Billed to State%</td>
+            <td colspan="2">State :</td>
+            <td colspan="4">%Shipped to State%</td>
+          </tr>
+	  <tr>
+              <th>Sr. No</th>
+              <th>Name of Product/Service</th>
+              <th>HSN/SAC</th>
+              <th>Qty Per Unit</th>
+              <th>Qty</th>
+              <th>Rate</th>
+              <th>Less: Discount%</th>
+              <th>Taxable Value</th>
+              <th>CGST</th>
+              <th>SGST</th>
+              <th>IGST</th>
+              <th>Total</th>
+          </tr>
+          <!-- Insert row data here-->
+	  %Invoice Items Rows%
+	  <tr>
+                <td colspan="3">Total :</td>
+                <td colspan="4">%Total Value%</td>
+		<td colspan="6"></td>
             </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td colspan="5">Reverse Charge : fieldA</td>
-                <td colspan="2">Transportation Mode : fieldB</td>
-                <td colspan="2">Vehicle Number : fieldC</td>
-                <td colspan="2">Invoice No.</td>
-                <td colspan="2">fieldD</td>
-            </tr>
-            <tr>
-                <td colspan="5">Invoice Date : fieldE</td>
-                <td colspan="2">Date of Supply : fieldF</td>
-                <td colspan="2">Place of Supply : fieldG</td>
-                <td colspan="2">State Code :</td>
-                <td colspan="2">fieldH</td>
-            </tr>
-            <tr>
-                <th colspan="5">Details of Receiver / Billed to:</th>
-                <th colspan="5">Details of Consignee / Shipped to: </th>
-            </tr>
-            <tr>
-                <td colspan="2">Name :</td>
-                <td colspan="3">fieldI</td>
-                <td colspan="2">Name :</td>
-                <td colspan="3">fieldJ</td>
-            </tr>
-            <tr>
-                <td colspan="2">Address :</td>
-                <td colspan="3">fieldK</td>
-                <td colspan="2">Address :</td>
-                <td colspan="3">fieldL</td>
-            </tr>
-            <tr>
-                <td colspan="2">GSTIN :</td>
-                <td colspan="3">fieldM</td>
-                <td colspan="2">GSTIN :</td>
-                <td colspan="3">fieldN</td>
-            </tr>
-            <tr>
-                <td colspan="2">State :</td>
-                <td colspan="3">fieldO</td>
-                <td colspan="2">State :</td>
-                <td colspan="3">fieldP</td>
-            </tr>
-            <tr>
-                <td colspan="2">State Code :</td>
-                <td colspan="3">fieldQ</td>
-                <td colspan="2">State Code :</td>
-                <td colspan="3">fieldR</td>
-            </tr>
-	    fieldAE
-            </tr>
-            <!-- Repeat <tr> as needed for more items -->
-            <tr>
-                <td colspan="7">Total :</td>
-                <td colspan="6">fieldS</td>
-            </tr>
-            <tr>
-                <td colspan="7">Total Invoice Amount in Words:</td>
-                <td colspan="6">fieldT</td>
-            </tr>
-            <tr>
-                <td colspan="7">Bank Details :</td>
-                <td colspan="3">Total Amount Before Tax :</td>
-		<td colspan="3">fieldU</td>
-            </tr>
-            <tr>
-                <td colspan="2">Bank Account Number :</td>
-                <td colspan="5">fieldV</td>
-                <td colspan="3">Add : CGST :</td>
-		<td colspan="3">fieldW</td>
-            </tr>
-            <tr>
-                <td colspan="2">Bank Branch IFSC :</td>
-                <td colspan="5"></td>
-                <td colspan="3">Add : SGST :</td>
-		<td colspan="3">fieldX</td>
-            </tr>
-            <tr>
-                <td colspan="7">Terms and Conditions :</td>
-                <td colspan="3">Add : IGST :</td>
-		<td colspan="3">fieldY</td>
-            </tr>
-            <tr>
-                <td colspan="7"></td>
-                <td colspan="3">Tax Amount : GST :</td>
-		<td colspan="3">fieldZ</td>
-            </tr>
-            <tr>
-                <td colspan="7"></td>
-                <td colspan="3">Total Amount After Tax :</td>
-		<td colspan="3">fieldAA</td>
-            </tr>
-            <tr>
-                <td colspan="7"></td>
-                <td colspan="3">GST Payable on Reverse Charge :</td>
-		<td colspan="3">fieldAB</td>
-            </tr>
-            <tr>
-                <td colspan="7"></td>
-                <td colspan="6">Certified that the particulars given above are true and correct.</td>
-            </tr>
-            <tr>
-                <td colspan="7"></td>
-                <td colspan="6">For, fieldAC</td>
-	    </tr>
-            <tr>
-                <td colspan="7"></td>
-                <td colspan="3">(Authorized Signatory)</td>
-		<td colspan="3">fieldAD</td>
-            </tr>
-        </tbody>
-    </table>
-</body>
-</html>
+	  <tr>
+            <td colspan="3">Total Invoice Amount in Words:</td>
+            <td colspan="10">%Total in Words%</td>
+	  </tr>
+	  <tr>
+            <td colspan="7">Bank Details :</td>
+            <td colspan="3">Total Amount Before Tax :</td>
+	    <td colspan="3">%Total Value before GST/TAX%</td>
+          </tr>
+	  <tr>
+            <td colspan="2">Bank Account Number :</td>
+            <td colspan="5">%Bank Account Number%</td>
+            <td colspan="3">Add : CGST :</td>
+	    <td colspan="3">%Add CGST%</td>
+          </tr>
+	  <tr>
+            <td colspan="2">Bank Branch IFSC :</td>
+            <td colspan="5">%Bank IFSC Code%</td>
+            <td colspan="3">Add : SGST :</td>
+	    <td colspan="3">%Add SGST%</td>
+          </tr>
+	  <tr>
+	    <td rowspan="6" colspan="7"><img style="width: 150px; height: 150px;" src=%UPI_IMAGE_URL%><span>Pay By UPI</span></img></td>
+	    <td colspan="3">Add : IGST :</td>
+	    <td colspan="3">%Add IGST%</td>
+	    
+          </tr>
+	  <tr>
+            <td colspan="3">Tax Amount : GST :</td>
+	    <td colspan="3">%Tax Amount%</td>
+          </tr>
+          <tr>
+	    <td colspan="3">Total Amount After Tax :</td>
+	    <td colspan="3">
+	      <span class="inv-amount">%Total After Tax%</span>
+	    </td>
+	  </tr>
+          <tr>
+            <td colspan="3"></td>
+	    <td colspan="3"></td>
+          </tr>
+          <tr>
+              <td colspan="2">Certified that the particulars given above are true and correct.</td>
+              <td colspan="2">(Authorized Signatory)</td>
+	      <td colspan="3">%Authorised Signatory%</td>
+          </tr>
+          <tr>
+	    <td colspan="6">For, %Company Name%</td>
+	  </tr>
+	  <tr>
+              <td colspan="13">Terms and Conditions :</td>
+          </tr>
+          <tr>
+            <td colspan="13">%Terms and Conditions%</td>
+          </tr>
+      </tbody>
+
+  </table>
+  </td>
+  </tr>
+  </tbody>
+  </table>
+          
+
+          

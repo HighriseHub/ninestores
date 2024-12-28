@@ -54,6 +54,7 @@
 (defvar *PAYGATEWAYFAILUREURL* "https://www.ninestores.in/hhub/custpaymentfailure")
 (defvar *HHUBRESOURCESDIR* "/data/www/public/img")
 (defvar *HHUBDEFAULTPRDIMG* "HHubDefaultPrdImg.png")
+(defvar *HHUBDEFAULTLOGOIMG* "/img/logo.png")
 (defvar *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* NIL)
 (defvar *HHUBGLOBALBUSINESSFUNCTIONS-HT* NIL)
 (defvar *HHUBBUSINESSFUNCTIONSLOGFILE* "/home/hunchentoot/hhublogs/ninestores-busfunctions.log")
@@ -97,6 +98,16 @@
 (defvar *NSTGSTSTATECODES-HT* nil)
 (defvar *NSTGSTBUSINESSSTATE* "29")
 (defvar *NSTGSTINVOICETERMS* NIL)
+(defvar *NST-INVOICEDRAFT-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicedraft.html")
+(defvar *NST-INVOICEPAYREMINDER-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicepayreminder.html")
+(defvar *NST-INVOICEPAYOVERDUEREMINDER-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicepayoverduereminder.html")
+(defvar *NST-INVOICEPAID-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicepaid.html")
+(defvar *NST-INVOICESHIPPED-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoiceshipped.html")
+(defvar *NST-INVOICECANCELLED-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicecancelled.html")
+(defvar *NST-INVOICEREFUNDED-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicerefunded.html")
+(defvar *NST-INVOICEPAYMENT-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicepayment.html")
+(defvar *NST-GSTINVOICE-TEMPLATEFILE-1* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice1.html")
+(defvar *NST-INVOICE-TEMPLATES* nil)
 
 (defun set-customer-page-title (name)
   (setf *customer-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
@@ -153,9 +164,7 @@ Database type: Supported type is ':odbc'"
 
 
 (defun start-das(&optional (withssl nil) (debug-mode T)  )
-  :documentation "Start ninestores server with or without ssl. If withssl is T, then start 
-the hunchentoot server with ssl settings"
-  
+  :documentation "Start ninestores server with or without ssl. If withssl is T, then start the hunchentoot server with ssl settings"
   (setf *dod-debug-mode* debug-mode)
   (setf *random-state* (make-random-state t))
   ;; # this initializes the global random state by
@@ -168,21 +177,21 @@ the hunchentoot server with ssl settings"
   ;;One way to make sure that quoted strings in inline JavaScript
   ;;work inside HTML attributes is to use double quotes for HTML attributes and single quotes for JavaScript strings. 
   (setq cl-who:*attribute-quote-char* #\")
-(progn (init-hhubplatform)
-       (if withssl  (init-httpserver-withssl))
-       (if withssl  (hunchentoot:start *ssl-http-server*) (hunchentoot:start *http-server*) )
-       (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql)
-       (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))
-       (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
-       (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
-       ;(setf *HHUBENTITYINSTANCES-HT* (make-hash-table))
-       ;(setf *HHUBENTITY-WEBPUSHNOTIFYVENDOR-HT* (make-hash-table))
-       (setf *HHUBBUSINESSSESSIONS-HT* (make-hash-table)) 
-       (hhub-init-business-functions)
-       (setf *HHUBBUSINESSSERVER* (initbusinessserver))
-       (setf *NSTGSTSTATECODES-HT* (init-gst-statecodes))
-       (init-gst-invoice-terms)
-       (define-shipping-zones)))
+  (progn
+    (init-hhubplatform)
+    (if withssl  (init-httpserver-withssl))
+    (if withssl  (hunchentoot:start *ssl-http-server*) (hunchentoot:start *http-server*) )
+    (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql)
+    (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))
+    (setf *NST-INVOICE-TEMPLATES* (nst-load-invoice-templates))
+    (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
+    (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
+    (setf *HHUBBUSINESSSESSIONS-HT* (make-hash-table)) 
+    (hhub-init-business-functions)
+    (setf *HHUBBUSINESSSERVER* (initbusinessserver))
+    (setf *NSTGSTSTATECODES-HT* (init-gst-statecodes))
+    (init-gst-invoice-terms)
+    (define-shipping-zones)))
 
 
 
@@ -208,14 +217,14 @@ the hunchentoot server with ssl settings"
   (format t "******** DB Disconnect ********~C" #\linefeed)
   (clsql:disconnect)
   (format t "******* Stopping HTTP Server *********~C"  #\linefeed)
-(progn (if *ssl-http-server*  (hunchentoot:stop *ssl-http-server*) (hunchentoot:stop *http-server*))
-(setf *ssl-http-server* nil) 
-(setf *http-server* nil)
-(setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* NIL)
-(setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* NIL)
-;(setf *HHUBENTITY-WEBPUSHNOTIFYVENDOR-HT* NIL)
-(setf *HHUBBUSINESSSESSIONS-HT* NIL)
-(deletebusinessserver)))
+  (progn (if *ssl-http-server*  (hunchentoot:stop *ssl-http-server*) (hunchentoot:stop *http-server*))
+	 (setf *ssl-http-server* nil) 
+	 (setf *http-server* nil)
+	 (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* NIL)
+	 (setf *NST-INVOICE-TEMPLATES* NIL)
+	 (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* NIL)
+	 (setf *HHUBBUSINESSSESSIONS-HT* NIL)
+	 (deletebusinessserver)))
 
 
 ;;;;*********** Globally Cached lists and their accessor functions *********************************
@@ -251,7 +260,7 @@ the hunchentoot server with ssl settings"
 	  (function (lambda () curr-fa-symbols-ht)) ;11
 	  (function (lambda () gst-hsn-codes-ht)) ;12
 	  (function (lambda () gst-sac-codes-ht))))) ;13	
-
+;;******************************************************************************************
 
 (defun hhub-get-cached-auth-policies()
   :documentation "This function gets a list of all the globally cached policies."
@@ -333,6 +342,43 @@ the hunchentoot server with ssl settings"
   :documentation "This function will be called at system startup time to register all the business functions"
   (hhub-register-business-function "com.hhub.businessfunction.getpushnotifysubscriptionforvendor" "com-hhub-businessfunction-getpushnotifysubscriptionforvendor"))
 
+
+(defun nst-load-invoice-templates ()
+  :documentation "Load the invoice templates at startup"
+  (let* ((draftemailhtml (hhub-read-file *NST-INVOICEDRAFT-TEMPLATEFILE*))
+	 (invoicepaymenthtml (hhub-read-file *NST-INVOICEPAYMENT-TEMPLATEFILE*))
+	 (paymentreminderhtml (hhub-read-file *NST-INVOICEPAYREMINDER-TEMPLATEFILE*))
+	 (overduepaymentreminderhtml (hhub-read-file *NST-INVOICEPAYOVERDUEREMINDER-TEMPLATEFILE*))
+	 (invoicepaidhtml (hhub-read-file *NST-INVOICEPAID-TEMPLATEFILE*))
+	 (invoiceshippedhtml (hhub-read-file *NST-INVOICESHIPPED-TEMPLATEFILE*))
+	 (invoicecancelledhtml (hhub-read-file *NST-INVOICECANCELLED-TEMPLATEFILE*))
+	 (invoicerefundedhtml (hhub-read-file *NST-INVOICEREFUNDED-TEMPLATEFILE*))
+	 (gstinvoice1html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-1*)))
+    (function (lambda ()
+      (values (function (lambda () draftemailhtml))
+	      (function (lambda () invoicepaymenthtml))
+	      (function (lambda () paymentreminderhtml))
+	      (function (lambda () overduepaymentreminderhtml))
+	      (function (lambda () invoicepaidhtml))
+	      (function (lambda () invoiceshippedhtml))
+	      (function (lambda () invoicecancelledhtml))
+	      (function (lambda () invoicerefundedhtml))
+	      (function (lambda () gstinvoice1html)))))))
+
+
+(defun nst-get-cached-invoice-template-func (&key templatenum)
+  :documentation "returns the function responsible for invoice email HTML template. Call the returning function to get the HTML."
+  (multiple-value-bind (draftemailhtmlfunc invoicepaymenthtmlfunc paymentreminderhtmlfunc overduepaymentreminderhtmlfunc invoicepaidhtmlfunc invoiceshippedhtmlfunc invoicecancelledhtmlfunc invoicerefundedhtmlfunc gstinvoice1htmlfunc) (funcall *NST-INVOICE-TEMPLATES*)
+    (case templatenum
+      (1 draftemailhtmlfunc)
+      (2 paymentreminderhtmlfunc)
+      (3 overduepaymentreminderhtmlfunc)
+      (4 invoicepaidhtmlfunc)
+      (5 invoiceshippedhtmlfunc)
+      (6 invoicecancelledhtmlfunc)
+      (7 invoicerefundedhtmlfunc)
+      (8 invoicepaymenthtmlfunc)
+      (9 gstinvoice1htmlfunc))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;; Nine Stores GLOBAL BUSINESS FUNCTIONS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

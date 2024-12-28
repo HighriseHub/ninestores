@@ -1,6 +1,6 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 
-(defun test-otp-send (phone OTP) 
-  (send-sms-notification phone "HIGHUB"  (format nil "OTP for Transaction is ~A. Valid for next 5 mins and can be used only once. Do not share OTP with anyone for security reasons. -HighriseHub" OTP)))
+(defun test-otp-send (phone transaction-name OTP)
+  (send-sms-notification phone "NTSTOR"  (format nil "Your OTP for ~A is ~A. Do not share this OTP with anyone. Valid for 5 minutes. -Nine Technologies" transaction-name OTP)))
 

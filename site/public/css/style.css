@@ -163,24 +163,19 @@ body {
 
 
 #floatingwhatsappbutton {
-    display: inline-block;
-    background-size: 60%;
-    align-items: center;
-    width: 37px;
-    height: 37px;
-    text-align: center;
-    border-radius: 5px;
-    position: fixed;
-    color: #FFFFFF;
-    top: 130px;
-    right: 18px;
-    transition: background-color .3s, 
-		opacity .5s, visibility .5s;
-    opacity: 1;
-    visibility: visible;
-    z-index: 100;
-    font-size:0.8rem;
-    vertical-align:-0.75em;
+    	position:fixed;
+	width:60px;
+	height:60px;
+	bottom:100px;
+	right:10px;
+	background-color:#25d366;
+	color:#FFF;
+	border-radius:50px;
+	text-align:center;
+	font-size:30px;
+	box-shadow: 2px 2px 3px #999;
+	z-index:100;
+	
 }
 #floatingwhatsappbutton::after {
   content: "";
@@ -193,10 +188,10 @@ body {
 }
 #floatingwhatsappbutton:hover {
   cursor: pointer;
-  background-color: #ffffff;
+  background-color: #25d366;
 }
 #floatingwhatsappbutton:active {
-  background-color:#ffffff;
+  background-color:#25d366;
 }
 #floatingwhatsappbutton.show {
   opacity: 1;
@@ -276,7 +271,7 @@ body {
 }
 .account-wall
 {
-    
+    display: flex;
     align-items: center;
     justify-content: center;
     margin-top: 20px;
@@ -966,7 +961,7 @@ height: 350px;
 {
     content:"";
     position:relative;
-    top:-110px;
+    top:50px;
     left:50px;
     z-index:100;
     font-family:Arial,sans-serif;
