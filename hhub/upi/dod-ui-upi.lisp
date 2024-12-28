@@ -7,12 +7,15 @@
 	 (vendor-name (slot-value vendor 'name))
 	 (paymentstr (format nil "\'upi://pay?pa=~A&pn=~A&am=~d&tr=~A&cu=INR&mc=~A\'" upi-id vendor-name amount transaction-id retailer-category-code))
 	 (filename (format nil "/temp/upiqr~A.png" (get-universal-time)))
-	 (filepath (format nil "~A/~A" *HHUBRESOURCESDIR* filename))
+	 (filepath (format nil "~A~A" *HHUBRESOURCESDIR* filename))
 	 (qrcodecmd (format nil "qrencode -s 5 -l L -v 5 -o ~A ~A" filepath paymentstr)))
 	 
     (when upi-id
       (sb-ext:run-program "/bin/sh" (list "-c" qrcodecmd ) :input nil :output *standard-output*)
       filename)))
+
+
+
 
 (defun generateupiurlsforvendor  (vendor retailer-category-code transaction-id amount)
   :description "Generates the UPI payment URLs for a vendor and returns an url list containing one url per app. upiapp values are phonepe, paytmmp, gpay, upi"
