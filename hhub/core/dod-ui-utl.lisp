@@ -2,6 +2,8 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun displaystorepickupwidget (address)
     (cl-who:with-html-output (*standard-output* nil)
@@ -212,7 +214,7 @@
 (defun whatsapp-widget (phone)
   :description "This function returns the HTML required for the floating whatsapp button"
   (cl-who:with-html-output (*standard-output* nil) 
-    (:a :id "floatingwhatsappbutton" :target "_blank"  :href (format nil "createwhatsapplinkwithmessage?phone=~A&message=Hi" phone) :style "font-weight: bold; font-size: 30px !important;"  (:i :class "fa-brands fa-whatsapp" :style "color: #39dd30;"))))
+    (:a :id "floatingwhatsappbutton" :target "_blank"  :href (format nil "createwhatsapplinkwithmessage?phone=~A&message=Hi" phone) :style "font-weight: bold; font-size: 30px !important;"  (:i :class "fa-brands fa-whatsapp"))))
 
 (defun hhub-controller-create-whatsapp-link-with-message ()
   (let* ((phone (hunchentoot:parameter "phone"))
@@ -495,9 +497,9 @@
 					;(if (is-dod-cust-session-valid?) (with-customer-navigation-bar))
 		       (when hunchentoot:*session*
 			   (,nav-func)
-			   (,sidebar-func)))
+			   (,sidebar-func))
 		       (:div :class "container-fluid" :style "background-color: white; min-height: calc(100vh - 50px);" :role "main" 
-			     ,@body)
+			     ,@body))
 		       ;; rangeslider
 		       ;; bootstrap core javascript
 		       (:script :src "/js/dod.js"))))))
@@ -549,9 +551,9 @@
 
 (defun print-thread-info ()
 :description "This function prints information about all threads" 
-      (let* ((curr-thread (bt:current-thread))
-             (curr-thread-name (bt:thread-name curr-thread))
-             (all-threads (bt:all-threads))
+      (let* ((curr-thread sb-thread:*current-thread*)
+             (curr-thread-name (sb-thread:thread-name curr-thread))
+             (all-threads (sb-thread:list-all-threads))
 	     (tc (length all-threads)))
         (format t "Current thread: ~a~%~%" curr-thread)
         (format t "Current thread name: ~a~%~%" curr-thread-name)
@@ -709,6 +711,14 @@ individual tiles. It also supports search functionality by including the searchr
 	 (:vendor (display-vendor-page-with-widgets ,pagetitle widgets))
 	 (:compadmin (display-compadmin-page-with-widgets ,pagetitle widgets))
 	 (:superadmin (display-superadmin-page-with-widgets ,pagetitle widgets))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-mvc-binary-file (createmodelfunc createwidgetsfunc)
+    `(let* ((modelfunc (,createmodelfunc))
+	    (widgets (,createwidgetsfunc modelfunc)))
+       (loop for widget in widgets do 
+	 (funcall widget)))))
+ 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-mvc-redirect-ui (createmodelfunc createwidgetsfunc)
@@ -879,17 +889,21 @@ individual tiles. It also supports search functionality by including the searchr
        (:div :class "col-xs-12 col-sm-12 col-md-4 col-lg-3"
 	     ,@body))))
 
-
-
-
-
-
-
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-submit-button (titletext &body other-attributes)
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "form-group"
 	     (:button :class "btn btn-lg btn-primary" :type "submit" ,@other-attributes ,titletext)))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-input-number (name label placeholder  value min max brequired validation-error-msg tabindex &body other-attributes)
+    (let ((textid (format nil "id~A~A" name (hhub-random-password 3))))
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:div :class "form-group"
+	     (:label :for ,textid ,label)
+	     (:input :class "form-control"  :type "number" :id ,textid :name ,name :placeholder ,placeholder :min ,min :max ,max :required ,brequired :value ,value :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
+	     (:div :class "help-block with-errors"))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-input-text (name label placeholder  value brequired validation-error-msg tabindex &body other-attributes)
