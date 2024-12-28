@@ -41,9 +41,9 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 * Setup Slime for using emacs as in IDE for lisp programming. 
 * Load the load.lisp file, which will download all the necessary common lisp libraries and also compile them.
 * Start the website using (start-das) command. 
-* Compile all the lisp files using function - (compile-hhub-files)
-* Set SMS testing to NIL using command - (setf *HHUBOTPTESTING* NIL)
-* Set the siteurl - (setf *siteurl* "https://www.ninestores.in") 
+* Compile all the lisp files using function - "(compile-hhub-files)"
+* Set SMS testing to NIL using command - "(setf *HHUBOTPTESTING* NIL)"
+* Set the siteurl - "(setf *siteurl* "https://www.ninestores.in")" 
 
 
 
