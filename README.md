@@ -34,11 +34,16 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 * Install libuv as we use async IO operations. sudo apt-get install libuv1-dev. 
 * Install PM2 (Process Manager 2). sudo npm install pm2 -g. 
 * Install Node.js for sending SMS, Webpush Notifications, S3 Bucket : sudo apt-get install nodejs, sudo apt-get install npm
-* Install qrencode - sudo apt-get install qrencode 
+* Install qrencode - sudo apt-get install qrencode
+* Install wget - sudo apt install wget - for downloading files through internet
+* Install wkhtmltopdf - sudo apt install wkhtmltopdf - for converting HTML files to PDF. 
 * Install Quicklisp
 * Setup Slime for using emacs as in IDE for lisp programming. 
-* Load the load.lisp file, which will download all the necessary common lisp libraries and also compile them. 
+* Load the load.lisp file, which will download all the necessary common lisp libraries and also compile them.
 * Start the website using (start-das) command. 
+* Compile all the lisp files using function - (compile-hhub-files)
+* Set SMS testing to NIL using command - (setf *HHUBOTPTESTING* NIL)
+* Set the siteurl - (setf *siteurl* "https://www.ninestores.in") 
 
 
 
