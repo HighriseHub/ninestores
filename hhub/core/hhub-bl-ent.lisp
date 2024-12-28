@@ -575,7 +575,6 @@
   (let* ((bservicename (getbusinessservice service))
 	 (bserviceinstance (make-instance bservicename))
 	 (method "doupdate"))
-    (logiamhere "Going to call doupdate")
     ;; Call the doupdate method on the BusinessService.
     (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
   
