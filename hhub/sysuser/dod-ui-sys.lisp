@@ -18,21 +18,20 @@
     (with-no-navbar-page-v2  "OTP Page"
       (:br)
       (:div :class "account-wall" :align "center"
-      (with-html-card "/img/logo.png" "" "" (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6))))
-	(with-html-form  "form-hhubotppage" "hhubotpsubmitaction" 
-	  ;;(:img :class "profile-img" :src "/img/logo.png" :alt "")
-	  (:div :id "withCountDownTimerExpired"
-		(with-html-input-text-hidden "phone" phone)
-		(with-html-input-password "otp" "" "Enter OTP" nil T "Please enter OTP" "1")
-		(:p :id "withCountDownTimer" :style "color: crimson;")
+	    (with-html-card "/img/logo.png" "" "" (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6))))
+	      (with-html-form  "form-hhubotppage" "hhubotpsubmitaction" 
+		(:div :id "withCountDownTimerExpired"
+		      (with-html-input-text-hidden "phone" phone)
+		      (with-html-input-password "otp" "" "Enter OTP" nil T "Please enter OTP" "1")
+		      (:p :id "withCountDownTimer" :style "color: crimson;")
+		      (:div :class "form-group"
+			    (:button :class "submit center-block btn btn-primary btn-block" :type "submit" "Send OTP"))))
+	      (with-html-form  "form-hhubotpresendpage" "hhubotpregenerateaction"
 		(:div :class "form-group"
-		      (:button :class "submit center-block btn btn-primary btn-block" :type "submit" "Send OTP"))))
-	(with-html-form  "form-hhubotpresendpage" "hhubotpregenerateaction"
-	  (:div :class "form-group"
-		(with-html-input-text-hidden "phone" phone)
-		(:button :class "submit center-block btn btn-primary btn-block" :type "submit" (cl-who:str  (format nil "Regenerate OTP for ~A " (concatenate 'string "xxxxx" (subseq phone 6))))))))
-	(hhub-html-page-footer)
-      (:script "window.onload = function() {countdowntimer(0,0,2,0);}")))))
+		      (with-html-input-text-hidden "phone" phone)
+		      (:button :class "submit center-block btn btn-primary btn-block" :type "submit" (cl-who:str  (format nil "Regenerate OTP for ~A " (concatenate 'string "xxxxx" (subseq phone 6)))))))
+	    (hhub-html-page-footer)))
+	    (:script "window.onload = function() {countdowntimer(0,0,2,0);}"))))
 
 (defun dod-controller-otp-submit-action ()
   (let ((otp (hunchentoot:parameter "otp"))
@@ -56,7 +55,7 @@
 
 (defun generateotp&redirect (phone context)
 :description "This function will generate OTP, save it to the session, send SMS to the phone number with OTP message and then redirect to OTP entering page, also remembering the context where to redirect after entering the OTP successfully."
-  (let ((otp (random 99999)))
+  (let ((otp (random 999999)))
     ;; Set the otp to the session value 
     (setf (hunchentoot:session-value :genericotp ) otp)
     (setf (hunchentoot:session-value :sessioncontext) context)
@@ -1055,6 +1054,9 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaymentpage"   'com-hhub-transaction-show-invoice-payment-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaidaction"   'com-hhub-transaction-invoice-paid-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/displayinvoicepublic"   'com-hhub-transaction-display-invoice-public)
+	(hunchentoot:create-regex-dispatcher "^/hhub/displayinvoiceemail"   'com-hhub-transaction-edit-invoice-email)
+	(hunchentoot:create-regex-dispatcher "^/hhub/invoicemailaction"   'com-hhub-transaction-send-invoice-email)
+	(hunchentoot:create-regex-dispatcher "^/hhub/downloadinvoice"   'com-hhub-transaction-download-invoice)
 ))
 
 
