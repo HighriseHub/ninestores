@@ -60,6 +60,9 @@
   (let* ((zonename (get-zonename-from-pincode pincode vendor company))
 	 (ratetablecsv (getratetablecsv (get-shipping-method-for-vendor vendor company)))
 	 (ratetablecontent (if ratetablecsv (cl-csv:read-csv ratetablecsv :skip-first-p T))))
+    (with-nst-error-handler
+	(if (< weight 0.5)
+	    (error "Items weight in shopping cart is less than 0.5KG.")) 'nst-shipping-error)
     (if zonename
 	(car (remove nil (mapcar (lambda (raterow)
 				   (let ((minkg (float (read-from-string (nth 0 raterow))))
