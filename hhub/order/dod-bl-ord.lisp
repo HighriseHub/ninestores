@@ -482,25 +482,17 @@
 
 
 (defun create-order-from-shopcart (order-items products  order-date request-date ship-date ship-address order-amt shipping-cost shipping-info payment-mode  comments customer-instance company-instance guest-customer utrnum storepickupenabled)
-  (as:with-event-loop (:catch-app-errors T)
-    (let* ((result nil)
-	   (notifier (as:make-notifier (lambda () (format t "Job finished! ~a~%" result)))))
-      (bt:make-thread
-       (lambda ()
-	 (let ((uuid (uuid:make-v1-uuid )))
-	   ;; Create an order in the database. 
-	   (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments storepickupenabled  company-instance)
-	   (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance)))
-	     ;; Create the order-items and also update the current products in stock. 
-	     (save-order-items-in-db order order-items products company-instance)
-	     ;; Create one row per vendor in the vendor_orders table. Send an order received email to each vendor. 
-	     (save-vendor-orders-in-db order  order-date request-date ship-date ship-address payment-mode  storepickupenabled  order-items products  shipping-info shipping-cost  guest-customer customer-instance company-instance utrnum))
-	   (setf result 1)
-	   (as:trigger-notifier notifier))) :name (format T "Order Loop Thread")))))
+  (let ((uuid (uuid:make-v1-uuid )))
+    ;; Create an order in the database. 
+    (create-order order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost payment-mode comments storepickupenabled  company-instance)
+    (let* ((order (get-order-by-context-id (print-object uuid nil) company-instance))
+	   (order-id (slot-value order 'row-id)))
+      ;; Create the order-items and also update the current products in stock. 
+      (save-order-items-in-db order order-items products company-instance)
+      ;; Create one row per vendor in the vendor_orders table. Send an order received email to each vendor. 
+      (save-vendor-orders-in-db order  order-date request-date ship-date ship-address payment-mode  storepickupenabled  order-items products  shipping-info shipping-cost  guest-customer customer-instance company-instance utrnum)
+    order-id)))
    
-
-
-
 (defun persist-vendor-orders(order-id cust-id vendor-id tenant-id ord-date req-date ship-date ship-address payment-mode order-amt shipping-cost storepickupenabled)
  (clsql:update-records-from-instance (make-instance 'dod-vendor-orders
 					 :order-id order-id
