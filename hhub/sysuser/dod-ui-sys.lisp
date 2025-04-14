@@ -270,36 +270,35 @@
 	    (:h4 (:span :class "label label-primary" "Store Details"))))
 	
 	(with-html-div-row
-	  (with-html-div-col
+	  (with-html-div-col-8
 	    (with-html-input-text "cmpname" "Store Name" "Store Name" nil T "Please enter company name" 4 :maxlength "40")))
 	
 	
 	(with-html-div-row
-	  (with-html-div-col
+	  (with-html-div-col-8
 	    (with-html-input-textarea "cmpaddress" "Address" "Address" "Enter Address" T "Enter Address" 5 3))
 	  (:div :class "form-group" :id "charcount"))
 	
 	(:input  :type "hidden" :value cmp-type :name "cmptype")
-	
-	(with-html-div-row
-	  (with-html-div-col
-	    (with-html-input-text "cmpzipcode" nil "Pincode" nil T "Enter Pincode" 6 :inputmode "numeric" :oninput "this.value = this.value.replace(/[^0-9]/g,'');")
-	    (:span :id "areaname" :class "label label-info")))
-	
-	(with-html-div-row
-	  (with-html-div-col
-	    (with-html-input-text "cmpcity" "City" "City" nil T "Enter City" nil :readonly T )))
-	
-	
-	(with-html-div-row
-	  (with-html-div-col
-	        (with-html-input-text "cmpstate" "State" "State" nil T "Enter State" nil :readonly T )))
 
+	(:h4 (:span :class "label label-primary" "Confirm Pincode"))
+	(with-html-div-row
+	  (with-html-div-col
+	    (:input :class "form-control" :type "text" :class "form-control" :inputmode "numeric" :maxlength "6" :id "cmpzipcode" :name "cmpzipcode" :value "" :placeholder "Pincode" :tabindex "8"  :oninput "this.value=this.value.replace(/[^0-9]/g,'');")))
+	
+	(with-html-div-row
+	  (with-html-div-col
+	    (:input :class "form-control" :type "text" :class "form-control" :name "cmpcity" :value "" :id "cmpcity" :placeholder "City" :readonly T :required T)))
+		
+	(with-html-div-row
+	  (with-html-div-col
+	    (:input :class "form-control" :type "text" :class "form-control" :name "cmpstate" :value "" :id "cmpstate"  :placeholder "State"  :readonly T :required T )))
+	
 	(with-html-div-row
 	  (with-html-div-col
 	    (:input :class "form-control" :type "text" :value "INDIA" :readonly "true"  :name "cmpcountry" )))
 	(with-html-div-row
-	  (with-html-div-col
+	  (with-html-div-col-8
 	    (with-html-input-text "website" nil "Website" nil nil nil nil :maxlength "250")))
 	
 
