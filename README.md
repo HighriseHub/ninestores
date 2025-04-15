@@ -24,7 +24,7 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 * For a detailed list of features please visit https://www.ninestores.in/pricing
 
 ** How to setup the repository. **
-* Procure a Ubuntu 20.02 server on Hyperscalers like AWS, GCP or MSFT Azure. 
+* Procure a Ubuntu 24.0 server on Hyperscalers like AWS, GCP or MSFT Azure. 
 * Hardware Requirements: A Medium speed server with 8 GB RAM and 100 GB Secondary storage. 
 * We have hosted our site on AWS. You would need these AWS Services: EC2 for Compute, SES for Sending Email, SNS for sending SMS. (SMS sending in Indian subcontinent must be done in collaboration with VI https://www.vilpower.in/. This process is explained in details at AWS documentation https://docs.aws.amazon.com/sns/latest/dg/channels-sms-senderid-india.html. Will cost Rs.5900/per year with VI for registration.) 
 * Install SBCL on Ubuntu 20.02. 
