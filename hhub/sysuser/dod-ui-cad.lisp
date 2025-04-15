@@ -315,7 +315,6 @@
       (let* ((products (get-products-for-approval (get-login-tenant-id)))
 	     (numproducts (length products))
 	     (username (get-login-user-name)))
-	(logiamhere (format nil "user name is ~A. numproduct is ~d. products is ~A" username numproducts products))
 	(function (lambda ()
 	  (values  products numproducts username)))))))
 
@@ -325,19 +324,17 @@
 		     (cl-who:with-html-output (*standard-output* nil)   
 		       (with-html-div-row
 			 (with-html-div-col-6
-			   (:h4 "Welcome " (cl-who:str (format nil "~A" username)))
-			   ))
+			   (:h4 "Welcome " (cl-who:str (format nil "~A" username)))))
 		       (:hr)
 		       (with-html-div-row
 			 (with-html-div-col-6
 			   (:p "Pending Product Approvals"))
-			 (with-html-div-col-6
+			 (with-html-div-col-6 
 			   (:div :class "col-xs-6" :align "right" 
-				 (:b (:span :class "position-relative translate-middle badge rounded-pill bg-success" (cl-who:str (format nil "~d" numproducts))))
-				 )))
+				 (:b (:span :class "position-relative translate-middle badge rounded-pill bg-success" (cl-who:str (format nil "~d" numproducts)))))))
 		       (:hr)
-		       (cl-who:str (display-as-tiles products 'product-card-for-approval "product-box" ))
-		       )))))
+		       (with-catch-submit-event  "idcompadminhome" 
+			 (cl-who:str (display-as-tiles products 'product-card-for-approval "product-box" ))))))))
       (list widget1))))
 
 (defun com-hhub-transaction-compadmin-home () 
