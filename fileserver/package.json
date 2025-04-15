@@ -1,7 +1,7 @@
 {
   "name": "fileserver",
   "version": "1.0.0",
-  "description": "File server for AWS S3",
+  "description": "File server for AWS S3, using AWS SDK V3.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,7 +16,7 @@
     "upload"
   ],
     
-  "author": "HighriseHub",
+  "author": "Nine Stores",
   "license": "MIT ",
   "bugs": {
     "url": "https://github.com/highrisehub/ninestores/issues"
