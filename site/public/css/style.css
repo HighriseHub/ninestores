@@ -271,7 +271,7 @@ body {
 }
 .account-wall
 {
-    display: flex;
+    display: block;
     align-items: center;
     justify-content: center;
     margin-top: 20px;
@@ -679,7 +679,7 @@ body {
   text-decoration: none;
   border-radius: 10px;
   transition: background-color 0.3s ease;
-  font-size:1.0rem;
+  font-size:1.2rem;
 }
 
 .product-details .add-to-cart-btn:hover {
@@ -688,7 +688,7 @@ body {
 
 /* Old Price */
 .product-details .old-price {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: #888;
   text-decoration: line-through;
   margin-bottom: 5px;
@@ -696,7 +696,7 @@ body {
 
 /* New Price */
 .product-details .new-price {
-  font-size: 0.8rem;
+  font-size: 1.2rem;
   color: #333;
   font-weight: bold;
 }
@@ -961,7 +961,7 @@ height: 350px;
 {
     content:"";
     position:relative;
-    top:50px;
+    top:-50px;
     left:50px;
     z-index:100;
     font-family:Arial,sans-serif;
