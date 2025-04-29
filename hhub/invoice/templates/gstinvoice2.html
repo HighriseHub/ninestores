@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GST Invoice</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+
+        .invoice-container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header img {
+            max-height: 50px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin: 5px 0;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .section th, .section td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .items th {
+            background-color: #f0f0f0;
+        }
+
+        .summary {
+            margin-top: 20px;
+        }
+
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <div class="header">
+            <img src="amazon-logo-placeholder.png" alt="Amazon Logo">
+            <h1>Tax Invoice / Bill of Supply / Cash Memo</h1>
+        </div>
+
+        <div class="section">
+          <table>
+	    <thead>
+              <tr>
+		<th colspan="3">TAX INVOICE</th>
+		<th colspan="4">Original For Recipient</th>
+		<th colspan="3">Duplicate for Supplier</th>
+		<th colspan="3">Triplicate for Supplier</th>
+              </tr>
+	    </thead>
+     
+                <tr>
+                  <td colspan="5"><strong>Sold By:</strong>%Vendor Name%<br>
+                    %Vendor Address%<br>
+                    <strong>PAN No:</strong> PFPPP0098C<br>
+                    <strong>GST Registration No:</strong> %Vendor GST%</td>
+                  <td colspan="4">
+                    <strong>Billing Address:</strong><br>
+                    %Billed To%<br>
+		    %Billed to Address%<br>
+                    <strong>State/UT Code:</strong> %Billed to State% 
+                  </td>
+                  <td colspan="4">
+                    <strong>Shipping Address:</strong><br>
+                    %Shipped To%<br>
+                    %Shipped to Address%<br>
+                    <strong>State/UT Code:</strong>%Shipped to State%
+                  </td>
+                </tr>
+          </table>
+        </div>
+	
+        <div class="section">
+            <table>
+                <tr>
+                    <td><strong>Order Number:</strong> %Order Number%</td>
+                    <td><strong>Order Date:</strong> %Order Date%</td>
+                </tr>
+                <tr>
+                    <td><strong>Invoice Number:</strong>%Invoice Number%</td>
+                    <td><strong>Invoice Date:</strong>%Invoice Date%</td>
+                </tr>
+                <tr>
+                    <td><strong>Place of Supply:</strong> %Place of Supply%</td>
+                    <td><strong>Place of Delivery:</strong>%Place of Supply%</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="items">
+            <h2>Items</h2>
+            <table>
+	      <tr>
+		<th>Sr. No</th>
+		<th>Name of Product/Service</th>
+		<th>HSN/SAC</th>
+		<th>Qty Per Unit</th>
+		<th>Qty</th>
+		<th>Rate</th>
+		<th>Less: Discount%</th>
+		<th>Taxable Value</th>
+		<th>CGST</th>
+		<th>SGST</th>
+		<th>IGST</th>
+		<th>Total</th>
+              </tr>
+              <!-- Insert row data here-->
+	      %Invoice Items Rows%
+	    </table>
+        </div>
+
+        <div class="summary">
+            <table>
+                <tr>
+                    <th>Total</th>
+                    <td>%Total Value%</td>
+                </tr>
+            </table>
+            <p><strong>Amount in Words:</strong>%Total in Words%</p>
+        </div>
+
+        <div class="footer">
+            <p>Whether Tax is payable under reverse charge: <strong>%Reverse Charge%</strong></p>
+            <p>For %Company Name%</p>
+            <p>Authorised Signatory: %Authorised Signatory%</p>
+	    <p>Terms and Conditions :%Terms and Conditions% </p>
+        </div>
+    </div>
+</body>
+</html>

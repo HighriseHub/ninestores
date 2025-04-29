@@ -24,6 +24,8 @@
 (defvar *HHUB-COMPILE-FILES-LOCATION* "/home/ubuntu/ninestores/bin/hhubcompilelog.txt") 
 (defvar *HHUB-EMAIL-CSS-FILE* "/data/www/ninestores.in/public/css")
 (defvar *HHUB-EMAIL-CSS-CONTENTS* NIL)
+;; Email templates
+(defvar *NST-EMAIL-TEMPLATES* NIL)
 (defvar *HHUB-EMAIL-TEMPLATES-FOLDER* "/home/ubuntu/ninestores/hhub/email/templates")
 (defvar *HHUB-CUST-REG-TEMPLATE-FILE* "cust-reg.html")
 (defvar *HHUB-CUST-PASSWORD-RESET-FILE* "cust-pass-reset.html")
@@ -35,6 +37,9 @@
 (defvar *HHUB-PRIVACY-FILE* "privacy.html")
 (defvar *HHUB-STATIC-FILES* "/home/ubuntu/ninestores/site/public")
 
+;; This global variable represents the standard output terminal which will be used
+;; to display output in multi threaded situations.
+(defvar *stdoutstream* *standard-output*)
 (defvar *dod-db-instance*)
 (defvar *siteurl* "https://www.ninestores.in")
 (defvar *sitepass* (encrypt "P@ssword1" "ninestores.in"))
@@ -97,6 +102,8 @@
 (defvar *HHUBDEFAULTCOUNTRY* "India")
 (defvar *NSTGSTSTATECODES-HT* nil)
 (defvar *NSTGSTBUSINESSSTATE* "29")
+
+;;; Invoice templates 
 (defvar *NSTGSTINVOICETERMS* NIL)
 (defvar *NST-INVOICEDRAFT-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicedraft.html")
 (defvar *NST-INVOICEPAYREMINDER-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicepayreminder.html")
@@ -106,8 +113,24 @@
 (defvar *NST-INVOICECANCELLED-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicecancelled.html")
 (defvar *NST-INVOICEREFUNDED-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicerefunded.html")
 (defvar *NST-INVOICEPAYMENT-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicepayment.html")
+(defvar *NST-INVOICESETTINGS-HTMLFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicesettings.html")
+(defvar *NST-INVOICESETTINGS-YAMLFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicesettings.yaml")
 (defvar *NST-GSTINVOICE-TEMPLATEFILE-1* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice1.html")
+(defvar *NST-GSTINVOICE-TEMPLATEFILE-2* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice2.html")
 (defvar *NST-INVOICE-TEMPLATES* nil)
+;; Product templates
+(defvar *NST-PRDDETAILSFORCUST-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/products/templates/prddetailsforcust.html")
+(defvar *NST-PRDDETAILSFORVEND-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/products/templates/prddetailsforvend.html")
+(defvar *NST-PRODUCT-TEMPLATES* nil)
+
+
+;; NINE STORES ACTOR MODEL
+(defvar  *NSTSENDORDEREMAILACTOR* NIL)
+(defvar *NSTAWSS3FILEUPLOADACTOR* NIL)
+(defvar *NSTAWSS3FILEDELETEACTOR* NIL)
+
+
+
 
 (defun set-customer-page-title (name)
   (setf *customer-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
@@ -184,6 +207,8 @@ Database type: Supported type is ':odbc'"
     (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql)
     (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))
     (setf *NST-INVOICE-TEMPLATES* (nst-load-invoice-templates))
+    (setf *NST-PRODUCT-TEMPLATES* (nst-load-product-templates))
+    (setf *NST-EMAIL-TEMPLATES* (nst-load-email-templates))
     (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
     (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
     (setf *HHUBBUSINESSSESSIONS-HT* (make-hash-table)) 
@@ -191,7 +216,19 @@ Database type: Supported type is ':odbc'"
     (setf *HHUBBUSINESSSERVER* (initbusinessserver))
     (setf *NSTGSTSTATECODES-HT* (init-gst-statecodes))
     (init-gst-invoice-terms)
-    (define-shipping-zones)))
+    (define-shipping-zones)
+    (setf *NSTSENDORDEREMAILACTOR* (make-instance 'nst-actor
+						  :name "Send Order Email Actor"
+						  :behavior #'send-order-email-behavior
+						  :stateful t
+						  :initial-state 0))
+    (setf *NSTAWSS3FILEUPLOADACTOR* (make-instance 'nst-actor
+						  :name "AWS S3 Bucket File Upload Actor"
+						  :behavior #'async-upload-files-s3bucket-behavior
+						  :stateful t
+						  :initial-state (make-hash-table)))
+    (start-actor *NSTSENDORDEREMAILACTOR*)
+    (start-actor *NSTAWSS3FILEUPLOADACTOR*)))
 
 
 
@@ -224,7 +261,11 @@ Database type: Supported type is ':odbc'"
 	 (setf *NST-INVOICE-TEMPLATES* NIL)
 	 (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* NIL)
 	 (setf *HHUBBUSINESSSESSIONS-HT* NIL)
-	 (deletebusinessserver)))
+	 (deletebusinessserver)
+	 (destroy-actor *NSTSENDORDEREMAILACTOR*)
+	 (setf *NSTSENDORDEREMAILACTOR* nil)
+	 (destroy-actor *NSTAWSS3FILEUPLOADACTOR*)
+	 (setf *NSTAWSS3FILEUPLOADACTOR* nil)))
 
 
 ;;;;*********** Globally Cached lists and their accessor functions *********************************
@@ -353,7 +394,10 @@ Database type: Supported type is ':odbc'"
 	 (invoiceshippedhtml (hhub-read-file *NST-INVOICESHIPPED-TEMPLATEFILE*))
 	 (invoicecancelledhtml (hhub-read-file *NST-INVOICECANCELLED-TEMPLATEFILE*))
 	 (invoicerefundedhtml (hhub-read-file *NST-INVOICEREFUNDED-TEMPLATEFILE*))
-	 (gstinvoice1html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-1*)))
+	 (invoicesettingshtml (hhub-read-file *NST-INVOICESETTINGS-HTMLFILE*))
+	 (invoicesettingsyaml (hhub-read-file *NST-INVOICESETTINGS-YAMLFILE*))
+	 (gstinvoice1html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-1*))
+	 (gstinvoice2html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-2*)))
     (function (lambda ()
       (values (function (lambda () draftemailhtml))
 	      (function (lambda () invoicepaymenthtml))
@@ -363,12 +407,15 @@ Database type: Supported type is ':odbc'"
 	      (function (lambda () invoiceshippedhtml))
 	      (function (lambda () invoicecancelledhtml))
 	      (function (lambda () invoicerefundedhtml))
-	      (function (lambda () gstinvoice1html)))))))
+	      (function (lambda () gstinvoice1html))
+	      (function (lambda () gstinvoice2html))
+	      (function (lambda () invoicesettingshtml))
+	      (function (lambda () invoicesettingsyaml)))))))
 
 
 (defun nst-get-cached-invoice-template-func (&key templatenum)
   :documentation "returns the function responsible for invoice email HTML template. Call the returning function to get the HTML."
-  (multiple-value-bind (draftemailhtmlfunc invoicepaymenthtmlfunc paymentreminderhtmlfunc overduepaymentreminderhtmlfunc invoicepaidhtmlfunc invoiceshippedhtmlfunc invoicecancelledhtmlfunc invoicerefundedhtmlfunc gstinvoice1htmlfunc) (funcall *NST-INVOICE-TEMPLATES*)
+  (multiple-value-bind (draftemailhtmlfunc invoicepaymenthtmlfunc paymentreminderhtmlfunc overduepaymentreminderhtmlfunc invoicepaidhtmlfunc invoiceshippedhtmlfunc invoicecancelledhtmlfunc invoicerefundedhtmlfunc gstinvoice1htmlfunc gstinvoice2htmlfunc invoicesettingshtmlfunc invoicesettingsyamlfunc) (funcall *NST-INVOICE-TEMPLATES*)
     (case templatenum
       (1 draftemailhtmlfunc)
       (2 paymentreminderhtmlfunc)
@@ -378,7 +425,50 @@ Database type: Supported type is ':odbc'"
       (6 invoicecancelledhtmlfunc)
       (7 invoicerefundedhtmlfunc)
       (8 invoicepaymenthtmlfunc)
-      (9 gstinvoice1htmlfunc))))
+      (9 gstinvoice1htmlfunc)
+      (10 gstinvoice2htmlfunc)
+      (11 invoicesettingshtmlfunc)
+      (12 invoicesettingsyamlfunc))))
+
+;;;;;;;;;;;;;; PRODUCT TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun nst-load-product-templates ()
+  :documentation "Load the product templates at startup"
+  (let* ((prddetailsforcusthtml  (hhub-read-file *NST-PRDDETAILSFORCUST-TEMPLATEFILE*))
+	 (prddetailsforvendhtml  (hhub-read-file *NST-PRDDETAILSFORVEND-TEMPLATEFILE*)))
+    (function (lambda ()
+      (values
+       (function (lambda () prddetailsforcusthtml))
+       (function (lambda () prddetailsforvendhtml)))))))
+
+(defun nst-get-cached-product-template-func (&key templatenum)
+  :documentation "returns the function responsible for product HTML template. Call the returning function to get the HTML."
+  (multiple-value-bind (prddetailsforcusthtmlfunc prddetailsforvendhtmlfunc) (funcall *NST-PRODUCT-TEMPLATES*)
+    (case templatenum
+      (1 prddetailsforcusthtmlfunc)
+      (2 prddetailsforvendhtmlfunc))))
+
+
+;;;;;;;;;;;;;;;;;;EMAIL TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun nst-load-email-templates ()
+  :documentation "Load the product templates at startup"
+  (let* ((order-email-template (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*))))
+    (function (lambda ()
+      (values (function (lambda () order-email-template)))))))
+
+(defun nst-get-cached-email-template-func (&key templatenum)
+  :documentation "returns the function responsible for product HTML template. Call the returning function to get the HTML."
+  (multiple-value-bind (orderemailtempl) (funcall *NST-EMAIL-TEMPLATES*)
+    (case templatenum
+      (1 orderemailtempl))))
+
+
+
+
+
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;; Nine Stores GLOBAL BUSINESS FUNCTIONS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -304,7 +304,11 @@
     :void-value "N"
     :initarg :deleted-state)
    
-
+   (invoice-settings
+    :type (string 4000)
+    :void-value "undefined"
+    :initarg :invoice-settings)
+   
    (tenant-id
     :type integer
     :initarg :tenant-id)

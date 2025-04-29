@@ -8,6 +8,183 @@ var ajaxCallParams = {};
 var ajaxDataParams = {}; 
 var slideindex =1;
 
+
+// Final recommended implementation (universal)
+function generateUniqueId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    // Fallback for older environments
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
+
+const validateFileSize = (event) => {
+    event.preventDefault();
+    const input = event.target;
+    const files = input.files;
+    const maxFiles = 5;
+    const maxSizeMB = 1; // Maximum file size in MB
+    const maxSizeBytes = maxSizeMB * 1024 * 1024; // Convert MB to bytes
+
+    // Check if no files are selected
+    if (files.length === 0) {
+        alert("Please select at least one file.");
+        return false;
+    }
+
+    // Check if more than 5 files are selected
+    if (files.length > maxFiles) {
+        alert(`You can upload a maximum of ${maxFiles} files at a time.`);
+        document.getElementById("btnprdimageupload").disabled = true;
+        return false;
+    }
+
+    // Validate file size and type
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+
+        // Check file size
+        if (file.size > maxSizeBytes) {
+            alert(`File "${file.name}" exceeds the maximum size of ${maxSizeMB} MB. Please select a smaller file.`);
+            document.getElementById("btnprdimageupload").disabled = true;
+            return false;
+        }
+
+        // Check file type (only images allowed)
+        if (!file.type.match('image.*')) {
+            alert(`File "${file.name}" is not an image. Please upload only image files.`);
+            document.getElementById("btnprdimageupload").disabled = true;
+            return false;
+        }
+
+        // Display image preview
+        const previewElement = document.getElementById(`img_url_${i + 1}`);
+        if (previewElement) {
+            previewElement.src = URL.createObjectURL(file);
+	    previewElement.style = "width:100px; height:100px; display:block;";
+        }
+    }
+
+    // Add onClick event for the reset button
+    var element = document.getElementById("btnprdimageuploadreset");
+    element.addEventListener('click', resetFileUpload);
+
+    // Enable the upload button if all validations pass
+    document.getElementById("btnprdimageupload").disabled = false;
+    return true;
+};
+
+const resetFileUpload = () => {
+    // Reset the file input
+    const input = document.getElementById("idprdimgfileupldctrl");
+    const files = input.files;
+    if (input && files.length > 0) {
+        input.value = ''; // This clears the selected files
+	// Clear image previews (if any)
+	for (let i = 1; i <= files.length; i++) { // Assuming you have 5 image preview slots
+            const previewElement = document.getElementById(`img_url_${i}`);
+            if (previewElement) {
+		previewElement.src = ''; // Clear the image source
+		previewElement.style.display = 'none'; // Hide the preview element
+            }
+	}
+	
+    // Optionally, disable the upload button
+	const uploadButton = document.getElementById("btnprdimageupload");
+	if (uploadButton) {
+            uploadButton.disabled = true;
+	}
+    }
+};
+
+/**
+ * Uploads a file to a backend URL with progress tracking.
+ * @param {string} backendUrl - The URL to which the file will be uploaded.
+ * @param {File} file - The file to upload.
+ * @param {function} onProgress - Callback function to track upload progress.
+ * @returns {Promise} - Resolves with the server response or rejects with an error.
+ */
+const uploadFileToBackend = (form, onProgress) => {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+	const formData = new FormData(form);
+	const backendUrl = form.action; 
+	const input = document.getElementById("idprdimgfileupldctrl");
+	const files = input.files;
+
+	    // Check if no files are selected
+	if (files.length === 0) {
+            alert("Please select at least one file.");
+            return false;
+	}
+
+        // Set up the request
+        xhr.open("POST", backendUrl, true);
+
+        // Track upload progress
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentCompleted = Math.round((event.loaded * 100) / event.total);
+                if (onProgress) {
+                    onProgress(percentCompleted); // Call the progress callback
+                }
+            }
+        };
+
+        // Handle the response
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const response = xhr.responseText;
+                    resolve(response); // Resolve with the server response
+                } catch (error) {
+                    reject(new Error("Failed to parse server response."));
+                }
+            } else {
+                reject(new Error(`Upload failed: ${xhr.statusText}`));
+            }
+        };
+
+        // Handle errors
+        xhr.onerror = () => {
+            reject(new Error("Network error during upload."));
+        };
+
+	// set the header for uniquie id for tracking
+	xhr.setRequestHeader('X-Request-ID', generateUniqueId()); // For tracking
+        // Send the request
+        xhr.send(formData);
+    });
+};
+
+
+const submitfileuploadevent = async (event) => {
+    const theForm = event.target;
+    const fileInput = document.getElementById("idprdimgfileupldctrl");
+    event.preventDefault();
+    try {
+        // Optional: Track upload progress
+	const onProgress = (percentCompleted) => {
+            document.getElementById("fileuploadprogress").textContent = `Uploading: ${percentCompleted}%`;
+        };
+
+        // Upload the file
+        const response = await uploadFileToBackend(theForm, onProgress);
+        console.log("Upload successful:", response);
+        location.replace(response);
+
+    } catch (error) {
+        console.error("Upload failed:", error);
+        alert("File upload failed. Please try again.");
+    }
+};
+
+
+
 const setRangeValue = (event)=>{
     
     const range = event.target;
@@ -147,7 +324,7 @@ function ajaxCall(callParams, dataParams, callback) {
     $.ajax({
         type: callParams.Type,
         url: callParams.Url,
-        quietMillis: 100,
+	quietMillis: 100,
         dataType: callParams.DataType,
         data: dataParams,
         cache: true,
@@ -623,7 +800,8 @@ function submitformandredirect (theForm){
     ajaxCallParams.Type = "POST";
     ajaxCallParams.Url = $(theForm).attr("action");
     ajaxCallParams.DataType = "HTML"; // Return data type e-g Html, Json etc                                                                                                                                    
-    ajaxDataParams = $(theForm).serialize();
+    ajaxDataParams  = $(theForm).serialize();
+    //  ajaxDataParams  = new FormData(theForm);
     ajaxCall(ajaxCallParams, ajaxDataParams, function (data) { 
 	console.log("Form submitted");
 	if (data.includes("pdf"))

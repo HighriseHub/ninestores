@@ -47,7 +47,7 @@
 
    (prd-image-path
     :accessor prd-image-path
-    :type (string 256)
+    :type (string 1024)
     :initarg :prd-image-path)
    
    (unit-price

@@ -2,6 +2,32 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+(defun read-yaml-file (filepath)
+  "Read a YAML file and return its parsed content."
+  (let ((contents (hhub-read-file filepath)))
+    (yaml:parse contents)))
+
+(defun write-yaml-file (filepath data)
+  "Write a Lisp data structure to a YAML file."
+  (with-open-file (stream filepath :direction :output :if-exists :supersede)
+    (yaml:emit data *standard-output*)))
+
+(defun update-invoice-settings (yaml-file output-file)
+  "Read, modify, and save YAML settings."
+  (let ((data (read-yaml-file yaml-file)))
+    ;; Update specific settings
+    (setf (gethash "default_currency" (gethash "invoice_general_settings" (gethash "invoice_settings" data))) "INR")
+    (setf (gethash "date_format" (gethash "invoice_general_settings" (gethash "invoice_settings" data))) "DD/MM/YYYY")
+    ;; Save the updated data
+    (write-yaml-file output-file data)))
+
+;; Use the function
+;;(update-invoice-settings "config.yaml" "updated_config.yaml")
+
+
+
+
+
 (defun generatepdf (inputhtmlfile outpdffilename)
   (let* ((filename (format nil "~A~A.pdf" outpdffilename (get-universal-time)))
 	 (filepath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* filename))

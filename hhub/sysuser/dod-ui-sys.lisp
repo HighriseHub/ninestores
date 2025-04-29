@@ -19,32 +19,38 @@
       (:br)
       (:div :class "account-wall" :align "center"
 	    (with-html-card "/img/logo.png" "" "" (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6))))
-	      (with-html-form  "form-hhubotppage" "hhubotpsubmitaction" 
+	      (with-html-form-having-submit-event  "form-hhubotppage" "hhubotpsubmitaction" 
 		(:div :id "withCountDownTimerExpired"
 		      (with-html-input-text-hidden "phone" phone)
 		      (with-html-input-password "otp" "" "Enter OTP" nil T "Please enter OTP" "1")
 		      (:p :id "withCountDownTimer" :style "color: crimson;")
 		      (:div :class "form-group"
 			    (:button :class "submit center-block btn btn-primary btn-block" :type "submit" "Send OTP"))))
-	      (with-html-form  "form-hhubotpresendpage" "hhubotpregenerateaction"
+	      (with-html-form-having-submit-event  "form-hhubotpresendpage" "hhubotpregenerateaction"
 		(:div :class "form-group"
 		      (with-html-input-text-hidden "phone" phone)
 		      (:button :class "submit center-block btn btn-primary btn-block" :type "submit" (cl-who:str  (format nil "Regenerate OTP for ~A " (concatenate 'string "xxxxx" (subseq phone 6)))))))
-	    (hhub-html-page-footer)))
-	    (:script "window.onload = function() {countdowntimer(0,0,2,0);}"))))
+	      (hhub-html-page-footer)))
+      (:script "window.onload = function() {countdowntimer(0,0,2,0);}"))))
 
 (defun dod-controller-otp-submit-action ()
+  (with-mvc-redirect-ui createmodelforotpsubmitaction createwidgetsforgenericredirect))
+
+(defun createmodelforotpsubmitaction ()
   (let ((otp (hunchentoot:parameter "otp"))
 	(context (hunchentoot:session-value :sessioncontext))
-	(sessionotp (hunchentoot:session-value :genericotp)))
+	(sessionotp (hunchentoot:session-value :genericotp))
+	(redirecturl nil))
     ;;(hunchentoot:log-message* :info (format nil "context is ~A otp is ~A sessionotp is ~A" context otp sessionotp))
     (if (equal (parse-integer otp) sessionotp)
-        (hunchentoot:redirect (format nil "/hhub/~A" context))
+        (setf redirecturl (format nil "/hhub/~A" context))
 	;; else
 	(progn
 	  ;; before redirecting we need to reset the web session. 
 	  (hunchentoot:remove-session hunchentoot:*session*)
-	  (hunchentoot:redirect *siteurl*)))))
+	  (setf redirecturl *siteurl*)))
+    (function (lambda ()
+      (values redirecturl)))))
   
 
 (defun dod-controller-otp-regenerate-action ()
@@ -63,7 +69,7 @@
     (if *HHUBOTPTESTING*
 	(hunchentoot:log-message* :info (format nil "sessionotp is ~A" otp))
 	;;else 
-	(send-sms-notification phone *HHUBAWSSNSSENDERID* (format nil *HHUBAWSSNSOTPTEMPLATETEXT* otp)))
+	(send-sms-notification phone *HHUBAWSSNSSENDERID* (format nil *HHUBAWSSNSOTPTEMPLATETEXT* "Login Transaction" otp)))
     ;; redirect to the OTP page 
     (hunchentoot:redirect (format nil "/hhub/otppage?phone=~A" phone))))
 
@@ -245,22 +251,23 @@
 (defun dod-controller-new-company-request-page ()
   (let ((cmp-type (hunchentoot:parameter "cmp-type")))
     ;; Since we came to the new company request page, we will create new session here
-    (with-no-navbar-page  "New Store Request"  
+    (with-no-navbar-page-v2  "New Store Request"  
       (with-html-form  "form-hhubnewcompanyemail" "hhubnewstorerequeststep2"
 	(:img :class "profile-img" :src "/img/logo.png" :alt "")
 	
 	(with-html-div-row
-	  (with-html-div-col 
+	  (with-html-div-col-4 "")
+	  (with-html-div-col-8 
 	    (:h4 (:span :class "label label-primary" "Store Owner Details"))))
 	
 	(with-html-div-row
-	  (with-html-div-col
+	  (with-html-div-col-8
 	    (with-html-input-text "custname" "Name" "Full Name" nil T "Please fill your full name" "1")))
 	    	
 	(with-html-div-row
-	  (with-html-div-col
+	  (with-html-div-col-8
 	    (with-html-input-text "phone" "Mobile Phone (+91)" "Enter 10 digit phone number" nil T "Please enter phone number" 2))	
-	  (with-html-div-col
+	  (with-html-div-col-8
 	    (with-html-input-text "email" "Email" "Email" nil T "Please enter email" 3)))
 	
 	(with-html-div-row (:hr))
@@ -306,7 +313,7 @@
 	  (with-html-div-col
 	    (with-html-checkbox "tnccheck" "tncagreed" T  T
 	      (:label :class "form-check-label" :for "tnccheck" "&nbsp;&nbsp;Agree Terms and Conditions&nbsp;&nbsp;")
-	      (:a  :href (format nil "~A/tnc.html" *siteurl*)  (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms"))))
+	      (:a :target "_blank"  :href (format nil "~A/hhub/tnc" *siteurl*)  (:i :class "fa-solid fa-scale-balanced") "&nbsp;Terms"))))
 
 	
 	(with-html-div-row
@@ -315,9 +322,9 @@
 		  (:div :class "g-recaptcha" :data-sitekey *HHUBRECAPTCHAV2KEY* ))))
 	
 	(with-html-div-row
-	  (with-html-div-col
+	  (with-html-div-col-12
 	    (:div :class "form-group"
-		  (:button :class "submit center-block btn btn-primary btn-block" :type "submit" "Send Request"))))
+		  (:button :class "submit center-block btn btn-lg btn-primary btn-block" :type "submit" "Send Request"))))
 
 	(hhub-html-page-footer)))))
 
@@ -354,17 +361,16 @@
 	
 	(with-html-div-row
 	  (with-html-div-col
-	    (with-html-input-text "cmpzipcode" nil "Pincode" nil T "Enter Pincode" 6 :inputmode "numeric" :oninput "this.value = this.value.replace(/[^0-9]/g,'');")
+	    (:input :class "form-control" :type "text" :class "form-control" :inputmode "numeric" :maxlength "6" :id "cmpzipcode" :name "cmpzipcode" :value "" :placeholder "Pincode" :tabindex "8"  :oninput "this.value=this.value.replace(/[^0-9]/g,'');")
 	    (:span :id "areaname" :class "label label-info")))
 	
 	(with-html-div-row
 	  (with-html-div-col
-	    (with-html-input-text "cmpcity" "City" "City" nil T "Enter City" nil :readonly T )))
-	
-	
+	    (:input :class "form-control" :type "text" :class "form-control"  :id "cmpcity" :name "cmpcity" :value "" :placeholder "City" :tabindex "9")))
+		
 	(with-html-div-row
 	  (with-html-div-col
-	        (with-html-input-text "cmpstate" "State" "State" nil T "Enter State" nil :readonly T )))
+	        (:input :class "form-control" :type "text" :class "form-control"  :id "cmpstate" :name "cmpstate" :value "" :placeholder "State" :tabindex "10")))
 
 	(with-html-div-row
 	  (with-html-div-col
@@ -694,53 +700,53 @@
 
 (defun dod-controller-new-store-request-step2 ()
 (let*  ((custname (hunchentoot:parameter "custname"))
-	  (email (hunchentoot:parameter "email"))
-	  (phone (hunchentoot:parameter "phone"))
-	  (cmpname (hunchentoot:parameter "cmpname"))
-	  (cmptype (hunchentoot:parameter "cmptype"))
-	  (cmpaddress (hunchentoot:parameter "cmpaddress"))
-	  (cmpcity (hunchentoot:parameter "cmpcity"))
-	  (cmpstate (hunchentoot:parameter "cmpstate"))
-	  (cmpcountry (hunchentoot:parameter "cmpcountry"))
-	  (cmpzipcode (hunchentoot:parameter "cmpzipcode"))
-	  (tnccheck (hunchentoot:parameter "tnccheck"))
-	  (captcha-resp (hunchentoot:parameter "g-recaptcha-response"))
-	  (paramname (list "secret" "response" ) ) 
-	  (paramvalue (list *HHUBRECAPTCHAV2SECRET*  captcha-resp))
-	  (param-alist (pairlis paramname paramvalue ))
-	  (json-response (json:decode-json-from-string  (map 'string 'code-char(drakma:http-request "https://www.google.com/recaptcha/api/siteverify"
-                       :method :POST
-                       :parameters param-alist  ))))
-     	  (cmpwebsite (hunchentoot:parameter "cmpwebsite"))
-	  (company (make-instance 'dod-company
-				  :name cmpname
-				  :address cmpaddress
-				  :city cmpcity
-				  :state cmpstate 
-				  :country cmpcountry
-				  :zipcode cmpzipcode
-				  :website cmpwebsite
-				  :cmp-type cmptype
-				  :deleted-state "N"
-				  :created-by nil
-				  :updated-by nil)))
-    (unless(and  ( or (null cmpname) (zerop (length cmpname)))
-		     ( or (null cmpaddress) (zerop (length cmpaddress)))
-		     ( or (null cmpzipcode) (zerop (length cmpzipcode))))
-	  (cond 
-	    ((null (cdr (car json-response))) (dod-response-captcha-error))
-	    ((and company
-		  (equal tnccheck "tncagreed"))
-	     (let ((context "hhubnewcompreqemailaction"))
-	       (hunchentoot:start-session)
-	       (setf (hunchentoot:session-value :newstorerequest-company) company)
-	       (setf (hunchentoot:session-value :newstorerequest-custname) custname )
-	       (setf (hunchentoot:session-value :newstorerequest-phone) phone )
-	       (setf (hunchentoot:session-value :newstorerequest-email) email)
-	       (generateotp&redirect phone context)))))))
+	(email (hunchentoot:parameter "email"))
+	(phone (hunchentoot:parameter "phone"))
+	(cmpname (hunchentoot:parameter "cmpname"))
+	(cmptype (hunchentoot:parameter "cmptype"))
+	(cmpaddress (hunchentoot:parameter "cmpaddress"))
+	(cmpcity (hunchentoot:parameter "cmpcity"))
+	(cmpstate (hunchentoot:parameter "cmpstate"))
+	(cmpcountry (hunchentoot:parameter "cmpcountry"))
+	(cmpzipcode (hunchentoot:parameter "cmpzipcode"))
+	(tnccheck (hunchentoot:parameter "tnccheck"))
+	(captcha-resp (hunchentoot:parameter "g-recaptcha-response"))
+	(paramname (list "secret" "response" ) ) 
+	(paramvalue (list *HHUBRECAPTCHAV2SECRET*  captcha-resp))
+	(param-alist (pairlis paramname paramvalue ))
+	(json-response (json:decode-json-from-string  (map 'string 'code-char(drakma:http-request "https://www.google.com/recaptcha/api/siteverify"
+												  :method :POST
+												  :parameters param-alist  ))))
+     	(cmpwebsite (hunchentoot:parameter "cmpwebsite"))
+	(company (make-instance 'dod-company
+				:name cmpname
+				:address cmpaddress
+				:city cmpcity
+				:state cmpstate 
+				:country cmpcountry
+				:zipcode cmpzipcode
+				:website cmpwebsite
+				:cmp-type cmptype
+				:deleted-state "N"
+				:created-by nil
+				:updated-by nil)))
+  (unless(and  ( or (null cmpname) (zerop (length cmpname)))
+	       ( or (null cmpaddress) (zerop (length cmpaddress)))
+	       ( or (null cmpzipcode) (zerop (length cmpzipcode))))
+    (cond 
+      ((null (cdr (car json-response))) (dod-response-captcha-error))
+      ((and company
+	    (equal tnccheck "tncagreed"))
+       (let ((context "hhubnewcompreqemailaction"))
+	 (hunchentoot:start-session)
+	 (setf (hunchentoot:session-value :newstorerequest-company) company)
+	 (setf (hunchentoot:session-value :newstorerequest-custname) custname )
+	 (setf (hunchentoot:session-value :newstorerequest-phone) phone )
+	 (setf (hunchentoot:session-value :newstorerequest-email) email)
+	 (generateotp&redirect phone context)))))))
 	 
 
-    
+
 
 
 (defun dod-controller-new-company-request-email ()
@@ -909,7 +915,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodcustremshctitem" 'dod-controller-remove-shopcart-item )
 	;;(hunchentoot:create-regex-dispatcher "^/hhub/dodcustplaceorder" 'dod-controller-cust-placeorder )
 	;;(hunchentoot:create-regex-dispatcher "^/hhub/dodvendordetails" 'dod-controller-vendor-details)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodprddetailsforcust" 'dod-controller-prd-details-for-customer)
+	(hunchentoot:create-regex-dispatcher "^/hhub/prddetailsforcust" 'dod-controller-prd-details-for-customer)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubprddetailsforguestcust" 'dod-controller-prd-details-for-guest-customer)
 	;;(hunchentoot:create-regex-dispatcher "^/hhub/dodprodsubscribe" 'dod-controller-cust-add-orderpref-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodproductsbycatg" 'dod-controller-customer-products-by-category)
@@ -1000,7 +1006,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenaddprodpage" 'dod-controller-vendor-add-product-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenbulkaddprodpage" 'dod-controller-vendor-bulk-add-products-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenaddproductaction" 'com-hhub-transaction-vendor-product-add-action)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenuploadproductsimagesaction" 'dod-controller-vendor-upload-products-images-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenuploadproductsimagesaction" 'dod-controller-vendor-bulk-upload-products-images-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenuploadproductscsvfileaction" 'com-hhub-transaction-vendor-bulk-products-add)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenordcancel" 'dod-controller-vendor-order-cancel)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendupdateaction" 'dod-controller-vendor-update-action)
@@ -1056,6 +1062,9 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/displayinvoiceemail"   'com-hhub-transaction-edit-invoice-email)
 	(hunchentoot:create-regex-dispatcher "^/hhub/invoicemailaction"   'com-hhub-transaction-send-invoice-email)
 	(hunchentoot:create-regex-dispatcher "^/hhub/downloadinvoice"   'com-hhub-transaction-download-invoice)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicesettingspage"   'com-hhub-transaction-invoice-settings-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vsaveinvprintsettings"   'com-hhub-transaction-save-invoice-print-settings-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vuploadprdimagesaction"   'com-hhub-transaction-vendor-upload-product-images-action)
 ))
 
 

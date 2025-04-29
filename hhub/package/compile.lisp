@@ -26,6 +26,7 @@
 		     "core/memoize.lisp"
 		     "core/dtrace.lisp"
 		     "core/extkeys.lisp"
+		     "core/nst-bl-act.lisp" ;; Actor Model Implementation
 		     ;;"core/xref.lisp"
 		     
 		     ;; Core UI Layer
@@ -121,6 +122,7 @@
 		     "warehouse/dod-ui-wrh.lisp"
 
 		     ;; Invoices
+		     "invoice/templates/invoicesettings.lisp"
 		     "invoice/nst-dal-ihd.lisp"
 		     "invoice/nst-bl-ihd.lisp"
 		     "invoice/nst-ui-ihd.lisp"

@@ -1,0 +1,298 @@
+<div class="container mt-5">
+    <h1 class="text-center">Invoice Settings Editor</h1>
+
+    <!-- Section: Invoice Print Settings -->
+    <div class="accordion" id="settingsAccordion">
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingPrintSettings">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePrintSettings" aria-expanded="false" aria-controls="collapsePrintSettings">
+            Invoice Print Settings
+          </button>
+        </h2>
+        <div id="collapsePrintSettings" class="accordion-collapse collapse" aria-labelledby="headingPrintSettings" data-bs-parent="#settingsAccordion">
+          <div class="accordion-body">
+	    <form id="id-invprintsettingsform" name="printsettingsform"  method="POST" action="vsaveinvprintsettings" data-toggle="validator" role="form" enctype="multipart/form-data"> 
+	      <!-- Default Paper Size -->
+	      ~A
+	      
+	      <!-- Orientation -->
+	      <!-- Font Size -->
+	      
+	      <!-- Margins -->
+	      
+	      <!-- Header -->
+	      
+	      <!-- Footer -->
+	      
+	      <!-- Watermark -->
+	      <input type="hidden" name="vinvprintsettings">
+	      <!-- Save Button -->
+	      <div class="text-center">
+		<button type="submit" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+	      </div>
+	    </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Invoice General Settings -->
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingGeneralSettings">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGeneralSettings" aria-expanded="false" aria-controls="collapseGeneralSettings">
+            Invoice General Settings
+          </button>
+        </h2>
+        <div id="collapseGeneralSettings" class="accordion-collapse collapse" aria-labelledby="headingGeneralSettings" data-bs-parent="#settingsAccordion">
+          <div class="accordion-body">
+            <form id="generalSettingsForm">
+
+	      <!-- Invoice Number Format -->
+	      <div class="mb-3">
+		<label for="invoice-number-format" class="form-label">Invoice Number Format</label>
+		<input type="text" class="form-control" id="invoice-number-format" value="INV-YYYY-MM-{counter}">
+	      </div>
+	      
+	      <!-- Default Currency -->
+	      <div class="mb-3">
+		<label for="default-currency" class="form-label">Default Currency</label>
+		<select class="form-select" id="default-currency">
+		  <option value="USD" selected>USD</option>
+		  <option value="EUR">EUR</option>
+		  <option value="GBP">GBP</option>
+		  <option value="INR">INR</option>
+		</select>
+	      </div>
+	      
+	      <!-- Date Format -->
+	      <div class="mb-3">
+		<label for="date-format" class="form-label">Date Format</label>
+		<select class="form-select" id="date-format">
+		  <option value="MM/DD/YYYY" selected>MM/DD/YYYY</option>
+		  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+		  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+		</select>
+	      </div>
+	      
+	      <!-- Time Zone -->
+	      <div class="mb-3">
+		<label for="time-zone" class="form-label">Time Zone</label>
+		<select class="form-select" id="time-zone">
+		  <option value="America/New-York" selected>America/New-York</option>
+		  <option value="Europe/London">Europe/London</option>
+		  <option value="Asia/Kolkata">Asia/Kolkata</option>
+		  <option value="Australia/Sydney">Australia/Sydney</option>
+		</select>
+	      </div>
+	      
+	      <!-- Enable Terms and Conditions -->
+	      <div class="mb-3">
+		<label class="form-label">Terms and Conditions</label>
+		<div class="form-check form-switch">
+		  <input class="form-check-input" type="checkbox" id="enable-terms-and-conditions" checked>
+		  <label class="form-check-label" for="enable-terms-and-conditions">Enable Terms and Conditions</label>
+		</div>
+		<div class="mt-2">
+		  <label for="default-terms-and-conditions" class="form-label">Default Terms and Conditions</label>
+		  <textarea class="form-control" id="default-terms-and-conditions" rows="3">All sales are final. No refunds.</textarea>
+		</div>
+	      </div>
+	      
+	      <!-- Enable Discounts -->
+	      <div class="mb-3">
+		<label class="form-label">Discounts</label>
+		<div class="form-check form-switch">
+		  <input class="form-check-input" type="checkbox" id="enable-discounts" checked>
+		  <label class="form-check-label" for="enable-discounts">Enable Discounts</label>
+		</div>
+		<div class="mt-2">
+		  <label for="default-discount-rate" class="form-label">Default Discount Rate (%)</label>
+		  <input type="number" class="form-control" id="default-discount-rate" value="5">
+		</div>
+	      </div>
+	      
+	      <!-- Default Currency -->
+              <div class="mb-3">
+                <label for="defaultCurrency" class="form-label">Default Currency</label>
+                <input type="text" class="form-control" id="defaultCurrency" placeholder="Enter default currency">
+              </div>
+	      
+              <!-- Date Format -->
+              <div class="mb-3">
+                <label for="dateFormat" class="form-label">Date Format</label>
+                <select class="form-select" id="dateFormat">
+                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                </select>
+              </div>
+	      <!-- Save Button -->
+	      <div class="text-center">
+		<button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+	      </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <!-- Invoice email settings -->
+
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingemailsettings">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEmailSettings" aria-expanded="false" aria-controls="collapseEmailSettings">
+            Invoice Email Settings
+          </button>
+        </h2>
+        <div id="collapseEmailSettings" class="accordion-collapse collapse" aria-labelledby="headingemailsettings" data-bs-parent="#settingsAccordion">
+          <div class="accordion-body">
+            <form id="emailSettingsForm">
+	      
+	      <!-- Send Email After Generation -->
+	      <div class="mb-3">
+		<label class="form-label">Send Email After Invoice Generation/Draft</label>
+		<div class="form-check form-switch">
+		  <input class="form-check-input" type="checkbox" id="send-email-after-draft" checked>
+		  <label class="form-check-label" for="send-email-after-draft">Enable</label>
+		</div>
+	      </div>
+
+	      <!-- Send Email After Paid -->
+	      <div class="mb-3">
+		<label class="form-label">Send Email After Invoice Paid</label>
+		<div class="form-check form-switch">
+		  <input class="form-check-input" type="checkbox" id="send-email-after-paid" checked>
+		  <label class="form-check-label" for="send-email-after-paid">Enable</label>
+		</div>
+	      </div>
+	      <!-- Send Email After Shipped -->
+	      <div class="mb-3">
+		<label class="form-label">Send Email After Invoice Shipped</label>
+		<div class="form-check form-switch">
+		  <input class="form-check-input" type="checkbox" id="send-email-after-shipped" checked>
+		  <label class="form-check-label" for="send-email-after-shipped">Enable</label>
+		</div>
+	      </div>
+	      <!-- Send Email After Cancelled -->
+	      <div class="mb-3">
+		<label class="form-label">Send Email After Invoice Cancelled</label>
+		<div class="form-check form-switch">
+		  <input class="form-check-input" type="checkbox" id="send-email-after-cancelled" checked>
+		  <label class="form-check-label" for="send-email-after-cancelled">Enable</label>
+		</div>
+	      </div>
+	      <!-- Send Email After Refunded -->
+	      <div class="mb-3">
+		<label class="form-label">Send Email After Invoice Refunded</label>
+		<div class="form-check form-switch">
+		  <input class="form-check-input" type="checkbox" id="send-email-after-refunded" checked>
+		  <label class="form-check-label" for="send-email-after-refunded">Enable</label>
+		</div>
+	      </div>
+	
+	      <!-- CC Email Addresses -->
+	      <div class="mb-3">
+		<label for="cc-email-addresses" class="form-label">CC Email Addresses</label>
+		<input type="text" class="form-control" id="cc-email-addresses" placeholder="Enter email addresses separated by commas">
+		<small class="text-muted">Example: example1@example.com, example2@example.com</small>
+	      </div>
+	      
+	      <!-- Attach Invoice as PDF -->
+	      <div class="mb-3">
+		<label class="form-label">Attach Invoice as PDF</label>
+		<div class="form-check form-switch">
+		  <input class="form-check-input" type="checkbox" id="attach-invoice-as-pdf" checked>
+		  <label class="form-check-label" for="attach-invoice-as-pdf">Enable</label>
+		</div>
+	      </div>
+	      
+	      
+	      <!-- Save Button -->
+	      <div class="text-center">
+		<button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+	      </div>
+	    </form>
+          </div>
+        </div>
+      </div>
+
+      
+      
+    </div>
+  </div>
+
+  <script>
+    // JavaScript Functions to Save Settings
+
+    function saveSettings() {
+      const settings = {
+        defaultpapersize: document.getElementById("defaultpapersize").value,
+        orientation: document.getElementById("orientation").value,
+        fontsize: document.getElementById("fontsize").value,
+        margin: {
+          top: document.getElementById("margintop").value,
+          bottom: document.getElementById("marginbottom").value,
+          left: document.getElementById("marginleft").value,
+          right: document.getElementById("marginright").value,
+        },
+        header: {
+          enable: document.getElementById("headerenable").checked,
+          text: document.getElementById("headertext").value,
+          logopath: document.getElementById("headerlogopath").value,
+        },
+        footer: {
+          enable: document.getElementById("footerenable").checked,
+          text: document.getElementById("footertext").value,
+        },
+        watermark: {
+          enable: document.getElementById("watermarkenable").checked,
+          text: document.getElementById("watermarktext").value,
+        },
+      };
+	console.log("Saved Settings:", settings);
+	// Stringify the object and store it in the hidden input
+	let vinvprintsettings = document.querySelector("[name='vinvprintsettings']")
+	vinvprintsettings.value = JSON.stringify(settings);
+	alert("Settings saved successfully!");
+    }
+    
+    function savePrintSettings() {
+      const logoPath = document.getElementById('logoPath').value;
+      const enableHeader = document.getElementById('enableHeader').checked;
+
+      console.log("Saved Print Settings:");
+      console.log("Logo Path:", logoPath);
+      console.log("Enable Header:", enableHeader);
+
+      // Add further functionality to save these settings, e.g., sending to a server
+      alert('Print settings saved successfully!');
+    }
+
+    function saveGeneralSettings() {
+	const settings = {
+            invoicenumberformat: document.getElementById("invoicenumberformat").value,
+            defaultcurrency: document.getElementById("defaultcurrency").value,
+            dateformat: document.getElementById("dateformat").value,
+            timezone: document.getElementById("timezone").value,
+            enabletermsandconditions: document.getElementById("enabletermsandconditions").checked,
+            defaulttermsandconditions: document.getElementById("defaulttermsandconditions").value,
+            enablediscounts: document.getElementById("enablediscounts").checked,
+            defaultdiscountrate: parseFloat(document.getElementById("defaultdiscountrate").value),
+	};
+	console.log("Saved Settings:", settings);
+	alert("Settings saved successfully!");
+    }
+
+    function saveEmailSettings() {
+      const settings = {
+          sendemailaftergeneration: document.getElementById("sendemailafterdraft").checked,
+	  sendemailaftergeneration: document.getElementById("sendemailafterpaid").checked,
+	  sendemailaftergeneration: document.getElementById("sendemailaftershipped").checked,
+	  sendemailaftergeneration: document.getElementById("sendemailaftercancelled").checked,
+	  sendemailaftergeneration: document.getElementById("sendemailafterrefunded").checked,
+	  ccemailaddresses: document.getElementById("ccemailaddresses").value.split(",").map(email => email.trim()),
+          attachinvoiceaspdf: document.getElementById("attachinvoiceaspdf").checked,
+      };
+      console.log("Saved Settings:", settings);
+      alert("Settings saved successfully!");
+    }
+
+    
+  </script>

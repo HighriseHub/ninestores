@@ -69,8 +69,7 @@
 (defmethod ProcessRequest ((service Address-Adapter)  params)
   :description "This function is responsible for initializaing the BusinessService and calling its doService method. It then creates an instance of outboundwebservice"
   (let* ((pincode (cdr (assoc "pincode" params :test 'equal)))
-	   (requestmodel (make-instance 'RequestPincode)))
-      
+	   (requestmodel (make-instance 'RequestPincode)))      
       (setf (slot-value service 'businessservice) (find-class  'AddressService))
       (setf (slot-value service 'businessservicemethod) "doservice")
       (setf (slot-value requestmodel 'pincode) pincode)

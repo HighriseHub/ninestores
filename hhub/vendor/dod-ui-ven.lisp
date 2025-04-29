@@ -2,8 +2,40 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+(defun com-hhub-transaction-vendor-upload-product-images-action ()
+  (with-vend-session-check
+    (with-mvc-redirect-ui createmodelforvuploadprdimages  createwidgetsforgenericredirect)))
 
-
+(defun createmodelforvuploadprdimages ()
+    (logiamhere (format nil "Files to be uploaded are ~A" (hunchentoot:post-parameters hunchentoot:*request*)))
+  (let* ((images (remove "uploadedimagefiles" (hunchentoot:post-parameters hunchentoot:*request*) :test (complement #'equal) :key #'car))
+	 (prd-id (parse-integer (hunchentoot:parameter "prd-id")))
+	 (productlist (hhub-get-cached-vendor-products))
+	 (product (search-item-in-list 'row-id prd-id productlist))
+	 (filepaths (mapcar
+		     (lambda (image)
+		       (let* ((newimageparams (remove "uploadedimagefiles" image :test #'equal ))
+			      (newfilename (process-file  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
+			 newfilename)) images))
+	 (vendor (get-login-vendor))
+	 (vendor-id (get-login-vendor-id))
+	 (company (get-login-vendor-company))
+	 (tenant-id (get-login-vendor-tenant-id))
+	 (redirecturl (format nil "/hhub/dodprddetailsforvendor?id=~d" prd-id))
+	 ;; delete old files from s3 bucket.
+	 (deletedfiles (vendor-delete-files-s3bucket "prd" prd-id vendor-id tenant-id))
+	 (uploadedfiles (async-upload-files-s3bucket filepaths "prd" prd-id vendor)))
+    ;; After the files have been uploaded, we can reference it through the session value
+  
+    (logiamhere (format nil "deleted files are ~A" deletedfiles))
+    (when (and uploadedfiles (> (length uploadedfiles) 0))
+      (setf (slot-value product 'prd-image-path) (write-to-string uploadedfiles :readably t))
+      ;; update the database with the new file upload paths.
+      (update-prd-details  product))
+    (dod-gen-vendor-products-functions vendor company)
+    (function (lambda ()
+      (values redirecturl)))))
+	 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defun render-sidebar-offcanvas ()
     (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
@@ -65,11 +97,11 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 				(:i :class "fa-solid fa-gear") " Settings")
 			    (:ul :id "settings" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
 				 (:li :class "sidebar-item"
-				      (:a :href "/hhub/hhubvendorshipmethods" :class "nav-link" "Shipping Methods"))
+				      (:a :href "hhubvendpushsubscribepage" :class "nav-link" "Browser Push Notification"))
 				 (:li :class "sidebar-item"
 				      (:a :href "/hhub/dodvendprofile?context=home" :class "nav-link" "Vendor Settings"))
-				 (:li :class "sidebar-item"
-				      (:a :href "hhubvendpushsubscribepage" :class "nav-link" "Browser Push Notification")))))
+				 ))))))
+								
 		  ;; (:div :class "dropdown"
 		  ;; 	(:a :href "#" :class "d-flex align-items-center link-body-emphasis text-decoration-none dropdown-toggle" :data-bs-toggle "dropdown" :aria-expanded "false"
 			    
@@ -84,7 +116,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 		  ;; 	      (:li (:a :class "dropdown-item" :href "#" "Action"))
 		  ;; 	      (:li (:a :class "dropdown-item" :href "#" "Another action")
 		  ;; 		   (:li (:a :class "dropdown-item" :href "#" "Something else here")))))
-		  )))))
+		  ))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
@@ -176,14 +208,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (function (lambda ()
       redirectlocation))))
 
-(defun createwidgetsforvendorprodpricingaction (modelfunc)
-  (multiple-value-bind (redirectlocation) (funcall modelfunc)
-    (let ((widget1 (function (lambda () redirectlocation))))
-      (list widget1))))
-
 (defun dod-controller-vendor-product-pricing-action ()
-  (let ((url (with-mvc-redirect-ui createmodelforvendorprodpricingaction createwidgetsforvendorprodpricingaction)))
-    (format nil "~A" url)))
+  (with-vend-session-check
+    (with-mvc-redirect-ui createmodelforvendorprodpricingaction createwidgetsforgenericredirect)))
 
 (defun vendor-card (vendor)
   (let* ((vname (slot-value vendor 'name))
@@ -197,22 +224,38 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun dod-controller-vendor-pushsubscribe-page ()
   (with-vend-session-check
-    (with-standard-vendor-page "Push Subscription for Vendor"
-      (:div :class "row"
-	    (:h3 "Subscribe to Notifications on your Browser"))
-      (:div :class "row"
-	    (:p "Note: We send notifications for various events, for example:  when you receive a new order. Push notification will be sent to one browser only. If you would like to subscribe to notifications on a different browser, you need to unsubscribe in current browser and subscribe in other browser"))
-      (:div :class "row"
-	    (:div :class "col-md-4" 
-		  (:button :class "btn btn-lg btn-primary btn-block" :id "btnPushNotifications" :name "btnPushNotifications" "Subscribe")))
-      
-      (:div :class "row" 
-	    (:div :class "col-md-4"
-		  (:a :href "dodvendindex?context=home" "Home"))
-	    (:div  :class "col-md-4"
-		   (:a :id "btnPushSubscriptionRemoveFromServer" :href "#" (:i :class "fa-regular fa-trash-can"))))
-	
-      (:script :src (format nil "~A/js/pushsubscribe.js" *siteurl*)))))
+    (with-mvc-ui-page "Webpush Subscription for Vendor" createmodelforvendpushsubscribepage createwidgetsforvendpushsubscribepage :role :vendor)))
+
+(defun createmodelforvendpushsubscribepage ()
+  (let ((url *siteurl*))
+    (function (lambda ()
+      (values url)))))
+
+(defun createwidgetsforvendpushsubscribepage (modelfunc)
+  (multiple-value-bind (url) (funcall modelfunc)
+    (let* ((widget1 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(:br)
+			(with-html-div-row
+			  (:h3 "Subscribe to Notifications on your Browser"))
+			(with-html-div-row
+			  (:p "Note: We send notifications for various events, for example:  when you receive a new order. Push notification will be sent to one browser only.")
+			  (:p "If you would like to subscribe to notifications on a different browser, you need to unsubscribe in current browser and subscribe in other browser"))
+			(with-html-div-row
+			  (with-html-div-col-4
+			    (:button :class "btn btn-lg btn-primary btn-block" :id "btnPushNotifications" :name "btnPushNotifications" "Subscribe")))))))
+	   (widget2 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(with-html-div-row
+			  (with-html-div-col-4
+			    (:a :href "dodvendindex?context=home" "Home"))
+			  (with-html-div-col-4
+			    (:a :id "btnPushSubscriptionRemoveFromServer" :href "#" (:i :class "fa-regular fa-trash-can"))))))))
+	   (widget3 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(:script :src (format nil "~A/js/pushsubscribe.js" url)))))))
+	   
+      (list widget1 widget2 widget3))))
 
 
 	    
@@ -226,30 +269,71 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 		 (:div :class "form-group"
 		       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))
 
-(defun dod-controller-vendor-upload-products-images-action ()
+(defun dod-controller-vendor-bulk-upload-products-images-action ()
   :documentation "Upload the product images in the form of jpeg, png files which are less than 1 MB in size"
-(with-vend-session-check
-  (let* ((images  (remove "uploadedimagefiles" (hunchentoot:post-parameters hunchentoot:*request*) :test (complement #'equal) :key #'car)))
-    ;; Asynchronously start the upload of images. 
-    (bt:make-thread
-     (lambda ()
-       (async-upload-images images)))
-    (hunchentoot:redirect "/hhub/dodvenbulkaddprodpage"))))
+  (with-vend-session-check
+    (with-mvc-redirect-ui createmodelforbulkvuploadprdimages createwidgetsforgenericredirect)))
 
-
-
-(defun async-upload-images (images)
-  (let* ((header (list "Product Name " "Description" "Qty Per Unit" "Unit Price" "Units In Stock" "Subscription Flag" "Image Path (DO NOT MODIFY)" "Image Hash (DO NOT MODIFY)"))
-	 (vendor-id (slot-value (get-login-vendor) 'row-id))
+(defun createmodelforbulkvuploadprdimages ()
+  (let* ((images  (remove "uploadedimagefiles" (hunchentoot:post-parameters hunchentoot:*request*) :test (complement #'equal) :key #'car))
 	 (filepaths (mapcar
 		     (lambda (image)
 		       (let* ((newimageparams (remove "uploadedimagefiles" image :test #'equal ))
-			      (tempfilewithpath (nth 0 newimageparams))
-			      (filename (process-file  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
-			 (if *HHUBUSELOCALSTORFORRES* 
-			     (if tempfilewithpath (format nil "/img/~A" filename))
-			     ;;else return the path of the uploaded file in S3 bucket.
-			     (vendor-upload-file-s3bucket filename)))) images))
+			      (newfilename (process-file  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
+			 newfilename)) images))
+	 (vendor (get-login-vendor))
+	 (redirecturl "/hhub/dodvenbulkaddprodpage"))
+    (logiamhere (format nil "New filepaths are  ~A" filepaths))
+    (bt:make-thread
+     (lambda ()
+       ;; Asynchronously start the upload of images. 
+       (async-upload-images-for-bulk-upload filepaths "prd" nil vendor)) :name "Async File Upload Thread")
+    (function (lambda ()
+      (values redirecturl)))))
+
+
+(defun async-upload-files-s3bucket-behavior (state messagefunc)
+  (multiple-value-bind (product images objectname object-id vendor) (funcall messagefunc) 
+    (let* ((vendor-id (slot-value vendor 'row-id))
+	  (tenant-id (slot-value vendor 'tenant-id))
+	  (uploadedfiles (if (and images (> (length images) 0))
+			     (mapcar
+			      (lambda (image)
+				(if *HHUBUSELOCALSTORFORRES* 
+				    (format nil "/img/~A" image)
+				    ;;else return the path of the uploaded file in S3 bucket.
+				    (vendor-upload-file-s3bucket image objectname object-id vendor-id tenant-id))) images))))
+      
+      (when (and uploadedfiles (> (length uploadedfiles) 0))
+	(setf (slot-value product 'prd-image-path) (write-to-string uploadedfiles :readably t))
+	;; update the database with the new file upload paths.
+	(update-prd-details  product))
+      (incf state))))
+
+(defun async-upload-files-s3bucket (images objectname object-id vendor)
+  (let ((vendor-id (slot-value vendor 'row-id))
+	(tenant-id (slot-value vendor 'tenant-id)))
+    (logiamhere (format nil "images to upload are ~A" images))
+    (if (and images (> (length images) 0))
+	(mapcar
+	 (lambda (image)
+	   (if *HHUBUSELOCALSTORFORRES* 
+	       (format nil "/img/~A" image)
+	       ;;else return the path of the uploaded file in S3 bucket.
+	       (vendor-upload-file-s3bucket image objectname object-id vendor-id tenant-id))) images))))
+
+     
+
+(defun async-upload-images-for-bulk-upload (images objectname object-id vendor)
+  (let* ((header (list "Product Name " "Description" "Qty Per Unit" "Unit Price" "Units In Stock" "Subscription Flag" "Image Path (DO NOT MODIFY)" "Image Hash (DO NOT MODIFY)"))
+	 (vendor-id (slot-value vendor  'row-id))
+	 (tenant-id (slot-value vendor 'tenant-id))
+	 (filepaths (mapcar
+		     (lambda (image)
+		       (if *HHUBUSELOCALSTORFORRES* 
+			   (format nil "/img/~A" image)
+			   ;;else return the path of the uploaded file in S3 bucket.
+			   (vendor-upload-file-s3bucket image objectname object-id vendor-id tenant-id))) images))
 	 (image-path-hashes (mapcar
 			     (lambda (filepath)
 			       (string-upcase (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :MD5 (ironclad:ascii-string-to-byte-array filepath))))) filepaths)))
@@ -277,8 +361,15 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 		  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))
 
 (defun com-hhub-transaction-vendor-bulk-products-add ()
+  (with-vend-session-check
+    (with-mvc-redirect-ui createmodelforvbulkproductsadd createwidgetsforgenericredirect)))
+
+(defun createmodelforvbulkproductsadd ()
   (let* ((csvfileparams (hunchentoot:post-parameter "uploadedcsvfile"))
+	 (vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
 	 (params nil)
+	 (redirecturl "/hhub/dodvenproducts")
 	 (tempfilewithpath (nth 0 csvfileparams))
 					;(final-file-name (process-file  csvfileparams (format nil "~A/temp" *HHUBRESOURCESDIR*)))
 	 (prdlist (cl-csv:read-csv tempfilewithpath ;(pathname (format nil "~A/temp/~A" *HHUBRESOURCESDIR* final-file-name))
@@ -303,44 +394,51 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (setf params (acons "prdcount" (length prdlist) params))
-    (setf params (acons "company" (get-login-vendor-company) params))
+    (setf params (acons "company" company params))
     (hunchentoot:log-message* :info "Prd name = ~A" (slot-value (nth 1 prdlist) 'prd-name))
     (with-hhub-transaction "com-hhub-transaction-vendor-bulk-products-add" params
       (when (> (length prdlist) 0) (create-bulk-products prdlist)))
-    (dod-reset-vendor-products-functions (get-login-vendor) (get-login-vendor-company))
-    (hunchentoot:redirect "/hhub/dodvenproducts")))
-
-
+    (dod-reset-vendor-products-functions vendor company)
+    (function (lambda ()
+      (values redirecturl)))))
 
   
 (defun dod-controller-vendor-bulk-add-products-page ()
 :documentation "Here we are going to add products in bulk using CSV file. This page will display options of adding CSV files in two phases. 
 Phase1: Temporary Image URLs creation using image files upload.
 Phase2: User should copy those URLs in Products.csv and then upload that file."
-(let ((vendor-id (slot-value (get-login-vendor) 'row-id)))
- (with-vend-session-check
-  (with-standard-vendor-page "Bulk Add Products using CSV File"
-    (:div :class "row"
-	  (:div :class "col-xs-12 col-sm-6 col-md-6 col-lg-6"
-		(:ul :class "list-group"
-		     (:li :class "list-group-item" "Step 1: Upload product images,  which will then  be converted to URLs.")
-		     (:li :class "list-group-item" "Step 2: Download Products.csv Template")
-		     (:li :class "list-group-item" "Step 3: Fill up other required columns of Products.csv file")
-		     (:li :class "list-group-item" "Step 4: Upload the Products.csv file")))
-	  
-	  (:div :class "list-group col-xs-12 col-sm-6 col-md-6 col-lg-6" 
-		(:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodimagesupload-modal")  :href "#" " Upload Product Images")
-		;; This download will be enabled when the file is ready for download. 
-		(if (probe-file (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id))
-		    (cl-who:htm (:a :href (format nil "/img/temp/products-ven-~a.csv" vendor-id) :class "list-group-item list-group-item-action" "click here to download Products.csv"))) 
-		(:a :class "list-group-item list-group-item-action"  :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodcsvupload-modal")  :href "#"  " Upload CSV File"))
-	  ;; Modal dialog for Uploading  product images
-	  (modal-dialog-v2 (format nil "hhubvendprodimagesupload-modal") " Upload Product Images " (modal.upload-product-images))
-	  ;; Modal dialog for CSV file upload
-	  (modal-dialog-v2 (format nil "hhubvendprodcsvupload-modal") " Upload CSV File " (modal.upload-csv-file)))))))
+  (with-vend-session-check
+    (with-mvc-ui-page "Bulk Add Products using CSV File" createmodelforvbulkaddproducts createwidgetsforvbulkaddproducts :role :vendor)))
 
+(defun createmodelforvbulkaddproducts ()
+  (let ((vendor-id (slot-value (get-login-vendor) 'row-id)))
+    (function (lambda ()
+      (values vendor-id)))))
 
-
+(defun createwidgetsforvbulkaddproducts (modelfunc)
+  (multiple-value-bind (vendor-id) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (:br) (:br)
+		       (:br) (:br)
+		       (with-html-div-row
+			 (with-html-div-col-6
+			   (:ul :class "list-group"
+				(:li :class "list-group-item" "Step 1: Upload product images,  which will then  be converted to URLs.")
+				(:li :class "list-group-item" "Step 2: Download Products.csv Template")
+				(:li :class "list-group-item" "Step 3: Fill up other required columns of Products.csv file")
+				(:li :class "list-group-item" "Step 4: Upload the Products.csv file")))
+	  		 (:div :class "list-group col-xs-12 col-sm-6 col-md-6 col-lg-6" 
+			       (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodimagesupload-modal")  :href "#" " Upload Product Images")
+			       ;; This download will be enabled when the file is ready for download. 
+			       (if (probe-file (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id))
+				   (cl-who:htm (:a :href (format nil "/img/temp/products-ven-~a.csv" vendor-id) :class "list-group-item list-group-item-action" "click here to download Products.csv"))) 
+			       (:a :class "list-group-item list-group-item-action"  :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodcsvupload-modal")  :href "#"  " Upload CSV File"))
+			 ;; Modal dialog for Uploading  product images
+			 (modal-dialog-v2 (format nil "hhubvendprodimagesupload-modal") " Upload Product Images " (modal.upload-product-images))
+			 ;; Modal dialog for CSV file upload
+			 (modal-dialog-v2 (format nil "hhubvendprodcsvupload-modal") " Upload CSV File " (modal.upload-csv-file))))))))
+      (list widget1))))
 
 (defun modal.vendor-update-details ()
   (let* ((vendor (get-login-vendor))
@@ -384,26 +482,32 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-update-action ()
   (with-vend-session-check 
-    (let* ((name (hunchentoot:parameter "name"))
-	   (address (hunchentoot:parameter "address"))
-	   (phone (hunchentoot:parameter "phone"))
-	   (zipcode (hunchentoot:parameter "zipcode"))
-	   (gstnumber (hunchentoot:parameter "gstnumber"))
-	   (email (hunchentoot:parameter "email"))
-	   (vendor (get-login-vendor))
-	   (prodimageparams (hunchentoot:post-parameter "picturepath"))
-	   (tempfilewithpath (first prodimageparams))
-	   (file-name (if tempfilewithpath (process-file prodimageparams *HHUBRESOURCESDIR*))))
-      
-      (setf (slot-value vendor 'name) name)
-      (setf (slot-value vendor 'address) address)
-      (setf (slot-value vendor 'phone) phone)
-      (setf (slot-value vendor 'zipcode) zipcode)
-      (setf (slot-value vendor 'gstnumber) gstnumber)
-      (setf (slot-value vendor 'email) email)
-      (if tempfilewithpath (setf (slot-value vendor 'picture-path) (format nil "/img/~A"  file-name)))
-      (update-vendor-details vendor)
-      (hunchentoot:redirect "/hhub/dodvendprofile"))))
+    (with-mvc-redirect-ui createmodelforvendorupdateaction createwidgetsforgenericredirect)))
+
+(defun createmodelforvendorupdateaction ()
+  (let* ((name (hunchentoot:parameter "name"))
+	 (address (hunchentoot:parameter "address"))
+	 (phone (hunchentoot:parameter "phone"))
+	 (zipcode (hunchentoot:parameter "zipcode"))
+	 (gstnumber (hunchentoot:parameter "gstnumber"))
+	 (email (hunchentoot:parameter "email"))
+	 (vendor (get-login-vendor))
+	 (prodimageparams (hunchentoot:post-parameter "picturepath"))
+	 (tempfilewithpath (first prodimageparams))
+	 (file-name (if tempfilewithpath (process-file prodimageparams *HHUBRESOURCESDIR*)))
+	 (redirecturl "/hhub/dodvendprofile"))
+
+    (logiamhere (format nil "picturepath is ~A" (hunchentoot:post-parameters*)))
+    (setf (slot-value vendor 'name) name)
+    (setf (slot-value vendor 'address) address)
+    (setf (slot-value vendor 'phone) phone)
+    (setf (slot-value vendor 'zipcode) zipcode)
+    (setf (slot-value vendor 'gstnumber) gstnumber)
+    (setf (slot-value vendor 'email) email)
+    (if tempfilewithpath (setf (slot-value vendor 'picture-path) (format nil "/img/~A"  file-name)))
+    (update-vendor-details vendor)
+    (function (lambda ()
+      (values redirecturl)))))
 
 
 (defun modal.vendor-update-UPI-payment-settings-page ()
@@ -421,14 +525,18 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun hhub-controller-save-vendor-upi-settings ()
   (with-vend-session-check
-    (let* ((upi-id (hunchentoot:parameter "vendor-upi-id"))
-	   (vendor (get-login-vendor)))
+    (with-mvc-redirect-ui createmodelforvendorupisettings createwidgetsforgenericredirect)))
 
-      (when (> (length upi-id) 0)
-	(setf (slot-value vendor 'upi-id) upi-id)
-	(update-vendor-details vendor))
-      ;; Redirect to the Vendor profile page after saving the UPI ID. 
-      (hunchentoot:redirect "/hhub/dodvendprofile"))))
+(defun createmodelforvendorupisettings ()
+  (let* ((upi-id (hunchentoot:parameter "vendor-upi-id"))
+	 (vendor (get-login-vendor))
+	 (redirecturl "/hhub/dodvendprofile"))
+    
+    (when (> (length upi-id) 0)
+      (setf (slot-value vendor 'upi-id) upi-id)
+      (update-vendor-details vendor))
+    (function (lambda ()
+      (values redirecturl)))))
 
       
 (defun modal.vendor-payment-methods-page (vpaymentmethods)
@@ -479,6 +587,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun dod-controller-vendor-payment-methods-update-action ()
+  (with-vend-session-check
+    (with-mvc-redirect-ui createmodelforvendpaymentmethodsupdate createwidgetsforgenericredirect)))
+
+(defun createmodelforvendpaymentmethodsupdate ()
   (let* ((codenbld (hunchentoot:parameter "codenabled"))
 	 (upienbld (hunchentoot:parameter "upienabled"))
 	 (walletenbld (hunchentoot:parameter "walletenabled"))
@@ -488,13 +600,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (company (get-login-vendor-company))
 	 (vendor (get-login-vendor))
 	 (requestmodel (make-instance 'VPaymentMethodsRequestModel
-				   :vendor vendor
-				   :company company
-				   :codenabled "Y"
-				   :upienabled "Y"
-				   :payprovidersenabled "Y"
-				   :walletenabled "Y"
-				   :paylaterenabled "Y")))
+				      :vendor vendor
+				      :company company
+				      :codenabled "Y"
+				      :upienabled "Y"
+				      :payprovidersenabled "Y"
+				      :walletenabled "Y"
+				      :paylaterenabled "Y"))
+	 (redirecturl "/hhub/dodvendprofile"))
+    
     (when (equal createvpaymentmethods "Y")
       (with-entity-create 'VPaymentMethodsAdapter requestmodel
 	(if entity (hunchentoot:redirect "/hhub/dodvendprofile"))))
@@ -508,9 +622,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(if walletenbld (setf walletenabled walletenbld) (setf walletenabled "N"))
 	(if paylaterenbld (setf paylaterenabled paylaterenbld) (setf paylaterenabled "N"))
 	(with-entity-update 'VPaymentMethodsAdapter requestmodel
-	  (if entity (hunchentoot:redirect "/hhub/dodvendprofile")))))))
-
-
+	  (if entity
+	      (function (lambda ()
+		(values redirecturl)))))))))
 
 (defun modal.vendor-update-payment-gateway-settings-page ()
   (let* ((vendor (get-login-vendor))
@@ -552,17 +666,22 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-update-payment-gateway-settings-action ()
   (with-vend-session-check 
-    (let* ((payment-api-key (hunchentoot:parameter "payment-api-key"))
-	   (payment-api-salt (hunchentoot:parameter "payment-api-salt"))
-	   (pg-mode  (hunchentoot:parameter "pg-mode"))
-	   (vpushnotifysubs (hunchentoot:parameter "vpushnotifysubs"))
-	   (vendor (get-login-vendor)))
-      (setf (slot-value vendor 'payment-api-key) payment-api-key)
-      (setf (slot-value vendor 'payment-api-salt) payment-api-salt)
-      (setf (slot-value vendor 'payment-gateway-mode) pg-mode)
-      (setf (slot-value vendor 'push-notify-subs-flag) (if (null vpushnotifysubs) "N" vpushnotifysubs))
-      (update-vendor-details vendor)
-      (hunchentoot:redirect "/hhub/dodvendprofile"))))
+    (with-mvc-redirect-ui createmodelforvendupdatepgsettings createwidgetsforgenericredirect)))
+
+(defun createmodelforvendupdatepgsettings ()
+  (let* ((payment-api-key (hunchentoot:parameter "payment-api-key"))
+	 (payment-api-salt (hunchentoot:parameter "payment-api-salt"))
+	 (pg-mode  (hunchentoot:parameter "pg-mode"))
+	 (vpushnotifysubs (hunchentoot:parameter "vpushnotifysubs"))
+	 (vendor (get-login-vendor))
+	 (redirecturl "/hhub/dodvendprofile"))
+    (setf (slot-value vendor 'payment-api-key) payment-api-key)
+    (setf (slot-value vendor 'payment-api-salt) payment-api-salt)
+    (setf (slot-value vendor 'payment-gateway-mode) pg-mode)
+    (setf (slot-value vendor 'push-notify-subs-flag) (if (null vpushnotifysubs) "N" vpushnotifysubs))
+    (update-vendor-details vendor)
+    (function (lambda ()
+      (values redirecturl)))))
 
 
 (defun modal.vendor-change-pin ()
@@ -751,7 +870,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			 (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
 				(ui-list-prod-catg-dropdown catglist nil))
 			 (:br) 
-			 (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
+			 (:div :class "form-group" (:label :for "yesno" "Enable Subscription")
 			       (ui-list-yes-no-dropdown "N"))
 			 (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
 			       (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
@@ -760,19 +879,39 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 
-(defun vendor-upload-file-s3bucket (filename) 
-  (let* ((tenantid (format nil "~A" (get-login-vendor-tenant-id)))
-         (vendorid (format nil "~A" (slot-value (get-login-vendor) 'row-id)))
-         (uuid (format nil "~A" (uuid:make-v1-uuid)))
-         (paramnames (list "filename" "tenantid" "vendorid" "uuid"))
-         (paramvalues (list filename tenantid vendorid uuid))
+(defun vendor-upload-file-s3bucket (filename objectname object-id vendor-id tenant-id)
+  :description "Sends the filename and other parameters to the node js file server, which will upload the file to s3 bucket and return the url"
+  (let* ((uuid (format nil "~A" (uuid:make-v1-uuid)))
+	 (vendorid-str (format nil "~A" vendor-id))
+	 (tenantid-str (format nil "~A" tenant-id))
+	 (objectid-str (format nil "~A" object-id))
+	 (type "vendor")
+	 (paramnames (list "tenantid" "type" "vendorid" "objectname" "objectid" "uuid" "filename"))
+         (paramvalues (list tenantid-str type vendorid-str objectname objectid-str uuid filename))
          (param-alist (pairlis paramnames paramvalues))
          (headers nil)
-         (headers (acons "auth-secret" "highrisehub1234" headers)))   
-    ;;(logiamhere (format nil "Filename is ~A" filename))
-    ;; Execution
-    
-    (drakma:http-request (format nil "~A/file/upload" *siteurl*)
+	 (url (format nil "~A/file/awss3v3/upload" *siteurl*))
+         (headers (acons "auth-secret" "ntstores1234" headers)))   
+    (drakma:http-request url
+			      :method :get
+			      :additional-headers headers
+			      :parameters param-alist)))
+ 
+
+(defun vendor-delete-files-s3bucket (objectname object-id vendor-id tenant-id)
+  :description "Sends the filename and other parameters to the node js file server, which will delete the file to s3 bucket and return the url"
+  (let* ((vendorid-str (format nil "~A" vendor-id))
+	 (tenantid-str (format nil "~A" tenant-id))
+	 (objectid-str (format nil "~A" object-id))
+	 (type "vendor")
+	 (paramnames (list "tenantid" "type" "vendorid" "objectname" "objectid"))
+         (paramvalues (list tenantid-str type vendorid-str objectname objectid-str))
+         (param-alist (pairlis paramnames paramvalues))
+         (headers nil)
+	 (url (format nil "~A/file/awss3v3/deletefiles" *siteurl*))
+         (headers (acons "auth-secret" "ntstores1234" headers)))   
+    (drakma:http-request url
+			 :method :DELETE 
 			 :additional-headers headers
 			 :parameters param-alist)))
 
@@ -815,10 +954,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun createmodelforvprodaddaction()
   (let* ((prodname (hunchentoot:parameter "prdname"))
-	 (id (hunchentoot:parameter "id"))
+	 (prd-id (parse-integer (hunchentoot:parameter "prd-id")))
 	 (vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
-	 (product (if id (select-product-by-id id company)))
+	 (productlist (if (> prd-id 0) (hhub-get-cached-vendor-products)))
+	 (product (if (> prd-id 0) (search-item-in-list 'row-id prd-id productlist)))
 	 (description (hunchentoot:parameter "description"))
 	 (hsn-code (hunchentoot:parameter "hsn-code"))
 	 (sku (hunchentoot:parameter "sku"))
@@ -831,26 +971,18 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (units-in-stock (parse-integer (hunchentoot:parameter "unitsinstock")))
 	 (catg-id (parse-integer (hunchentoot:parameter "prodcatg")))
 	 (subscriptionflag (hunchentoot:parameter "yesno"))
-	 (prodimageparams (hunchentoot:post-parameter "prodimage"))
-	 ;;(destructuring-bind (path file-name content-type) prodimageparams))
-	 (tempfilewithpath (first prodimageparams))
-	 (file-name (format nil "~A" (second prodimageparams)))
 	 (external-url (if product (generate-product-ext-url product)))
-	 (redirecturl (format nil "/hhub/dodprddetailsforvendor?id=~A" id))
+	 (redirecturl nil)
 	 (params nil))
     (if product
 	(setf params (acons "mode" "edit" params))
 	;;else
 	(setf params (acons "mode" "add" params)))
-    (setf params (acons "company" (get-login-vendor-company) params))
-    (setf params (acons "vendor" (get-login-vendor) params))
+    (setf params (acons "company" company params))
+    (setf params (acons "vendor" vendor params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (with-hhub-transaction "com-hhub-transaction-vendor-product-add-action" params 
       (progn 
-	(if tempfilewithpath 
-	    (progn 
-	      (probe-file tempfilewithpath)
-	      (rename-file tempfilewithpath (make-pathname :directory *HHUBRESOURCESDIR*  :name file-name))))
 	(if product 
 	    (progn
 	      (setf (slot-value product 'prd-name) prodname)
@@ -865,23 +997,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (setf (slot-value product 'hsn-code) hsn-code)
 	      (setf (slot-value product 'sku) sku)
 	      (setf (slot-value product 'upc) upc)
-	      ;; Save the image in AWS S3 bucket if we are in production.
-	      (if *HHUBUSELOCALSTORFORRES* 
-		  (if tempfilewithpath (setf (slot-value product 'prd-image-path) (format nil "/img/~A"  file-name)))
-		  ;;else
-		  (let ((s3filelocation (vendor-upload-file-s3bucket (format nil "~A" file-name))))
-		    (if tempfilewithpath (setf (slot-value product 'prd-image-path) s3filelocation))))
-	      (update-prd-details product))
+	      (update-prd-details product)
+	      (setf redirecturl (format nil "/hhub/dodprddetailsforvendor?id=~A" prd-id)))
 	    ;;else
-	    (create-product prodname description vendor (select-prdcatg-by-id catg-id company) qtyperunit prodprice units-in-stock (if tempfilewithpath (format nil "/img/~A" file-name) (format nil "/img/~A"   *HHUBDEFAULTPRDIMG*))  subscriptionflag prd-type company))
+	    (progn 
+	      (create-product prodname description vendor (select-prdcatg-by-id catg-id company) qtyperunit prodprice units-in-stock (format nil "/img/~A" *HHUBDEFAULTPRDIMG*)  subscriptionflag prd-type company)
+	      (setf redirecturl "/hhub/dodvenproducts")))
 	(dod-reset-vendor-products-functions vendor company)))
-	(function (lambda ()
-	  (values redirecturl)))))
-
-
-
-
-
+    (function (lambda ()
+      (values redirecturl)))))
 
 (defun dod-controller-vendor-password-reset-action ()
   (let* ((pwdresettoken (hunchentoot:parameter "token"))
@@ -1236,33 +1360,55 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
    
 (defun dod-controller-vend-profile ()
   (with-vend-session-check
-    (let* ((company (get-login-vendor-company))
-	   (vendor (get-login-vendor))
-	   (adapter (make-instance 'VPaymentMethodsAdapter))
-	   (requestmodel (make-instance 'VPaymentMethodsRequestModel
-					:company company
-					:vendor vendor))
-	   (vpaymentmethods (processreadrequest adapter requestmodel)))
-    (with-standard-vendor-page "Nine Stores - Vendor Profile"
-       (:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-vendor-name))))
-       (:hr)
-      (:div :class "list-group col-sm-6 col-md-6 col-lg-6"
-	    (:a :class "list-group-item list-group-item-action" :href "dodvendortenants" "My Groups")
-	    (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendupdate-modal")  :href "#"  "Contact Information")
-	    (modal-dialog-v2 (format nil "dodvendupdate-modal") "Update Vendor" (modal.vendor-update-details)) 
-	    ;; Since we are enabling the OTP based login for Vendor, we do not need password. 
-	    ;;(:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendchangepin-modal")  :href "#"  "Change Password")
-	    ;;(modal-dialog-v2 (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
-	    ;; (:a :class "list-group-item" :href "/pushsubscribe.html" "Push Notifications")
-	    ;;(:a :class "list-group-item" :href "/hhub/hhubvendpushsubscribepage" "Push Notifications")
-	    (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendpaymentmethods-modal")  :href "#"  "Payment Methods")
-	    (modal-dialog-v2 (format nil "dodvendpaymentmethods-modal") "Payment Methods " (modal.vendor-payment-methods-page vpaymentmethods))
-	    (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendsettings-modal")  :href "#"  "Payment Gateway")
-	    (modal-dialog-v2 (format nil "dodvendsettings-modal") "Payment Gateway Settings" (modal.vendor-update-payment-gateway-settings-page))
-	    (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendupisettings-modal") :href "#" "UPI Settings")
-	    (modal-dialog-v2 (format nil "dodvendupisettings-modal") "UPI Payment Settings" (modal.vendor-update-UPI-payment-settings-page)))))))
+    (with-mvc-ui-page "Vendor Profile" createmodelforvendorprofile createwidgetsforvendorprofile :role :vendor)))
+
+(defun createmodelforvendorprofile ()
+  (let* ((company (get-login-vendor-company))
+	 (vendor (get-login-vendor))
+	 (adapter (make-instance 'VPaymentMethodsAdapter))
+	 (requestmodel (make-instance 'VPaymentMethodsRequestModel
+				      :company company
+				      :vendor vendor))
+	 (vpaymentmethods (processreadrequest adapter requestmodel))
+	 (vendorname (get-login-vendor-name)))
+    (function (lambda ()
+      (values vendorname  vpaymentmethods)))))
+
+(defun createwidgetsforvendorprofile (modelfunc)
+  (multiple-value-bind (vendorname vpaymentmethods) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:br)
+		       (:h3 "Welcome " (cl-who:str (format nil "~A" vendorname)))
+		       (:hr)))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col-6
+			   (with-catch-submit-event "idvendorprofilesubmitevents"  
+			     (:a :class "list-group-item list-group-item-action" :href "dodvendortenants" "My Groups")
+			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendupdate-modal")  :href "#"  "Contact Information")
+			     (modal-dialog-v2 (format nil "dodvendupdate-modal") "Update Vendor" (modal.vendor-update-details)) 
+			     ;; Since we are enabling the OTP based login for Vendor, we do not need password. 
+			     ;;(:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendchangepin-modal")  :href "#"  "Change Password")
+			     ;;(modal-dialog-v2 (format nil "dodvendchangepin-modal") "Change Password" (modal.vendor-change-pin))
+			     ;; (:a :class "list-group-item" :href "/pushsubscribe.html" "Push Notifications")
+			     ;;(:a :class "list-group-item" :href "/hhub/hhubvendpushsubscribepage" "Push Notifications")
+			     (:a :class "list-group-item list-group-item-action" :href "hhubvendorshipmethods" "E-Commerce Shipping Methods")
+			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendpaymentmethods-modal")  :href "#"  "E-Commerce Payment Methods")
+			     (modal-dialog-v2 (format nil "dodvendpaymentmethods-modal") "Payment Methods " (modal.vendor-payment-methods-page vpaymentmethods))
+			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendsettings-modal")  :href "#"  "E-Commerce Payment Gateway")
+			     (modal-dialog-v2 (format nil "dodvendsettings-modal") "Payment Gateway Settings" (modal.vendor-update-payment-gateway-settings-page))
+			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendupisettings-modal") :href "#" "UPI Settings")
+			     (modal-dialog-v2 (format nil "dodvendupisettings-modal") "UPI Payment Settings" (modal.vendor-update-UPI-payment-settings-page))))))))))
+      (list widget1 widget2))))
+  
 
 (defun dod-controller-vend-shipping-methods ()
+  (with-vend-session-check
+    (with-mvc-ui-page "Vendor Shipping Methods for E-Commerce" createmodelforvendshippingmethods createwidgetsforvendshippingmethods :role :vendor)))
+
+(defun createmodelforvendshippingmethods ()
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (shippingmethod (get-shipping-method-for-vendor vendor company))
@@ -1274,22 +1420,27 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (shippartnersecret (slot-value shippingmethod 'shippartnersecret))
 	 (minorderamt (when shippingmethod (getminorderamt shippingmethod)))
 	 (freeshipenabled (when shippingmethod (slot-value shippingmethod 'freeshipenabled))))
-    (with-vend-session-check
-      (with-standard-vendor-page "Nine Stores - Vendor Shipping Methods"
-	(:br)
-	(:br)
-	(:div :class "list-group col-6"
-	      (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendfreeshipping-modal")  :href "#"  "Free Shipping")
-	      (modal-dialog-v2 (format nil "dodvendfreeshipping-modal") "Free Shipping Configuration" (modal.vendor-free-shipping-config freeshipenabled minorderamt))
-	      (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendflatrateshipping-modal")  :href "#"  "Flat Rate Shipping")
-	      (modal-dialog-v2 (format nil "dodvendflatrateshipping-modal") "Flat Rate Shipping Configuration" (modal.vendor-flatrate-shipping-config flatrateshipenabled flatratetype flatrateprice))
-	      (:a :class "list-group-item list-group-item-action" :href "hhubvendshipzoneratetablepage"  "Zonewise Shipping")
-	      (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendextshipping-modal")  :href "#"  "External Shipping Partners")
-	      (modal-dialog-v2 (format nil "dodvendextshipping-modal") "External Shipping Partners Configuration" (modal.vendor-external-shipping-partners-config shippartnerkey shippartnersecret extshipenabled))
-	      (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvenddefaultshipmethod-modal")  :href "#"  "Select Default Shipping Method")
-	      (modal-dialog-v2 (format nil "dodvenddefaultshipmethod-modal") "Default Shipping Method Configuration" (modal.vendor-default-shipping-method-config shippingmethod vendor)))
-	     	      
-	(:script "function enableminorderamt() {
+    (function (lambda ()
+      (values vendor shippingmethod flatrateshipenabled flatratetype flatrateprice extshipenabled shippartnerkey shippartnersecret minorderamt freeshipenabled )))))
+
+(defun createwidgetsforvendshippingmethods (modelfunc)
+  (multiple-value-bind (vendor shippingmethod flatrateshipenabled flatratetype flatrateprice extshipenabled shippartnerkey shippartnersecret minorderamt freeshipenabled) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:br)
+		       (:div :class "list-group col-6"
+			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendfreeshipping-modal")  :href "#"  "Free Shipping")
+			     (modal-dialog-v2 (format nil "dodvendfreeshipping-modal") "Free Shipping Configuration" (modal.vendor-free-shipping-config freeshipenabled minorderamt))
+			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendflatrateshipping-modal")  :href "#"  "Flat Rate Shipping")
+			     (modal-dialog-v2 (format nil "dodvendflatrateshipping-modal") "Flat Rate Shipping Configuration" (modal.vendor-flatrate-shipping-config flatrateshipenabled flatratetype flatrateprice))
+			     (:a :class "list-group-item list-group-item-action" :href "hhubvendshipzoneratetablepage"  "Zonewise Shipping")
+			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendextshipping-modal")  :href "#"  "External Shipping Partners")
+			     (modal-dialog-v2 (format nil "dodvendextshipping-modal") "External Shipping Partners Configuration" (modal.vendor-external-shipping-partners-config shippartnerkey shippartnersecret extshipenabled))
+			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvenddefaultshipmethod-modal")  :href "#"  "Select Default Shipping Method")
+			     (modal-dialog-v2 (format nil "dodvenddefaultshipmethod-modal") "Default Shipping Method Configuration" (modal.vendor-default-shipping-method-config shippingmethod vendor)))))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+	     	       (:script "function enableminorderamt() {
     const freeshipenabled = document.getElementById('freeshipenabled');
     if( freeshipenabled.checked ){
 	$('#minorderamtctrl').show();
@@ -1299,8 +1450,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
        $('#minorderamtctrl').hide();
        freeshipenabled.value = \"N\";
     }
-}")
-	(:script "function enablevendorshipping() {
+}")))))
+	  (widget3 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:script "function enablevendorshipping() {
     const vendorshipenabled = document.getElementById('vendorshipenabled');
     if( vendorshipenabled.checked ){
          vendorshipenabled.value = \"Y\";
@@ -1312,8 +1465,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
        $('#vendorshipenabledctrl').hide();
       
     }
-}")
-	(:script "function enablestorepickupmethod(){
+}")))))
+	  (widget4 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:script "function enablestorepickupmethod(){
        const  enablestorepickup  = document.getElementById('storepickupenabled');
     if( enablestorepickup.checked ){
          enablestorepickup.value = \"Y\";
@@ -1321,7 +1476,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     {
          enablestorepickup.value = \"N\";
     }
-}")))))
+}"))))))
+      (list widget1 widget2 widget3 widget4))))
 
 (defun dod-controller-vendor-shipzone-ratetable-page()
   (with-vend-session-check
@@ -1761,6 +1917,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (setf (slot-value vsessionobj 'companyname) (slot-value company 'name))
     (setf (hunchentoot:session-value :login-vendor-company) company)
     (setf (hunchentoot:session-value :login-vendor-currency) (get-account-currency company))
+    (setf (hunchentoot:session-value :login-vendor-invoice-settings) (read-from-string (slot-value vendor 'invoice-settings)))
     ;;(setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company company))
     ;;set vendor related params 
     (if vendor (setf (hunchentoot:session-value :login-vendor-tenants) (get-vendor-tenants-as-companies vendor)))
@@ -1782,6 +1939,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (logiamhere (format nil "after enforcing sessions current web session is ~A" (slot-value vsessionobj 'vwebsession)))
       sessionkey)))
 
+
+(defun get-vendor-invoice-settings ()
+  (let ((vinvsettingstr (hunchentoot:session-value :login-vendor-invoice-settings))
+	(defaultinvsettings *invoice-settings*))
+    (if (and vinvsettingstr (> (length vinvsettingstr) 0)) 
+	;; if invoice settings are defined for a vendor, return it. 
+	(read-from-string vinvsettingstr)
+	;;else return the default invoice settings.
+	defaultinvsettings)))
 
 
 (defun addloginvendorsettings ()
@@ -1867,18 +2033,57 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (hunchentoot:redirect "/hhub/dodvenproducts"))
      	(hunchentoot:redirect "/hhub/hhubvendloginv2"))) 
 
+(defun createmodelforprddetailsforvendor ()
+  (let* ((prd-id (parse-integer (hunchentoot:parameter "id")))
+	 (productlist (if (> prd-id 0) (hhub-get-cached-vendor-products)))
+	 (product (if (> prd-id 0) (search-item-in-list 'row-id prd-id productlist)))
+	 (company (product-company product))
+	 (description (slot-value product 'description))   
+	 (product-sku (slot-value product 'sku))
+	 (images-str (slot-value product 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
+	 (product-pricing (select-product-pricing-by-product-id prd-id company))
+	 (product-pricing-widget (cl-who:with-html-output-to-string  (*standard-output* nil)
+				   (product-price-with-discount-widget product product-pricing)))
+	 (prd-name (slot-value product 'prd-name))
+	 (product-images-carousel (cl-who:with-html-output-to-string  (*standard-output* nil)
+				    (render-multiple-product-images prd-name imageslst images-str)))
+	 (product-images-thumbnails (cl-who:with-html-output-to-string  (*standard-output* nil)
+				  (render-multiple-product-thumbnails prd-name imageslst images-str)))
+	 (proddetailpagetempl (funcall (nst-get-cached-product-template-func :templatenum 2)))	 
+	 (qty-per-unit (slot-value product 'qty-per-unit))
+	 (unitsinstock-str (format nil "~A" (slot-value product 'units-in-stock))))
+	 
+	 
+    
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product Name%" proddetailpagetempl prd-name))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Qty-Per-Unit%" proddetailpagetempl qty-per-unit))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-SKU%" proddetailpagetempl product-sku))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Description%" proddetailpagetempl description))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Units-In-Stock%" proddetailpagetempl unitsinstock-str))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Pricing-Control%" proddetailpagetempl product-pricing-widget))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Images-Carousel%" proddetailpagetempl product-images-carousel))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Images-Thumbnails%" proddetailpagetempl product-images-thumbnails))
+    
+    (function (lambda ()
+      (values proddetailpagetempl  product )))))
+  
+(defun createwidgetsforprddetailsforvendor (modelfunc)
+  (multiple-value-bind (proddetailpagetempl product) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-catch-submit-event "idproductdetailsforvendor" 
+			 ;; display the product actions menu
+			 (vendor-product-actions-menu product))))))
+	  (widget2  (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(cl-who:str proddetailpagetempl))))))
+      (list widget1  widget2))))
+
 (defun dod-controller-prd-details-for-vendor ()
-  (if (is-dod-vend-session-valid?)
-      (with-standard-vendor-page "Product Details"
-	(let* ((company (hunchentoot:session-value :login-vendor-company))
-	       (product (select-product-by-id (parse-integer (hunchentoot:parameter "id")) company)))
-	  (with-catch-submit-event "idproductdetailsforvendor" 
-	    ;; display the product actions menu
-	    (vendor-product-actions-menu product)  
-	    (product-card-with-details-for-vendor product))))
-	(hunchentoot:redirect "/hhub/hhubvendloginv2")))
-
-
+  (with-cust-session-check 
+    (with-mvc-ui-page "Product Details for Vendor" createmodelforprddetailsforvendor  createwidgetsforprddetailsforvendor :role :vendor)))
+		
 (defun dod-controller-vendor-deactivate-product ()
   (with-vend-session-check 
     (let ((id (parse-integer (hunchentoot:parameter "id"))))
@@ -1950,24 +2155,21 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		   (cl-who:with-html-output (*standard-output* nil)    
 		     (:br)
 		     (with-html-div-row
-		       (with-html-div-col-6
+		       (with-html-div-col-4
 			 (with-html-search-form "idvendsearchproduct" "vendsearchproduct" "idtxtvendsearchproduct" "txtvendsearchproduct" "hhubvendsearchproduct" "onkeyupsearchform1event();" "Type few letters of Product Name"
 			   (submitsearchform1event-js "#idtxtvendsearchproduct" "#txtvendsearchproductresult")))
-		       (with-html-div-col-6 
-			 (:span :class "position-absolute top-50 start-50 translate-middle badge rounded-pill bg-danger" (:h5 (cl-who:str (format nil "~A" numproducts))))))))))
-	(widget2 (function (lambda ()
-		   (cl-who:with-html-output (*standard-output* nil)    
-		     (with-html-div-row
+		       (with-html-div-col-4 
+			 (:span :class "position-absolute top-50 start-50 translate-middle badge rounded-pill bg-danger" (:h5 (cl-who:str (format nil "~A" numproducts)))))
 		       (when compbulkupload-p
 			 (cl-who:htm
-			  (with-html-div-col-6
+			  (with-html-div-col-4
 			    (:a :class "btn btn-primary" :role "button" :href "dodvenbulkaddprodpage" (:i :class "fa-solid fa-cart-shopping") " Bulk Add Products ")))))))))
-	(widget3 (function (lambda ()
+	(widget2 (function (lambda ()
 		   (cl-who:with-html-output (*standard-output* nil)    
 		     (:hr)
 		     (with-catch-submit-event "txtvendsearchproductresult"
 		       (cl-who:str (display-as-tiles vendor-products  'product-card-for-vendor "vendor-product-card"))))))))
-    (list widget1 widget2 widget3))))
+    (list widget1 widget2 ))))
 
 (defun dod-gen-vendor-products-functions (vendor company)
   (let ((vendor-products (select-products-by-vendor vendor company))
@@ -1993,15 +2195,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-reset-vendor-products-functions (vendor company)
   (let ((vendor-products-func-list (dod-gen-vendor-products-functions vendor company)))
-	(setf (hunchentoot:session-value :login-vendor-products-functions) vendor-products-func-list)))
-
-
+    (setf (hunchentoot:session-value :login-vendor-products-functions) vendor-products-func-list)))
 
 (defun dod-reset-order-functions (vendor company)
   (let ((order-func-list (dod-gen-order-functions vendor company)))
     (setf (hunchentoot:session-value :order-func-list) order-func-list)
     (setf (hunchentoot:session-value :vendor-order-items-hashtable) (make-hash-table))))
-
 
 (defun hhub-get-cached-vendor-products ()
   (let ((vendor-products-func (first (hunchentoot:session-value :login-vendor-products-functions))))
@@ -2122,27 +2321,33 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun com-hhub-transaction-vendor-order-setfulfilled ()
-  (with-vend-session-check 
-	(let* ((id (hunchentoot:parameter "id"))
-	       (company-instance (hunchentoot:session-value :login-vendor-company))
-	       (order-instance (get-order-by-id id company-instance))
-	       (payment-mode (slot-value order-instance 'payment-mode))
-	       (customer (get-customer order-instance)) 
-	       (vendor (get-login-vendor))
-	       (wallet (get-cust-wallet-by-vendor customer vendor company-instance))
-	       (vendor-order-items (get-order-items-for-vendor-by-order-id  order-instance (get-login-vendor) ))
-	       (vorderitemstotal (get-order-items-total-for-vendor vendor  vendor-order-items))
-	       (params nil))
+  (with-vend-session-check
+    (with-mvc-redirect-ui createmodelforvendorsetorderfulfilled createwidgetsforgenericredirect)))
+
+(defun createmodelforvendorsetorderfulfilled ()
+  (let* ((id (hunchentoot:parameter "id"))
+	 (company-instance (hunchentoot:session-value :login-vendor-company))
+	 (order-instance (get-order-by-id id company-instance))
+	 (payment-mode (slot-value order-instance 'payment-mode))
+	 (customer (get-customer order-instance)) 
+	 (vendor (get-login-vendor))
+	 (wallet (get-cust-wallet-by-vendor customer vendor company-instance))
+	 (vendor-order-items (get-order-items-for-vendor-by-order-id  order-instance (get-login-vendor) ))
+	 (vorderitemstotal (get-order-items-total-for-vendor vendor  vendor-order-items))
+	 (redirecturl "/hhub/dodvendindex?context=pendingorders")
+	 (params nil))
 
 	 (setf params (acons "uri" (hunchentoot:request-uri*)  params))
 	 (setf params (acons "company" company-instance params))
 	 (with-hhub-transaction "com-hhub-transaction-vendor-order-setfulfilled"  params   
-	   (progn (if (equal payment-mode "PRE")
-		      (unless (check-wallet-balance vorderitemstotal wallet)
-			(display-wallet-for-customer wallet "Not enough balance for the transaction.")))
-		  ;; We will make all the database changes in the background. 
-		  (set-order-fulfilled "Y" vendor  order-instance company-instance)
-		  (hunchentoot:redirect "/hhub/dodvendindex?context=pendingorders"))))))
+	   (progn
+	     (if (equal payment-mode "PRE")
+		 (unless (check-wallet-balance vorderitemstotal wallet)
+		   (display-wallet-for-customer wallet "Not enough balance for the transaction.")))
+	     ;; We will make all the database changes in the background. 
+	     (set-order-fulfilled "Y" vendor  order-instance company-instance)))
+    (function (lambda ()
+      (values redirecturl)))))
 
 (defun display-wallet-for-customer (wallet-instance custom-message)
   (with-standard-vendor-page (:title "Wallet Display")
@@ -2164,6 +2369,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun get-login-vendor ()
     :documentation "Get the login session for vendor"
     (hunchentoot:session-value :login-vendor ))
+(defun get-login-vendor-id ()
+  :documentation "Get the ID of the login vendor"
+  (let ((vendor (get-login-vendor)))
+    (slot-value vendor 'row-id)))
 
 (defun get-login-vendor-setting (key)
   :documentation "Gets the login vendor settings"
@@ -2229,6 +2438,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (balance (if wallet (slot-value wallet 'balance) 0))
 	 (venorderfulfilled (if vorder-instance (slot-value vorder-instance 'fulfilled)))
 	 (mainorder (get-order-by-id (slot-value vorder-instance 'order-id) company))
+	 (order-id (if mainorder (slot-value mainorder 'row-id)))
 	 (payment-mode (if mainorder (slot-value mainorder 'payment-mode)))
 	 (header (list "Product" "Product Qty" "Unit Price"  "Sub-total"))
 	 (odtlst (if mainorder (dod-get-cached-order-items-by-order-id (slot-value mainorder 'row-id) (hunchentoot:session-value :order-func-list) )) )
@@ -2238,74 +2448,86 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (total (if shipping-cost (+ order-amt shipping-cost) order-amt))
 	 (lowwalletbalance (< balance total)))
     
-        (cl-who:with-html-output (*standard-output* nil)
-
-	  (with-html-div-row
-	    (:div :class "col" :align "right"
-		  (when (and shipping-cost (> shipping-cost 0))
-                    (cl-who:htm
-		     (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
-		     (:p (cl-who:str (format nil "Sub Total: ~A ~$" *HTMLRUPEESYMBOL* order-amt)))))))
-	  (with-html-div-row 
-	       (:div :class "col-md-12" :align "right" 
-		     (if (and lowwalletbalance (equal payment-mode "PRE")) 
-			 (cl-who:htm (:h2 (:span :class "label label-danger" (cl-who:str (format nil "Low wallet Balance = Rs ~$" balance))))))
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-div-row
+	(:div :class "col" :align "right"
+	      (when (and shipping-cost (> shipping-cost 0))
+                (cl-who:htm
+		 (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
+		 (:p (cl-who:str (format nil "Sub Total: ~A ~$" *HTMLRUPEESYMBOL* order-amt)))))))
+      (with-html-div-row 
+	(:div :class "col-md-12" :align "right" 
+	      (if (and lowwalletbalance (equal payment-mode "PRE")) 
+		  (cl-who:htm (:h2 (:span :class "label label-danger" (cl-who:str (format nil "Low wallet Balance = Rs ~$" balance))))))
 					;else
-		     (:h3 (:span :class "label label-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL* total))))
-		     
-		     (if (equal venorderfulfilled "Y") 
-			 (cl-who:htm (:span :class "label label-info" "FULFILLED"))
-					;ELSE
-					; Convert the complete button to a submit button and introduce a form here. 
-			 (cl-who:htm (with-html-form "form-vendordercomplete" "dodvenordfulfilled"
-				(:input :type "hidden" :name "id" :value (slot-value mainorder 'row-id))
-					; (:a :onclick "return CancelConfirm();" :href (format nil "dodvenordcancel?id=~A" (slot-value order 'row-id) ) (:span :class "btn btn-primary"  "Cancel")) "&nbsp;&nbsp;"  
-				(:div :class "form-group" 
-				      (:input :type "submit"  :class "btn btn-primary" :value "Complete")))))))
-
-	  (when (and (equal storepickupenabled "Y") (= shipping-cost 0.00))
-		    (cl-who:htm
-		     (:div :align "right" :class "stampbox-big rotated" "Store Pickup")))
-	  (if odtlst (ui-list-vend-orderdetails header odtlst) "No order details")
-	  (if mainorder (display-order-header-for-vendor mainorder))
-
-	  (with-html-form "form-vendordercancel" "dodvenordcancel" 
-	    (with-html-input-text-hidden "id" (slot-value mainorder 'row-id))
-	    (:div :class "form-group" :style "display:none"
-		  (:input :type "submit"  :class "btn btn-primary" :value "Cancel Order"))))))
+	      (:h3 (:span :class "label label-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL* total))))
+	      (if (equal venorderfulfilled "Y") 
+		  (cl-who:htm (:span :class "label label-info" "FULFILLED"))
+		  ;; ELSE
+		  ;; Convert the complete button to a submit button and introduce a form here. 
+		  (cl-who:htm
+		   (with-html-form "form-vendordercomplete" "dodvenordfulfilled"
+		     (:input :type "hidden" :name "id" :value order-id)
+		     ;; (:a :onclick "return CancelConfirm();" :href (format nil "dodvenordcancel?id=~A" (slot-value order 'row-id) ) (:span :class "btn btn-primary"  "Cancel")) "&nbsp;&nbsp;"
+		     (:div :class "form-group"
+			   (if mainorder ;; if the order is present only then show the complete button. 
+			       (cl-who:htm (:input :type "submit"  :class "btn btn-primary" :value "Complete")))))))))
+      (when (and (equal storepickupenabled "Y") (= shipping-cost 0.00))
+	(cl-who:htm
+	 (:div :align "right" :class "stampbox-big rotated" "Store Pickup")))
+      (if odtlst (ui-list-vend-orderdetails header odtlst) "No order details")
+      (if mainorder (display-order-header-for-vendor mainorder))
+      (with-html-form "form-vendordercancel" "dodvenordcancel" 
+	(with-html-input-text-hidden "id" order-id)
+	(:div :class "form-group" :style "display:none"
+	      (:input :type "submit"  :class "btn btn-primary" :value "Cancel Order"))))))
 
 (defun dod-controller-vendor-orderdetails ()
- (if (is-dod-vend-session-valid?)
-     (with-standard-vendor-page (:title "List Vendor Order Details")   
-       (let* (( dodvenorder  (get-vendor-orders-by-orderid (hunchentoot:parameter "id") (get-login-vendor) (get-login-vendor-company)))
-	      (customer (get-customer dodvenorder))
-	      (wallet (get-cust-wallet-by-vendor customer (get-login-vendor) (get-login-vendor-company)))
-	      (balance (slot-value wallet 'balance))
-	      (venorderfulfilled (if dodvenorder (slot-value dodvenorder 'fulfilled)))
-	      (order (get-order-by-id (hunchentoot:parameter "id") (get-login-vendor-company)))
-	      (payment-mode (slot-value order 'payment-mode))
-	      (header (list "Product" "Product Qty" "Unit Price"  "Sub-total"))
-	      (odtlst (if order (dod-get-cached-order-items-by-order-id (slot-value order 'row-id) (hunchentoot:session-value :order-func-list)  )) )
-	      (total   (reduce #'+  (mapcar (lambda (odt)
-					      (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty))) odtlst)))
-	      (lowwalletbalance (< balance total)))
-	 (if order (display-order-header-for-vendor  order)) 
-	 (if odtlst (ui-list-vend-orderdetails header odtlst) "No order details")
-	 (cl-who:htm(with-html-div-row 
-		   (:div :class "col-md-12" :align "right" 
-			 (if (and lowwalletbalance (equal payment-mode "PRE")) 
-			     (cl-who:htm (:h2 (:span :class "label label-danger" (cl-who:str (format nil "Low wallet Balance = Rs ~$" balance))))))
-			     ;else
-			     (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total))))
-			 (if (equal venorderfulfilled "Y") 
-			     (cl-who:htm (:span :class "label label-info" "FULFILLED"))
-					;ELSE
-			    ; Convert the complete button to a submit button and introduce a form here. 
-			     (cl-who:htm 
-			     ; (:a :onclick "return CancelConfirm();" :href (format nil "dodvenordcancel?id=~A" (slot-value order 'row-id) ) (:span :class "btn btn-primary"  "Cancel")) "&nbsp;&nbsp;"  
-			       (:a :href (format nil "dodvenordfulfilled?id=~A" (slot-value order 'row-id) ) (:span :class "btn btn-primary"  "Complete")))))))))
-					;ELSE		   						   
-	(hunchentoot:redirect "/hhub/hhubvendloginv2")))
+  (with-vend-session-check
+    (with-mvc-ui-page "Vendor Order Details" createmodelforvendororderdetails createwidgetsforvendororderdetails :role :vendor)))
+
+(defun createmodelforvendororderdetails ()
+  (let* ((dodvenorder (get-vendor-orders-by-orderid (hunchentoot:parameter "id") (get-login-vendor) (get-login-vendor-company)))
+	 (customer (get-customer dodvenorder))
+	 (wallet (get-cust-wallet-by-vendor customer (get-login-vendor) (get-login-vendor-company)))
+	 (balance (slot-value wallet 'balance))
+	 (venorderfulfilled (if dodvenorder (slot-value dodvenorder 'fulfilled)))
+	 (order (get-order-by-id (hunchentoot:parameter "id") (get-login-vendor-company)))
+	 (order-id (if order (slot-value order 'row-id)))
+	 (payment-mode (slot-value order 'payment-mode))
+	 (header (list "Product" "Product Qty" "Unit Price"  "Sub-total"))
+	 (odtlst (if order (dod-get-cached-order-items-by-order-id (slot-value order 'row-id) (hunchentoot:session-value :order-func-list)  )) )
+	 (total (reduce #'+  (mapcar (lambda (odt)
+				       (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty))) odtlst)))
+	 (lowwalletbalance (< balance total)))
+    (function (lambda ()
+      (values order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled)))))
+
+(defun createwidgetsforvendororderdetails (modelfunc)
+  (multiple-value-bind (order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (if order (display-order-header-for-vendor  order))))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (if odtlst (ui-list-vend-orderdetails header odtlst) "No order details")))))
+	  (widget3 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (with-html-div-row 
+			 (:div :class "col-md-12" :align "right" 
+			       (if (and lowwalletbalance (equal payment-mode "PRE")) 
+				   (cl-who:htm (:h2 (:span :class "label label-danger" (cl-who:str (format nil "Low wallet Balance = Rs ~$" balance))))))
+			       ;; else
+			       (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total))))
+			       (if (equal venorderfulfilled "Y") 
+				   (cl-who:htm (:span :class "label label-info" "FULFILLED"))
+				   ;; ELSE
+				   ;; Convert the complete button to a submit button and introduce a form here. 
+				   (cl-who:htm 
+				    ;; (:a :onclick "return CancelConfirm();" :href (format nil "dodvenordcancel?id=~A" (slot-value order 'row-id) ) (:span :class "btn btn-primary"  "Cancel")) "&nbsp;&nbsp;"
+				    (:a :href (format nil "dodvenordfulfilled?id=~A" order-id ) (:span :class "btn btn-primary"  "Complete")))))))))))
+      (list widget1 widget2 widget3))))
+
 
 
 

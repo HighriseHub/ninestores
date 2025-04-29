@@ -54,91 +54,132 @@
       (hhub-html-page-footer))))
 
 (defun hhub-controller-aboutus-page ()
-  (with-standard-admin-page "Nine Stores - Contact Us"
-    (:div :class "row"
-	  (:div :class "col-sm-12"
-		(:div :class "col-lg-4" (:h2 "Nine Stores - About Us"))))
-    (:div :class "row"
-	  (:div :class "col-sm-12"
-		(:img :class "profile-img" :src "/img/logo.png" :alt "")))
-    (:div :class "row"
-	    (:div :class "col-sm-12"
-		  (:p "Nine Stores is a multi paradign platform offering ERP capabilities to Small and Medium sized businesses. We offer GST Invoice/Billing Software for Sellers, Product Catalogs, Basic Inventory Management, Order and Subscription Management, Digital Payments which will help you to take your business to new heights. We also offer FREE e-commerce store to your customers. ")
-		  
-		  (:p "We are a team of enthusiastic professionals keen to make your Digital Journey smooth and enable you to provide that Customer Delight! Nine Stores is a SAAS application which provides you E-Commerce Services, Web Hosting of your Site, Redirection from Your Site to www.ninestores.in, where your customers can experience a great online shopping/services.")
-		  (:div  :class "hhub-footer" (hhub-html-page-footer))))))
+  (with-mvc-ui-page "Nine Stores - Contact Us" createmodelwithnildata createwidgetsforaboutuspage :role :customer))
+
+(defun createwidgetsforaboutuspage (modelfunc)
+  (multiple-value-bind () (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col-4 "")
+			 (with-html-div-col-8
+			   (:h2 "Nine Stores - About Us")))))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col-12
+			   (:img :class "profile-img" :src "/img/logo.png" :alt "Logo")))))))
+	  (widget3 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col-12
+			   (:h1 "Nine Stores: Empowering Small and Medium Businesses")
+			   (:p (:strong "Nine Stores") "is a comprehensive, multi-paradigm platform designed to empower small and medium-sized businesses with robust ERP capabilities. Our solution caters to diverse business needs, helping sellers manage and grow their operations with ease and efficiency.")
+			   (:h2 "Our Key Features")
+			   (:ul
+			    (:li (:strong "GST-compliant Invoice and Billing Software") ": Seamless and accurate financial management.")
+			    (:li (:strong "Product Catalog Management") ": Showcase your offerings in an organized and visually appealing manner.")
+			    (:li (:strong "Basic Inventory Management") ": Effortlessly track stock levels and ensure uninterrupted operations.")
+			    (:li (:strong "Order and Subscription Management") ": Smooth handling of customer orders and recurring transactions.")
+			    (:li (:strong "Digital Payments") ": Secure and versatile payment options.")
+			    (:li (:strong "Shipping Methods") ": Streamlined logistics for timely deliveries."))
+			   (:p "One of our standout offerings is the " (:strong "FREE e-commerce store") " packed with tons of features to help your business shine online. This feature allows your customers to explore and shop for your products in a professional and user-friendly digital storefront. With Nine Stores, you gain the tools and resources to take your business to new heights. Our platform is designed to reduce complexities, enhance operational efficiency, and open new opportunities for growth, giving you the competitive edge you need in today’s dynamic market.")
+			   (:p "We are a passionate team of professionals dedicated to making your digital journey seamless and helping you deliver exceptional customer experiences!" (:strong "Nine Stores") " is a SaaS application offering comprehensive e-commerce services, including web hosting for your site. With our platform, you can redirect visitors from your site to" 
+			       (:a :href "https://www.ninestores.in" "www.ninestores.in") "providing your customers with a smooth and enjoyable online shopping or service experience.")
+			   (:div  :class "hhub-footer" (hhub-html-page-footer)))))))))
+      (list widget1 widget2 widget3))))
   
 
 (defun hhub-controller-contactus-page ()
-  (with-standard-admin-page "Nine Stores - Contact Us"
-    (:div :class "row"
-	  (:div :class "col-lg-4" (:h2 "Nine Stores - Contact Us")))
+  (with-mvc-ui-page "Nine Stores - Contact Us" createmodelwithnildata createwidgetsforcontactuspage :role :customer))
 
-    (:div :class "row"
-	  (:div :class "col-lg-6"
-		(:img :class "profile-img" :src "/img/logo.png" :alt "")
-		(with-html-form "hhubcontactusform" "contactusaction" 
-		  (:div :class "panel panel-default"
-			(:div :class "panel-heading" "To: support@ninestores.in"
-			      (:div :class "panel-body"
-			;;Panel content
-			(:div :class "form-group"
-			      (:input :class "form-control" :name "firstname" :maxlength "90"  :value "" :placeholder "First Name " :type "text" :required T ))
-			(:div :class "form-group"
-			      (:input :class "form-control" :name "lastname" :maxlength "90"  :value "" :placeholder "Last Name " :type "text" :required T ))
-			(:div :class "form-group"
-			      (:input :class "form-control" :name "companyname" :maxlength "90"  :value "" :placeholder "Company Name " :type "text" :required T ))
-
-
-			(:div :class "form-group"
-			      (:input :class "form-control" :name "contactusemail" :maxlength "90"  :value "" :placeholder "Business Email Address " :type "email" :data-error "Invalid Email Address" :required T ))
-			(:div :class "form-group"
-			      (:input :class "form-control" :name "contactusemailsubject" :maxlength "100"  :value "" :placeholder "Subject " :type "text" :required T  ))
-			(:div :class "form-group"
-			      (:label :for "contactemailmessage" "Message")
-			      (:textarea :class "form-control" :name "contactusemailmessage"  :placeholder "Message ( max 400 characters) "  :rows "5" :onkeyup "countChar(this, 400)" :required T ))
-			(:div :class "form-group" :id "charcount")
-			(:div :class "form-group"
-			  (:div :class "g-recaptcha" :data-sitekey *HHUBRECAPTCHAV2KEY* ))
-			(:div :class "form-group"
-			      (:label "By clicking submit, you consent to allow Nine Stores to store and process the personal information submitted above to provide you the content requested. We will not share your information with other companies."))
-			(:div :class "form-group"
-			      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
-      (:div  :class "hhub-footer" (hhub-html-page-footer))))
+(defun createwidgetsforcontactuspage (modelfunc)
+  (multiple-value-bind () (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (with-html-div-row 
+			 (with-html-div-col-4)
+			 (with-html-div-col-4
+			   (:h2 "Nine Stores - Contact Us")))))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil) 
+		       (with-html-div-row
+			 (with-html-div-col-2 "")
+			 (with-html-div-col-8
+			   (:img :class "profile-img" :src "/img/logo.png" :alt "")
+			   (with-html-form "hhubcontactusform" "contactusaction" 
+			     (:div :class "panel panel-default"
+				   (:div :class "panel-heading" "To: support@ninestores.in"
+					 (:div :class "panel-body"
+					       ;;Panel content
+					       (:div :class "form-group"
+						     (:input :class "form-control" :name "firstname" :maxlength "90"  :value "" :placeholder "First Name " :type "text" :required T ))
+					       (:div :class "form-group"
+						     (:input :class "form-control" :name "lastname" :maxlength "90"  :value "" :placeholder "Last Name " :type "text" :required T ))
+					       (:div :class "form-group"
+						     (:input :class "form-control" :name "companyname" :maxlength "90"  :value "" :placeholder "Company Name " :type "text" :required T ))
+					       (:div :class "form-group"
+						     (:input :class "form-control" :name "contactusemail" :maxlength "90"  :value "" :placeholder "Business Email Address " :type "email" :data-error "Invalid Email Address" :required T ))
+					       (:div :class "form-group"
+						     (:input :class "form-control" :name "contactusemailsubject" :maxlength "100"  :value "" :placeholder "Subject " :type "text" :required T  ))
+					       (:div :class "form-group"
+						     (:label :for "contactemailmessage" "Message")
+						     (:textarea :class "form-control" :name "contactusemailmessage"  :placeholder "Message ( max 400 characters) "  :rows "5" :onkeyup "countChar(this, 400)" :required T ))
+					       (:div :class "form-group" :id "charcount")
+					       (:div :class "form-group"
+						     (:div :class "g-recaptcha" :data-sitekey *HHUBRECAPTCHAV2KEY* ))
+					       (:div :class "form-group"
+						     (:label "By clicking submit, you consent to allow Nine Stores to store and process the personal information submitted above to provide you the content requested. We will not share your information with other companies."))
+					       (:div :class "form-group"
+						     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))))))
+	  (widget3 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (:div  :class "hhub-footer" (hhub-html-page-footer)))))))
+      (list widget1 widget2 widget3))))
 
 (defun hhub-controller-contactus-action ()
+  (with-mvc-ui-page "Thank You For Contacting Us" createmodelforcontactusaction createwidgetforcontactusaction :role :customer))
+
+(defun createmodelforcontactusaction ()
   (let* ((firstname (hunchentoot:parameter "firstname"))
 	 (lastname (hunchentoot:parameter "lastname"))
 	 (captcha-resp (hunchentoot:parameter "g-recaptcha-response"))
-	  (paramname (list "secret" "response" ) ) 
-	  (paramvalue (list *HHUBRECAPTCHAV2SECRET*  captcha-resp))
-	  (param-alist (pairlis paramname paramvalue ))
-	  (json-response (json:decode-json-from-string  (map 'string 'code-char(drakma:http-request "https://www.google.com/recaptcha/api/siteverify"
-                       :method :POST
-                       :parameters param-alist  ))))
-     	 
-	 (companyname (hunchentoot:parameter "companyname"))
+	 (paramname (list "secret" "response" ) ) 
+	 (paramvalue (list *HHUBRECAPTCHAV2SECRET*  captcha-resp))
+	 (param-alist (pairlis paramname paramvalue ))
+	 (json-response (json:decode-json-from-string  (map 'string 'code-char(drakma:http-request "https://www.google.com/recaptcha/api/siteverify"
+												   :method :POST
+												   :parameters param-alist  ))))
+     	 (companyname (hunchentoot:parameter "companyname"))
 	 (contactusemail (hunchentoot:parameter "contactusemail"))
 	 (contactusemailsubject (hunchentoot:parameter "contactusemailsubject"))
 	 (contactusemailmessage (hunchentoot:parameter "contactusemailmessage")))
-
     (unless (and (or (null firstname) (zerop (length firstname)))
-		(or (null lastname) (zerop (length lastname)))
-		(or (null companyname) (zerop (length companyname)))
-		(or (null contactusemail) (zerop (length contactusemail)))
-		(or (null contactusemailsubject) (zerop (length contactusemailsubject)))
-		(or (null contactusemailmessage) (zerop (length contactusemailmessage))))
-	  (cond 
-	    ((null (cdr (car json-response))) (dod-response-captcha-error))
-	    (T (send-contactus-email firstname lastname companyname contactusemail contactusemailsubject contactusemailmessage))))
-    (with-standard-admin-page (:title "Thank You For Contacting Us")
-      (:div :class "row"
-	    (:div :class "col-lg-12"
-		  (:img :class "profile-img" :src "/img/logo.png" :alt "")))
-      (:div :class "row"
-	    (:div :class "col-lg-12"
-		  (:h3 "Thank You for contacting us. We will get back to you shortly.")))
-      (hhub-html-page-footer))))
+		 (or (null lastname) (zerop (length lastname)))
+		 (or (null companyname) (zerop (length companyname)))
+		 (or (null contactusemail) (zerop (length contactusemail)))
+		 (or (null contactusemailsubject) (zerop (length contactusemailsubject)))
+		 (or (null contactusemailmessage) (zerop (length contactusemailmessage))))
+      (cond 
+	((null (cdr (car json-response))) (dod-response-captcha-error))
+	(T (send-contactus-email firstname lastname companyname contactusemail contactusemailsubject contactusemailmessage))))
+    (function (lambda ()
+      (values nil)))))
+
+(defun createwidgetforcontactusaction (modelfunc)
+  (multiple-value-bind () (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col-12
+			   (:img :class "profile-img" :src "/img/logo.png" :alt "")))))))
+	  (widget2 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col-12
+			   (:h3 "Thank You for contacting us. We will get back to you shortly.")))
+		       (hhub-html-page-footer))))))
+      (list widget1 widget2))))
 		  
 
 (defun hhub-controller-pricing ()

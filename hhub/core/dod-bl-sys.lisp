@@ -13,8 +13,8 @@
       (let ((key (slot-value curr 'country))
 	    (currency (slot-value curr 'currency))
 	    (code (slot-value curr 'code))
-	    (symbol (slot-value curr 'symbol)))
-	   (setf (gethash key ht) (list currency code symbol))))
+	    (curr-symbol (slot-value curr 'curr-symbol)))
+	   (setf (gethash key ht) (list currency code curr-symbol))))
     ; Return  the hash table. 
     ht))
 

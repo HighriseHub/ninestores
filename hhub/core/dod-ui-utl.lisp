@@ -2,7 +2,15 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
-
+(defun safe-read-from-string (string &optional default-value)
+  "Attempts to read a Lisp expression from a string, returning a default value if parsing fails."
+  (handler-case
+      (let ((trimmed-string (string-trim '(#\space) string)))
+        (if (string= trimmed-string "") ; Check for empty string
+            default-value
+            (read-from-string trimmed-string)))
+    (error () ; Catch any error during read-from-string
+      default-value)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun displaystorepickupwidget (address)
@@ -74,7 +82,33 @@
 						 (parenscript:chain element (add-event-listener "submit" (lambda (e)
 													   (parenscript:chain e (prevent-default))
 													   (let ((target-form (parenscript:@ e target)))
+													     ;; if formname is fileuploadform then return as we are having a
+													     ;; different event function to handle this. 
+													     (if (= (parenscript:chain target-form name) 'file-upload-form) return)
 													     (submitformandredirect target-form)))))))))))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-catch-file-upload-event (id  &body body)
+    :documentation "Arguments: NIL. This macro is used where there are many forms having submit events in a page and we want to catch them all when the event is propogated to the div level."    
+      `(cl-who:with-html-output (*standard-output* nil) 
+	 (:div :id ,id
+	       ,@body)
+	 (submitfileuploadevent-js (format nil "#~A" ,id)))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitfileuploadevent-js (id-bind-element)
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str
+		(parenscript:ps
+		 (parenscript:chain ($ "document") 
+				    (ready (lambda ()
+					     (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
+					     (if (not (null element))
+						 (parenscript:chain element (add-event-listener "submit" (lambda (e)
+													   ;; We stop event propagation here as there is another submit event on top of this. 
+													   (parenscript:chain e (stop-propagation))
+													   (submitfileuploadevent e))))))))))))))
 
 
 
@@ -548,6 +582,13 @@
   (defmacro with-no-navbar-page (title &body body)
     `(with-standard-page-template ,title (lambda () ()) ,@body)))
 
+(defun kill-threads-by-prefix (prefix)
+  "Kills all threads whose names start with PREFIX."
+  (dolist (thread (bt:all-threads))
+    (let ((name (bt:thread-name thread)))
+      (when (and name (search prefix name))
+        (format t "Killing thread: ~A~%" name)
+        (bt:destroy-thread thread)))))
 
 (defun print-thread-info ()
 :description "This function prints information about all threads" 
@@ -664,7 +705,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-html-dropdown (name kvhash selectedkey)
     `(cl-who:with-html-output (*standard-output* nil)
-       (:select :class "form-control" :name ,name 
+       (:select :class "form-control" :id ,name :name ,name 
 		(maphash (lambda (key value) 
 			   (if (equal key  ,selectedkey) 
 			       (cl-who:htm (:option :selected "true" :value key (cl-who:str value)))
@@ -711,6 +752,10 @@ individual tiles. It also supports search functionality by including the searchr
 	 (:vendor (display-vendor-page-with-widgets ,pagetitle widgets))
 	 (:compadmin (display-compadmin-page-with-widgets ,pagetitle widgets))
 	 (:superadmin (display-superadmin-page-with-widgets ,pagetitle widgets))))))
+
+(defun createmodelwithnildata ()
+  (function (lambda ()
+    (values nil))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-mvc-binary-file (createmodelfunc createwidgetsfunc)

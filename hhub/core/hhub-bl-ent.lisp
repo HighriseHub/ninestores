@@ -7,9 +7,8 @@
 ;; level as it is tied to a single IP address 
 
 (defclass BusinessServer () 
-  ((id :accessor id
-       :initform (format nil "~A" (uuid:make-v1-uuid))
-       :initarg :id)
+  ((id :reader id
+       :initform (format nil "~A" (uuid:make-v1-uuid)))
    (name
     :accessor name
     :initform "default"

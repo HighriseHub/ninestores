@@ -1,6 +1,203 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :hhub)
 
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defun render-invoice-settings-menu ()
+    (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+      (:div :class "offcanvas offcanvas-end" :tabindex"-1" :id "idInvoiceSettingsOffCanvas" :aria-labelledby "idInvoiceSettingsOffCanvasLabel" :style  "background: rgb(222,228,255);
+background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 100%); "
+	    (:div :class "offcanvas-header"
+		  (:img :src "/img/logo.png" :alt "" :width "32" :height "32" :class "rounded-circle me-2")
+		  (:h5 :class "offcanvas-title" :id "idInvoiceSettingsOffCanvasLabel" "Invoice Settings")
+		  (:button :type "button" :class "btn-close btn-close" :data-bs-dismiss "offcanvas" :aria-label "Close"))
+	    (:div :class "offcanvas-body"
+		  (:ul :class "nav nav-tabs flex-column mb-auto"
+		       (:li :class "nav-item"
+			    (:a :href "displayinvoices"
+				(:i :class "fa-solid fa-house")  "&nbsp;&nbsp;Invoices"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
+				(:i :class "fa-solid fa-gear")  " General Invoice Settings"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
+				(:i :class "fa-solid fa-gear")  " Design & Branding"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
+				(:i :class "fa-solid fa-gear")  " Payment & Sharing"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
+				(:i :class "fa-solid fa-gear")  " Notifications & Alerts"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
+				(:i :class "fa-solid fa-gear")  " Advanced Settings"))
+		       
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/hhubvendorupitransactions"  :class "nav-link link-body-e mphasis"
+				(:i :class "fa-solid fa-gear")  " Customer Management"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/hhubvendmycustomers" :class "nav-link link-body-emphasis"
+				(:i :class "fa-solid fa-gear") " Reporting & Analytics"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/displayinvoices"  :class "nav-link link-body-emphasis"
+				(:i :class "fa-solid fa-gear") " Security"))))))))
+
+
+(defun com-hhub-transaction-invoice-settings-page ()
+  (with-vend-session-check
+    (with-mvc-ui-page "Invoice Settings Page" createmodelforinvoicesettingspage createwidgetsforinvoicesettingspage :role :vendor)))
+
+(defun createmodelforinvoicesettingspage ()
+  (let* ((vinvsettings (hunchentoot:session-value :login-vendor-invoice-settings))
+	 (printsettings (cdr (assoc 'invoice-print-settings vinvsettings :test 'equal)))
+	 (vinvsettingshtml (funcall (nst-get-cached-invoice-template-func :templatenum 11)))
+	 (idinvsettings (format nil "idvinvsettings~A" (gensym))))
+
+    (setf vinvsettingshtml (format nil vinvsettingshtml (invoiceprintsettingswidgethtml printsettings )))
+    (function (lambda ()
+      (values idinvsettings vinvsettingshtml)))))
+
+(defun createwidgetsforinvoicesettingspage (modelfunc)
+  (multiple-value-bind (idinvsettings vinvsettingshtml) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-catch-submit-event idinvsettings
+			 (cl-who:str vinvsettingshtml)))))))
+      (list widget1))))
+
+
+
+(defun invoiceprintsettingswidgethtml (printsettings)
+  (let ((papersize-ht (make-hash-table :test 'equal))
+	(orientation-ht (make-hash-table :test 'equal))
+	(papersize (cdr (assoc :DEFAULTPAPERSIZE printsettings :test 'equal)))
+	(orientation (cdr (assoc :ORIENTATION printsettings :test 'equal)))
+	(fontsize (cdr (assoc :FONTSIZE printsettings :test 'equal)))
+	(margintop (cdr (assoc :TOP (cdr (assoc :MARGIN printsettings :test 'equal)))))
+	(marginbottom (cdr (assoc :BOTTOM (cdr (assoc :MARGIN printsettings :test 'equal)))))
+	(marginleft (cdr (assoc :LEFT (cdr (assoc :MARGIN printsettings :test 'equal)))))
+	(marginright (cdr (assoc :RIGHT (cdr (assoc :MARGIN printsettings :test 'equal)))))
+	(headerenable (cdr (assoc :ENABLE (cdr (assoc :HEADER printsettings :test 'equal)))))
+	(headertext (cdr (assoc :TEXT (cdr (assoc :HEADER printsettings :test 'equal)))))
+	(headerlogopath (cdr (assoc :LOGO-PATH (cdr (assoc :HEADER printsettings :test 'equal)))))
+	(footerenable (cdr (assoc :ENABLE (cdr (assoc :FOOTER printsettings :test 'equal)))))
+	(footertext (cdr (assoc :TEXT (cdr (assoc :FOOTER printsettings :test 'equal)))))
+	(watermarkenable (cdr (assoc :ENABLE (cdr (assoc :WATERMARK printsettings :test 'equal)))))
+	(watermarktext (cdr (assoc :TEXT (cdr (assoc :WATERMARK printsettings :test 'equal))))))
+	
+    
+    (setf (gethash "A4" papersize-ht) "A4")
+    (setf (gethash "Letter" papersize-ht) "Letter")
+    (setf (gethash "Legal" papersize-ht) "Legal")
+    (setf (gethash "Portrait" orientation-ht) "Portrait")
+    (setf (gethash "Landscape" orientation-ht) "Landscape")
+    
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      ;;<!-- Default Paper Size -->
+      (:div :class "mb-3"
+	    (:label :for "defaultpapersize" :class "form-label" "Default Paper Size")
+	    (with-html-dropdown "defaultpapersize" papersize-ht papersize))
+
+      ;; orientation
+          (:div :class "mb-3"
+		(:label :for "orientation" :class "form-label" "Orientation")
+		(with-html-dropdown "orientation" orientation-ht orientation))
+      ;; Fontsize
+      (:div :class "mb-3"
+	    (:label :for "fontsize" :class "form-label" "Font Size")
+	    (:input :type "number" :class "form-control" :id "fontsize" :value fontsize))
+
+      ;; Margins
+      
+      (:div :class "mb-3"
+	    (:label :class "form-label" "Margins (in cm)")
+	    (:div :class "row g-2"
+		  (:div :class "col" 
+			(:label :for "margintop" :class "form-label" "Top")
+			(:input :type "text" :class "form-control" :id "margintop" :value margintop))
+		  (:div :class "col" 
+			(:label :for "marginbottom" :class "form-label" "Bottom")
+			(:input :type "text" :class "form-control" :id "marginbottom" :value marginbottom))
+		  (:div :class "col" 
+			(:label :for "marginleft" :class "form-label" "Left")
+			(:input :type "text" :class "form-control" :id "marginleft" :value marginleft))
+		  (:div :class "col" 
+			(:label :for "marginright" :class "form-label" "Right")
+			(:input :type "text" :class "form-control" :id "marginright" :value marginright))))
+      ;; Header
+      (:div :class "mb-3"
+	    (:label :class "form-label" "Header")
+      	    (:div :class "form-check form-switch"
+		  (if headerenable
+		      (cl-who:htm
+		       (:input :class "form-check-input" :type "checkbox" :id "headerenable" :checked  T))
+		      ;;else
+		      (cl-who:htm
+		       (:input :class "form-check-input" :type "checkbox" :id "headerenable")))
+		       
+		  (:label :class "form-check-label" :for "headerenable" "Enable Header"))
+	    (:div :class "mt-2"
+		  (:label :for "headertext" :class "form-label" "Header Text")
+		  (:input :type "text" :class "form-control" :id "headertext" :value headertext))
+	    (:div :class "mt-2"
+		  (:label :for "headerlogopath" :class "form-label" "Logo Path")
+		  (:input :type "file" :class "form-control" :name "headerlogopath" :id "headerlogopath" :value headerlogopath)))
+      ;; Footer
+      (:div :class "mb-3"
+	    (:label :class "form-label" "Footer")
+      	    (:div :class "form-check form-switch"
+		  (if footerenable
+		      (cl-who:htm
+		       (:input :class "form-check-input" :type "checkbox" :id "footerenable" :checked  T))
+		      ;;else
+		      (cl-who:htm
+		       (:input :class "form-check-input" :type "checkbox" :id "footerenable")))
+		  (:div :class "mt-2"
+		  (:label :for "footertext" :class "form-label" "Footer Text")
+		  (:input :type "text" :class "form-control" :id "footertext" :value footertext))))
+      ;; Watermark
+      (:div :class "mb-3"
+	    (:label :class "form-label" "Watermark")
+      	    (:div :class "form-check form-switch"
+		  (if watermarkenable
+		      (cl-who:htm
+		       (:input :class "form-check-input" :type "checkbox" :id "watermarkenable" :checked  T))
+		      ;;else
+		      (cl-who:htm
+		       (:input :class "form-check-input" :type "checkbox" :id "watermarkenable")))
+		  (:div :class "mt-2"
+		  (:label :for "watermarktext" :class "form-label" "Watermark Text")
+		  (:input :type "text" :class "form-control" :id "watermarktext" :value watermarktext))))
+      )))
+
+(defun com-hhub-transaction-save-invoice-print-settings-action ()
+  (with-vend-session-check
+    (with-mvc-redirect-ui createmodelforinvoiceprintsettingsaction createwidgetsforgenericredirect)))
+
+(defun createmodelforinvoiceprintsettingsaction ()
+  (let* ((vendor (get-login-vendor))
+	 (vendor-id (get-login-vendor-id))
+	 (tenant-id (get-login-vendor-tenant-id))
+	 (printsettings (hunchentoot:parameter "vinvprintsettings"))
+	 (json-response (with-input-from-string (stream printsettings) (cl-json:decode-json stream)))
+	 (vinvsettings *invoice-settings*)
+	 (imageparams (hunchentoot:post-parameter "headerlogopath"))
+	 (tempfilewithpath (first imageparams))
+	 (file-name (if tempfilewithpath (process-file imageparams *HHUBRESOURCESDIR*)))
+	 (redirecturl "/hhub/vinvoicesettingspage"))
+    (logiamhere (format nil "headerlogopath is ~A" tempfilewithpath))
+    (if tempfilewithpath 
+	(let ((s3filelocation (vendor-upload-file-s3bucket file-name "CFG" "logo123" vendor-id tenant-id )))
+	  (setf (cdr (assoc :LOGO-PATH (cdr (assoc :HEADER json-response :test 'equal)))) s3filelocation)))
+    (setf (cdr (assoc 'invoice-print-settings vinvsettings)) json-response)
+    (setf (slot-value vendor 'invoice-settings) (write-to-string vinvsettings :readably t))
+    (setf (hunchentoot:session-value :login-vendor-invoice-settings) vinvsettings)
+    (update-vendor-details vendor)
+    (function (lambda ()
+      (values redirecturl)))))
+
+
+
+
 
 (defun com-hhub-transaction-copy-invoice ()
   )
@@ -21,15 +218,7 @@
     (function (lambda ()
       (values pdffileurl)))))
 
-(defun createwidgetsfordownloadinvoice (modelfunc)
-  (multiple-value-bind (pdffileurl invnum) (funcall modelfunc)
-    (let ((widget1 (function (lambda ()
-		     (setf (hunchentoot:content-type*) "application/pdf")
-		     (setf (hunchentoot:header-out "Content-Disposition" ) (format nil "inline; filename=Invoice_~A.pdf" invnum))
-		     (setf (hunchentoot:header-out "Content-Transfer-Encoding" ) (format nil "binary"))
-		     (setf (hunchentoot:header-out "Accept-Ranges" ) (format nil "bytes"))
-		     filecontents))))
-      (list widget1))))
+
 
 (defun com-hhub-transaction-send-invoice-email ()
   (with-vend-session-check
@@ -178,7 +367,7 @@
 	 (currency (get-account-currency company))
 	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" invnum totalvalue))))
 
-    (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader sessioninvitems invoiceitemshtmlfunc qrcodepath currency)))
+    (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader sessioninvitems invoiceitemshtmlfunc qrcodepath currency vendor)))
     (function (lambda ()
       (values  invoicetemplate)))))
 
@@ -190,10 +379,17 @@
 			(cl-who:str invoicetemplate))))))
       (list widget1))))
 
-(defun invoicetemplatefill (invoicetemplate invheader invoiceitems invoiceitemshtmlfunc  qrcodepath currency) 
+(defun invoicetemplatefill (invoicetemplate invheader invoiceitems invoiceitemshtmlfunc  qrcodepath currency vendor) 
   (function (lambda ()
+    (with-slots (name address gstnumber) vendor
+      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Name%" invoicetemplate name))
+      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Address%" invoicetemplate address))
+      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor GST%" invoicetemplate gstnumber)))
+
     (with-slots (row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor company) invheader
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Invoice Number%" invoicetemplate invnum))
+      ;;(setf invoicetemplate (cl-ppcre:regex-replace-all "%Order Number%" invoicetemplate ordernum))
+      ;;(setf invoicetemplate (cl-ppcre:regex-replace-all "%Order Date%" invoicetemplate orderdate))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Invoice Date%" invoicetemplate (get-date-string invdate)))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Invoice Status%" invoicetemplate status))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Date of Supply%" invoicetemplate ""))
@@ -219,7 +415,6 @@
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Add CGST%" invoicetemplate (format nil "~A" (calculate-invoice-totalcgst invoiceitems))))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Add SGST%" invoicetemplate (format nil "~A" (calculate-invoice-totalsgst invoiceitems))))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Add IGST%" invoicetemplate (format nil "~A" (calculate-invoice-totaligst invoiceitems))))
-
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Terms and Conditions%" invoicetemplate tnc))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Authorised Signatory%" invoicetemplate authsign))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Financial Year%" invoicetemplate finyear))
@@ -334,6 +529,31 @@
 	(:a :onclick "return DeleteConfirm();"  :href "#" (:i :class "fa-solid fa-trash-can")))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;ALL INVOICES ACTION MENU ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun invoices-actions-menu (sessioninvkey)
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-html-div-row :style "border-radius: 5px;background-color:#e6f0ff; border-bottom: solid 1px; margin: 15px; padding: 5px; height: 30px; font-size: 1rem;"
+      (with-html-div-col-1 :data-bs-toggle "popover" :title "Print Invoice"
+	(:a :href (format nil "vshowinvoiceconfirmpage?sessioninvkey=~A" sessioninvkey) :onclick (format nil "window.open(this.href).print(); return false;") (:i :class "fa-solid fa-print")))
+      (with-html-div-col-1 :data-bs-toggle "popover" :title "GSTR1 JSON"
+	(:a :href (format nil "vshowinvoiceconfirmpage?sessioninvkey=~A" sessioninvkey) :onclick (format nil "window.open(this.href).print(); return false;") (:img :src  "/img/json-file-icon.png"  :height "22" :width "22" :alt "checkout")))
+      
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-1 "&nbsp;")
+      (with-html-div-col-2 :align "right" :data-bs-toggle "popover" :title "Settings"
+	(:a :href (format nil "vinvoicesettingspage?sessioninvkey=~A" sessioninvkey) (:i :class "fa-solid fa-gear"))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;; INVOICE PAID ACTION ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun com-hhub-transaction-invoice-paid-action ()
@@ -501,12 +721,12 @@
 	 (sessioninvitems (processreadallrequest itemsadapter irequestmodel))
 	 (totalvalue (calculate-invoice-totalaftertax sessioninvitems))
 	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" invnum totalvalue)))
-	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum 9)))  
+	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum 10)))  
 	 (invoiceitemshtmlfunc (invoicetemplatefillitemrows sessioninvitems (if (equal status "PAID") T NIL) sessioninvkey))
 	 (currency (get-account-currency company))
 	 (params nil))
 
-    (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader sessioninvitems invoiceitemshtmlfunc qrcodepath currency)))
+    (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader sessioninvitems invoiceitemshtmlfunc qrcodepath currency vendor)))
     (setf (slot-value sessioninvoice 'InvoiceItems) sessioninvitems)
     (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
     (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)	   
@@ -754,7 +974,8 @@
 	 (prd-name (subseq prdname 0 (min 20 (length prdname))))
 	 (units-in-stock (slot-value product 'units-in-stock))
 	 (qty-per-unit (slot-value product 'qty-per-unit))
-	 (prd-image-path (slot-value product 'prd-image-path))
+	 (images-str (slot-value product 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (company (get-login-vendor-company))
 	 (price (slot-value product 'unit-price))
 	 (ppricing (select-product-pricing-by-product-id prd-id company))
@@ -762,7 +983,7 @@
 	 (pdiscount (if ppricing (slot-value ppricing 'discount)))
 	 (pcurr (if ppricing (slot-value ppricing 'currency))))
     (cl-who:with-html-output (*standard-output* nil)
-      (:td :height "10px" (:img :style "width: 50px; height: 50px;" :src prd-image-path))
+      (:td :height "10px" (render-single-product-image prd-name imageslst images-str "50" "50"))
       (:td  :height "10px" (cl-who:str prd-name))
       (:td  :height "10px" (cl-who:str qty-per-unit))
       (:td  :height "10px" (cl-who:str (if ppricing pprice price)))
@@ -794,7 +1015,8 @@
 	 (prd-name (subseq prdname 0 (min 20 (length prdname))))
 	 (units-in-stock (slot-value product 'units-in-stock))
 	 (qty-per-unit (slot-value product 'qty-per-unit))
-	 (prd-image-path (slot-value product 'prd-image-path))
+	 (images-str (slot-value product 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (company (get-login-vendor-company))
 	 (price (slot-value product 'unit-price))
 	 (ppricing (select-product-pricing-by-product-id prd-id company))
@@ -802,7 +1024,7 @@
 	 (pdiscount (if ppricing (slot-value ppricing 'discount)))
 	 (pcurr (if ppricing (slot-value ppricing 'currency))))
     (cl-who:with-html-output (*standard-output* nil)
-      (:td :height "10px" (:img :style "width: 30px; height: 30px;" :src prd-image-path))
+      (:td :height "10px" (render-single-product-image prd-name imageslst images-str "30" "30"))
       (:td  :height "10px" (cl-who:str prd-name))
       (:td  :height "10px" (cl-who:str qty-per-unit))
       (:td  :height "10px" (cl-who:str (if ppricing pprice price)))
@@ -825,8 +1047,8 @@
 
 (defun vproduct-qty-add-for-invoice-html (product product-pricing sessioninvkey)
   (let* ((prd-id (slot-value product 'row-id))
-	 (prd-image-path (slot-value product 'prd-image-path))
-	 (description (slot-value product 'description))
+	 (images-str (slot-value product 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (units-in-stock (slot-value product 'units-in-stock))
 	 (prd-name (slot-value product 'prd-name))
 	 (hsn-code (slot-value product 'hsn-code)))
@@ -836,10 +1058,9 @@
       (with-html-input-text-hidden "prd-id" prd-id)
       (:p :class "product-name"  (cl-who:str prd-name))
       (:p :class "product-hsn-code" "HSN Code: " (cl-who:str hsn-code))
-      (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) 
-	  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
+      (:a :href (format nil "prddetailsforcust?id=~A" prd-id) 
+	  (render-single-product-image prd-name imageslst images-str "100" "83"))      
       (product-price-with-discount-widget product product-pricing)
-      (:p (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))
       ;; Qty increment and decrement control.
       (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
       (html-range-control "prdqty" prd-id "1" (max (mod units-in-stock 20) 10) "1" "1")
@@ -1161,8 +1382,10 @@
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (with-vendor-breadcrumb)
 		       (InvoiceHeader-search-html)
-			 (:hr)))))
+		       (:hr)))))
 	  (widget2 (function (lambda ()
+		     (invoices-actions-menu  nil))))
+	  (widget3 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
 		       (:div :id "InvoiceHeaderlivesearchresult" 
 			     (with-html-div-row
@@ -1172,8 +1395,10 @@
 			       (with-html-div-col-3 :align "right"
 				 (:span :class "badge bg-info" (:h5 (cl-who:str (format nil "~A" (length viewallmodel)))))))
 			     (:hr)
-			     (cl-who:str (RenderListViewHTML htmlview viewallmodel))))))))
-      (list widget1 widget2))))
+			     (cl-who:str (RenderListViewHTML htmlview viewallmodel)))))))
+	  (widget4 (function (lambda ()
+		     (render-invoice-settings-menu)))))
+      (list widget1 widget2 widget3 widget4))))
 
 (defun createwidgetsforupdateInvoiceHeader (modelfunc)
 :description "This is a widgets function for update InvoiceHeader entity"      

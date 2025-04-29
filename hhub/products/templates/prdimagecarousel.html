@@ -1,0 +1,99 @@
+<div id="product-carousel-control">
+  <!-- Bootstrap Carousel -->
+  <div id="productCarousel" class="carousel slide" data-bs-ride="carousel">
+    <div class="carousel-inner">
+      <div class="carousel-item active">
+        <img src="https://via.placeholder.com/800x400?text=Image+1" class="d-block w-100" alt="Image 1">
+      </div>
+      <div class="carousel-item">
+        <img src="https://via.placeholder.com/800x400?text=Image+2" class="d-block w-100" alt="Image 2">
+      </div>
+      <div class="carousel-item">
+        <img src="https://via.placeholder.com/800x400?text=Image+3" class="d-block w-100" alt="Image 3">
+      </div>
+      <div class="carousel-item">
+        <img src="https://via.placeholder.com/800x400?text=Image+4" class="d-block w-100" alt="Image 4">
+      </div>
+    </div>
+    <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
+      <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+      <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
+      <span class="carousel-control-next-icon" aria-hidden="true"></span>
+      <span class="visually-hidden">Next</span>
+    </button>
+  </div>
+
+  <!-- Thumbnails -->
+  <div class="thumbnail-container">
+    <div class="thumbnail active" data-bs-target="#productCarousel" data-bs-slide-to="0">
+      <img src="https://via.placeholder.com/100x100?text=Thumb+1" alt="Thumbnail 1">
+    </div>
+    <div class="thumbnail" data-bs-target="#productCarousel" data-bs-slide-to="1">
+      <img src="https://via.placeholder.com/100x100?text=Thumb+2" alt="Thumbnail 2">
+    </div>
+    <div class="thumbnail" data-bs-target="#productCarousel" data-bs-slide-to="2">
+      <img src="https://via.placeholder.com/100x100?text=Thumb+3" alt="Thumbnail 3">
+    </div>
+    <div class="thumbnail" data-bs-target="#productCarousel" data-bs-slide-to="3">
+      <img src="https://via.placeholder.com/100x100?text=Thumb+4" alt="Thumbnail 4">
+    </div>
+  </div>
+
+  <!-- Embedded CSS -->
+  <style>
+    .thumbnail-container {
+      display: flex;
+      overflow-x: auto;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .thumbnail {
+      flex: 0 0 auto;
+      width: 100px;
+      height: 100px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.3s ease;
+    }
+    .thumbnail.active {
+      border-color: #007bff;
+    }
+    .thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+
+  <!-- Embedded JavaScript -->
+  <script>
+    // Add active class to the clicked thumbnail
+    const thumbnails = document.querySelectorAll('.thumbnail');
+    const carousel = new bootstrap.Carousel('#productCarousel');
+
+    thumbnails.forEach((thumbnail, index) => {
+      thumbnail.addEventListener('click', () => {
+        // Remove active class from all thumbnails
+        thumbnails.forEach(t => t.classList.remove('active'));
+        // Add active class to the clicked thumbnail
+        thumbnail.classList.add('active');
+        // Move carousel to the corresponding slide
+        carousel.to(index);
+      });
+    });
+
+    // Update active thumbnail when carousel slides
+    document.getElementById('productCarousel').addEventListener('slid.bs.carousel', (event) => {
+      const activeIndex = event.to;
+      thumbnails.forEach((thumbnail, index) => {
+        if (index === activeIndex) {
+          thumbnail.classList.add('active');
+        } else {
+          thumbnail.classList.remove('active');
+        }
+      });
+    });
+  </script>
+</div>

@@ -14,6 +14,9 @@
    (state
     :initarg :initial-state
     :accessor actor-state)
+   (actor-state-clean-callback
+    :initarg :state-clean-callback
+    :accessor actor-state-clean-callback)
    (stateful
     :initarg :stateful
     :reader actor-stateful)
@@ -129,7 +132,11 @@
 	(bt:destroy-thread thread)
 	(setf thread nil)
 	(setf thread-state :terminated)
-	(setf queue '())))))
+	(setf queue '())
+	(setf actor-state
+	      (when (functionp actor-state-clean-callback)
+		(actor-state-clean-callback)
+		(setf actor-state-clean-callback nil)))))))
 
 
 ;; ------------------------------------------

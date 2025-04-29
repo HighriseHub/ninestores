@@ -65,13 +65,14 @@
 	   (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	   (prdqty (slot-value odt-instance 'prd-qty))
 	   (units-in-stock (slot-value product-instance 'units-in-stock))
-	   (prd-image-path (slot-value product-instance 'prd-image-path))
+	   (images-str (slot-value product-instance 'prd-image-path))
+	   (imageslst (safe-read-from-string images-str))
 	   (prd-id (slot-value product-instance 'row-id))
 	   (pricewith-discount (calculate-order-item-cost odt-instance))
 	   (subtotal (* prdqty pricewith-discount)))
       (cl-who:with-html-output (*standard-output* nil)
 	(:span (cl-who:str (format nil "~A" prdqty)))
-	(:span (:p (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "50" :width "70" :alt prd-name " "))))
+	(:span (:p (:a :href (format nil "prddetailsforcust?id=~A" prd-id) (render-single-product-image prd-name imageslst images-str "70" "50"))))
 	(:span (cl-who:str (format nil "~A: ~A/~A" prd-name pricewith-discount qty-per-unit)))
 	;;(:div (:p  (cl-who:str (format nil "  ~A. Fulfilled By: ~A" qty-per-unit (name prd-vendor)))))
 	(:div
@@ -85,11 +86,12 @@
 	  (modal-dialog-v2 (format nil "productremoveshopcart-modal~A" prd-id) (cl-who:str (format nil "Remove Product From Shopcart"))  (modal.product-remove-from-shopcart product-instance)))))))
 
 (defun modal.product-remove-from-shopcart (product)
-  (let ((id (slot-value product 'row-id))
+  (let* ((id (slot-value product 'row-id))
 	(prd-name (slot-value product 'prd-name))
-	(prd-image-path (slot-value product 'prd-image-path)))
+	(images-str (slot-value product 'prd-image-path))
+	(imageslst (safe-read-from-string images-str)))
     (cl-who:with-html-output (*standard-output* nil)
-      (:span (:p (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "50" :width "70" :alt prd-name " "))))
+      (:span (:p (:a :href "#" (render-single-product-image prd-name imageslst images-str "50" "70"))))
       (with-html-form "removeproductfromshopcart" "dodcustremshctitem" 
 	(with-html-input-text-hidden "id" id)
 	(with-html-input-text-hidden "action" "remitem")
@@ -100,12 +102,13 @@
   (let* ((prd-name (slot-value product-instance 'prd-name))
 	 (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	 (prdqty (slot-value odt-instance 'prd-qty))
-	 (prd-image-path (slot-value product-instance 'prd-image-path))
+	 (images-str (slot-value product-instance 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (subtotal (calculate-order-item-cost odt-instance)) 
 	 (prd-vendor (product-vendor product-instance)))
     (cl-who:with-html-output (*standard-output* nil)
       (:tr 
-       (:td (:img :src (format nil "~A/~A" *siteurl* prd-image-path) :height "50" :width "50" :alt prd-name prd-name))
+       (:td (render-single-product-image prd-name imageslst images-str "50" "50"))
 					;Product name and other details
        (:td
 	(:h5 :class "product-name"  (cl-who:str prd-name))
@@ -117,14 +120,18 @@
 
 
 
+
+
+
 (defun product-card-shopcart-readonly (product-instance odt-instance)
   (let* ((prd-name (slot-value product-instance 'prd-name))
 	 (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	 (prdqty (slot-value odt-instance 'prd-qty))
-	 (prd-image-path (slot-value product-instance 'prd-image-path))
+	 (images-str (slot-value product-instance 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (subtotal (calculate-order-item-cost odt-instance))) 
     (cl-who:with-html-output (*standard-output* nil)
-       (:a :href "#" (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
+       (:a :href "#" (render-single-product-image prd-name imageslst images-str "83" "100"))
        (:p  (cl-who:str (format nil "~A-~A" prd-name qty-per-unit)))
        (:p  (cl-who:str (format nil "~A" prdqty )))
        (:div :class "txt-bg-success p3" (cl-who:str (format nil "~A ~$"  *HTMLRUPEESYMBOL* subtotal))))))
@@ -160,7 +167,10 @@
    (with-html-div-row 
      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 	   (with-html-form (format nil "form-vendorprod~A" mode) "dodvenaddproductaction" 
-	     (if (and product (equal mode "EDIT")) (cl-who:htm (:input :class "form-control" :type "hidden" :value prd-id :name "id")))
+	     (if (and product (equal mode "EDIT"))
+		 (cl-who:htm (:input :class "form-control" :type "hidden" :value prd-id :name "prd-id"))
+		 ;; else
+		 (cl-who:htm (:input :class "form-control" :type "hidden" :value 0 :name "prd-id")))
 	     (:div :class "form-group"
 		   (:label :for idisserviceproduct "This is a Service&nbsp;")
 		   (if (equal prd-type "SERV")
@@ -192,103 +202,129 @@
 		   (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :value units-in-stock  :type "number" :min "1" :max "10000" :step "1"  ))
 	     
 	     (:br) 
-	     (:div :class "form-group" (:label :for "yesno" "Product/Service Subscription")
+	     (:div :class "form-group" (:label :for "yesno" "Enable Subscription")
 		   (if (equal subscribe-flag "Y") (ui-list-yes-no-dropdown "Y")
 		       (ui-list-yes-no-dropdown "N")))
-	     
-	     (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
-		   (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
 	     (:div :class "form-group"
 		   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))
+;; We need to write all the details of the file upload logic here.
+;; Need to support upload of 5 files
+(defun modal.vendor-upload-product-images (product) 
+  (let* ((prd-id (slot-value product 'row-id)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-catch-file-upload-event "fileUploadForm"
+	(with-html-div-row 
+	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12" 
+		(with-html-form "fileUploadForm" "vuploadprdimagesaction" 
+		  (if product (cl-who:htm (:input :class "form-control" :type "hidden" :id "prd-id" :value prd-id :name "prd-id")))
+		  (:div :class "form-group" :id "fileuploadprogress")
+		  (:div :class "form-group" (:label :for "prdimage1" "Select Upto 5 Product Images:")
+			(:input :id "idprdimgfileupldctrl" :class "form-control"  :name "uploadedimagefiles" :placeholder "Product Image" :onchange "validateFileSize(event);" :type "file" :multiple t ))
+		  (:div :class "form-group"
+			(:button :id "btnprdimageuploadreset"  :class "btn btn-lg btn-primary btn-block" :onclick "resetFileUpload(event);" :type "button" "Reset")
+			(:button :id "btnprdimageupload"  :class "btn btn-lg btn-primary btn-block"  :type "submit" "Upload"))
+		  ;; Image previews
+		  (:div 
+		   (:img :src "" :id "img_url_1" :alt "Preview 1" :style "width:100px; height:100px; display:none")
+		   (:img :src "" :id "img_url_2" :alt "Preview 2" :style "width:100px; height:100px; display:none")
+		   (:img :src "" :id "img_url_3" :alt "Preview 3" :style "width:100px; height:100px; display:none")
+		   (:img :src "" :id "img_url_4" :alt "Preview 4" :style "width:100px; height:100px; display:none") 
+		   (:img :src "" :id "img_url_5" :alt "Preview 5" :style "width:100px; height:100px; display:none")))))))))
+
 
 (defun modal.vendor-product-shipping-html (product mode)
   (let* ((prd-id (slot-value product 'row-id))
 	 (prd-name (slot-value product 'prd-name))
-	 (prd-image-path (slot-value product 'prd-image-path))
+	 (images-str (slot-value product 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (shipping-length-cms (slot-value product 'shipping-length-cms))
 	 (shipping-width-cms (slot-value product 'shipping-width-cms))
 	 (shipping-height-cms (slot-value product 'shipping-height-cms))
 	 (shipping-weight-kg (slot-value product 'shipping-weight-kg)))
     (cl-who:with-html-output (*standard-output* nil)
    (with-html-div-row 
-     (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-	   (with-html-form (format nil "form-vendorprodship~A" mode) "hhubvendaddprodshipinfoaction" 
-	     (if (and product (equal mode "EDIT"))
-		 (cl-who:htm (with-html-input-text-hidden "id" prd-id)))
-	     (:h1 :class "text-center login-title"  "Shipping Information")
-	     (:div :align "center"  :class "form-group" 
-			(:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
-	     (:div :class "form-group"
-		   (with-html-input-text "shipping-length-cms" "Shipping Length" "Enter Product length in CM" shipping-length-cms T "Enter Shipping Length in CM" 1))
-	     (:div :class "form-group"
-		   (with-html-input-text "shipping-width-cms" "Shipping Width" "Enter Product width in CM" shipping-width-cms T "Enter Shipping Width in CM" 2))
-	     (:div :class "form-group"
-		   (with-html-input-text "shipping-height-cms" "Shipping Height" "Enter Product height in CM" shipping-height-cms T "Enter Shipping Height in CM" 3))
-	     (:div :class "form-group"
-		   (with-html-input-text "shipping-weight-kg" "Shipping Weight" "Enter Product weight in KG" shipping-weight-kg T "Enter Shipping Weight in KG" 1))
-	     (:div :class "form-group"
-		   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))
+     (with-html-div-col-12
+       (with-html-form (format nil "form-vendorprodship~A" mode) "hhubvendaddprodshipinfoaction" 
+	 (if (and product (equal mode "EDIT"))
+	     (cl-who:htm (with-html-input-text-hidden "id" prd-id)))
+	 (:h1 :class "text-center login-title"  "Shipping Information")
+	 (:div :align "center"  :class "form-group" 
+	       (render-single-product-image prd-name imageslst images-str "100" "83"))
+	 (:div :class "form-group"
+	       (with-html-input-text "shipping-length-cms" "Shipping Length" "Enter Product length in CM" shipping-length-cms T "Enter Shipping Length in CM" 1))
+	 (:div :class "form-group"
+	       (with-html-input-text "shipping-width-cms" "Shipping Width" "Enter Product width in CM" shipping-width-cms T "Enter Shipping Width in CM" 2))
+	 (:div :class "form-group"
+	       (with-html-input-text "shipping-height-cms" "Shipping Height" "Enter Product height in CM" shipping-height-cms T "Enter Shipping Height in CM" 3))
+	 (:div :class "form-group"
+	       (with-html-input-text "shipping-weight-kg" "Shipping Weight" "Enter Product weight in KG" shipping-weight-kg T "Enter Shipping Weight in KG" 1))
+	 (:div :class "form-group"
+	       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))
 
-	
 
+
+
+		    
 
 (defun modal.vendor-product-reject-html (prd-id tenant-id)
   (let* ((company (select-company-by-id tenant-id))
 	 (product (select-product-by-id prd-id company))
-	 (prd-image-path (slot-value product 'prd-image-path))
+	 (images-str (slot-value product 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (description (slot-value product 'description))
 	 (prd-name (slot-value product 'prd-name))
 	 (prd-id (slot-value product 'row-id)))
  (cl-who:with-html-output (*standard-output* nil)
    (with-html-div-row 
-	 (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-	       (:form :id (format nil "form-vendorprod")  :role "form" :method "POST" :action "hhubcadprdrejectaction" :enctype "multipart/form-data" 
+     (with-html-div-col-12
+       (:form :id (format nil "form-vendorprod")  :role "form" :method "POST" :action "hhubcadprdrejectaction" :enctype "multipart/form-data" 
 					;(:div :class "account-wall"
-		      (:input :class "form-control" :type "hidden" :value prd-id :name "id")
-		 (:div :align "center"  :class "form-group" 
-		       (:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
-		 (:h1 :class "text-center login-title"  "Reject Product")
-		      (:div :class "form-group"
-			    (:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" :readonly "true" ))
-		      (:div :class "form-group"
-			    (:label :for "description" "Enter Rejection Reason")
-			    (:textarea :class "form-control" :name "description"  :placeholder "Enter Reject Reason "  :rows "5" :onkeyup "countChar(this, 1000)" (cl-who:str (format nil "~A" description))))
-		      (:div :class "form-group" :id "charcount")
-		      
-		       (:div :class "form-group"
-			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+	      (:input :class "form-control" :type "hidden" :value prd-id :name "id")
+	      (:div :align "center"  :class "form-group"
+		    (render-single-product-image prd-name imageslst images-str "100" "83"))
+	      
+	      (:h1 :class "text-center login-title"  "Reject Product")
+	      (:div :class "form-group"
+		    (:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" :readonly "true" ))
+	      (:div :class "form-group"
+		    (:label :for "description" "Enter Rejection Reason")
+		    (:textarea :class "form-control" :name "description"  :placeholder "Enter Reject Reason "  :rows "5" :onkeyup "countChar(this, 1000)" (cl-who:str (format nil "~A" description))))
+	      (:div :class "form-group" :id "charcount")
+	      (:div :class "form-group"
+		    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Reject"))))))))
 
 
 (defun modal.vendor-product-accept-html (prd-id tenant-id)
   (let* ((company (select-company-by-id tenant-id))
 	 (product (select-product-by-id prd-id company))
-	 (prd-image-path (slot-value product 'prd-image-path))
+	 (images-str (slot-value product 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (description (slot-value product 'description))
 	 (prd-name (slot-value product 'prd-name))
 	 (prd-id (slot-value product 'row-id)))
  (cl-who:with-html-output (*standard-output* nil)
-   (with-html-div-row 
-	 (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-	       (:form :id (format nil "form-vendorprod")  :role "form" :method "POST" :action "hhubcadprdapproveaction" :enctype "multipart/form-data" 
+   (with-html-div-row
+     (with-html-div-col-12
+       (:form :id (format nil "form-vendorprod")  :role "form" :method "POST" :action "hhubcadprdapproveaction" :enctype "multipart/form-data" 
 					;(:div :class "account-wall"
-		      (:input :class "form-control" :type "hidden" :value prd-id :name "id")
-		 (:div :align "center"  :class "form-group" 
-		       (:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
-		 (:h1 :class "text-center login-title"  "Accept Product")
-		      (:div :class "form-group"
-			    (:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" :readonly "true" ))
-		      (:div :class "form-group"
-			    (:label :for "description")
-			    (:textarea :class "form-control" :name "description"  :placeholder "Description "  :rows "5" :onkeyup "countChar(this, 1000)" (cl-who:str (format nil "~A" description))))
-		      (:div :class "form-group" :id "charcount")
-		      
-		       (:div :class "form-group"
-			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
+	      (:input :class "form-control" :type "hidden" :value prd-id :name "id")
+	      (:div :align "center"  :class "form-group"
+		    (render-single-product-image prd-name imageslst images-str "100" "83"))
+	      (:h1 :class "text-center login-title"  "Accept Product")
+	      (:div :class "form-group"
+		    (:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" :readonly "true" ))
+	      (:div :class "form-group"
+		    (:label :for "description")
+		    (:textarea :class "form-control" :name "description"  :placeholder "Description "  :rows "5" :onkeyup "countChar(this, 1000)" (cl-who:str (format nil "~A" description))))
+	      (:div :class "form-group" :id "charcount")
+	      (:div :class "form-group"
+		    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Approve"))))))))
 
 
 (defun modal.vendor-product-pricing (product product-pricing)
-  (let ((prd-id (slot-value product 'row-id))
-	(prd-image-path (slot-value product 'prd-image-path))
+  (let* ((prd-id (slot-value product 'row-id))
+	(images-str (slot-value product 'prd-image-path))
+	(imageslst (safe-read-from-string images-str))
 	(prd-name (slot-value product 'prd-name))
 	(unit-price (slot-value product 'unit-price))
 	(pricing-id (if product-pricing (slot-value product-pricing 'row-id)))
@@ -309,7 +345,7 @@
 		(:input :class "form-control" :type "hidden" :value prd-id :name "prdid")
 		(:input :class "form-control" :type "hidden" :value pricing-id :name "pricingid")
 		(:div :align "center"  :class "form-group"
-		      (:a :href "#" (:img :src (if prd-image-path  (format nil "~A" prd-image-path)) :height "83" :width "100" :alt prd-name " ")))
+		      (render-single-product-image prd-name imageslst images-str "100" "83"))
 		(:div :class "form-group"
 		      (:label :for "prdprice" "Price" )
 		      (:input :class "form-control" :name "prdprice"  :value (if product-pricing (format nil "~$" price) (format nil "~$" unit-price))  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
@@ -352,10 +388,14 @@
 	(with-html-div-col-1 :data-bs-toggle "tooltip" :title "Copy" 
 	  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendcopyprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-clone"))
 	  (modal-dialog-v2 (format nil "dodvendcopyprod-modal~A" prd-id) "Copy Product" (modal.vendor-product-edit-html  product-instance "COPY")))
-	(with-html-div-col-1 :align "right" :data-bs-toggle "tooltip" :title "Edit" 
+	
+	(with-html-div-col-1  :data-bs-toggle "tooltip" :title "Edit" 
 	  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-pencil"))
 	  (modal-dialog-v2 (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
-	
+	(with-html-div-col-1  :data-bs-toggle "tooltip" :title "Upload Product Images" 
+	  
+	  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvenduploadprodimages-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-upload"))
+	  (modal-dialog-v2 (format nil "dodvenduploadprodimages-modal~A" prd-id) "Upload Product Images" (modal.vendor-upload-product-images product-instance)))
 	(unless external-url
 	  (cl-who:htm 
 	   (with-html-div-col-1 :data-bs-toggle "tooltip" :title "Information: Edit & Save to enable sharing" 
@@ -385,7 +425,6 @@
 	(with-html-div-col-1 "&nbsp;")
 	(with-html-div-col-1 "&nbsp;")
 	(with-html-div-col-1 "&nbsp;")
-	(with-html-div-col-1 "&nbsp;")
 	(with-html-div-col-2 :align "right" :data-bs-toggle "tooltip" :title "Delete" 
 	  (:a :onclick "return DeleteConfirm();"  :href (format nil "dodvenddelprod?id=~A" prd-id) (:i :class "fa-solid fa-trash-can")))))))
 
@@ -394,7 +433,8 @@
   (let* ((prd-name (slot-value product-instance 'prd-name))
 	 (units-in-stock (slot-value product-instance 'units-in-stock))
 	 (description (slot-value product-instance 'description))
-	 (prd-image-path (slot-value product-instance 'prd-image-path))
+	 (images-str (slot-value product-instance 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (prd-id (slot-value product-instance 'row-id))
 	 (active-flag (slot-value product-instance 'active-flag))
 	 (approved-flag (slot-value product-instance 'approved-flag))
@@ -424,16 +464,15 @@
 		      
 	(with-html-div-row
 	  (with-html-div-col-6 
-		(:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id)  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
+	    (render-single-product-image prd-name imageslst images-str "100" "83"))
 	  (with-html-div-col-6 (product-price-with-discount-widget product-instance product-pricing)))
-	
 	(with-html-div-row
 	  (with-html-div-col-6
-		(:h5 :class "product-name" (cl-who:str (if (> (length prd-name) 30)  (subseq prd-name  0 30) prd-name))))
+		(:p (:h5 :class "product-name" (cl-who:str (if (> (length prd-name) 30)  (subseq prd-name  0 30) prd-name)))))
 	  (with-html-div-col-6
-		(if (equal subscribe-flag "Y") (cl-who:htm (:div :class "col-xs-6"  (:h5 (:span :class "label label-default" "Can be Subscribed")))))))
+		(if (equal subscribe-flag "Y") (cl-who:htm (:p (:h5 (:span :class "label label-default" "Can be Subscribed")))))))
 	(with-html-div-row 
-	  (with-html-div-col-8 
+	  (with-html-div-col-12 
 		(:h6 (cl-who:str (if (> (length description) 90)  (subseq description  0 90) description)))))
 	(if (equal active-flag "N") 
 	    (cl-who:htm (:div :class "stampbox rotated" "INACTIVE" )))
@@ -445,8 +484,8 @@
   (declare (ignore arguments))
     (let* ((prd-name (slot-value product-instance 'prd-name))
 	   (unit-price (slot-value product-instance 'unit-price))
-	   ;;(description (slot-value product-instance 'description))
-	   (prd-image-path (slot-value product-instance 'prd-image-path))
+	   (images-str (slot-value product-instance 'prd-image-path))
+	   (imageslst (safe-read-from-string images-str))
 	   (prd-id (slot-value product-instance 'row-id))
 	   ;;(active-flag (slot-value product-instance 'active-flag))
 	   (approved-flag (slot-value product-instance 'approved-flag))
@@ -460,9 +499,10 @@
 	  (:div :style "background-color:#E2DBCD; border-bottom: solid 1px; margin-bottom: 3px;" :class "row"
 		(:div :class "col-12" (:h5 (cl-who:str (format nil "~A" company-name)))))
 	  (with-html-div-row
-	    (:div :class "col-xs-5" 
-		  (:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id)  (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " ")))
-	    (:div :class "col-xs-3" (:h3 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$"  unit-price))))))
+	    (with-html-div-col-6
+	      (render-single-product-image prd-name imageslst images-str "100" "83"))
+	    (with-html-div-col-4
+	      (:h3 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$"  unit-price))))))
 	  
 	  (with-html-div-row
 	    (:div :class "col-xs-6"
@@ -474,12 +514,11 @@
 	  
 	  (with-html-div-row
 	    (:div :class "col-xs-6"
-		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendrejectprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-ban") "Reject")
+		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendrejectprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-ban") " Reject")
 		  (modal-dialog-v2 (format nil "dodvendrejectprod-modal~A" prd-id) "Reject Product" (modal.vendor-product-reject-html  prd-id tenant-id)))
 	    (:div :class "col-xs-6"
-		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendacceptprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") "Accept")
-		  (modal-dialog-v2 (format nil "dodvendacceptprod-modal~A" prd-id) "Accept Product" (modal.vendor-product-accept-html  prd-id tenant-id))))
-	  )))
+		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendacceptprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") " Approve")
+		  (modal-dialog-v2 (format nil "dodvendacceptprod-modal~A" prd-id) "Approve Product" (modal.vendor-product-accept-html  prd-id tenant-id)))))))
 
 
 
@@ -500,7 +539,7 @@
 (defun createwidgetsforprdpricewithdiscount (modelfunc)
   (multiple-value-bind (product-pricing showdiscount-p unit-price cur-html-sym  qty-per-unit pricewithout-discount pricewith-discount prd-discount) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil)
+		     (cl-who:with-html-output  (*standard-output* nil)
 		       (unless product-pricing
 			 (cl-who:htm
 			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  unit-price qty-per-unit)))))
@@ -508,7 +547,11 @@
 			 (cl-who:htm
 			  (:p :class "new-price" (:strong (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  pricewith-discount qty-per-unit))))
 			  (:p :class "old-price" (:i (:del (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  pricewithout-discount qty-per-unit)))))
-			  (:p :class "new-price" (cl-who:str (format nil "~$% off" prd-discount))))))))))
+			  (:p :class "new-price" (cl-who:str (format nil "~$% off" prd-discount)))))
+		       (when (and product-pricing (null showdiscount-p))
+			 (cl-who:htm
+			  (:p :class "new-price" (:strong "Price discounts are expired."))
+			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  unit-price qty-per-unit))))))))))
       (list widget1))))
 
 (defun product-price-with-discount-widget (product product-pricing)
@@ -516,7 +559,8 @@
     
 (defun product-card (product-instance prdincart-p)
   (let* ((prd-name (slot-value product-instance 'prd-name))
-	 (prd-image-path (slot-value product-instance 'prd-image-path))
+	 (images-str (slot-value product-instance 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (units-in-stock (slot-value product-instance 'units-in-stock))
 	 (prd-id (slot-value product-instance 'row-id))
 	 (subscribe-flag (slot-value product-instance 'subscribe-flag))
@@ -526,10 +570,10 @@
 	 (cmp-type (slot-value company 'cmp-type))
 	 (product-pricing (select-product-pricing-by-product-id prd-id company)))
       (cl-who:with-html-output (*standard-output* nil)
-	(:a  :href (format nil "dodprddetailsforcust?id=~A" prd-id) (:img :src  (format nil "~A" prd-image-path)  :alt prd-name " "))
+	(:a :href (format nil "prddetailsforcust?id=~A" prd-id) (render-single-product-image prd-name imageslst images-str "100" "83"))
 	(:div :class "product-details"
 	      (product-price-with-discount-widget product-instance product-pricing)
-	      (:p :class "product-title" (:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) (cl-who:str prd-name)))
+	      (:p :class "product-title" (:a :href (format nil "prddetailsforcust?id=~A" prd-id) (cl-who:str prd-name)))
 	      ;; Display the subscribe button only for standard customers.
 	      ;; Customers of APARTMENT/COMMUNITY do not have this feature. 
 	      (when (and
@@ -550,14 +594,14 @@
 			(:div :class "col-6" 
 			      (:h5 (:span :class "label label-danger" "Out Of Stock"))))))))))
   
-
 (defun product-card-with-details-for-customer (product-instance customer  prdincart-p)
   (let* ((prd-name (slot-value product-instance 'prd-name))
 	 (qty-per-unit (slot-value product-instance 'qty-per-unit))
 	 (units-in-stock (slot-value product-instance 'units-in-stock))
 	 (description (slot-value product-instance 'description))
 	 (external-url (slot-value product-instance 'external-url))
-	 (prd-image-path (slot-value product-instance 'prd-image-path))
+	 (images-str (slot-value product-instance 'prd-image-path))
+	 (imageslst (safe-read-from-string images-str))
 	 (prd-id (slot-value product-instance 'row-id))
 	 (subscribe-flag (slot-value product-instance 'subscribe-flag))
 	 (cust-type (slot-value customer 'cust-type))
@@ -570,16 +614,12 @@
 	 (vendor-id (slot-value prd-vendor 'row-id)))
     (cl-who:with-html-output (*standard-output* nil)
       (:div :id "idsingle-product-card" :class "single-product-card"
-	    ;; Product image only here
-	    (:img :src  (format nil "~A" prd-image-path) :height "200" :width "323" :alt prd-name " ")
+	    (render-multiple-product-images prd-name imageslst images-str )
 	    (:div :class "product-details"
 		  (with-html-div-row
 	      	    (with-html-div-col-12
 		      (:p :class "product-title"
 			  (:span (cl-who:str prd-name) "&nbsp;" (:strong (cl-who:str qty-per-unit))))))
-		  
-		  
-	    
 		  (:p (:a :data-bs-toggle "modal" :data-bs-target (format nil "#vendordetails-modal~A" vendor-id)  :href "#"   :class "btn btn-sm btn-primary" :onclick "addtocartclick(this.id);" :name "btnvendormodal" (cl-who:str vendor-name)))  
 		  (modal-dialog-v2 (format nil "vendordetails-modal~A" vendor-id) (cl-who:str (format nil "Vendor Details")) (modal.vendor-details vendor-id))
 		  (:p (:a :href (format nil "hhubcustvendorstore?id=~A" vendor-id) (:i :class "fa-solid fa-store") (cl-who:str (format nil "&nbsp;~A Store" vendor-name))))
@@ -616,35 +656,44 @@
 				(:a :id "idshareexturl" :href "#" (:i :class  "fa-solid fa-arrow-up-from-bracket")))
 			 (sharetextorurlonclick "#idshareexturl" (parenscript:lisp external-url)))))))))))
 
-(defun product-card-with-details-for-vendor (product-instance)
-  (let* ((prd-id (slot-value product-instance 'row-id))
-	 (prd-name (slot-value product-instance 'prd-name))
-	 (description (slot-value product-instance 'description))   
-	 (prd-image-path (slot-value product-instance 'prd-image-path))
-	 (company (product-company product-instance))
-	 (units-in-stock (slot-value product-instance 'units-in-stock))
-	 (active-flag (slot-value product-instance 'active-flag))
-	 (approved-flag (slot-value product-instance 'approved-flag))
-	 (approval-status (slot-value product-instance 'approval-status))
-	 (product-pricing (select-product-pricing-by-product-id prd-id company)))
-    (cl-who:with-html-output (*standard-output* nil)
-      (:div :class "container-fluid"
-	    (with-html-div-row
-	      ;; Product image only here
-	      (with-html-div-col-6 
-	     	(:img :src  (format nil "~A" prd-image-path) :height "300" :width "400" :alt prd-name " "))
-	      (with-html-div-col-6
-		(:h1  (cl-who:str prd-name))
-		(:hr)
-		(if (<= units-in-stock 0) 
-		    (cl-who:htm (:div :class "stampbox rotated" "NO STOCK" ))
-					;else
-		    (cl-who:htm (with-html-div-col (:h4 (:span :class "badge badge-pill badge-light" (cl-who:str (format nil "In stock ~A  units"  units-in-stock )))))))
-		(:hr)
-		(product-price-with-discount-widget product-instance product-pricing)
-		(:hr)
-		(:div (:h4 (cl-who:str description)))))
-	    (if (equal active-flag "N") 
-		(cl-who:htm (:div :class "stampbox rotated" "INACTIVE" )))
-	    (if (equal approved-flag "N")
-		(cl-who:htm (:div :class "stampbox rotated" (cl-who:str (format nil "~A" approval-status)))))))))
+(defun product-card-with-details-for-customer2 (proddetailpagetempl)
+  (cl-who:with-html-output (*standard-output* nil)
+    (cl-who:str proddetailpagetempl)))
+    
+(defun render-multiple-product-images (prd-name imageslst images-str)
+  :description "Sometimes we store the product image as a list of strings when we want multiple images. other times we store them as a string for backward compatibility reasons"
+  ;; if we have images stored as a list 
+  (cl-who:with-html-output (*standard-output* nil) 
+    (if (and imageslst  (listp imageslst))
+    	(cl-who:htm 
+	 (:img :src (format nil "~A" (first imageslst))  :alt prd-name  :class "img-fluid rounded mb-3 product-detail-image" :id "mainImage"))
+	;; if we are not storing the images as a list, then display a single image. 
+	(when (stringp images-str)
+	  (cl-who:htm 
+	   (:img :src  (format nil "~A" images-str) :class "img-fluid rounded mb-3 product-detail-image" :alt prd-name " "))))))
+
+(defun render-multiple-product-thumbnails (prd-name imageslst images-str)
+  :description "Sometimes we store the product image as a list of strings when we want multiple images. other times we store them as a string for backward compatibility reasons"
+  ;; if we have images stored as a list 
+  (cl-who:with-html-output (*standard-output* nil) 
+    (:div :class "d-flex justify-content-between"
+	  (if (and imageslst (listp imageslst))
+	      (loop for img in imageslst do
+		(cl-who:htm
+		 (:img :src  (format nil "~A" img)  :alt prd-name :class "thumbnail rounded" :onclick "changeImage(event, this.src);")))
+	      ;; if we are not storing the images as a list, then display a single image. 
+	      (when (stringp images-str)
+		(cl-who:htm 
+		 (:img :src  (format nil "~A" images-str)  :alt prd-name :class "thumbnail rounded" :onclick "changeImage(event, this.src);")))))))
+
+(defun render-single-product-image (prd-name imageslst images-str widthstr heightstr)
+  :description "Sometimes we store the product image as a list of strings when we want multiple images. other times we store them as a string for backward compatibility reasons"
+  ;; if we have images stored as a list 
+  (cl-who:with-html-output (*standard-output* nil) 
+    (if (and imageslst  (listp imageslst))
+	(cl-who:htm 
+	 (:img :src (format nil "~A" (first imageslst))  :height heightstr :width widthstr  :class "img-fluid rounded mb-3 product-detail-image" :alt prd-name " "))
+	;; if we are not storing the images as a list, then display a single image. 
+	(when (stringp images-str)
+	  (cl-who:htm 
+	   (:img :src  (format nil "~A" images-str) :height heightstr  :width widthstr  :class "img-fluid rounded mb-3 product-detail-image" :alt prd-name " "))))))

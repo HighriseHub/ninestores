@@ -145,13 +145,18 @@
 (defun send-order-mail (email subject  order-disp-str)
   :documentation "Here we are using the cl-async library to asynchronously send the email"
   (let* ((order-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*)))
-	     (cust-order-email (format nil order-templ-str order-disp-str)))
+	 (cust-order-email (format nil order-templ-str order-disp-str)))
     (sb-thread:make-thread
      (lambda ()
        (hhubsendmail email subject cust-order-email)) :name "Order email thread")))
 
 
-
+(defun send-order-email-behavior (state messagefunc)
+  (multiple-value-bind (email subject  order-disp-str) (funcall messagefunc) 
+    (let* ((order-email-templ (funcall  (nst-get-cached-email-template-func :templatenum 1)))
+	   (cust-order-email (format nil order-email-templ order-disp-str)))
+      (hhubsendmail email subject cust-order-email)
+      (incf state))))
 
 
 

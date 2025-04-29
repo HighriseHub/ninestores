@@ -69,7 +69,7 @@
 	    (:div :class "col-sm-12  col-xs-12 col-md-12 col-lg-12"
 		  (:div  :class "row" 
 			 (:div  :class "col-xs-12" 
-				(:a :href (format nil "dodprddetailsforcust?id=~A" prd-id) 
+				(:a :href (format nil "prddetailsforcust?id=~A" prd-id) 
 				    (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))))
 		  (with-html-form "form-orditemedit" "dodcustorditemedit" 
 		    (:div :class "form-group row"  (:label :for "product-id" (cl-who:str (format nil  " ~a" prd-name ))))
