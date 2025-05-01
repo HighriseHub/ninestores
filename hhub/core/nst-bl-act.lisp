@@ -126,17 +126,17 @@
 (defmethod destroy-actor ((actor nst-actor))
   "Stops the actor and cleans up resources."
   (stop-actor actor)
-  (with-slots (lock thread thread-state queue) actor
+  (with-slots (lock thread thread-state state queue actor-state-clean-callback) actor
     (bt:with-lock-held (lock)
       (when thread
 	(bt:destroy-thread thread)
 	(setf thread nil)
 	(setf thread-state :terminated)
 	(setf queue '())
-	(setf actor-state
-	      (when (functionp actor-state-clean-callback)
-		(actor-state-clean-callback)
-		(setf actor-state-clean-callback nil)))))))
+	(setf state nil)
+	(when (functionp actor-state-clean-callback)
+	  (actor-state-clean-callback actor)
+	  (setf actor-state-clean-callback nil))))))
 
 
 ;; ------------------------------------------

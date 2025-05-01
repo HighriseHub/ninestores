@@ -221,11 +221,13 @@ Database type: Supported type is ':odbc'"
 						  :name "Send Order Email Actor"
 						  :behavior #'send-order-email-behavior
 						  :stateful t
+						  :state-clean-callback (function (lambda () ()))
 						  :initial-state 0))
     (setf *NSTAWSS3FILEUPLOADACTOR* (make-instance 'nst-actor
 						  :name "AWS S3 Bucket File Upload Actor"
 						  :behavior #'async-upload-files-s3bucket-behavior
 						  :stateful t
+						  :state-clean-callback nil
 						  :initial-state (make-hash-table)))
     (start-actor *NSTSENDORDEREMAILACTOR*)
     (start-actor *NSTAWSS3FILEUPLOADACTOR*)))
