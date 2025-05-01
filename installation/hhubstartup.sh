@@ -4,7 +4,7 @@ echo "--------------------------------------------------------------------------
 echo "Login as Hunchentoot and start the Webpush Server"
 echo "---------------------------------------------------------------------------------------------------------"
 cd /home/ubuntu/webpushserver
-pm2 start index.js --name "Webpush Server"
+pm2 start index-v3.mjs --name "Webpush Server"
 
 echo "---------------------------------------------------------------------------------------------------------"
 echo "Start the SMS Server"

@@ -1,100 +1,113 @@
 'use strict';
 
-
 const HHUB_CACHE_NAME = 'hhub-static-cache-v2';
 
-// CODELAB: Add list of files to cache here.
 const FILES_TO_CACHE = [
     '/offline.html',
-    '/img/logo.png', 
-    '/hhub/customer-login.html',
-    '/hhub/vendor-login.html',
+    '/img/logo.png',
     '/img/intro-bg.jpg',
+    '/img/hhublogo.png',
+    '/img/badge.png',
     '/css/style.css',
     '/css/bootstrap.min.css',
+    '/hhub/customer-login.html',
+    '/hhub/vendor-login.html',
     '/hhub/dodcustordersdata'
 ];
 
+// Install event
 self.addEventListener('install', (evt) => {
-  console.log('[ServiceWorker] Install');
-  // CODELAB: Precache static resources here.
+    console.log('[ServiceWorker] Install');
     evt.waitUntil(
-	caches.open(HHUB_CACHE_NAME).then((cache) => {
-	    console.log('[ServiceWorker] Pre-caching offline page');
-	    return cache.addAll(FILES_TO_CACHE);
-	})
+        caches.open(HHUB_CACHE_NAME).then((cache) => {
+            console.log('[ServiceWorker] Pre-caching offline resources');
+            return cache.addAll(FILES_TO_CACHE);
+        })
     );
     self.skipWaiting();
 });
 
+// Activate event
 self.addEventListener('activate', (evt) => {
-  console.log('[ServiceWorker] Activate');
-  // CODELAB: Remove previous cached data from disk.
+    console.log('[ServiceWorker] Activate');
     evt.waitUntil(
-	caches.keys().then((keyList) => {
-	    return Promise.all(keyList.map((key) => {
-		if (key !== HHUB_CACHE_NAME) {
-		    console.log('[ServiceWorker] Removing old cache', key);
-		    return caches.delete(key);
-		}
-	    }));
-	})
+        caches.keys().then((keyList) => {
+            return Promise.all(keyList.map((key) => {
+                if (key !== HHUB_CACHE_NAME) {
+                    console.log('[ServiceWorker] Removing old cache', key);
+                    return caches.delete(key);
+                }
+            }));
+        })
     );
     self.clients.claim();
 });
 
+// Fetch event
 self.addEventListener('fetch', (evt) => {
-  console.log('[ServiceWorker] Fetch', evt.request.url);
-  // CODELAB: Add fetch event handler here.
-if (evt.request.mode !== 'navigate') {
-  // Not a page navigation, bail.
-  return;
-}
-evt.respondWith(
-    fetch(evt.request)
-        .catch(() => {
-          return caches.open(HHUB_CACHE_NAME)
-              .then((cache) => {
-                return cache.match('offline.html');
-              });
-        })
-);
+    console.log('[ServiceWorker] Fetch', evt.request.url);
 
-});
-
-
-
-self.addEventListener("push", function(event) {
-    console.log("[Service Worker] Push Received.");
-    console.log(`[Service Worker] Push had this data: "${event.data.text()}"`);
-
-    var data = {};
-    if (event.data) {
-	data = event.data.json();
+    if (evt.request.mode !== 'navigate') {
+        return;
     }
 
-    var title = data.title;
-    var message = data.message;
-    var icon = "img/FM_logo_2013.png";
-
-    //const title = "Push Codelab";
-    const options = {
-	body: message,
-	icon: "img/hhublogo.png",
-	badge: "images/badge.png"
-    };
-    self.clickTarget = data.clickTarget;
-
-    event.waitUntil(self.registration.showNotification(title, options));
+    evt.respondWith(
+        fetch(evt.request).catch(() => {
+            return caches.open(HHUB_CACHE_NAME).then((cache) => {
+                return cache.match('/offline.html');
+            });
+        })
+    );
 });
 
+// Push event
+self.addEventListener("push", function(event) {
+    console.log("[Service Worker] Push Received");
 
+    let data = {};
+    if (event.data) {
+        try {
+            data = event.data.json();
+        } catch (e) {
+            console.error("Push event data is not JSON:", e);
+        }
+    }
+
+    const title = data.title || "New Notification";
+    const message = data.message || "You have a new message.";
+    const clickTarget = data.clickTarget || "/hhub/vendor-dashboard.html";
+
+    const options = {
+        body: message,
+        icon: "/img/hhublogo.png",
+        badge: "/img/badge.png",
+        data: {
+            url: clickTarget
+        }
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(title, options)
+    );
+});
+
+// Notification click event
 self.addEventListener('notificationclick', function(event) {
-    console.log('[Service Worker] Notification click Received.');
-
+    console.log('[Service Worker] Notification click received');
     event.notification.close();
 
-    if(clients.openWindow){
-	event.waitUntil(clients.openWindow(self.clickTarget));
-    }
+    const targetUrl = event.notification.data?.url || "/";
+
+    event.waitUntil(
+        clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clientList) {
+            for (const client of clientList) {
+                if (client.url === targetUrl && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
+    );
 });
