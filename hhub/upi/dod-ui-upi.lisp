@@ -114,12 +114,13 @@
 	 (vendor (get-vendor wallet))
 	 (transaction-id (format nil "#WAL:~A" (get-universal-time)))
 	 (upiurls (generateupiurlsforvendor vendor "ABC" transaction-id amount))
+	 (charcountid1 (format nil "idchcount~A" (hhub-random-password 3)))
 	 (qrcodepath (generateqrcodeforvendor vendor "ABC" transaction-id amount)))
     (function (lambda ()
-      (values amount qrcodepath upiurls wallet-id transaction-id)))))
+      (values amount qrcodepath upiurls wallet-id transaction-id charcountid1)))))
 
 (defun createwidgetsforupirechargewalletpage (modelfunc)
-  (multiple-value-bind (amount qrcodepath upiurls wallet-id transaction-id)
+  (multiple-value-bind (amount qrcodepath upiurls wallet-id transaction-id charcountid1)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (if qrcodepath 
@@ -132,8 +133,8 @@
 					 (:input :class "form-control" :name "amount" :value amount :type "hidden")
 					 (:input :class "form-control" :name "transaction-id" :value transaction-id :type "hidden")
 					 (:label :for "utrnum" "UTR No")
-					 (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup "countChar(this,12)" :max "999999999999" :maxlength "12"  :required T)))
-			     (:div :id "charcount" :class "form-group")
+					 (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup (format nil "countChar(~A.id, this, 12)" charcountid1)  :max "999999999999" :maxlength "12"  :required T)))
+			     (:div :id charcountid1 :class "form-group")
 			     (:div :class "row mb-3"
 				   (:div :class "col-sm-4" :style "text-align: center;"
 					 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))
