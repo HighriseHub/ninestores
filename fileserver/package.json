@@ -4,29 +4,29 @@
   "description": "File server for AWS S3, using AWS SDK V3.",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
-  "type": "git",
-  "url": "git+https://github.com/highrisehub/ninestores.git"
+    "type": "git",
+    "url": "https://github.com/highrisehub/ninestores.git"
   },
-
   "keywords": [
     "fileserver",
-    "upload"
+    "upload",
+    "aws",
+    "s3",
+    "sdk-v3"
   ],
-    
   "author": "Nine Stores",
-  "license": "MIT ",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/highrisehub/ninestores/issues"
   },
   "homepage": "https://github.com/highrisehub/ninestores#readme",
   "dependencies": {
-    "aws-sdk": "^2.823.0",  
-      "dotenv": "^8.0.0",
-    "dotenv-extended": "^2.9.0",
-    "express": "^4.17.1"
+    "@aws-sdk/client-s3": "^3.540.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.3"
   }
-
 }
