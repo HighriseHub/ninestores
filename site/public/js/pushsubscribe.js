@@ -1,220 +1,240 @@
-// === Push Notification URLs ===
-var subscribeurl = "hhubvendsavepushsubscription";
-var unsubscribeurl = "hhubvendremovepushsubscription";
+var subscribeurl =
+  "hhubvendsavepushsubscription";
+var unsubscribeurl =
+  "hhubvendremovepushsubscription";
+
 var getvendsubscriptionurl = "hhubvendgetpushsubscription";
 
-// === VAPID Public Key ===
-var applicationServerPublicKey = "BBjBF5eKGs32lJVJ5DHaco9jRzIqwzKXhVdIaekVzx3_LW6KlLTsguiN3J2Tb3VQF1dJl8gLyubwCttsr_xu5jU";
+//Vapid public key.
+var applicationServerPublicKey =
+  "BBjBF5eKGs32lJVJ5DHaco9jRzIqwzKXhVdIaekVzx3_LW6KlLTsguiN3J2Tb3VQF1dJl8gLyubwCttsr_xu5jU";
 
-// === Service Worker ===
 var serviceWorkerName = "/js/serviceworker.js";
 
 var isSubscribed = false;
 var swRegistration = null;
 
-// === Document Ready ===
-$(document).ready(function () {
-  // Remove push subscription
-  $("#btnPushSubscriptionRemoveFromServer").click(function (e) {
-    e.preventDefault();
-    removeSubscriptionFromServer(""); // Server uses session to identify vendor
-    console.log("Removing the push subscription from server");
-  });
 
-  // Handle push subscription toggle
-  $("#btnPushNotifications").click(function (event) {
-    if (Notification.permission === "granted") {
+$(document).ready(function(){
+    $("#btnPushSubscriptionRemoveFromServer").click(function(e){
+	e.preventDefault();
+	//endpoint is nil here because we delete the push notification for the logged in vendor. 
+	removeSubscriptionFromServer(""); 
+	console.log("Removing the push subscription from server");
+    });
+});
+						 
+	
+$("#btnPushNotifications").click(function(event) {
+  Notification.requestPermission().then(function(status) {
+    if (status === "granted") {
+      console.log("Permission granted");
       initialiseServiceWorker();
-      isSubscribed ? unsubscribe() : subscribe();
+      subscribe(); // continue with subscription
     } else {
-      Notification.requestPermission().then(function (status) {
-        if (status === "granted") {
-          console.log("Permission granted");
-          initialiseServiceWorker();
-          subscribe();
-        } else {
-          console.log("Notification permission denied");
-          disableAndSetBtnMessage("Notification permission denied");
-        }
-      });
+      console.log("Permission denied or dismissed");
+      disableAndSetBtnMessage("Notification permission denied");
     }
-  });
+      if (isSubscribed) {
+	  console.log("Unsubscribing...");
+	  unsubscribe();
+      } else {
+	  subscribe();
+      }
 
-  // Auto-initialize if already granted
-  if (Notification.permission === "granted") {
-    initialiseServiceWorker();
-  }
+  });
 });
 
-// === Initialize Service Worker ===
+
 function initialiseServiceWorker() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register(serviceWorkerName)
-      .then(handleSWRegistration)
-      .catch(function (error) {
-        console.error("Service Worker registration failed:", error);
-        disableAndSetBtnMessage("SW registration failed");
-      });
+	  .register(serviceWorkerName)
+	  .then(handleSWRegistration)
+	  .catch(function (error){
+	      console.error("Service Worker registration failed:", error);
+	      disableAndSetBtnMessage("SW registration failed");
+	  });
   } else {
-    console.log("Service workers not supported");
-    disableAndSetBtnMessage("Service workers unsupported");
+      console.log("Service workers aren't supported in this browser.");
+      disableAndSetBtnMessage("Service workers unsupported");
   }
 }
 
-// === Handle SW Registration ===
 function handleSWRegistration(reg) {
-  console.log("Service Worker status:", reg.installing ? "installing" : reg.waiting ? "installed" : "active");
+  if (reg.installing) {
+    console.log("Service worker installing");
+  } else if (reg.waiting) {
+    console.log("Service worker installed");
+  } else if (reg.active) {
+    console.log("Service worker active");
+  }
+
   swRegistration = reg;
   initialiseState(reg);
 }
 
-// === Check Push Subscription State ===
+function checkPushSubscription(){
+    var jqxhr = $.getJSON(getvendsubscriptionurl, function(data){
+	var storedendpoints = data.result;
+	if(data.success == 1){
+	    $.each(data.result, function(index, item){
+		// We need the service worker registration to check for a subscription
+		navigator.serviceWorker.ready.then(function(reg) {
+		    // Do we already have a push message subscription?
+		    reg.pushManager
+			.getSubscription()
+			.then(function(subscription) {
+			    if (!subscription) {
+				console.log("No subscription found");
+				isSubscribed = false;
+				makeButtonSubscribable();
+			    } else {
+				// initialize status, which includes setting UI elements for subscribed status
+				// and updating Subscribers list via push
+				if(item.endpoint == subscription.endpoint){
+				    isSubscribed = true;
+				    makeButtonUnsubscribable();
+				}
+			    }
+			})
+			.catch(function(err) {
+			    console.log("Error during getSubscription()", err);
+			});
+		});
+		
+	    }); 
+	}
+	console.log("Get Vendor Subscription Returned Success.");
+    }).done(function(){
+	console.log("Get Vendor Subscription - Done");
+    }).fail(function(){
+	console.log("Get Vendor Subscription - Failed" + jqxhr.responseText); 
+    }).always(function(){
+	console.log("Get Vendor Subscription - Done Done"); 
+    }); 
+}
+
+
+// Once the service worker is registered set the initial state
 function initialiseState(reg) {
+  // Are Notifications supported in the service worker?
   if (!reg.showNotification) {
-    console.log("Notifications unsupported on service workers");
+    console.log("Notifications aren't supported on service workers.");
     disableAndSetBtnMessage("Notifications unsupported");
     return;
   }
 
+  // Check if push messaging is supported
   if (!("PushManager" in window)) {
-    console.log("Push messaging unsupported");
+    console.log("Push messaging isn't supported.");
     disableAndSetBtnMessage("Push messaging unsupported");
     return;
   }
 
-  checkPushSubscription();
+    checkPushSubscription(); 
+  
 }
 
-// === Check Server and Local Push Subscription ===
-function checkPushSubscription() {
-  $.getJSON(getvendsubscriptionurl)
-    .done(function (data) {
-      if (data.success === 1 && Array.isArray(data.result)) {
-        navigator.serviceWorker.ready.then(function (reg) {
-          reg.pushManager.getSubscription().then(function (subscription) {
-            if (!subscription) {
-              console.log("Not yet subscribed to Push");
-              isSubscribed = false;
-              makeButtonSubscribable();
-              return;
-            }
 
-            const matched = data.result.some(item => item.endpoint === subscription.endpoint);
-            isSubscribed = matched;
-            matched ? makeButtonUnsubscribable() : makeButtonSubscribable();
-          }).catch(function (err) {
-            console.log("Error during getSubscription()", err);
-          });
-        });
-      }
-    })
-    .fail(function (jqXHR) {
-      console.error("Failed to fetch push subscription", jqXHR.responseText);
-    });
-}
 
-// === Subscribe ===
+
+
 function subscribe() {
-  navigator.serviceWorker.ready.then(function (reg) {
-    const subscribeParams = {
-      userVisibleOnly: true,
-      applicationServerKey: urlB64ToUint8Array(applicationServerPublicKey)
-    };
+  navigator.serviceWorker.ready.then(function(reg) {
+    var subscribeParams = { userVisibleOnly: true };
 
-    reg.pushManager.subscribe(subscribeParams)
-      .then(function (subscription) {
-        const endpoint = subscription.endpoint;
-        const expTime = subscription.expirationTime;
-        const key = subscription.getKey("p256dh");
-        const auth = subscription.getKey("auth");
+    //Setting the public key of our VAPID key pair.
+    var applicationServerKey = urlB64ToUint8Array(applicationServerPublicKey);
+    subscribeParams.applicationServerKey = applicationServerKey;
 
+    reg.pushManager
+      .subscribe(subscribeParams)
+      .then(function(subscription) {
+        // Update status to subscribe current user on server, and to let
+        // other users know this user has subscribed
+        var endpoint = subscription.endpoint;
+        var expTime = subscription.expirationTime;
+        var key = subscription.getKey("p256dh");
+        var auth = subscription.getKey("auth");
         sendSubscriptionToServer(endpoint, key, auth);
         isSubscribed = true;
         makeButtonUnsubscribable();
-
-        if (expTime) {
-          console.log("Subscription expires at:", new Date(expTime));
-        }
-        console.log("Subscribed endpoint:", endpoint);
+          console.log("Subscription expires at : " + expTime);
+	  console.log("endpoint "+ endpoint);
+	  console.log("key" + key);
+	  console.log("auth" + auth); 
       })
-      .catch(function (e) {
-        console.error("Unable to subscribe to push.", e);
+      .catch(function(e) {
+        // A problem occurred with the subscription.
+        console.log("Unable to subscribe to push.", e);
       });
   });
 }
 
-// === Unsubscribe ===
-function unsubscribe() {
-  navigator.serviceWorker.ready.then(function (reg) {
-    reg.pushManager.getSubscription()
-      .then(function (subscription) {
-        if (!subscription) {
-          console.log("No active subscription");
-          return;
-        }
+function unsubscribe(){
+    var endpoint = null;
+    var subs = null; 
 
-        const endpoint = subscription.endpoint;
-        return subscription.unsubscribe().then(function () {
-          removeSubscriptionFromServer(endpoint);
-          console.log("User unsubscribed:", endpoint);
-          isSubscribed = false;
-          makeButtonSubscribable();
-        });
-      })
-      .catch(function (error) {
-        console.error("Error during unsubscribe:", error);
-      });
-  });
+    navigator.serviceWorker.ready.then(function(reg) {
+	reg.pushManager.getSubscription().then(function(subscription) {
+	    endpoint = subscription.endpoint;
+	    return subscription.unsubscribe(); 
+	    
+	}).catch(function(error){
+	    console.log("Error in unsubscribing", error)})
+	    .then(function(){
+		removeSubscriptionFromServer(endpoint);
+		console.log("User is unsubscribed");
+		isSubscribed = false;
+		makeButtonSubscribable(endpoint);
+	    });
+    });
 }
 
-// === Send Subscription to Server ===
+
+
+function getCookie(k)
+{
+    var v=document.cookie.match('(^|;) ?'+k+'=([^;]*)(;|$)');
+    return v?v[2]:null
+}
+
+
 function sendSubscriptionToServer(endpoint, key, auth) {
-  const encodedKey = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
-  const encodedAuth = btoa(String.fromCharCode.apply(null, new Uint8Array(auth)));
-  const hunchentoot = getCookie("hunchentoot-session");
-
-  $.ajax({
-    type: "POST",
-    url: subscribeurl + "?hunchentoot-session=" + hunchentoot,
+    var encodedKey = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
+    var encodedAuth = btoa(String.fromCharCode.apply(null, new Uint8Array(auth)));
+    var hunchentoot = getCookie("hunchentoot-session");
+    subscribeurl = subscribeurl + "?hunchentoot-session=" + hunchentoot;  
+    $.ajax({
+	type: "POST",
+	url: subscribeurl,
     data: {
-      publicKey: encodedKey,
-      auth: encodedAuth,
-      notificationEndPoint: endpoint
+	publicKey: encodedKey,
+	auth: encodedAuth,
+	notificationEndPoint: endpoint
     },
-    dataType: "json",
-    success: function (response) {
-      console.log("Subscribed successfully!", response);
-    },
-    error: function (xhr) {
-      console.error("Error sending subscription to server", xhr.responseText);
-    }
-  });
+	success: function(response) {
+	    console.log("Subscribed successfully! " + JSON.stringify(response));
+	    console.log("publickey " + encodedKey);
+	    console.log("auth " + encodedAuth)
+	},
+    dataType: "json"
+    });
 }
 
-// === Remove Subscription from Server ===
 function removeSubscriptionFromServer(endpoint) {
   $.ajax({
     type: "POST",
     url: unsubscribeurl,
     data: { notificationEndPoint: endpoint },
-    dataType: "json",
-    success: function (response) {
-      console.log("Unsubscribed successfully!", response);
+    success: function(response) {
+      console.log("Unsubscribed successfully! " + JSON.stringify(response));
     },
-    error: function (xhr) {
-      console.error("Error removing subscription from server", xhr.responseText);
-    }
+    dataType: "json"
   });
 }
 
-// === Utility: Get Cookie ===
-function getCookie(k) {
-  const v = document.cookie.match('(^|;) ?' + k + '=([^;]*)(;|$)');
-  return v ? v[2] : null;
-}
-
-// === UI Helpers ===
 function disableAndSetBtnMessage(message) {
   setBtnMessage(message);
   $("#btnPushNotifications").attr("disabled", "disabled");
@@ -227,25 +247,32 @@ function enableAndSetBtnMessage(message) {
 
 function makeButtonSubscribable() {
   enableAndSetBtnMessage("Subscribe to push notifications");
-  $("#btnPushNotifications").addClass("btn-primary").removeClass("btn-danger");
+  $("#btnPushNotifications")
+    .addClass("btn-primary")
+    .removeClass("btn-danger");
 }
 
 function makeButtonUnsubscribable() {
   enableAndSetBtnMessage("Unsubscribe from push notifications");
-  $("#btnPushNotifications").addClass("btn-danger").removeClass("btn-primary");
+  $("#btnPushNotifications")
+    .addClass("btn-danger")
+    .removeClass("btn-primary");
 }
 
 function setBtnMessage(message) {
   $("#btnPushNotifications").text(message);
 }
 
-// === Utility: VAPID Key Conversion ===
 function urlB64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const base64 = (base64String + padding)
+    .replace(/\-/g, "+")
+    .replace(/_/g, "/");
+
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
+
+  for (var i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
