@@ -149,6 +149,7 @@
   (let* ((description (slot-value product 'description))
 	 (subscribe-flag (slot-value product 'subscribe-flag))
 	 (qty-per-unit (slot-value product 'qty-per-unit))
+	 (unit-of-measure (slot-value product 'unit-of-measure))
 	 (units-in-stock (slot-value product 'units-in-stock))
 	 (prd-id (slot-value product 'row-id))
 	 (prdprice (slot-value product 'unit-price))
@@ -174,11 +175,11 @@
 	     (:div :class "form-group"
 		   (:label :for idisserviceproduct "This is a Service&nbsp;")
 		   (if (equal prd-type "SERV")
-		       (cl-who:htm 
-			(:input  :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :checked "true" :value "Y"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct)))))
+		       (cl-who:htm
+			(:input :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :checked "true" :value "Y"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct)))))
 		       ;;else
 		       (cl-who:htm 
-			(:input  :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :value "N"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct))))))
+			(:input :type "checkbox" :id idisserviceproduct :name "isserviceproduct" :value "N"  :onclick (parenscript:ps (togglecheckboxvalueyn (parenscript:lisp idisserviceproduct))))))
 		   (:input :class "form-control" :name "prdname" :value prd-name :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
 	     (:div  :class "form-group"
 		    (:label :for "description" "Description")
@@ -187,7 +188,7 @@
 	     (:div :class "form-group" :id charcountid1 )
 	     
 	     (:div :class "form-group"
-		   (:input :class "form-control" :name "prdprice"  :value (format nil "~$" prdprice)  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
+		   (:input :class "form-control" :name "prdprice"  :value (format nil "~$" prdprice)  :type "number" :min "0.00" :max "10000.00" :step "0.10"  ))
 	     (:div :class "form-group"
 		   (with-html-input-text "hsn-code" "HSN/SAC Code" "HSN/SAC Code" hsncode T "Enter HSN/SAC Code" 4))
 	     (:div :class "form-group"
@@ -195,7 +196,11 @@
 	     (:div :class "form-group"
 		   (with-html-input-text "upc" "UPC Barcode" "UPC Barcode" upc nil "Enter UPC Barcode" 6))
 	     (:div :class "form-group"
-		   (:input :class "form-control" :name "qtyperunit" :value qty-per-unit :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
+		   (:label :for "qtyperunit" "Qty Per Unit")
+		   (:input :class "form-control" :name "qtyperunit"  :value qty-per-unit :type  "number" :min 1 :max 10000  ))
+	     (:div :class "form-group"
+		   (:label :for "unitofmeasure" "Unit Of Measure")
+		   (with-html-dropdown "unitofmeasure" (get-system-UOM-map) unit-of-measure))
 	     (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
 		    (ui-list-prod-catg-dropdown catglist prdcategory))
 	     (:div :class "form-group"
@@ -392,8 +397,10 @@
 	(with-html-div-col-1  :data-bs-toggle "tooltip" :title "Edit" 
 	  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendeditprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-pencil"))
 	  (modal-dialog-v2 (format nil "dodvendeditprod-modal~A" prd-id) "Edit Product" (modal.vendor-product-edit-html product-instance  "EDIT"))) 
+	(with-html-div-col-1  :data-bs-toggle "tooltip" :title "SKU Generator" 
+	(:a :data-bs-toggle "modal" :data-bs-target (format nil "#generatesku-modal")  :href "#"  (:i :class "fa-solid fa-wand-magic-sparkles"))
+	  (modal-dialog-v2 (format nil "generatesku-modal") "SKU Generator" (modal.generate-sku-dialog)))
 	(with-html-div-col-1  :data-bs-toggle "tooltip" :title "Upload Product Images" 
-	  
 	  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodvenduploadprodimages-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-upload"))
 	  (modal-dialog-v2 (format nil "dodvenduploadprodimages-modal~A" prd-id) "Upload Product Images" (modal.vendor-upload-product-images product-instance)))
 	(unless external-url
@@ -422,7 +429,6 @@
 		    (cl-who:htm
 		     (:a :style "color:red;" :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodpricing-modal~A" prd-id)  :href "#"  (:i :class (get-currency-fontawesome-symbol currency)))
 		     (modal-dialog-v2 (format nil "dodprodpricing-modal~A" prd-id) "Pricing" (modal.vendor-product-pricing product-instance product-pricing)))))
-	(with-html-div-col-1 "&nbsp;")
 	(with-html-div-col-1 "&nbsp;")
 	(with-html-div-col-1 "&nbsp;")
 	(with-html-div-col-2 :align "right" :data-bs-toggle "tooltip" :title "Delete" 
@@ -524,6 +530,7 @@
 
 (defun createmodelforprdpricewithdiscount (product product-pricing)
   (let* ((qty-per-unit (slot-value product 'qty-per-unit))
+	 (unit-of-measure (slot-value product 'unit-of-measure))
 	 (unit-price (slot-value product 'unit-price))
 	 (today-date (clsql:get-date))
 	 (start-date (if product-pricing (slot-value product-pricing 'start-date)))
@@ -534,24 +541,24 @@
 	 (prd-discount (if product-pricing (slot-value product-pricing 'discount)))
 	 (pricewith-discount (if product-pricing (- prd-price (/ (* prd-price prd-discount) 100)))))
     (function (lambda ()
-      (values product-pricing showdiscount-p unit-price (get-currency-html-symbol currency)  qty-per-unit prd-price pricewith-discount prd-discount)))))
+      (values product-pricing showdiscount-p unit-price (get-currency-html-symbol currency)  qty-per-unit unit-of-measure prd-price pricewith-discount prd-discount)))))
     
 (defun createwidgetsforprdpricewithdiscount (modelfunc)
-  (multiple-value-bind (product-pricing showdiscount-p unit-price cur-html-sym  qty-per-unit pricewithout-discount pricewith-discount prd-discount) (funcall modelfunc)
+  (multiple-value-bind (product-pricing showdiscount-p unit-price cur-html-sym  qty-per-unit unit-of-measure pricewithout-discount pricewith-discount prd-discount) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output  (*standard-output* nil)
 		       (unless product-pricing
 			 (cl-who:htm
-			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  unit-price qty-per-unit)))))
+			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A ~A" cur-html-sym  unit-price qty-per-unit unit-of-measure)))))
 		       (when (and product-pricing showdiscount-p)
 			 (cl-who:htm
-			  (:p :class "new-price" (:strong (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  pricewith-discount qty-per-unit))))
+			  (:p :class "new-price" (:strong (cl-who:str (format nil "~A ~$ / ~A ~A" cur-html-sym  pricewith-discount qty-per-unit unit-of-measure))))
 			  (:p :class "old-price" (:i (:del (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  pricewithout-discount qty-per-unit)))))
 			  (:p :class "new-price" (cl-who:str (format nil "~$% off" prd-discount)))))
 		       (when (and product-pricing (null showdiscount-p))
 			 (cl-who:htm
 			  (:p :class "new-price" (:strong "Price discounts are expired."))
-			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  unit-price qty-per-unit))))))))))
+			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A ~A" cur-html-sym  unit-price qty-per-unit unit-of-measure))))))))))
       (list widget1))))
 
 (defun product-price-with-discount-widget (product product-pricing)

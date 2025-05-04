@@ -42,9 +42,13 @@
 
    (qty-per-unit
     :accessor qty-per-unit
-    :type (string 30)
+    :type float
     :initarg :qty-per-unit)
-
+   (unit-of-measure
+    :ACCESSOR unit-of-measure
+    :type (string 20)
+    :INITARG :unit-of-measure)
+   
    (prd-image-path
     :accessor prd-image-path
     :type (string 1024)

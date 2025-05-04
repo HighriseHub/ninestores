@@ -26,7 +26,6 @@
 	 (deletedfiles (vendor-delete-files-s3bucket "prd" prd-id vendor-id tenant-id))
 	 (uploadedfiles (async-upload-files-s3bucket filepaths "prd" prd-id vendor)))
     ;; After the files have been uploaded, we can reference it through the session value
-  
     (logiamhere (format nil "deleted files are ~A" deletedfiles))
     (when (and uploadedfiles (> (length uploadedfiles) 0))
       (setf (slot-value product 'prd-image-path) (write-to-string uploadedfiles :readably t))
@@ -60,7 +59,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 				 (:li :class "sidebar-item"
 				      (:a :href "/hhub/dodvendprodcategories" :class "nav-link" "Product Categories"))
 				 (:li :class "sidebar-item"
-				      (:a :href "/hhub/dodvenaddprodpage" :class "nav-link" "Add New Product"))))
+				      (:a :href "/hhub/dodvenaddprodpage" :class "nav-link" "Add New Product"))
+				 (:li :class "sidebar-item"
+				      (:a :href "/hhub/dodvenbulkaddprodpage" :class "nav-link" "Bulk Add Products"))))
 		       (:li :class "nav-item"
 			    (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
 				:data-bs-target "#orders" :aria-expanded "true" :aria-controls "orders"
@@ -861,12 +862,22 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			       (:label :for "description")
 			       (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 1000)" charcountid1)))
 			 (:div :class "form-group" :id charcountid1)
+			 (with-html-input-text-hidden "prd-id" "0") ;; we are adding a new product hence prd-id is 0
 			 (:div :class "form-group"
 			       (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
 			 (:div :class "form-group"
 			       (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :type "number" :min "1" :max "10000" :step "1" ))
 			 (:div :class "form-group"
-			       (:input :class "form-control" :name "qtyperunit" :placeholder "Quantity per unit. Ex - KG, Grams, Nos" :type "text" ))
+			       (:input :class "form-control" :name "qtyperunit" :placeholder "Qty Per Unit"  :type "number" :min "1" :max "10000" :step "1" ))
+			 (:div :class "form-group"
+			       (:label :for "unitofmeasure" "Unit Of Measure")
+			       (with-html-dropdown "unitofmeasure" (get-system-UOM-map) "KG"))
+			 (:a :data-bs-toggle "modal" :data-bs-target (format nil "#generatesku-modal")  :href "#"  (:i :class "fa-solid fa-wand-magic-sparkles"))
+			 (modal-dialog-v2 (format nil "generatesku-modal") "SKU Generator" (modal.generate-sku-dialog))
+			 (:div :class "form-group"
+			       (:input :class "form-control" :name "sku" :placeholder "SKU" :value "000000" :type "text" ))
+			 (:div :class "form-group"
+			       (:input :class "form-control" :name "hsncode" :placeholder "HSN Code" :type "text" ))
 			 (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
 				(ui-list-prod-catg-dropdown catglist nil))
 			 (:br) 
@@ -877,6 +888,24 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			 (:div :class "form-group"
 			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))))
 
+
+(defun modal.generate-sku-dialog ()
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-html-form "skuGeneratorForm" nil
+      (:div :class "input-group"
+	    (with-html-input-text "productName" "Product Name" "Enter Product Name" "" T "Enter Product Name" 1))
+      (:div :class "input-group"
+	    (with-html-input-text "productDescription" "Product Description" "Enter Product Description" "" T "Enter Product Description" 2))
+      (:div :class "input-group"
+	    (with-html-input-number "qtyperunit" "Qty Per Unit" "Quantity Per Unit" "" 1 10000 t "Enter a number" 3)) 
+      (:div :class "form-group"
+	    (:label :for "unitofmeasure" "Unit Of Measure")
+	    (with-html-dropdown "unitOfMeasure" (get-system-UOM-map) "KG"))
+      (:div :class "input-group"
+	    (with-html-input-text-readonly "generatedSku" "Generated SKU" "Generated SKU" "" T "Generated SKU" 3))
+      (:button :class "btn btn-outline-secondary mr-1" :type "button" :id "copySkuBtn" (:i :class "fa fa-clipboard") "&nbsp;Copy&nbsp;")
+      (:button :class "btn btn-primary" :type "button" :id "generateSkuBtn" "Generate SKU")
+      (:script :src (format nil "~A/js/gensku.js" *siteurl*)))))
 
 
 (defun vendor-upload-file-s3bucket (filename objectname object-id vendor-id tenant-id)
@@ -952,7 +981,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (with-vend-session-check
     (with-mvc-redirect-ui createmodelforvprodaddaction createwidgetsforgenericredirect)))
 
-(defun createmodelforvprodaddaction()
+(defun createmodelforvprodaddaction ()
   (let* ((prodname (hunchentoot:parameter "prdname"))
 	 (prd-id (parse-integer (hunchentoot:parameter "prd-id")))
 	 (vendor (get-login-vendor))
@@ -967,7 +996,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (prd-type (if (equal isserviceproduct "Y") "SERV" "SALE")) 
 	 (prodprice (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
 			     (read in))))
-	 (qtyperunit (hunchentoot:parameter "qtyperunit"))
+	 (qtyperunit (float (with-input-from-string (in (hunchentoot:parameter "qtyperunit"))
+			     (read in))))
+	 (unit-of-measure (hunchentoot:parameter "unitofmeasure"))
 	 (units-in-stock (parse-integer (hunchentoot:parameter "unitsinstock")))
 	 (catg-id (parse-integer (hunchentoot:parameter "prodcatg")))
 	 (subscriptionflag (hunchentoot:parameter "yesno"))
@@ -990,6 +1021,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (setf (slot-value product 'unit-price) prodprice)
 	      (setf (slot-value product 'catg-id) catg-id)
 	      (setf (slot-value product 'qty-per-unit) qtyperunit)
+	      (setf (slot-value product 'unit-of-measure) unit-of-measure)
 	      (setf (slot-value product 'units-in-stock) units-in-stock)
 	      (setf (slot-value product 'subscribe-flag) subscriptionflag)
 	      (setf (slot-value product 'external-url) external-url)
@@ -1001,7 +1033,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (setf redirecturl (format nil "/hhub/dodprddetailsforvendor?id=~A" prd-id)))
 	    ;;else
 	    (progn 
-	      (create-product prodname description vendor (select-prdcatg-by-id catg-id company) qtyperunit prodprice units-in-stock (format nil "/img/~A" *HHUBDEFAULTPRDIMG*)  subscriptionflag prd-type company)
+	      (create-product prodname description vendor (select-prdcatg-by-id catg-id company) sku hsn-code qtyperunit unit-of-measure  prodprice units-in-stock (format nil "/img/~A" *HHUBDEFAULTPRDIMG*)  subscriptionflag prd-type company)
 	      (setf redirecturl "/hhub/dodvenproducts")))
 	(dod-reset-vendor-products-functions vendor company)))
     (function (lambda ()
@@ -2051,13 +2083,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (product-images-thumbnails (cl-who:with-html-output-to-string  (*standard-output* nil)
 				  (render-multiple-product-thumbnails prd-name imageslst images-str)))
 	 (proddetailpagetempl (funcall (nst-get-cached-product-template-func :templatenum 2)))	 
-	 (qty-per-unit (slot-value product 'qty-per-unit))
+	 (unit-of-measure (slot-value product 'unit-of-measure))
+	 (qtyperunit-str (format nil "~A" (slot-value product 'qty-per-unit)))
 	 (unitsinstock-str (format nil "~A" (slot-value product 'units-in-stock))))
 	 
 	 
     
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product Name%" proddetailpagetempl prd-name))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Qty-Per-Unit%" proddetailpagetempl qty-per-unit))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Unit-Of-Measure%" proddetailpagetempl unit-of-measure))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Qty-Per-Unit%" proddetailpagetempl qtyperunit-str))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-SKU%" proddetailpagetempl product-sku))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Description%" proddetailpagetempl description))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Units-In-Stock%" proddetailpagetempl unitsinstock-str))

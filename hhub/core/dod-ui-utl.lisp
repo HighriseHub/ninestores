@@ -704,13 +704,14 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-html-dropdown (name kvhash selectedkey)
+    (let ((id (format nil "id~A" name)))
     `(cl-who:with-html-output (*standard-output* nil)
-       (:select :class "form-control" :id ,name :name ,name 
+       (:select :class "form-control" :id ,id :name ,name 
 		(maphash (lambda (key value) 
 			   (if (equal key  ,selectedkey) 
 			       (cl-who:htm (:option :selected "true" :value key (cl-who:str value)))
 					;else
-		     (cl-who:htm (:option :value key (cl-who:str value))))) ,kvhash)))))
+		     (cl-who:htm (:option :value key (cl-who:str value))))) ,kvhash))))))
   
 
 
@@ -943,7 +944,7 @@ individual tiles. It also supports search functionality by including the searchr
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-input-number (name label placeholder  value min max brequired validation-error-msg tabindex &body other-attributes)
-    (let ((textid (format nil "id~A~A" name (hhub-random-password 3))))
+    (let ((textid (format nil "id~A" name)))
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "form-group"
 	     (:label :for ,textid ,label)
@@ -952,7 +953,7 @@ individual tiles. It also supports search functionality by including the searchr
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-input-text (name label placeholder  value brequired validation-error-msg tabindex &body other-attributes)
-    (let ((textid (format nil "id~A~A" name (hhub-random-password 3))))
+    (let ((textid (format nil "id~A" name)))
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "form-group"
 	     (:label :for ,textid ,label)
@@ -962,11 +963,12 @@ individual tiles. It also supports search functionality by including the searchr
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-input-text-readonly (name label placeholder  value brequired validation-error-msg tabindex &body other-attributes)
-    `(cl-who:with-html-output (*standard-output* nil)
-       (:div :class "form-group"
-	     (:label :for ,name ,label)
-	     (:input :class "form-control"  :type "text" :id ,name :name ,name :placeholder ,placeholder :required ,brequired :value ,value :readonly "true" :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
-	     (:div :class "help-block with-errors")))))
+    (let ((textid (format nil "id~A" name)))
+      `(cl-who:with-html-output (*standard-output* nil)
+	 (:div :class "form-group"
+	       (:label :for ,name ,label)
+	       (:input :class "form-control"  :type "text" :id ,textid :name ,name :placeholder ,placeholder :required ,brequired :value ,value :readonly "true" :tabindex ,tabindex :data-error  ,validation-error-msg ,@other-attributes)
+	       (:div :class "help-block with-errors"))))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
@@ -1012,7 +1014,7 @@ individual tiles. It also supports search functionality by including the searchr
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-custom-checkbox (name value placeholder bchecked &body body)
-    (let ((id (format nil "id~A~d" name (random 333))))
+    (let ((id (format nil "id~A" name)))
     `(cl-who:with-html-output (*standard-output* nil)
        (:div :class "custom-control custom-switch"
 	     (if ,bchecked
