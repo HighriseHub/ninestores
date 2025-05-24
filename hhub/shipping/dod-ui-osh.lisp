@@ -48,7 +48,7 @@
 	 (dimension1 (floor (- final-lwh (mod final-lwh 5))))
 	 (dimension2 dimension1)
 	 (dimension3 (floor (/ (* 5000 total-weight) (* dimension1 dimension2))))
-	 (total-price (format nil "~d" (* total-items (get-total-of products 'unit-price))))
+	 (total-price (format nil "~d" (* total-items (get-total-of products 'current-price))))
 	 (order-type "forward")
 	 (payment-method "prepaid")
 	 (paramname (list "from_pincode" "to_pincode" "shipping_length_cms" "shipping_width_cms" "shipping_height_cms" "shipping_weight_kg" "order_type" "payment_method" "product_mrp" "access_token" "secret_key"))
