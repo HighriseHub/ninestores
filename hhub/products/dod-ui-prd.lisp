@@ -152,7 +152,6 @@
 	 (unit-of-measure (slot-value product 'unit-of-measure))
 	 (units-in-stock (slot-value product 'units-in-stock))
 	 (prd-id (slot-value product 'row-id))
-	 (prdprice (slot-value product 'unit-price))
 	 (catg-id (slot-value product 'catg-id))
 	 (prd-name (slot-value product 'prd-name))
 	 (prd-type (slot-value product 'prd-type))
@@ -186,9 +185,6 @@
 		    (text-editor-control idtextarea  description))
 	     (:textarea :style "display: block;" :id idtextarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 2000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 2000)" charcountid1) (cl-who:str (format nil "~A" description)))
 	     (:div :class "form-group" :id charcountid1 )
-	     
-	     (:div :class "form-group"
-		   (:input :class "form-control" :name "prdprice"  :value (format nil "~$" prdprice)  :type "number" :min "0.00" :max "10000.00" :step "0.10"  ))
 	     (:div :class "form-group"
 		   (with-html-input-text "hsn-code" "HSN/SAC Code" "HSN/SAC Code" hsncode T "Enter HSN/SAC Code" 4))
 	     (:div :class "form-group"
@@ -331,7 +327,7 @@
 	(images-str (slot-value product 'prd-image-path))
 	(imageslst (safe-read-from-string images-str))
 	(prd-name (slot-value product 'prd-name))
-	(unit-price (slot-value product 'unit-price))
+	(current-price (slot-value product 'current-price))
 	(pricing-id (if product-pricing (slot-value product-pricing 'row-id)))
 	(price (if product-pricing (slot-value product-pricing 'price)))
 	(discount (if product-pricing (slot-value product-pricing 'discount)))
@@ -353,7 +349,7 @@
 		      (render-single-product-image prd-name imageslst images-str "100" "83"))
 		(:div :class "form-group"
 		      (:label :for "prdprice" "Price" )
-		      (:input :class "form-control" :name "prdprice"  :value (if product-pricing (format nil "~$" price) (format nil "~$" unit-price))  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
+		      (:input :class "form-control" :name "prdprice"  :value (if product-pricing (format nil "~$" price) (format nil "~$" current-price))  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
 		(:div :class "form-group"
 		      (:label :for "prddiscount" "Discount % - Enter a number" )
 		      (:input :class "form-control" :name "prddiscount"  :value (format nil "~$" discount)  :type "number" :step "0.05" :min "0.00" :max "10000.00" :step "0.10"  ))
@@ -489,7 +485,7 @@
 (defun product-card-for-approval (product-instance &rest arguments)
   (declare (ignore arguments))
     (let* ((prd-name (slot-value product-instance 'prd-name))
-	   (unit-price (slot-value product-instance 'unit-price))
+	   (current-price (slot-value product-instance 'current-price))
 	   (images-str (slot-value product-instance 'prd-image-path))
 	   (imageslst (safe-read-from-string images-str))
 	   (prd-id (slot-value product-instance 'row-id))
@@ -508,7 +504,7 @@
 	    (with-html-div-col-6
 	      (render-single-product-image prd-name imageslst images-str "100" "83"))
 	    (with-html-div-col-4
-	      (:h3 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$"  unit-price))))))
+	      (:h3 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$"  current-price))))))
 	  
 	  (with-html-div-row
 	    (:div :class "col-xs-6"
@@ -531,34 +527,30 @@
 (defun createmodelforprdpricewithdiscount (product product-pricing)
   (let* ((qty-per-unit (slot-value product 'qty-per-unit))
 	 (unit-of-measure (slot-value product 'unit-of-measure))
-	 (unit-price (slot-value product 'unit-price))
+	 (current-price (slot-value product 'current-price))
+	 (current-discount (slot-value product 'current-discount))
 	 (today-date (clsql:get-date))
 	 (start-date (if product-pricing (slot-value product-pricing 'start-date)))
 	 (end-date (if product-pricing (slot-value product-pricing 'end-date)))
-	 (showdiscount-p (if product-pricing (and (clsql:date>= today-date start-date) (clsql:date<= today-date end-date))))
+	 (discountexpired-p (if product-pricing (not (and (clsql:date>= today-date start-date) (clsql:date<= today-date end-date)))))
 	 (currency (if product-pricing (slot-value product-pricing 'currency) *HHUBDEFAULTCURRENCY*))
-	 (prd-price (if product-pricing (slot-value product-pricing 'price)))
-	 (prd-discount (if product-pricing (slot-value product-pricing 'discount)))
-	 (pricewith-discount (if product-pricing (- prd-price (/ (* prd-price prd-discount) 100)))))
+	 (pricewith-discount (if product (- current-price (/ (* current-price current-discount) 100)))))
     (function (lambda ()
-      (values product-pricing showdiscount-p unit-price (get-currency-html-symbol currency)  qty-per-unit unit-of-measure prd-price pricewith-discount prd-discount)))))
+      (values discountexpired-p current-price current-discount (get-currency-html-symbol currency)  qty-per-unit unit-of-measure  pricewith-discount)))))
     
 (defun createwidgetsforprdpricewithdiscount (modelfunc)
-  (multiple-value-bind (product-pricing showdiscount-p unit-price cur-html-sym  qty-per-unit unit-of-measure pricewithout-discount pricewith-discount prd-discount) (funcall modelfunc)
+  (multiple-value-bind ( discountexpired-p current-price current-discount cur-html-sym  qty-per-unit unit-of-measure  pricewith-discount) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output  (*standard-output* nil)
-		       (unless product-pricing
-			 (cl-who:htm
-			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A ~A" cur-html-sym  unit-price qty-per-unit unit-of-measure)))))
-		       (when (and product-pricing showdiscount-p)
+		       (unless discountexpired-p
 			 (cl-who:htm
 			  (:p :class "new-price" (:strong (cl-who:str (format nil "~A ~$ / ~A ~A" cur-html-sym  pricewith-discount qty-per-unit unit-of-measure))))
-			  (:p :class "old-price" (:i (:del (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  pricewithout-discount qty-per-unit)))))
-			  (:p :class "new-price" (cl-who:str (format nil "~$% off" prd-discount)))))
-		       (when (and product-pricing (null showdiscount-p))
+			  (:p :class "old-price" (:i (:del (cl-who:str (format nil "~A ~$ / ~A" cur-html-sym  current-price qty-per-unit)))))
+			  (:p :class "new-price" (cl-who:str (format nil "~$% off" current-discount)))))
+		       (when discountexpired-p
 			 (cl-who:htm
 			  (:p :class "new-price" (:strong "Price discounts are expired."))
-			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A ~A" cur-html-sym  unit-price qty-per-unit unit-of-measure))))))))))
+			  (:p :class "new-price" (cl-who:str (format nil "~A ~$ / ~A ~A" cur-html-sym  current-price qty-per-unit unit-of-measure))))))))))
       (list widget1))))
 
 (defun product-price-with-discount-widget (product product-pricing)

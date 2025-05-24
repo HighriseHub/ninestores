@@ -2,6 +2,40 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+(defun generate-sku (product-name description qty-per-unit unit-of-measure)
+  "Generate an SKU from product information by taking 2 chars from each word.
+  
+  Arguments:
+  - PRODUCT-NAME: String (e.g., \"Organic Apples\")
+  - DESCRIPTION: String or NIL (e.g., \"Red Delicious\")
+  - QTY-PER-UNIT: Number (e.g., 1, 100, 2.5)
+  - UNIT-OF-MEASURE: String (e.g., \"KG\", \"G\", \"L\")
+  
+  Returns:
+  - A generated SKU string in format NN-DD-QTY-UOM-RANDOM
+    Where NN is from product name words, DD from description words
+  "
+  (flet ((process-words (string max-words)
+           (when string
+             (let ((words (remove-if #'uiop:emptyp 
+                                   (split-sequence:split-sequence #\Space string))))
+               (subseq (apply #'concatenate 'string
+                             (mapcar (lambda (word) 
+                                       (subseq (string-upcase word) 0 (min 2 (length word))))
+                                     words))
+                       0 (* 2 (min max-words (length words))))))))
+    
+    (let* ((name-code (process-words product-name 3))  ; Take max 3 words from name
+           (desc-code (process-words description 2))   ; Take max 2 words from description
+           (random-num (+ 1000 (random 9000))))
+      
+      (format nil "~A~@[-~A~]-~A~A-~D"
+              name-code
+              desc-code
+              qty-per-unit
+              (string-upcase unit-of-measure)
+              random-num))))
+
 (defun read-yaml-file (filepath)
   "Read a YAML file and return its parsed content."
   (let ((contents (hhub-read-file filepath)))
@@ -25,23 +59,91 @@
 ;;(update-invoice-settings "config.yaml" "updated_config.yaml")
 
 
+(defun generate-pdf (input-html-file output-pdf-base-name &key (disable-javascript t) (temp-subdir "temp/"))
+  "Generates a PDF file from an HTML input file using wkhtmltopdf.
 
+  Args:
+    INPUT-HTML-FILE: String - Name of the input HTML file (without path)
+    OUTPUT-PDF-BASE-NAME: String - Base name for the output PDF (without extension/path)
+    :DISABLE-JAVASCRIPT: Boolean - Whether to disable JavaScript (default: T)
+    :TEMP-SUBDIR: String - Subdirectory for temp files (default: \"temp/\")
 
+  Returns:
+    On success: (values pathname nil) - The generated PDF pathname
+    On failure: (values nil error-message) - Error message string
 
-(defun generatepdf (inputhtmlfile outpdffilename)
-  (let* ((filename (format nil "~A~A.pdf" outpdffilename (get-universal-time)))
-	 (filepath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* filename))
-	 (htmlpath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* inputhtmlfile))
-	 (pdfcmd (format nil "wkhtmltopdf --disable-javascript ~A ~A" htmlpath filepath)))
-    (sb-ext:run-program "/bin/sh" (list "-c" pdfcmd) :input nil :output *standard-output*)
-    filename))
+  Raises:
+    Signals an error if critical preconditions fail."
 
-(defun downloadhtmlfile (url)
+  (check-type input-html-file string)
+  (check-type output-pdf-base-name string)
+  (check-type temp-subdir string)
+  
+  (let* ((timestamp (get-universal-time))
+         (pdf-filename (format nil "~a~d.pdf" output-pdf-base-name timestamp))
+         (resources-dir (or *hhubresourcesdir* (error "*HHUBRESOURCESDIR* not bound")))
+         (temp-dir (merge-pathnames (pathname temp-subdir) resources-dir))
+	 (html-path (merge-pathnames (pathname input-html-file) temp-dir))
+         (pdf-path (merge-pathnames (pathname pdf-filename) temp-dir))
+         (wkhtmltopdf-args (if disable-javascript
+                               (list "--disable-javascript" (namestring html-path) (namestring pdf-path))
+			       ;; else
+			       (list (namestring html-path) (namestring pdf-path)))))
+    ;; Ensure directories exist
+    (ensure-directories-exist temp-dir)
+    
+    ;; Verify input file exists
+    (unless (probe-file html-path)
+      (return-from generate-pdf 
+        (values nil (format nil "Input file not found: ~a" html-path))))
+    ;; Execute conversion
+    (handler-case
+        (let ((status (sb-ext:run-program "wkhtmltopdf" wkhtmltopdf-args
+                                          :input nil :output *standard-output*)))
+          (if (zerop (sb-ext:process-exit-code status))
+              (values pdf-path nil)
+              (values nil (format nil "wkhtmltopdf failed with status ~d" 
+                                  (sb-ext:process-exit-code status)))))
+      (error (e)
+        (values nil (format nil "PDF generation failed: ~a" e))))))
+
+(defun download-html-file (url &key (temp-subdir "/temp/"))
+  :description
+    "Downloads an HTML file from the specified URL to the temporary directory.
+
+  Args:
+    URL (string): The URL of the HTML file to download.
+    :TEMP-SUBDIR (string): Optional subdirectory for downloads (default: \"temp/\").
+
+  Returns:
+    On success: (values pathname nil) - The downloaded file's pathname and nil for error.
+    On failure: (values nil string) - nil and an error message string.
+
+  Raises:
+    Signals an error if *HHUBRESOURCESDIR* is not bound or if URL is invalid.
+
+  Example:
+    (download-html-file \"https://example.com/page.html\")
+    => #P\"/path/to/resources/temp/download3847384738.html\"
+       nil"
+  (check-type url string)
+  (check-type temp-subdir string)
   (let* ((filename (format nil "download~A.html" (get-universal-time)))
-	 (filepath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* filename))
+	 (resources-dir (or *hhubresourcesdir* (error "*HHUBRESOURCESDIR* not bound")))
+	 (filepath (format nil "~A~A~A" resources-dir temp-subdir filename))
 	 (command (format nil "wget -O ~A ~A" filepath url)))
-    (sb-ext:run-program "/bin/sh" (list "-c" command) :input nil :output *standard-output*)
-    filename))
+    (handler-case
+	(let ((status (sb-ext:run-program "/bin/sh" 
+					  (list "-c" command)
+					  :input nil 
+					  :output *standard-output*)))
+	  (if (zerop (sb-ext:process-exit-code status))
+              (values filepath nil)
+              (values nil (format nil "Download failed with status ~d" 
+				  (sb-ext:process-exit-code status)))))
+      (error (e)
+        (values nil (format nil "Download error: ~a" e))))
+  filename))
 
 (defun convert-number-to-words-INR (number)
   (let* ((ones (make-array '(10) :initial-contents (list ""  "one"  "two"  "three"  "four"  "five"  "six"  "seven"  "eight"  "nine")))

@@ -101,6 +101,7 @@
 (defvar *HHUBDEFAULTCURRENCY* "INR")
 (defvar *HHUBDEFAULTCOUNTRY* "India")
 (defvar *NSTGSTSTATECODES-HT* nil)
+(defvar *NSTUOM-HT* nil)
 (defvar *NSTGSTBUSINESSSTATE* "29")
 
 ;;; Invoice templates 
@@ -215,6 +216,7 @@ Database type: Supported type is ':odbc'"
     (hhub-init-business-functions)
     (setf *HHUBBUSINESSSERVER* (initbusinessserver))
     (setf *NSTGSTSTATECODES-HT* (init-gst-statecodes))
+    (setf *NSTUOM-HT* (get-system-UOM-map))
     (init-gst-invoice-terms)
     (define-shipping-zones)
     (setf *NSTSENDORDEREMAILACTOR* (make-instance 'nst-actor

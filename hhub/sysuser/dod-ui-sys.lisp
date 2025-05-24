@@ -1005,6 +1005,8 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendororderdetails" 'dod-controller-vendor-orderdetails)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenaddprodpage" 'dod-controller-vendor-add-product-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenbulkaddprodpage" 'dod-controller-vendor-bulk-add-products-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/venbulkaddprodpage" 'dod-controller-vendor-bulk-add-products-page2)
+	(hunchentoot:create-regex-dispatcher "^/hhub/generateproductcsvaction" 'dod-controller-vendor-generate-products-templ)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenaddproductaction" 'com-hhub-transaction-vendor-product-add-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenuploadproductsimagesaction" 'dod-controller-vendor-bulk-upload-products-images-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenuploadproductscsvfileaction" 'com-hhub-transaction-vendor-bulk-products-add)

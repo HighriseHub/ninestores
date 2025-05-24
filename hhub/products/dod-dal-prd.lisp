@@ -4,9 +4,10 @@
 (clsql:def-view-class dod-prd-master ()
   ((row-id
     :db-kind :key
-    :db-constraints :not-null
+    :db-constraints :primary-key 
     :type integer
-    :initarg row-id)
+    :accessor row-id
+    :initarg :row-id)
 
    (prd-name
     :accessor prd-name
@@ -23,6 +24,7 @@
     :initarg :vendor-id)
    (vendor
     :ACCESSOR product-vendor
+    :initarg :vendor
     :DB-KIND :JOIN
     :DB-INFO (:JOIN-CLASS dod-vend-profile
 	                  :HOME-KEY vendor-id
@@ -33,6 +35,7 @@
     :type integer
     :initarg :catg-id)
    (category
+    :initarg :category
     :accessor product-category
     :db-kind :join
     :db-info (:join-class dod-prd-catg
@@ -54,9 +57,15 @@
     :type (string 1024)
     :initarg :prd-image-path)
    
-   (unit-price
+   (current-price
+    :accessor current-price
     :type float
-    :initarg :unit-price)
+    :initarg :current-price)
+
+   (current-discount
+    :accessor :current-discount
+    :type float
+    :initarg :current-discount)
    
    (units-in-stock
     :type integer
@@ -141,12 +150,14 @@
     :initarg :tenant-id)
    (COMPANY
     :ACCESSOR product-company
+    :initarg :company
     :DB-KIND :JOIN
     :DB-INFO (:JOIN-CLASS dod-company
 	                  :HOME-KEY tenant-id
                           :FOREIGN-KEY row-id
               :SET NIL)))
-   (:BASE-TABLE dod_prd_master))
+  (:BASE-TABLE dod_prd_master)
+  (:keys row-id))
 
 
 ;; PRODUCT PRICING
