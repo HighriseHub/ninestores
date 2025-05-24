@@ -213,8 +213,8 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
 	 (invnum (slot-value sessioninvheader 'invnum))
 	 (external-url (slot-value sessioninvheader 'external-url))
-	 (htmlfile (downloadhtmlfile external-url))
-	 (pdffileurl (format nil "~A/img/temp/~A" *siteurl* (generatepdf htmlfile invnum))))
+	 (htmlfile (download-html-file external-url))
+	 (pdffileurl (format nil "~A/img/temp/~A" *siteurl* (generate-pdf htmlfile invnum))))
     (function (lambda ()
       (values pdffileurl)))))
 
@@ -977,18 +977,17 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (images-str (slot-value product 'prd-image-path))
 	 (imageslst (safe-read-from-string images-str))
 	 (company (get-login-vendor-company))
-	 (price (slot-value product 'unit-price))
+	 (current-price (slot-value product 'current-price))
+	 (current-discount (slot-value product 'current-discount))
 	 (ppricing (select-product-pricing-by-product-id prd-id company))
-	 (pprice (if ppricing (slot-value ppricing 'price)))
-	 (pdiscount (if ppricing (slot-value ppricing 'discount)))
 	 (pcurr (if ppricing (slot-value ppricing 'currency))))
     (cl-who:with-html-output (*standard-output* nil)
       (:td :height "10px" (render-single-product-image prd-name imageslst images-str "50" "50"))
       (:td  :height "10px" (cl-who:str prd-name))
       (:td  :height "10px" (cl-who:str qty-per-unit))
-      (:td  :height "10px" (cl-who:str (if ppricing pprice price)))
+      (:td  :height "10px" (cl-who:str current-price))
       (:td  :height "10px" (cl-who:str pcurr))
-      (:td  :height "10px" (cl-who:str (if pdiscount pdiscount "NIL")))
+      (:td  :height "10px" (cl-who:str (if current-discount current-discount "NIL")))
       (:td  :height "10px"
 	    (if  prdincart-p
 		 (cl-who:htm (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);")(:i :class "fa-solid fa-check")))
@@ -1018,7 +1017,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (images-str (slot-value product 'prd-image-path))
 	 (imageslst (safe-read-from-string images-str))
 	 (company (get-login-vendor-company))
-	 (price (slot-value product 'unit-price))
+	 (price (slot-value product 'current-price))
 	 (ppricing (select-product-pricing-by-product-id prd-id company))
 	 (pprice (if ppricing (slot-value ppricing 'price)))
 	 (pdiscount (if ppricing (slot-value ppricing 'discount)))
@@ -1103,14 +1102,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (productlist (hhub-get-cached-vendor-products))
 	 (product (search-item-in-list 'row-id prd-id productlist))
 	 (gstvalues (get-gstvalues-for-product product))
-	 (unit-price (slot-value product 'unit-price))
+	 (current-price (slot-value product 'current-price))
+	 (current-discount (slot-value product 'current-discount))
 	 (qty-per-unit (slot-value product 'qty-per-unit))
+	 (unit-of-measure (slot-value product 'unit-of-measure))
 	 (pname (slot-value product 'prd-name))
 	 (prd-name (subseq pname 0 (min 30 (length pname))))
 	 (hsncode (slot-value product 'hsn-code))
-	 (product-pricing (select-product-pricing-by-product-id prd-id company))
-	 (prd-discount (if product-pricing (slot-value product-pricing 'discount) nil))
-	 (taxablevalue (- (* prdqty unit-price) (if prd-discount (/ (* prdqty  unit-price prd-discount) 100) 0.00)))
+	 (taxablevalue (- (* prdqty current-price) (if current-discount (/ (* prdqty  current-price current-discount) 100) 0.00)))
 	 (placeofsupply (slot-value sessioninvheader 'placeofsupply))
 	 (statecode (slot-value sessioninvheader 'statecode))
 	 (intrastate (if (equal statecode placeofsupply) T NIL))
@@ -1136,9 +1135,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 					 :prddesc prd-name
 					 :hsncode hsncode
 					 :qty prdqty
-					 :uom qty-per-unit
-					 :price unit-price
-					 :discount prd-discount
+					 :uom (format nil "~A ~A" qty-per-unit unit-of-measure)
+					 :price current-price
+					 :discount current-discount
 					 :taxablevalue taxablevalue
 					 :cgstrate cgstrate
 					 :cgstamt cgstamt
@@ -1200,14 +1199,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (itemincart (if (iteminlist-p 'prd-id prd-id sessioninvitems) (search-item-in-list 'prd-id prd-id sessioninvitems)))
 	 (newqty (if itemincart (+ (slot-value itemincart 'qty) 1) 1))
 	 (gstvalues (get-gstvalues-for-product product))
-	 (unit-price (slot-value product 'unit-price))
+	 (current-price (slot-value product 'current-price))
 	 (qty-per-unit (slot-value product 'qty-per-unit))
 	 (pname (slot-value product 'prd-name))
 	 (prd-name (subseq pname 0 (min 30 (length pname))))
 	 (hsncode (slot-value product 'hsn-code))
 	 (product-pricing (select-product-pricing-by-product-id prd-id company))
 	 (prd-discount (if product-pricing (slot-value product-pricing 'discount) nil))
-	 (taxablevalue (- (* newqty unit-price) (if prd-discount (/ (* newqty unit-price prd-discount) 100) 0.00)))
+	 (taxablevalue (- (* newqty current-price) (if prd-discount (/ (* newqty current-price prd-discount) 100) 0.00)))
 	 (placeofsupply (slot-value sessioninvheader 'placeofsupply))
 	 (statecode (slot-value sessioninvheader 'statecode))
 	 (intrastate (if (equal statecode placeofsupply) T NIL))
@@ -1234,7 +1233,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 					 :hsncode hsncode
 					 :qty newqty
 					 :uom qty-per-unit
-					 :price unit-price
+					 :price current-price
 					 :discount prd-discount
 					 :taxablevalue taxablevalue
 					 :cgstrate cgstrate
