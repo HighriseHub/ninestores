@@ -1,6 +1,7 @@
 
 select 'dropping the tables' as ' ';
 
+drop table if exists DOD_SCHEMA_MIGRATIONS; SELECT 'dropping schema migration table.'; 
 drop table if exists DOD_INVOICE_ITEMS; SELECT 'dropping Invoice Items table .'; 
 drop table if exists DOD_INVOICE_HEADER; SELECT 'dropping Invoice header table .'; 
 drop table if exists DOD_GST_HSN_CODES; SELECT 'dropping GST HSN codes table .';
@@ -47,6 +48,15 @@ drop table if exists DOD_COMPANY;  SELECT 'dropping apartment complex/society/gr
 
 
 select 'tables dropped' as ' ';
+
+
+select 'creating table DOD_SCHEMA_MIGRATIONS' as ' ';
+CREATE TABLE `DOD_SCHEMA_MIGRATIONS` (
+    row_id INT AUTO_INCREMENT PRIMARY KEY,
+    version VARCHAR(50) NOT NULL UNIQUE,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 
 
 select 'creating table DOD_INVOICE_HEADER' as ' ';
@@ -482,6 +492,7 @@ CREATE TABLE `DOD_PRD_CATG` (
 select 'creating table dod_prd_master' as ' ';
 CREATE TABLE `DOD_PRD_MASTER` (
   `ROW_ID` mediumint(9) NOT NULL AUTO_INCREMENT,
+  `PRODUCT_CODE` varchar(50) UNIQUE NOT NULL,
   `PRD_NAME` varchar(70) DEFAULT NULL,
   `DESCRIPTION` varchar(1024) DEFAULT NULL,
   `VENDOR_ID` mediumint(9) DEFAULT NULL,
