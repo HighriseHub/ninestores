@@ -352,9 +352,9 @@
 		    (cust-id (slot-value customer-instance 'row-id)))
 		(mapcar (lambda (preference)
 			  (let* ((prd (get-opf-product preference))
-				 (unit-price (slot-value prd 'unit-price))
+				 (current-price (slot-value prd 'current-price))
 				 (prd-qty (slot-value preference 'prd-qty)))
-			    (if (prefpresent-p preference (clsql-sys:date-dow request-date)) (create-order-items order prd  prd-qty unit-price discount company-instance)))) order-pref-list)
+			    (if (prefpresent-p preference (clsql-sys:date-dow request-date)) (create-order-items order prd  prd-qty current-price discount company-instance)))) order-pref-list)
 		
 					; Create one row per vendor in the vendor_orders table. 
 		(mapcar (lambda (vendor) 
