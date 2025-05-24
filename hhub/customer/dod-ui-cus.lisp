@@ -773,7 +773,7 @@
     ;; get the new order items list and find out the total. update the order with this new amount.
     (let* ((odtlst (get-order-items order))
 	   (vendors (get-vendors-by-orderid order-id company))
-	   (custordertotal (if odtlst (reduce #'+ (mapcar (lambda (odt) (* (slot-value odt 'prd-qty) (slot-value odt 'unit-price))) odtlst )) 0))) 
+	   (custordertotal (if odtlst (reduce #'+ (mapcar (lambda (odt) (* (slot-value odt 'prd-qty) (slot-value odt 'current-price))) odtlst )) 0))) 
       ;; for each vendor, delete vendor-order if the order items total for that vendor is 0. 
       (mapcar (lambda (vendor) 
 		(let ((vendororder (get-vendor-orders-by-orderid order-id vendor company))
@@ -1402,9 +1402,10 @@
 	(if (is-dod-cust-session-valid?)
 	    (hunchentoot:redirect "/hhub/dodcustindex")
 	    (with-standard-customer-page-v2 "Welcome Customer" 
-	       (:div :class "account-wall"
+	       (:div :class "account-wall" :align "center"
 		     (with-html-div-row
-		       (with-html-div-col-12
+		       (with-html-div-col "")
+		       (with-html-div-col
 			 (with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
 			   (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
 			   (:h1 :class "text-center login-title"  "Customer - Login")
@@ -1444,7 +1445,7 @@
   (let* ((prd-id (slot-value product 'row-id))
 	 (prd-image-path (slot-value product 'prd-image-path))
 	 (description (slot-value product 'description))
-	 (unit-price (slot-value product 'unit-price))
+	 (current-price (slot-value product 'current-price))
 	 (qty-per-unit (slot-value product 'qty-per-unit))
 	 (units-in-stock (slot-value product 'units-in-stock))
 	 (prd-name (slot-value product 'prd-name))
@@ -1455,7 +1456,7 @@
 	     (:p :class "product-name"  (cl-who:str prd-name))
 	     (:a :href (format nil "prddetailsforcust?id=~A" prd-id) 
 		 (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
-	     (:p (:span :class "label label-info" (cl-who:str (format nil "Rs. ~$ / ~A"  unit-price qty-per-unit))))
+	     (:p (:span :class "label label-info" (cl-who:str (format nil "Rs. ~$ / ~A"  current-price qty-per-unit))))
 	     (:p (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))
 	     ;; Qty increment and decrement control.
 	     (html-range-control "prdqty"  prd-id "1" (max (mod units-in-stock 20) 10) itemqty "1")
@@ -1551,24 +1552,24 @@
 	(:h1 :class "text-center login-title"  "Personal Details & Address")
 	(:div  :class "form-group" (:label :for "orddate" "Order Date" )
 	       (:input :class "form-control" :name "orddate" :value (cl-who:str (get-date-string (clsql-sys::get-date))) :type "text"  :readonly T  ))
-	(:div :class "form-group"  (:label :for "reqdate" "Required On - Click To Change" )
+	(:div :class "form-group"  (:label :for "reqdate" "Preferred Delivery Date - Click To Change" )
 	      (:input :class "form-control" :name "reqdate" :id "required-on" :placeholder  (cl-who:str (format nil "~A. Click to change" (get-date-string (clsql::date+ (clsql::get-date) (clsql::make-duration :day 1))))) :type "text" :value (get-date-string (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day 1)))))))))
 
 (defun display-phone-text-widget (phone tabindex)
   (cl-who:with-html-output-to-string (*standard-output* nil)
     (with-html-div-row
-      (with-html-div-col-6
+      (with-html-div-col-8
 	(:div :class "form-group" (:label :for "phone" "Phone" )
 	      (:input :class "form-control" :type "text" :class "form-control" :name "phone" :value phone :placeholder "Mobile Phone (9999999999) " :tabindex tabindex :maxlength "13"  :required T ))))))
 
 (defun display-name&email-widget (name email tabindex)
   (cl-who:with-html-output-to-string (*standard-output* nil)
     (with-html-div-row
-      (with-html-div-col-6 
+      (with-html-div-col-8
 	(:div :class "form-group" (:label :for "custname" "Name" )
 	      (:input :class "form-control" :type "text" :class "form-control" :name "custname" :value name :placeholder "Name" :tabindex tabindex :required T))))
     (with-html-div-row
-      (with-html-div-col-6
+      (with-html-div-col-8
 	(:div :class "form-group" (:label :for "email" "Email" )
 	      (:input :class "form-control" :type "email" :class "form-control" :name "email" :value email :placeholder "Email" :data-error "That email address is invalid" :tabindex (+ tabindex 1)))))))
 
@@ -2392,13 +2393,12 @@
 	 (myshopcart (hunchentoot:session-value :login-shopping-cart))
 	 (product (search-item-in-list 'row-id prd-id productlist))
 	 (company (product-company product))
-	 (product-pricing (select-product-pricing-by-product-id prd-id company))
-	 (unit-price (if product-pricing (slot-value product-pricing 'price) (slot-value product 'unit-price)))
-	 (prd-discount (when product-pricing (slot-value product-pricing 'discount)))
+	 (current-price (slot-value product 'current-price))
+	 (current-discount (slot-value product 'current-discount))
 	 (vendor (product-vendor product))
 	 (vendor-id (slot-value vendor 'row-id))
-	 (wallet (get-cust-wallet-by-vendor (get-login-customer) vendor (get-login-customer-company)))
-	 (odt (create-odtinst-shopcart nil product  prdqty unit-price prd-discount company))
+	 (wallet (get-cust-wallet-by-vendor (get-login-customer) vendor company))
+	 (odt (create-odtinst-shopcart nil product  prdqty current-price current-discount company))
 	 (redirectlocation (format nil "/hhub/hhubcustvendorstore?id=~A" vendor-id)))
 
     ;;(unless wallet (hunchentoot:redirect (format nil "/hhub/createcustwallet?vendor-id=~A" vendor-id)))
@@ -2565,7 +2565,7 @@
 
 (defun dod-controller-prd-details-for-customer ()
    (with-cust-session-check 
-     (with-mvc-ui-page "Product Details" createmodelforprddetailsforcustomer createwidgetsforprddetailsforcustomer :role :customer)))
+     (with-mvc-ui-page "Product Details Customer" createmodelforprddetailsforcustomer createwidgetsforprddetailsforcustomer :role :customer)))
 
 (defun dod-controller-customer-search-vendor ()
   (with-cust-session-check
@@ -2869,7 +2869,7 @@
 	     ;; (setf (hunchentoot:session-value :login-cusopf-cache) (get-opreflist-for-customer  customer)) 
 	     ;; There is no need to set the orders for customer as it is a guest customer. 
 	     ;;(setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer))
-	     (setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company customer-company))
+	     (setf (hunchentoot:session-value :login-prd-cache) (select-products-by-company customer-company))
 	     (setf (hunchentoot:session-value :login-prdcatg-cache) (select-prdcatg-by-company customer-company))
 	     (unless (equal customer-tenant-id *HHUB-DEMO-TENANT-ID*)
 	       (hunchentoot:set-cookie "community-url" :value company-exturl :expires (+ (get-universal-time) 10000000) :path "/")
