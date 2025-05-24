@@ -61,35 +61,35 @@
 
 (defun select-products-by-company (company-instance)
   (let ((tenant-id (slot-value company-instance 'row-id)))
- (clsql:select 'dod-prd-master  :where
-		[and 
-		[= [:active-flag] "Y"] 
-		[= [:deleted-state] "N"]
-		[= [:approved-flag] "Y"]
-		[= [:tenant-id] tenant-id]]
-     :caching *dod-database-caching* :flatp t )))
+    (clsql:select 'dod-prd-master  :where
+		  [and 
+		  [= [:active-flag] "Y"] 
+		  [= [:deleted-state] "N"]
+		  [= [:approved-flag] "Y"]
+		  [= [:tenant-id] tenant-id]] :limit 500 :order-by '(([row-id] :desc)) 
+					      :caching *dod-database-caching* :flatp t )))
 
 (defun select-products-by-vendor (vendor company-instance)
-    (let ((tenant-id (slot-value company-instance 'row-id))
-	     (vendor-id (slot-value vendor 'row-id)))
- (clsql:select 'dod-prd-master  :where
-		[and 
-		[= [:deleted-state] "N"]
-		[= [:tenant-id] tenant-id]
-		[=[:vendor-id] vendor-id]]  :limit 200 :order-by '( ([row-id] :desc)) 
-					    :caching *dod-database-caching* :flatp t )))
+  (let ((tenant-id (slot-value company-instance 'row-id))
+	(vendor-id (slot-value vendor 'row-id)))
+    (clsql:select 'dod-prd-master  :where
+		  [and 
+		  [= [:deleted-state] "N"]
+		  [= [:tenant-id] tenant-id]
+		  [=[:vendor-id] vendor-id]]  :limit 200 :order-by '( ([row-id] :desc)) 
+					      :caching *dod-database-caching* :flatp t )))
 
 (defun select-active-products-by-vendor (vendor company-instance)
-    (let ((tenant-id (slot-value company-instance 'row-id))
-	     (vendor-id (slot-value vendor 'row-id)))
- (clsql:select 'dod-prd-master  :where
-		[and 
-		[= [:deleted-state] "N"]
-		[= [:tenant-id] tenant-id]
-		[= [:active-flag] "Y"]
-		[= [:approved-flag] "Y"]  
-		[=[:vendor-id] vendor-id]]  :limit 200 :order-by '( ([row-id] :desc)) 
-		:caching *dod-database-caching* :flatp t )))
+  (let ((tenant-id (slot-value company-instance 'row-id))
+	(vendor-id (slot-value vendor 'row-id)))
+    (clsql:select 'dod-prd-master  :where
+		  [and 
+		  [= [:deleted-state] "N"]
+		  [= [:tenant-id] tenant-id]
+		  [= [:active-flag] "Y"]
+		  [= [:approved-flag] "Y"]  
+		  [=[:vendor-id] vendor-id]]  :limit 200 :order-by '(([row-id] :desc)) 
+					      :caching *dod-database-caching* :flatp t )))
 
 
 (defun search-item-in-list (key value list)
@@ -99,12 +99,12 @@
       (search-item-in-list key value (cdr list))))
 
 (defun filter-products-by-category (category-id list)
- (remove nil (mapcar (lambda (item)
-	    (if (equal category-id (slot-value item 'catg-id)) item)) list)))
+  (remove nil (mapcar (lambda (item)
+			(if (equal category-id (slot-value item 'catg-id)) item)) list)))
 
 (defun filter-products-by-vendor (vendor-id list)
- (remove nil (mapcar (lambda (item)
-	    (if (equal vendor-id (slot-value item 'vendor-id)) item)) list)))
+  (remove nil (mapcar (lambda (item)
+			(if (equal vendor-id (slot-value item 'vendor-id)) item)) list)))
 
 
 (defun prdinlist-p  (prd-id list)
@@ -245,7 +245,7 @@
     (persist-product-pricing product-id price discount currency start-date end-date tenant-id)))
 						     
   
-(defun persist-product(prdname description vendor-id catg-id sku hsn-code qtyperunit unitofmeasure unitprice units-in-stock img-file-path subscribe-flag prd-type tenant-id )
+(defun persist-product(prdname description vendor-id catg-id sku hsn-code qtyperunit unitofmeasure units-in-stock img-file-path subscribe-flag prd-type tenant-id )
  (clsql:update-records-from-instance (make-instance 'dod-prd-master
 				    :prd-name prdname
 				    :description description
@@ -255,7 +255,8 @@
 				    :hsn-code hsn-code
 				    :qty-per-unit qtyperunit
 				    :unit-of-measure unitofmeasure
-				    :unit-price unitprice
+				    :current-price 1.00
+				    :current-discount 0.00
 				    :units-in-stock units-in-stock
 				    :prd-image-path img-file-path
 				    :subscribe-flag subscribe-flag
@@ -266,15 +267,50 @@
 				    :prd-type prd-type
 				    :deleted-state "N")))
 
-(defun create-bulk-products (products)
-  (mapcar (lambda (product)
-	    (clsql:update-records-from-instance  product)) products))
+(defun create-bulk-products (modelfunc)
+  (multiple-value-bind (productsdata) (funcall modelfunc)
+    (mapcar (lambda (prddata)
+	      (let* ((product (first prddata))
+		     (product-pricing (second prddata))
+		     (prd-id (slot-value product 'row-id))
+		     (company (product-company product))
+		     (db-product (select-product-by-id prd-id company))
+		     (db-product-pricing (select-product-pricing-by-product-id prd-id company)))
+		(if db-product
+		    (with-slots (prd-name description qty-per-unit unit-of-measure current-price sku units-in-stock subscribe-flag) product
+		      (setf (slot-value db-product 'prd-name) prd-name)
+		      (setf (slot-value db-product 'description) description)
+		      (setf (slot-value db-product 'qty-per-unit) qty-per-unit)
+		      (setf (slot-value db-product 'unit-of-measure) unit-of-measure)
+		      (setf (slot-value db-product 'current-price) current-price)
+		      (setf (slot-value db-product 'units-in-stock) units-in-stock)
+		      (setf (slot-value db-product 'sku) sku)
+		      (setf (slot-value db-product 'subscribe-flag) subscribe-flag)
+		      (clsql:update-records-from-instance db-product))
+		    ;;else
+		    (clsql:update-records-from-instance product))
+		;; Will update product pricing only if a product exists. 
+		(if (and db-product product-pricing (check-null product-pricing))
+		    (with-slots (price discount start-date end-date) product-pricing
+		      (setf (slot-value db-product-pricing 'price) price)
+		      (setf (slot-value db-product-pricing 'discount) discount)
+		      (setf (slot-value db-product-pricing 'start-date) start-date)
+		      (setf (slot-value db-product-pricing 'end-date) end-date)
+		      (clsql:update-records-from-instance db-product-pricing))))) productsdata)))
 
-(defun create-product (prdname description  vendor-instance category sku hsn-code qty-per-unit unit-of-measure unit-price units-in-stock img-file-path subscribe-flag prd-type company-instance)
+(defun create-product (prdname description  vendor-instance category sku hsn-code qty-per-unit unit-of-measure units-in-stock img-file-path subscribe-flag prd-type company-instance)
   (let ((vendor-id (slot-value vendor-instance 'row-id))
 	(catg-id (if category (slot-value category 'row-id)))
 	(tenant-id (slot-value company-instance 'row-id)))
-      (persist-product prdname description vendor-id catg-id sku hsn-code qty-per-unit unit-of-measure unit-price units-in-stock img-file-path subscribe-flag prd-type  tenant-id)))
+    (handler-case
+	(clsql:with-transaction ()
+	  (persist-product prdname description vendor-id catg-id sku hsn-code qty-per-unit unit-of-measure units-in-stock img-file-path subscribe-flag prd-type  tenant-id)
+	  (let* ((result (clsql:query "SELECT LAST_INSERT_ID()"))
+		 (product-id (car result))
+		 (newprd (select-product-by-id product-id company-instance)))
+	    (create-product-pricing newprd 1.00 0.00 (get-account-currency company-instance) (clsql:get-date) (clsql:date+ (clsql:get-date) (clsql-sys:make-duration :day 90)) company-instance))) 
+      (error (e)
+	(format t "Transaction failed: ~A~%" e)))))
 
 ;(defun copy-products (src-company dst-company)
 ;    (let ((prdlist (select-products-by-company src-company)))
