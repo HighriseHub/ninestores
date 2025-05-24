@@ -94,7 +94,7 @@
 					      (with-html-div-col-2
 						(cl-who:str (slot-value prd 'qty-per-unit)))
 					      (with-html-div-col-2
-					   	(:h5 (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* ( slot-value prd 'unit-price)))))
+					   	(:h5 (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* ( slot-value prd 'current-price)))))
 					      (with-html-div-col-2
 					  	(:span :class "badge" (cl-who:str quantity)))
 					      (with-html-div-col-2
@@ -145,13 +145,13 @@
 		     (mapcar (lambda (odt)
 			       (let* ((prd (get-odt-product odt))
 				      (prd-name (slot-value prd 'prd-name))
-				      (unit-price (slot-value prd 'unit-price))
+				      (current-price (slot-value prd 'current-price))
 				      (prd-qty (slot-value odt 'prd-qty))
 				      (qty-per-unit (slot-value prd 'qty-per-unit)))
 				 (cl-who:htm 
 				  (with-html-div-row :style "border: solid 0.5px;"
 				    (with-html-div-col
-				      (cl-who:str (format nil "~A | ~A | ~A | ~A " prd-name prd-qty qty-per-unit unit-price))
+				      (cl-who:str (format nil "~A | ~A | ~A | ~A " prd-name prd-qty qty-per-unit current-price))
 				      (:h5 (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* (slot-value odt 'unit-price))))))))) odtlst)
 					; Display the total for an order
 			  
