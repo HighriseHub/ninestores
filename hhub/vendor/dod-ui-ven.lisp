@@ -1268,22 +1268,21 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (progn  (if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)	      
 	      (if (is-dod-vend-session-valid?)
 		  (hunchentoot:redirect "/hhub/dodvendindex?context=home")
-		  (with-standard-vendor-page  "Welcome to Nine Stores Platform - Vendor Login "
-		    (:div :class "row" 
-			  (:div :class "col-sm-6 col-md-4 col-md-offset-4"
-				(:div :class "account-wall"
-				      (:form :class "form-vendorsignin" :role "form" :method "POST" :action "dodvendlogin"
-					     (:a :href *siteurl*  (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-					     (:h1 :class "text-center login-title"  "Vendor - Login to Nine Stores")
-					     (:div :class "form-group"
-						   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex:9999999990" :type "text" ))
-					     (:div :class "form-group"
-						   (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password" ))
-					     (:div :class "form-group"
-						   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save")))
-				      (:div :class "form-group"
-					    (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dasvendforgotpass-modal") :href "#" "Forgot Password" )))))
-		    (modal-dialog-v2 (format nil "dasvendforgotpass-modal") "Forgot Password?" (modal.vendor-forgot-password)))))
+		  (with-standard-vendor-page-v2 "Welcome to Nine Stores Platform - Vendor Login "
+		    (with-html-div-row
+		      (with-html-div-col-12
+			(with-html-card "/img/logo.png" "" "Vendor - Login to Nine Stores" ""
+			  (:form :class "form-vendorsignin" :role "form" :method "POST" :action "dodvendlogin"
+				 (:div :class "form-group"
+				       (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex:9999999990" :type "text" ))
+				 (:div :class "form-group"
+				       (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password" ))
+				 (:div :class "form-group"
+				       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Login")))
+			  (:div :class "form-group"
+				(:a :data-bs-toggle "modal" :data-bs-target (format nil "#dasvendforgotpass-modal") :href "#" "Forgot Password?")
+				(modal-dialog-v2 (format nil "dasvendforgotpass-modal") "Forgot Password?" (modal.vendor-forgot-password)))
+			  (hhub-html-page-footer)))))))
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
@@ -1301,16 +1300,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(if (is-dod-vend-session-valid?)
 	    (hunchentoot:redirect "/hhub/dodvendindex?context=home")
 	    (with-standard-vendor-page-v2  "Welcome to Nine Stores Platform - Vendor Login "
-	      (:div :class "account-wall"
 	      (with-html-div-row
 		(with-html-div-col-12
-		  (with-html-form  "form-vendorsignin" "hhubvendloginotpstep"
-		    (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-		    (:h1 :class "text-center login-title"  "Vendor - Login to Nine Stores")
-		    (:div :class "form-group"
-			  (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
-		    (:div :class "form-group"
-			  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Login")))))))))
+		  (with-html-card "/img/logo.png" "" "Vendor - Login to Nine Stores" ""
+		    (with-html-form  "form-vendorsignin" "hhubvendloginotpstep"
+		      (:div :class "form-group"
+			    (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
+		      (:div :class "form-group"
+			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Get OTP")))
+		    (hhub-html-page-footer)))))))
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 

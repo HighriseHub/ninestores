@@ -647,9 +647,8 @@
 
 
 (defun is-dod-session-valid? ()
- ;(if  (null (get-login-username)) NIL T))
- (if hunchentoot:*session* T))
- ; (if (get-login-username) T))
+  (if hunchentoot:*session* T NIL))
+
 
 (defun dod-login (&key company-name username password)
   (let* ((login-user (car (clsql:select 'dod-users :where [and
