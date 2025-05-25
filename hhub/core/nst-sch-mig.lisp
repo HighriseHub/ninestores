@@ -6,8 +6,8 @@
           (clsql:query "SELECT version FROM DOD_SCHEMA_MIGRATIONS ORDER BY row_id ASC" :field-names nil)))
 
 (defun apply-migrations (username password)
+  (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr username  :strpwd password :strdbtype :mysql)
   (let ((applied (get-applied-migrations)))
-    (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr username  :strpwd password :strdbtype :mysql)
     (dolist (migration *migrations*)
       (destructuring-bind (version fn description) migration
         (unless (member version applied :test #'string=)
