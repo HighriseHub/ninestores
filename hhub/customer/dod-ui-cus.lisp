@@ -1371,23 +1371,21 @@
 	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
 	(if (is-dod-cust-session-valid?)  
 	    (hunchentoot:redirect "/hhub/dodcustindex")
-	    (with-standard-customer-page-v2 "Welcome Customer" 
+	    (with-standard-customer-page-v2 "Welcome Customer"
 	      (with-html-div-row
-		(with-html-div-col
-		  (:div :class "account-wall"
-			(:form :class "form-custsignin" :role "form" :method "POST" :action "dodcustlogin" :data-toggle "validator"
-			       (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-			       (:h1 :class "text-center login-title"  "Customer - Login")
-			       (:div :class "form-group"
-				     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
-			       (:div :class "form-group"
-				     (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password"  :required "true" ))
-			       (:div :class "form-group"
-				     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))
-			(:div :class "form-group"
-			      (:a :data-toggle "modal" :data-target (format nil "#dascustforgotpass-modal")  :href "#"  "Forgot Password?"))
-			(modal-dialog (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))))))))
-    
+		(with-html-div-col-12
+		    (with-html-card "/img/logo.png" "" "Customer Login" ""
+		      (:form :class "form-custsignin" :role "form" :method "POST" :action "dodcustlogin" :data-toggle "validator"
+			     (:div :class "form-group"
+				   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
+			     (:div :class "form-group"
+				   (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password"  :required "true" ))
+			     (:div :class "form-group"
+				   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Login")))
+		      (:a :data-toggle "modal" :data-target (format nil "#dascustforgotpass-modal")  :href "#"  "Forgot Password?")
+		      (modal-dialog-v2 (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))
+		      (hhub-html-page-footer)))))))
+	
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
@@ -1402,22 +1400,20 @@
 	(if (is-dod-cust-session-valid?)
 	    (hunchentoot:redirect "/hhub/dodcustindex")
 	    (with-standard-customer-page-v2 "Welcome Customer" 
-	       (:div :class "account-wall" :align "center"
-		     (with-html-div-row
-		       (with-html-div-col "")
-		       (with-html-div-col
-			 (with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
-			   (:a :href *siteurl* (:img :class "profile-img" :src "/img/logo.png" :alt ""))
-			   (:h1 :class "text-center login-title"  "Customer - Login")
-			   (:div :class "form-group"
-				 (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
-			   (:div :class "form-group"
-				 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))))))
-    (clsql:sql-database-data-error (condition)
-      (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-							       (stop-das) 
-							       (start-das)
-							       (hunchentoot:redirect "/hhub/customer-login.html"))))))
+	      (with-html-div-row
+		(with-html-div-col-12
+		  (with-html-card "/img/logo.png" "" "Customer Login" ""
+		    (with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
+		      (:div :class "form-group"
+			    (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
+		      (:div :class "form-group"
+			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Get OTP")))
+	      (hhub-html-page-footer)))))))
+	(clsql:sql-database-data-error (condition)
+				       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
+												(stop-das) 
+												(start-das)
+												(hunchentoot:redirect "/hhub/customer-login.html"))))))
 
 (defun is-dod-cust-session-valid? ()
   (if hunchentoot:*session* T NIL))
