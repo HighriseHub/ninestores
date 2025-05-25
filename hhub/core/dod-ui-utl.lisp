@@ -2,6 +2,34 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+
+(defun nst-generic-login-with-password (persona formaction redirectonfailure)
+  (handler-case 
+      (progn  
+	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
+	(if (is-dod-session-valid?)
+	    (hunchentoot:redirect redirectonfailure))
+	(with-no-navbar-page-v2 (format nil "Welcome ~A" persona)
+	  (with-html-div-row
+	    (with-html-div-col-12
+	      (with-html-card "/img/logo.png" "" (format nil "~A Login" persona) ""
+		(:form :class "form-custsignin" :role "form" :method "POST" :action formaction :data-toggle "validator"
+		       (:div :class "form-group"
+			     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true"))
+		       (:div :class "form-group"
+			     (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password"  :required "true"))
+		       (:div :class "form-group"
+			     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Login")))
+		(:a :data-toggle "modal" :data-target (format nil "#dascustforgotpass-modal")  :href "#"  "Forgot Password?")
+		(modal-dialog (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))
+		(hhub-html-page-footer))))))
+    (clsql:sql-database-data-error (condition)
+      (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
+							       (stop-das) 
+							       (start-das)
+							       (hunchentoot:redirect "/hhub/customer-login.html"))))))
+
+
 (defun safe-read-from-string (string &optional default-value)
   "Attempts to read a Lisp expression from a string, returning a default value if parsing fails."
   (handler-case
@@ -855,10 +883,10 @@ individual tiles. It also supports search functionality by including the searchr
   (defmacro with-html-card (cardimage cardimagealt cardtitle cardtext  &body body)
     :documentation "A HTML bootstrap 5.x card"
     `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "card" 
-	     (:img :src ,cardimage  :class "card-img-top" :alt ,cardimagealt :style "width: 100px; height: 100px; border-radius: 50%;")
-	     (:div :class "card-body"
-		   (:h5 :class "card-title" ,cardtitle)
+       (:div :class "card"
+	     (:img :src ,cardimage :class "rounded-circle mx-auto d-block mt-3" :alt ,cardimagealt :style "width: 100px; height: 100px;")
+	     (:div :class "card-body text-center"
+		   (:h3 :class "card-title" ,cardtitle)
 		   (:p :class "card-text" ,cardtext)
 		   ,@body)))))
 
