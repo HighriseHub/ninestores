@@ -51,7 +51,7 @@
 		  (:img :style "width: 200px; height: 200px;" :src (cl-who:str (format nil "/img~A" qrcodepath)))))))
       (:hr)
       (:h5 "NOTE: Please scan the UPI QR code or click on any of the UPI payment app links given above. After making payment, you will not be redirected back to this app. After UPI payment, enter the 12 digit UTR number and click Submit to place the order.")
-      (:script "window.onload = function() {countdowntimer(0,0,5,0);}"))))
+    (:script "window.onload = function() {countdowntimer(0,0,5,0);}"))))
 
 
 (defun createmodelforcustorderpaymentpage  ()
@@ -79,32 +79,30 @@
 		       (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
 		       (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address"))))))
 	  (widget2 (function (lambda ()
-		     (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
-		       (display-upi-widget upitotal qrcodepath upiurls)))))
-	  (widget3 (function (lambda ()
-		     (with-html-form "customerupipaymentform" "dodcustshopcartro" 
-		       (:div :class "row mb-3"
-			     (:div :class "col-sm-4" :style "text-align: center;"
-				   (:label :for "utrnum" "UTR No")
-				   (:input :class "form-control" :name "paymentmode" :value "UPI" :type "hidden")
-				   (:input :class "form-control" :name "amount" :value upitotal :type "hidden")
-				   (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup (format nil "countChar(~A.id, this, 12)" charcountid1)  :max "999999999999" :maxlength "12"  :required T)))
-		       (:div :id charcountid1 :class "form-group")
-		       (with-html-div-row
-			 (with-html-div-col-6
-			   (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "hhubcustpaymentmethodspage" "Previous"))
-			 (with-html-div-col-6
-			   (:input :type "submit" :class "btn btn-lg btn-primary btn-block checkout-button"  :value "Next"))))))))
-		 ;; If Vendor UPI ID is not defined, then redirect to the UPI ID not found page. 
-      (unless (slot-value vendor 'upi-id) (hunchentoot:redirect "/hhub/vendorupinotfound"))
-      (list widget1 widget2 widget3))))
+		     (with-html-card "/img/UPI.png" "UPI" "UPI Payment" ""  
+		       (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
+			 (display-upi-widget upitotal qrcodepath upiurls))
+		       (with-html-form "customerupipaymentform" "dodcustshopcartro" 
+			 (:div :class "row mb-3"
+			       (:div :class "col-sm-8" :style "text-align: center;"
+				     (:label :for "utrnum" "UTR No")
+				     (:input :class "form-control" :name "paymentmode" :value "UPI" :type "hidden")
+				     (:input :class "form-control" :name "amount" :value upitotal :type "hidden")
+				     (:div :class "input-group mb-3"
+				     	   (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup (format nil "countChar(~A.id, this, 12)" charcountid1)  :max "999999999999" :maxlength "12"  :required T)
+					   (:div :id charcountid1 :class "input-group-text" :style "font-size: 1.2rem; font-weight: bold; color: purple;"))))
+			 (with-html-div-row
+			   (with-html-div-col-6
+			     (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "hhubcustpaymentmethodspage" "Previous"))
+			   (with-html-div-col-6
+			     (:input :type "submit" :class "btn btn-lg btn-primary btn-block checkout-button"  :value "Next")))))))))
+	  ;; If Vendor UPI ID is not defined, then redirect to the UPI ID not found page. 
+	  (unless (slot-value vendor 'upi-id) (hunchentoot:redirect "/hhub/vendorupinotfound"))
+	  (list widget1 widget2 ))))
 
 (defun hhub-controller-upi-customer-order-payment-page ()
   (with-cust-session-check
     (with-mvc-ui-page "Customer UPI Payment Page" createmodelforcustorderpaymentpage createwidgetsforcustorderpaymentpage :role :customer)))
-
-
-
 
 (defun createmodelforupirechargewalletpage ()
   (let* ((wallet-id (hunchentoot:parameter "wallet-id"))
