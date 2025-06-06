@@ -27,6 +27,7 @@
 		     "core/dtrace.lisp"
 		     "core/extkeys.lisp"
 		     "core/nst-bl-act.lisp" ;; Actor Model Implementation
+		     "core/nst-bl-otp.lisp"
 		     ;;"core/xref.lisp"
 		     
 		     ;; Core UI Layer
