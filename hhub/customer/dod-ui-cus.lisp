@@ -1106,6 +1106,8 @@
 	 (tenant-name (hunchentoot:parameter "tenant-name"))
 	 (company (select-company-by-name tenant-name))
 	 (tenant-id (slot-value company 'row-id))
+	 (persona (if (equal reg-type "CUS") "customer" "vendor"))
+	 (purpose "newregistration")
 	 (context "dodcustregisteraction"))
     
     ;; Start a new session 
@@ -1156,7 +1158,7 @@
 
     (setf (hunchentoot:session-value :reg-type) reg-type)
     (setf (hunchentoot:session-value :company) company)
-    (generateotp&redirect phone context)))
+    (generateotp&redirect persona purpose phone context)))
 
 
 
@@ -1382,8 +1384,8 @@
 				   (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password"  :required "true" ))
 			     (:div :class "form-group"
 				   (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Login")))
-		      (:a :data-toggle "modal" :data-target (format nil "#dascustforgotpass-modal")  :href "#"  "Forgot Password?")
-		      (modal-dialog-v2 (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))
+		      (:a :data-bs-toggle "modal" :data-bs-target (format nil "#idcustforgotpass-modal")  :href "#"  "Forgot Password?")
+		      (modal-dialog-v2 "idcustforgotpass-modal" "Forgot Password?" (modal.customer-forgot-password))
 		      (hhub-html-page-footer)))))))
 	
     (clsql:sql-database-data-error (condition)
@@ -1397,9 +1399,10 @@
   (handler-case 
       (progn  
 	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
+	;; if customer is already logged in, then logout and show the login page
 	(if (is-dod-cust-session-valid?)
-	    (hunchentoot:redirect "/hhub/dodcustindex")
-	    (with-standard-customer-page-v2 "Welcome Customer" 
+	    (hunchentoot:remove-session hunchentoot:*session*))
+	(with-standard-customer-page-v2 "Welcome Customer" 
 	      (with-html-div-row
 		(with-html-div-col-12
 		  (with-html-card "/img/logo.png" "" "Customer Login" ""
@@ -1408,12 +1411,12 @@
 			    (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
 		      (:div :class "form-group"
 			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Get OTP")))
-	      (hhub-html-page-footer)))))))
+	      (hhub-html-page-footer))))))
 	(clsql:sql-database-data-error (condition)
-				       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-												(stop-das) 
-												(start-das)
-												(hunchentoot:redirect "/hhub/customer-login.html"))))))
+	  (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
+								   (stop-das) 
+								   (start-das)
+								   (hunchentoot:redirect "/hhub/customer-login.html"))))))
 
 (defun is-dod-cust-session-valid? ()
   (if hunchentoot:*session* T NIL))
@@ -1847,16 +1850,20 @@
 (defun dod-controller-cust-login-otpstep ()
   (let* ((phone  (hunchentoot:parameter "phone"))
 	 (context (format nil "hhubcustloginwithotp?phone=~A" phone)))
-      (hunchentoot:start-session)
-      ;; Redirect to the OTP page 
-      (generateotp&redirect phone context)))
+    ;; Redirect to the OTP page 
+    (generateotp&redirect "customer" "login" phone context)))
 
 (defun dod-controller-cust-login-with-otp ()
   (let ((phone (hunchentoot:parameter "phone")))
     (unless (or (null phone) (zerop (length phone)))
-      (unless (dod-cust-login-with-otp  :phone phone)
-	(hunchentoot:redirect "/hhub/customer-login.html"))
-      (hunchentoot:redirect  "/hhub/dodcustindex"))))
+      (if (null (dod-cust-login-with-otp  :phone phone))
+	  ;; Customer not found — remove the session and redirect to login page
+	  (progn
+	    (when hunchentoot:*session*
+	      (hunchentoot:remove-session hunchentoot:*session*))
+	    (hunchentoot:redirect "/hhub/hhubcustloginv2"))
+	  ;;else
+	  (hunchentoot:redirect  "/hhub/dodcustindex")))))
 
 (defun dod-controller-cust-ordersuccess ()
   (with-cust-session-check 
@@ -2023,7 +2030,7 @@
 	 (cust-type (get-login-customer-type))
 	 (redirectlocation (format nil "/hhub/~A&paymentmode=~A" context paymentmode)))
     ;; Redirect to the OTP page only for Guest customer. 
-    (if (equal cust-type "GUEST") (generateotp&redirect phone context)
+    (if (equal cust-type "GUEST") (generateotp&redirect "customer" "order" phone context)
 	;;else for standard customer, redirect to final checkout page. 
 	(function (lambda ()
 	  (values redirectlocation))))))
@@ -2902,7 +2909,8 @@
 	     (customer-type (if customer (slot-value customer 'cust-type)))
 	     (login-shopping-cart '()))
 
-      (when (and customer
+	(unless customer (hunchentoot:redirect "/hhub/customer-login.html"))
+	(when (and customer
 		 password-verified
 		 (null (hunchentoot:session-value :login-customer-name))) ;; customer should not be logged-in in the first place.
 	(progn
@@ -2923,8 +2931,7 @@
 	  (setf (hunchentoot:session-value :login-prdcatg-cache) (select-prdcatg-by-company customer-company))
 	  (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer))
 	  (hunchentoot:set-cookie "community-url" :value (format nil "~A/hhub/dascustloginasguest?tenant-id=~A" *siteurl* (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
-	  ))
-      )
+	  )))
 
         ; Handle this condition
    
@@ -2952,9 +2959,11 @@
 	     (customer-type (if customer (slot-value customer 'cust-type)))
 	     (login-shopping-cart '()))
 
+	(if (null customer) nil)
 	(when (and customer
 		   (null (hunchentoot:session-value :login-customer-name))) ;; customer should not be logged-in in the first place.
 	  (hunchentoot:log-message* :info "Login successful for customer  ~A" customer-name)
+	  ;; new session, clean slate. 
 	  (hunchentoot:start-session)
 	  (setf hunchentoot:*session-max-time* (* 3600 8))
 	  (setf (hunchentoot:session-value :login-customer ) customer)
@@ -2971,19 +2980,14 @@
 	  (setf (hunchentoot:session-value :login-prdcatg-cache) (select-prdcatg-by-company customer-company))
 	  (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer))
 	  (hunchentoot:set-cookie "community-url" :value (format nil "~A/hhub/dascustloginasguest?tenant-id=~A" *siteurl* (get-login-cust-tenant-id)) :expires (+ (get-universal-time) 10000000) :path "/")
-	  1))
+	  (logiamhere (format nil "for phone ~A, I have reached dod-cust-login-with-otp" phone))
+	  T))
     ;; Handle this condition
     (clsql:sql-database-data-error (condition)
       (when (equal (clsql:sql-error-error-id condition) 2006 )
 	(stop-das) 
 	(start-das)
-	(hunchentoot:redirect "/hhub/customer-login.html")))))
-
-
-
-
-
-
+	(hunchentoot:redirect "/hhub/hhubcustloginv2")))))
 
 
  ;     (clsql:sql-fatal-error (errorinst) (if (equal (clsql:sql-error-database-message errorinst) "Database is closed.") 

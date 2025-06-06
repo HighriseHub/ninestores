@@ -129,9 +129,8 @@
 (defvar  *NSTSENDORDEREMAILACTOR* NIL)
 (defvar *NSTAWSS3FILEUPLOADACTOR* NIL)
 (defvar *NSTAWSS3FILEDELETEACTOR* NIL)
-
-
-
+;; NINE STORE OTP store
+(defvar *otp-store* (make-otp-store))
 
 (defun set-customer-page-title (name)
   (setf *customer-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
@@ -205,6 +204,7 @@ Database type: Supported type is ':odbc'"
     (init-hhubplatform)
     (if withssl  (init-httpserver-withssl))
     (if withssl  (hunchentoot:start *ssl-http-server*) (hunchentoot:start *http-server*) )
+    (hunchentoot:reset-session-secret)
     (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql)
     (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))
     (setf *NST-INVOICE-TEMPLATES* (nst-load-invoice-templates))
