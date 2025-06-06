@@ -14,20 +14,29 @@
 
 
 (defun dod-controller-OTP-request-page ()
-  (let ((phone (hunchentoot:parameter "phone")))
+  (let ((phone (hunchentoot:parameter "phone"))
+	(persona (hunchentoot:parameter "persona"))
+	(purpose (hunchentoot:parameter "purpose"))
+	(context (hunchentoot:parameter "context")))
     (with-no-navbar-page-v2  "OTP Page"
       (:br)
       (:div :class "account-wall" :align "center"
 	    (with-html-card "/img/logo.png" "" "" (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6))))
+	      
 	      (with-html-form-having-submit-event  "form-hhubotppage" "hhubotpsubmitaction" 
 		(:div :id "withCountDownTimerExpired"
+		      (with-html-input-text-hidden "persona" persona)
+		      (with-html-input-text-hidden "purpose" purpose)
 		      (with-html-input-text-hidden "phone" phone)
 		      (with-html-input-password "otp" "" "Enter OTP" nil T "Please enter OTP" "1")
 		      (:p :id "withCountDownTimer" :style "color: crimson;")
 		      (:div :class "form-group"
 			    (:button :class "submit center-block btn btn-primary btn-block" :type "submit" "Send OTP"))))
-	      (with-html-form-having-submit-event  "form-hhubotpresendpage" "hhubotpregenerateaction"
+	      (with-html-form  "form-hhubotpresendpage" "hhubotpregenerateaction"
 		(:div :class "form-group"
+		      (with-html-input-text-hidden "persona" persona)
+		      (with-html-input-text-hidden "purpose" purpose)
+		      (with-html-input-text-hidden "context" context)
 		      (with-html-input-text-hidden "phone" phone)
 		      (:button :class "submit center-block btn btn-primary btn-block" :type "submit" (cl-who:str  (format nil "Regenerate OTP for ~A " (concatenate 'string "xxxxx" (subseq phone 6)))))))
 	      (hhub-html-page-footer)))
@@ -37,41 +46,49 @@
   (with-mvc-redirect-ui createmodelforotpsubmitaction createwidgetsforgenericredirect))
 
 (defun createmodelforotpsubmitaction ()
-  (let ((otp (hunchentoot:parameter "otp"))
-	(context (hunchentoot:session-value :sessioncontext))
-	(sessionotp (hunchentoot:session-value :genericotp))
-	(redirecturl nil))
+  (let* ((otp (hunchentoot:parameter "otp"))
+	 (phone (hunchentoot:parameter "phone"))
+	 (persona (hunchentoot:parameter "persona"))
+	 (purpose (hunchentoot:parameter "purpose"))
+	 (context (funcall *otp-store* :get-context :persona persona :purpose purpose :phone phone))
+	 (sessionotp (funcall *otp-store* :get-otp :persona persona :purpose purpose :phone phone))
+	 (redirecturl nil))
     ;;(hunchentoot:log-message* :info (format nil "context is ~A otp is ~A sessionotp is ~A" context otp sessionotp))
     (if (equal (parse-integer otp) sessionotp)
         (setf redirecturl (format nil "/hhub/~A" context))
 	;; else
-	(progn
-	  ;; before redirecting we need to reset the web session. 
-	  (hunchentoot:remove-session hunchentoot:*session*)
-	  (setf redirecturl *siteurl*)))
+	(setf redirecturl *siteurl*))
     (function (lambda ()
       (values redirecturl)))))
   
 
 (defun dod-controller-otp-regenerate-action ()
   (let ((phone (hunchentoot:parameter "phone"))
-	(context (hunchentoot:session-value :sessioncontext)))
-	(generateotp&redirect phone context)))
+	(persona (hunchentoot:parameter "persona"))
+	(purpose (hunchentoot:parameter "purpose"))
+	(context (hunchentoot:parameter "context")))
+    (generateotp&redirect persona purpose phone context)))
    
 
-(defun generateotp&redirect (phone context)
+(defun generateotp&redirect (persona purpose phone context)
 :description "This function will generate OTP, save it to the session, send SMS to the phone number with OTP message and then redirect to OTP entering page, also remembering the context where to redirect after entering the OTP successfully."
   (let ((otp (random 999999)))
     ;; Set the otp to the session value 
-    (setf (hunchentoot:session-value :genericotp ) otp)
-    (setf (hunchentoot:session-value :sessioncontext) context)
+    (funcall *otp-store* :set
+             :persona persona
+             :purpose purpose
+             :phone phone
+             :otp otp
+             :context context
+             :ip (hunchentoot:real-remote-addr))
+
     ;; Send SMS to the phone with OTP template text 
     (if *HHUBOTPTESTING*
 	(hunchentoot:log-message* :info (format nil "sessionotp is ~A" otp))
 	;;else 
 	(send-sms-notification phone *HHUBAWSSNSSENDERID* (format nil *HHUBAWSSNSOTPTEMPLATETEXT* "Login Transaction" otp)))
     ;; redirect to the OTP page 
-    (hunchentoot:redirect (format nil "/hhub/otppage?phone=~A" phone))))
+    (hunchentoot:redirect (format nil "/hhub/otppage?persona=~A&purpose=~A&phone=~A&context=~A" persona purpose phone context))))
 
 (defun com-hhub-transaction-suspend-account ()
   :documentation "This is a controller method which will suspend an Account"
@@ -742,7 +759,7 @@
 	 (setf (hunchentoot:session-value :newstorerequest-custname) custname )
 	 (setf (hunchentoot:session-value :newstorerequest-phone) phone )
 	 (setf (hunchentoot:session-value :newstorerequest-email) email)
-	 (generateotp&redirect phone context)))))))
+	 (generateotp&redirect "vendor" "newstore" phone context)))))))
 	 
 
 
