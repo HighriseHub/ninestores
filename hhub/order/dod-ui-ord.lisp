@@ -69,7 +69,8 @@
 (defun ui-list-vendor-orders-by-products (ordlist)
     (let*  ((vendor (get-login-vendor))
 	    (tenant-id (get-login-vendor-tenant-id))
-	    (vendor-company (get-login-vendor-company))
+	    (company (get-login-vendor-company))
+	    (currsymbol (get-currency-html-symbol (get-account-currency company)))
 	    (products  (hunchentoot:session-value :login-prd-cache))
 	    (odtlst (mapcar (lambda (prd)
 			      (let ((prd-id (slot-value prd 'row-id)))
@@ -94,11 +95,11 @@
 					      (with-html-div-col-2
 						(cl-who:str (slot-value prd 'qty-per-unit)))
 					      (with-html-div-col-2
-					   	(:h5 (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* ( slot-value prd 'current-price)))))
+					   	(:h5 (cl-who:str (format nil "~A ~$ " currsymbol ( slot-value prd 'current-price)))))
 					      (with-html-div-col-2
 					  	(:span :class "badge" (cl-who:str quantity)))
 					      (with-html-div-col-2
-						(:h4 (:span :class "label label-default" (cl-who:str (format nil "~A ~$" *HTMLRUPEESYMBOL* subtotal))))))
+						(:h4 (:span :class "label label-default" (cl-who:str (format nil "~A ~$" currsymbol subtotal))))))
 					
 					(:div :class "row"
 					      (mapcar (lambda (order)
@@ -106,7 +107,7 @@
 						    (cl-who:htm
 						     (with-html-div-col-2
 						       (:a :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
-						       (modal-dialog-v2 (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details order vendor-company)))))) orders))
+						       (modal-dialog-v2 (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details order company)))))) orders))
 					(:hr))))) products odtlst))))
 
 
@@ -125,6 +126,8 @@
 		     (cust-order (get-order vord))
 		     (cust-name (slot-value customer 'name))
 		     (cust-phone (slot-value customer 'phone))
+		     (company (get-company customer))
+		     (currsymbol (get-currency-html-symbol (get-account-currency company)))
 		     (ship-address (slot-value vord 'ship-address))
 		     (order-comments (slot-value cust-order 'comments)))
 
@@ -152,7 +155,7 @@
 				  (with-html-div-row :style "border: solid 0.5px;"
 				    (with-html-div-col
 				      (cl-who:str (format nil "~A | ~A | ~A | ~A " prd-name prd-qty qty-per-unit current-price))
-				      (:h5 (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* (slot-value odt 'unit-price))))))))) odtlst)
+				      (:h5 (cl-who:str (format nil "~A ~$ " currsymbol (slot-value odt 'unit-price))))))))) odtlst)
 					; Display the total for an order
 			  
 		     (cl-who:htm (:div :class "row"

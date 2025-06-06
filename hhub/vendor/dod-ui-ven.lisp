@@ -1957,9 +1957,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 (defun dod-controller-vend-login-otpstep ()
   (let* ((phone  (hunchentoot:parameter "phone"))
 	 (context (format nil "hhubvendloginwithotp?phone=~A" phone)))
-      (hunchentoot:start-session)
-      ;; Redirect to the OTP page 
-      (generateotp&redirect phone context)))
+    (generateotp&redirect "vendor" "login" phone context)))
 
 (defun dod-controller-vend-login-with-otp ()
   (let  ((phone (hunchentoot:parameter "phone")))
@@ -2577,21 +2575,22 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (shipping-cost (slot-value vorder-instance 'shipping-cost))
 	 (storepickupenabled (slot-value vorder-instance 'storepickupenabled))
 	 (total (if shipping-cost (+ order-amt shipping-cost) order-amt))
-	 (lowwalletbalance (< balance total)))
+	 (lowwalletbalance (< balance total))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
     
     (cl-who:with-html-output (*standard-output* nil)
       (with-html-div-row
 	(:div :class "col" :align "right"
 	      (when (and shipping-cost (> shipping-cost 0))
                 (cl-who:htm
-		 (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
-		 (:p (cl-who:str (format nil "Sub Total: ~A ~$" *HTMLRUPEESYMBOL* order-amt)))))))
+		 (:p (cl-who:str (format nil "Shipping: ~A ~$" currsymbol shipping-cost)))
+		 (:p (cl-who:str (format nil "Sub Total: ~A ~$" currsymbol order-amt)))))))
       (with-html-div-row 
 	(:div :class "col-md-12" :align "right" 
 	      (if (and lowwalletbalance (equal payment-mode "PRE")) 
 		  (cl-who:htm (:h2 (:span :class "label label-danger" (cl-who:str (format nil "Low wallet Balance = Rs ~$" balance))))))
 					;else
-	      (:h3 (:span :class "label label-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL* total))))
+	      (:h3 (:span :class "label label-success" (cl-who:str (format nil "Total: ~A ~$" currsymbol total))))
 	      (if (equal venorderfulfilled "Y") 
 		  (cl-who:htm (:span :class "label label-info" "FULFILLED"))
 		  ;; ELSE

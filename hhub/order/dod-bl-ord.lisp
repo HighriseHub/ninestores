@@ -378,8 +378,9 @@
 
 
 (defun create-order-email-content (vproducts vitems customer order-id shipping-cost sub-total)
-  (with-slots (zipcode address phone email city state name) customer
-    (let* ((headerstr (with-html-table "" (list "Particulars" "Details") "1"
+  (with-slots (zipcode address phone email city state name company) customer
+    (let* ((currsymbol (get-currency-html-symbol (get-account-currency company)))
+	   (headerstr (with-html-table "" (list "Particulars" "Details") "1"
 			(:tr (:td (cl-who:str (format nil "Order No")))
 			     (:td (cl-who:str (format nil "~A" order-id))))
 			(:tr (:td (cl-who:str (format nil "Name")))
@@ -393,11 +394,11 @@
 	   (datastr (ui-list-shopcart-for-email vproducts vitems))
 	   (footer (cl-who:with-html-output-to-string (*standard-output* nil)
 		     (:tr (:td :align "right"
-			       (:span  :class "label label-default" (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))))
+			       (:span  :class "label label-default" (cl-who:str (format nil "Shipping: ~A ~$" currsymbol shipping-cost)))))
 		     (:tr (:td :align "right"
-			       (:span  :class "label label-default" (cl-who:str (format nil "Sub Total: ~A ~$" *HTMLRUPEESYMBOL* sub-total)))))
+			       (:span  :class "label label-default" (cl-who:str (format nil "Sub Total: ~A ~$" currsymbol sub-total)))))
 		     (:tr (:td :align "right"
-			       (:h2  (:span  :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* (+ shipping-cost sub-total))))))))))
+			       (:h2  (:span  :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" currsymbol (+ shipping-cost sub-total))))))))))
       ;;(hhub-log-message  (format nil "~A~A~A" headerstr datastr footer))
       (format nil "~A~A~A" headerstr datastr footer))))
 
@@ -532,7 +533,7 @@
 										 (if (equal (slot-value preference 'sat) "Y") 6))))
 								(if (member (clsql-sys:date-dow requestdate) lst) t nil)))
 							    (get-opreflist-for-customer customer))))
-			    (if custopflist  (create-order-from-pref custopflist orderdate requestdate nil (slot-value customer 'address) nil 0 0 "N" customer dodcompany)) )) customers)))
+			    (if custopflist  (create-order-from-pref custopflist orderdate requestdate nil (slot-value customer 'address) 0.0 0.0 0.0 "N" customer dodcompany)) )) customers)))
 
 
 

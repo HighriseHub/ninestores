@@ -57,7 +57,7 @@
 
 ;; This is a pure function.
 
-(defun display-cust-shipping-costs-widget (shopcart-total shipping-options storepickupenabled vendor freeshipenabled)
+(defun display-cust-shipping-costs-widget (shopcart-total shipping-options storepickupenabled vendor freeshipenabled company)
   :description "The display-cust-shipping-costs-widget function generates an HTML widget for displaying shipping costs, allowing users to choose between shipping or store pickup. It dynamically updates cost information and visibility based on user interactions"
   (let* ((vaddress (address vendor))
          (vcity (city vendor))
@@ -65,7 +65,8 @@
          (phone (phone vendor))
          (vshipping-enabled (slot-value vendor 'shipping-enabled))
          (shipping-cost (nth 0 shipping-options))
-         (freeshipminorderamt (nth 2 shipping-options)))
+         (freeshipminorderamt (nth 2 shipping-options))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
 
     (cl-who:with-html-output (*standard-output* nil)
       (when (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y") (> shipping-cost 0))
@@ -79,15 +80,15 @@
           (cond ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
                  (cl-who:htm
                   (:br)
-                  (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
-                  (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
+                  (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" currsymbol shopcart-total)))
+                  (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" currsymbol shipping-cost)))
                   (:hr)
                   (:p :id "costwithshipping" :class "total-cost"
                       (:h3 :style "color: green;" 
                            (:span :class "text-bg-success" 
-                                    (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
+                                    (cl-who:str (format nil "Total: ~A ~$" currsymbol  (+ shopcart-total shipping-cost))))))
                   (:p :class "info-message"
-                      (if (equal freeshipenabled "Y") (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" *HTMLRUPEESYMBOL* (- freeshipminorderamt shopcart-total)))))))
+                      (if (equal freeshipenabled "Y") (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" currsymbol (- freeshipminorderamt shopcart-total)))))))
                 
                 ((and (equal vshipping-enabled "Y") (= shipping-cost 0))
                  (cl-who:htm (:p :class "info-message" (cl-who:str "Shipping: FREE!"))))
@@ -101,13 +102,13 @@
       (with-html-div-row :id "costwithoutshipping" :style "display: none;" :class "shipping-cost-section"
         (with-html-div-col-8
           (:br)
-          (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
-          (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" *HTMLRUPEESYMBOL* 0.00)))
+          (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" currsymbol shopcart-total)))
+          (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" currsymbol 0.00)))
           (:hr)
           (:p :id "costwithoutshipping" :class "total-cost"
               (:h3 :style "color: green;" 
                    (:span :class "text-bg-success" 
-                          (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  shopcart-total)))))
+                          (cl-who:str (format nil "Total: ~A ~$" currsymbol  shopcart-total)))))
           (:hr)))
       
       (:script "function togglepickupinstore () {
@@ -538,7 +539,9 @@
 
 ;; This is a pure function. 
 (defun wallet-card (wallet-instance custom-message)
-  (let ((customer (get-customer wallet-instance))
+  (let* ((customer (get-customer wallet-instance))
+	(company (get-login-customer-company))
+	(currsymbol (get-currency-html-symbol (get-account-currency company)))
 	(balance (slot-value wallet-instance 'balance)) 
 	(lowbalancep (if (check-low-wallet-balance wallet-instance) t nil)))
     (cl-who:with-html-output (*standard-output* nil)
@@ -548,9 +551,9 @@
 		  (:div :class "col-sm-6"  (:h3  (cl-who:str (format nil "ph:  ~a " (slot-value customer 'phone))))))
 	    (:div :class "row"
 		  (if lowbalancep 
-		      (cl-who:htm (:div :class "col-sm-6 " (:h4 (:span :class "label label-warning" (cl-who:str (format nil "~A ~$ - low balance. please recharge the  wallet." *HTMLRUPEESYMBOL* balance))))))
+		      (cl-who:htm (:div :class "col-sm-6 " (:h4 (:span :class "label label-warning" (cl-who:str (format nil "~A ~$ - low balance. please recharge the  wallet." currsymbol balance))))))
 					;else
-		      (cl-who:htm (:div :class "col-sm-3"  (:h4 (:span :class "label label-info" (cl-who:str (format nil "balance: ~A. ~$" *HTMLRUPEESYMBOL*  balance))))))))
+		      (cl-who:htm (:div :class "col-sm-3"  (:h4 (:span :class "label label-info" (cl-who:str (format nil "balance: ~A. ~$" currsymbol  balance))))))))
 	    (:div :class "row"
 		  (:form :class "cust-wallet-recharge-form" :method "post" :action "dodsearchcustwalletaction"
 			 (:input :class "form-control" :name "phone" :type "hidden" :value (cl-who:str (format nil "~a" (slot-value customer 'phone))))
@@ -567,13 +570,15 @@
   (let* ((vendor (slot-value wallet 'vendor))
 	 (balance (slot-value wallet 'balance))
 	 (wallet-id (slot-value wallet 'row-id))
+	 (company (get-company wallet))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company)))
 	 (lowbalancep (if (check-low-wallet-balance wallet) t nil)))
     (cl-who:with-html-output (*standard-output* nil)
  	  (:td  :height "10px" (cl-who:str (slot-value vendor  'name)))
 	  (:td  :height "10px" (cl-who:str (slot-value vendor  'phone)))
 	  
 	  (if lowbalancep
-	      (cl-who:htm (:td :height "10px" (:h4 (:span :class "label label-danger" (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* balance))))))
+	      (cl-who:htm (:td :height "10px" (:h4 (:span :class "label label-danger" (cl-who:str (format nil "~A ~$ " currsymbol balance))))))
 					;else
 	      (cl-who:htm (:td :height "10px" (cl-who:str (format nil "Rs. ~$ " balance)))))
       (:td :height "10px" 
@@ -595,6 +600,8 @@
 			 (let* ((vendor (slot-value wallet 'vendor))
 				(balance (slot-value wallet 'balance))
 				(wallet-id (slot-value wallet 'row-id))
+				(company (get-company wallet))
+				(currsymbol (get-currency-html-symbol (get-account-currency company)))
 				(lowbalancep (or (if (check-low-wallet-balance wallet) t nil)
 						 (< balance order-item-total))))
 			   (cl-who:htm (:tr
@@ -602,11 +609,11 @@
 					(:td  :height "12px" (cl-who:str (slot-value vendor  'phone)))
 					
 					(if lowbalancep
-					    (cl-who:htm (:td :height "12px" (:h4 (:span :class "label label-danger" (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL*  balance))))))
+					    (cl-who:htm (:td :height "12px" (:h4 (:span :class "label label-danger" (cl-who:str (format nil "~A ~$ " currsymbol balance))))))
 					;else
-					    (cl-who:htm (:td :height "12px" (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* balance)))))
+					    (cl-who:htm (:td :height "12px" (cl-who:str (format nil "~A ~$ " currsymbol balance)))))
 					
-					(:td :height "12px" (cl-who:str (format nil "~A ~$ " *HTMLRUPEESYMBOL* order-item-total)))
+					(:td :height "12px" (cl-who:str (format nil "~A ~$ " currsymbol order-item-total)))
 					
 					(:td :height "10px" 
 					     (:a  :class "btn btn-primary" :role "button"  :href (format nil "/hhub/hhubcustwalletrechargepage?amount=1000.00&wallet-id=~A" wallet-id)  "1000"))
@@ -800,31 +807,6 @@
     (let ((uri (with-mvc-redirect-ui createmodelfordeletecustorditem createwidgetsfordeletecustorditem)))
       (format nil "~A" uri))))
 
-(defun  customer-my-order-details (order-id)
-  (let* ((dodorder (get-order-by-id order-id (get-login-cust-company)))
-	 (header (list "Status" "Action" "Name" "Qty"   "Sub-total" ))
-	 (odtlst (get-order-items dodorder))
-	 (shipping-cost (slot-value dodorder 'shipping-cost))
-	 (order-amt (slot-value dodorder 'order-amt))
-	 (total (if shipping-cost (+ order-amt shipping-cost) order-amt)))
-    (cl-who:with-html-output (*standard-output* nil)
-      (if odtlst (ui-list-cust-orderdetails header odtlst) "No Order Details")
-      (with-html-div-row
-	(:div :class "col" :align "right"
-	      (:p (cl-who:str (format nil "Sub Total = ~A ~$" *HTMLRUPEESYMBOL* order-amt)))))  
-      (with-html-div-row
-	(with-html-div-col "")
-	(when shipping-cost
-	  (cl-who:htm
-	   (:div :class "col" :align "right"
-		 (:p (cl-who:str (format nil "Shipping = ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))))))
-      (:div :class "row" 
-	    (:div :class "col-md-12" :align "right" 
-		  (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total))))))
-      (display-order-header-for-customer  dodorder))))
-
-
-
 (defun createmodelforcustmyorderdetails ()
   (let* ((order-id (parse-integer (hunchentoot:parameter "id")))
 	 (dodorder (get-order-by-id order-id (get-login-cust-company)))
@@ -833,14 +815,15 @@
 	 (shipping-cost (slot-value dodorder 'shipping-cost))
 	 (order-amt (slot-value dodorder 'order-amt))
 	 (storepickupenabled (slot-value dodorder 'storepickupenabled))
-	 (total (if shipping-cost (+ order-amt shipping-cost) order-amt)))
-
+	 (total (if shipping-cost (+ order-amt shipping-cost) order-amt))
+	 (company (get-company dodorder))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
     (function (lambda ()
-      (values odtlst header order-amt shipping-cost total  dodorder storepickupenabled)))))
+      (values odtlst header order-amt shipping-cost total  dodorder storepickupenabled currsymbol)))))
 
 
 (defun createwidgetsforcustmyorderdetails (modelfunc)
-  (multiple-value-bind (odtlst header order-amt shipping-cost total dodorder storepickupenabled) (funcall modelfunc)
+  (multiple-value-bind (odtlst header order-amt shipping-cost total dodorder storepickupenabled currsymbol) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (if odtlst (ui-list-cust-orderdetails header odtlst) "No Order Details")))))
@@ -848,16 +831,16 @@
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (with-html-div-row
 			 (:div :class "col" :align "right"
-			       (:p (cl-who:str (format nil "Sub Total = ~A ~$" *HTMLRUPEESYMBOL* order-amt)))))  
+			       (:p (cl-who:str (format nil "Sub Total = ~A ~$" currsymbol order-amt)))))  
 		       (with-html-div-row
 			 (with-html-div-col "")
 			 (when shipping-cost
 			   (cl-who:htm
 			    (:div :class "col" :align "right"
-				  (:p (cl-who:str (format nil "Shipping = ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))))))
+				  (:p (cl-who:str (format nil "Shipping = ~A ~$" currsymbol shipping-cost)))))))
 		       (:div :class "row" 
 			     (:div :class "col-md-12" :align "right" 
-				   (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total))))))
+				   (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" currsymbol total))))))
 		       (if (equal storepickupenabled "Y") (cl-who:htm (:div :class "stampbox rotated" (:strong (cl-who:str "Store Pickup")))))))))
 	  (widget3 (function (lambda ()
 		     (display-order-header-for-customer  dodorder)))))
@@ -1531,7 +1514,13 @@
          (cust-email (if customer  (slot-value customer 'email))))
     
     (cl-who:with-html-output-to-string (*standard-output* nil)
+      
       (:form :class "form-standardcustorder" :role "form" :id "hhubordcustdetails"  :method "POST" :action "hhubcustshippingmethodspage" :data-toggle "validator"
+	     (with-html-div-row
+	       (with-html-div-col-6
+		 (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" "Previous"))
+	       (with-html-div-col-6
+		 (:input :type "submit"  :class "btn btn-lg btn-primary btn-block" :tabindex "13" :value "Next")))
 	     (cl-who:str (display-orddatereqdate-text-widget))
 	     (cl-who:str (display-phone-text-widget cust-phone 1))
 	     (cl-who:str (display-name&email-widget cust-name cust-email 2))
@@ -1540,7 +1529,11 @@
 	     (cl-who:str (display-shipping&billing-widget cust-address cust-zipcode cust-city cust-state))
 	     (with-html-div-row
 	       (:hr))
-	     (:input :type "submit"  :class "btn btn-primary" :value "Checkout"))
+	     (with-html-div-row
+	       (with-html-div-col-6
+		 (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" "Previous"))
+	       (with-html-div-col-6
+		 (:input :type "submit"  :class "btn btn-lg btn-primary btn-block" :tabindex "13" :value "Next"))))
       (:div :class "row"
 	    (:hr)))))
 
@@ -1548,7 +1541,7 @@
   (cl-who:with-html-output-to-string (*standard-output* nil)
     (with-html-div-row
       (with-html-div-col-6 
-	(:h1 :class "text-center login-title"  "Personal Details & Address")
+	(:h1 :class "text-center login-title"  "Personal Details & Shipping Address")
 	(:div  :class "form-group" (:label :for "orddate" "Order Date" )
 	       (:input :class "form-control" :name "orddate" :value (cl-who:str (get-date-string (clsql-sys::get-date))) :type "text"  :readonly T  ))
 	(:div :class "form-group"  (:label :for "reqdate" "Preferred Delivery Date - Click To Change" )
@@ -2121,10 +2114,10 @@
       (when (equal cust-type "GUEST")
 	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email))
     (function (lambda ()
-      (values shopcart-total shiplst storepickupenabled singlevendor freeshipenabled)))))
+      (values shopcart-total shiplst storepickupenabled singlevendor freeshipenabled custcomp)))))
 
 (defun createwidgetsforcustshipmethodspage (modelfunc)
-  (multiple-value-bind (shopcart-total shiplst storepickupenabled singlevendor freeshipenabled)
+  (multiple-value-bind (shopcart-total shiplst storepickupenabled singlevendor freeshipenabled company)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -2133,7 +2126,7 @@
 	  (widget2 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (with-html-form "form-custshippingmethod" "hhubcustpaymentmethodspage"
-			 (display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor freeshipenabled)
+			 (display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor freeshipenabled company)
 			 (with-html-div-row
 			   (with-html-div-col-6
 			     (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "dodcustorderaddpage" "Previous"))
@@ -2223,7 +2216,8 @@
 	 (vendor-list (get-shopcart-vendorlist odts))
 	 (singlevendor (first vendor-list))
 	 (vshipping-enabled (slot-value singlevendor 'shipping-enabled))
-	 (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id)))
+	 (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id))
+	 (currsymbol (get-currency-html-symbol (get-account-currency custcomp))))
 
     ;;(logiamhere (format nil "Payment mode is ~A" payment-mode))
 
@@ -2243,11 +2237,11 @@
     (save-cust-order-params orderparams-ht)
     ;; return the variables in a function. 
     (function (lambda ()
-      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts storepickupenabled vendoraddress vshipping-enabled)))))
+      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts storepickupenabled vendoraddress vshipping-enabled currsymbol)))))
 
 (defun createwidgetsforcustshowshopcartreadonly (modelfunc)
   (multiple-value-bind
-	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts storepickupenabled vendoraddress vshipping-enabled)
+	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts storepickupenabled vendoraddress vshipping-enabled currsymbol)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -2280,10 +2274,10 @@
 				    (:p (cl-who:str (format nil "GST Number: ~A/~A" gstnumber gstorgname)))))))
 			 (with-html-div-col-6
 			   (:div :class "place-order-details"
-				 (:p (cl-who:str (format nil "Sub-total: ~A ~$" *HTMLRUPEESYMBOL* shopcart-total)))
-				 (:p (cl-who:str (format nil "Shipping: ~A ~$" *HTMLRUPEESYMBOL* shipping-cost)))
+				 (:p (cl-who:str (format nil "Sub-total: ~A ~$" currsymbol shopcart-total)))
+				 (:p (cl-who:str (format nil "Shipping: ~A ~$" currsymbol shipping-cost)))
 				 (:hr)
-				 (:p (:h2 (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" *HTMLRUPEESYMBOL*  (+ shopcart-total shipping-cost))))))
+				 (:p (:h2 (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" currsymbol  (+ shopcart-total shipping-cost))))))
 		  		  
 				 (cond
 				   ((and (equal payment-mode "OPY") (or (equal company-type "COMMUNITY")
@@ -2748,18 +2742,20 @@
 			    (cl-who:htm (:div :class "vendor-card" (vendor-card vendor)))) vendorlist)))))
 
 (defun createmodelforcustshowshopcart ()
-  (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
+  (let* ((company (get-login-customer-company))
+	 (lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	 (lstcount (length lstshopcart))
 	 (prd-cache (hunchentoot:session-value :login-prd-cache))
 	 (total  (get-shop-cart-total lstshopcart))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company)))
 	 (products (mapcar (lambda (odt)
 			     (let ((prd-id (slot-value odt 'prd-id)))
 			       (search-item-in-list 'row-id prd-id prd-cache ))) lstshopcart)))
     (function (lambda ()
-      (values lstshopcart lstcount  total products)))))
+      (values lstshopcart lstcount  total products currsymbol)))))
       
 (defun createwidgetsforcustshowshopcart (modelfunc)
-  (multiple-value-bind (lstshopcart lstcount  total products) (funcall modelfunc)
+  (multiple-value-bind (lstshopcart lstcount  total products currsymbol) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb))))
 	  (widget2 (function (lambda ()
@@ -2777,7 +2773,7 @@
 			 (:hr)
 			 (with-html-div-row
 			   (with-html-div-col-6
-				 (:h4 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" *HTMLRUPEESYMBOL* total)))))
+				 (:h4 (:span :class "label label-default" (cl-who:str (format nil "Total = ~A ~$" currsymbol total)))))
 			   (with-html-div-col-6 :style "align: right;" 
 			     (:a :class "btn btn-lg btn-primary btn-block" :href "dodcustorderaddpage" :style "font-weight: bold; font-size: 20px !important;" "Checkout " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" lstcount)))))))))))
 	  (widget3 (function (lambda ()
