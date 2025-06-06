@@ -121,20 +121,22 @@
   (multiple-value-bind (amount qrcodepath upiurls wallet-id transaction-id charcountid1)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
-		     (if qrcodepath 
-			 (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
-			   (display-upi-widget amount qrcodepath upiurls)
-			   (with-html-form "customerupipaymentform" "hhubcustwalletrechargeaction"
+		     (if qrcodepath
+			 (with-html-card "/img/UPI.png" "UPI" "UPI Payment" ""  
+			   (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
+			     (display-upi-widget amount qrcodepath upiurls)
+			     (with-html-form "customerupipaymentform" "hhubcustwalletrechargeaction"
+			       (:div :class "row mb-3"
+				     (:div :class "col" :style "text-align: center;"
+					   (:input :class "form-control" :name "wallet-id" :value wallet-id :type "hidden")
+					   (:input :class "form-control" :name "amount" :value amount :type "hidden")
+					   (:input :class "form-control" :name "transaction-id" :value transaction-id :type "hidden")
+					   (:label :for "utrnum" "UTR No")
+					   (:div :class "input-group mb-3"
+						 (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup (format nil "countChar(~A.id, this, 12)" charcountid1)  :max "999999999999" :maxlength "12"  :required T)
+					   (:div :id charcountid1 :class "input-group-text" :style "font-size: 1.2rem; font-weight: bold; color: purple;")))))
 			     (:div :class "row mb-3"
-				   (:div :class "col-sm-4" :style "text-align: center;"
-					 (:input :class "form-control" :name "wallet-id" :value wallet-id :type "hidden")
-					 (:input :class "form-control" :name "amount" :value amount :type "hidden")
-					 (:input :class "form-control" :name "transaction-id" :value transaction-id :type "hidden")
-					 (:label :for "utrnum" "UTR No")
-					 (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup (format nil "countChar(~A.id, this, 12)" charcountid1)  :max "999999999999" :maxlength "12"  :required T)))
-			     (:div :id charcountid1 :class "form-group")
-			     (:div :class "row mb-3"
-				   (:div :class "col-sm-4" :style "text-align: center;"
+				   (:div :class "col" :style "text-align: center;"
 					 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))
 			 ;;else
 			 (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
@@ -144,9 +146,6 @@
 (defun hhub-controller-upi-recharge-wallet-page ()
   (with-cust-session-check
     (with-mvc-ui-page "Customer Recharge Wallet - UPI Payment Page" createmodelforupirechargewalletpage createwidgetsforupirechargewalletpage :role :customer)))
-
-
-
   
 (defun hhub-controller-upi-recharge-wallet-action ()
   (with-cust-session-check
