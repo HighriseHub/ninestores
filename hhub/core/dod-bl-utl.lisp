@@ -2,6 +2,46 @@
 (in-package :hhub)
 (clsql:file-enable-sql-reader-syntax)
 
+
+;; Example 1: Creating a branch for a UI feature with an identifier
+;; This is for the UI layer, adding a new OTP-based login using HTMX
+;; (generate-branch-name
+;; :scope "ui"                 ;; Area of the codebase — e.g., "core", "ui", "api", etc.
+;; :type "feat"                ;; Type of work — e.g., "feat", "fix", "chore", etc.
+;; :id "otp2"                  ;; Optional ticket/issue ID or short code (e.g., JIRA/issue number)
+;; :desc "htmx integration")   ;; Description of the work
+;; => "ui/feat/otp2-htmx-integration"
+;; (generate-branch-name :scope "ui" :type "feat" :id "otp2" :desc "htmx integration")
+;; (generate-branch-name :scope "core" :type "fix" :desc "login crash")
+
+(defun generate-branch-name (&key scope type id desc (max-length 50))
+  "Generate a validated Git branch name: scope/type/id-desc."
+  (let* ((allowed-scopes '("cus" "ven" "cad" "super" "core" "ui" "api" "lisp" "infra" "test" "doc"))
+         (allowed-types  '("feat" "fix" "chore" "refactor" "perf" "test" "docs" "hotfix"))
+         (scope (string-downcase (string scope)))
+         (type (string-downcase (string type)))
+         (id (when id (string-downcase (string id))))
+         (desc (string-downcase (string desc)))
+         (safe-desc (substitute #\- #\Space desc)))
+
+    ;; Validate scope
+    (unless (member scope allowed-scopes :test #'string=)
+      (error "Invalid scope: ~A. Allowed: ~{~A~^, ~}" scope allowed-scopes))
+
+    ;; Validate type
+    (unless (member type allowed-types :test #'string=)
+      (error "Invalid type: ~A. Allowed: ~{~A~^, ~}" type allowed-types))
+
+    ;; Generate base name
+    (let ((branch-name
+            (if id
+                (format nil "~A/~A/~A-~A" scope type id safe-desc)
+                (format nil "~A/~A/~A" scope type safe-desc))))
+      ;; Enforce max length
+      (if (> (length branch-name) max-length)
+          (error "Branch name too long (~A chars): ~A" (length branch-name) branch-name)
+          branch-name))))
+
 (defun generate-sku (product-name description qty-per-unit unit-of-measure)
   "Generate an SKU from product information by taking 2 chars from each word.
   
