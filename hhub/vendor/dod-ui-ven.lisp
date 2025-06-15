@@ -266,41 +266,6 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	   
       (list widget1 widget2 widget3))))
 
-
-	    
-
-(defun modal.upload-product-images  ()
-  (cl-who:with-html-output (*standard-output* nil)
-    (:form :class "hhub-formprodimagesupload"  :role "form" :method "POST" :action "dodvenuploadproductsimagesaction" :data-bs-toggle "validator" :enctype "multipart/form-data" 
-	   (:div :class "row"
-		 (:div :class "form-group"
-		       (:input :type "file" :multiple "true" :name "uploadedimagefiles"))
-		 (:div :class "form-group"
-		       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))
-
-(defun dod-controller-vendor-bulk-upload-products-images-action ()
-  :documentation "Upload the product images in the form of jpeg, png files which are less than 1 MB in size"
-  (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforbulkvuploadprdimages createwidgetsforgenericredirect)))
-
-(defun createmodelforbulkvuploadprdimages ()
-  (let* ((images  (remove "uploadedimagefiles" (hunchentoot:post-parameters hunchentoot:*request*) :test (complement #'equal) :key #'car))
-	 (filepaths (mapcar
-		     (lambda (image)
-		       (let* ((newimageparams (remove "uploadedimagefiles" image :test #'equal ))
-			      (newfilename (process-file  newimageparams (format nil "~A" *HHUBRESOURCESDIR*))))
-			 newfilename)) images))
-	 (vendor (get-login-vendor))
-	 (redirecturl "/hhub/dodvenbulkaddprodpage"))
-    (logiamhere (format nil "New filepaths are  ~A" filepaths))
-    (bt:make-thread
-     (lambda ()
-       ;; Asynchronously start the upload of images. 
-       (async-upload-images-for-bulk-upload filepaths "prd" nil vendor)) :name "Async File Upload Thread")
-    (function (lambda ()
-      (values redirecturl)))))
-
-
 (defun async-upload-files-s3bucket-behavior (state messagefunc)
   (multiple-value-bind (product images objectname object-id vendor) (funcall messagefunc) 
     (let* ((vendor-id (slot-value vendor 'row-id))
@@ -362,12 +327,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun modal.upload-csv-file ()
   (cl-who:with-html-output (*standard-output* nil)
-    (:form :class "hhub-formcsvfileupload"  :role "form" :method "POST" :action "dodvenuploadproductscsvfileaction" :data-bs-toggle "validator" :enctype "multipart/form-data" 
-	   (:div :class "row"
-	    (:div :class "form-group"
-		  (:input :type "file" :name "uploadedcsvfile"))
-	    (:div :class "form-group"
-		  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))
+    (with-catch-file-upload-event "csvfileuploadevent"  
+      (:form :class "hhub-formcsvfileupload"  :role "form" :method "POST" :action "dodvenuploadproductscsvfileaction" :data-bs-toggle "validator" :enctype "multipart/form-data" 
+	     (:div :class "row"
+		   (:div :id "fileuploadprogress" :class "form-group" "upload progress %")
+		   (:div :class "form-group"
+			 (:input :type "file" :id "idprdimgfileupldctrl" :name "uploadedcsvfile"))
+		   (:div :class "form-group"
+			 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save")))))))
 
 (defun com-hhub-transaction-vendor-bulk-products-add ()
   (with-vend-session-check
@@ -376,55 +343,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 (defun createmodelforvbulkproductsadd ()
   (let* ((csvfileparams (hunchentoot:post-parameter "uploadedcsvfile"))
 	 (vendor (get-login-vendor))
-	 (vendor-id (get-login-vendor-id))
 	 (company (get-login-vendor-company))
-	 (tenant-id (get-login-vendor-tenant-id))
 	 (params nil)
 	 (redirecturl "/hhub/dodvenproducts")
 	 (tempfilewithpath (nth 0 csvfileparams))
-					;(final-file-name (process-file  csvfileparams (format nil "~A/temp" *HHUBRESOURCESDIR*)))
-	 (prdandpriceinfo (cl-csv:read-csv tempfilewithpath ;(pathname (format nil "~A/temp/~A" *HHUBRESOURCESDIR* final-file-name))
-				   :skip-first-p T  :map-fn #'(lambda (row)
-								(when (equal (nth 12 row) (string-upcase (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :MD5 (ironclad:ascii-string-to-byte-array (nth 11 row))))))
-								  (let* ((prd-id (parse-integer (check-null (nth 0 row)) :junk-allowed t))
-									 (prd-name (nth 1 row))
-									 (prd-desc (nth 2 row))
-									 (qty-per-unit (float (with-input-from-string (in (nth 3 row)) (read in))))
-									 (unit-of-measure (nth 4 row))
-									 (prdinst (make-instance 'dod-prd-master
-												:row-id prd-id
-												:prd-name prd-name
-												:description prd-desc
-												:vendor-id vendor-id
-												:vendor vendor 
-												:qty-per-unit qty-per-unit 
-												:unit-of-measure unit-of-measure
-												:current-price (float (with-input-from-string (in (nth 5 row)) (read in)))
-												:units-in-stock  (parse-integer (nth 9 row))
-												:subscribe-flag (nth 10 row)
-												:sku (generate-sku prd-name prd-desc qty-per-unit unit-of-measure)
-												;;:prd-image-path (nth 8 row)
-												:tenant-id tenant-id
-												:company company
-												:active-flag "Y"
-												:approved-flag "N"
-												:approval-status "PENDING"
-												:deleted-state "N"))
-									 (priceinst (if prd-id
-											(make-instance 'dod-product-pricing
-												       :product-id (nth 0 row)
-												       :price (float (with-input-from-string (in (nth 5 row)) (read in)))
-												       :discount (float (with-input-from-string (in (nth 6 row)) (read in)))
-												       :start-date (get-date-from-string (nth 7 row))
-												       :end-date (get-date-from-string (nth 8 row))))))
-								    (list prdinst priceinst)))))))
-	 
-    
-    
+	 (prdandpriceinfo (remove nil (cl-csv:read-csv tempfilewithpath :skip-first-p T :map-fn #'product-csv-file-data-row))))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (setf params (acons "prdcount" (length prdandpriceinfo) params))
     (setf params (acons "company" company params))
-    
     (with-hhub-transaction "com-hhub-transaction-vendor-bulk-products-add" params
       (when (> (length prdandpriceinfo) 0)
 	(create-bulk-products (function (lambda () prdandpriceinfo)))
@@ -432,9 +358,61 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (function (lambda ()
 	(values redirecturl)))))
 
+
+(defun product-csv-file-data-row (row)
+  (unless (string= (string-upcase (nth 0 row)) "PRODUCTID") ;; ignore the 1st row
+    (let* ((expected-md5 (nth 10 row))
+	   (computed-md5
+             (create-md5-from-list
+              (normalize-md5-fields
+               (parse-integer (nth 0 row) :junk-allowed t)
+               (nth 1 row)
+	       (float (with-input-from-string (in (nth 2 row)) (read in)))
+               (nth 3 row)
+	       (float (with-input-from-string (in (nth 4 row)) (read in)))
+	       (float (with-input-from-string (in (nth 5 row)) (read in)))
+               (nth 6 row)
+               (nth 7 row)
+               (parse-integer (nth 8 row) :junk-allowed t)
+               (nth 9 row))))
+	   (vendor (get-login-vendor))
+	   (vendor-id (get-login-vendor-id))
+	   (company (get-login-vendor-company))
+	   (tenant-id (get-login-vendor-tenant-id))
+	   (prd-id (parse-integer (check-null (nth 0 row)) :junk-allowed t))
+	   (prd-name (nth 1 row))
+	   (qty-per-unit (float (with-input-from-string (in (nth 2 row)) (read in))))
+	   (unit-of-measure (nth 3 row))
+	   (prdinst (make-instance 'dod-prd-master
+				   :row-id prd-id
+				   :prd-name prd-name
+				   :vendor-id vendor-id
+				   :vendor vendor 
+				   :qty-per-unit qty-per-unit 
+				   :unit-of-measure unit-of-measure
+				   :current-price (float (with-input-from-string (in (nth 4 row)) (read in)))
+				   :current-discount (float (with-input-from-string (in (nth 5 row)) (read in)))
+				   :units-in-stock  (parse-integer (nth 8 row))
+				   :subscribe-flag (nth 9 row)
+				   :sku (generate-sku prd-name prd-name qty-per-unit unit-of-measure)
+				   :tenant-id tenant-id
+				   :company company
+				   :active-flag "Y"
+				   :approved-flag "N"
+				   :approval-status "PENDING"
+				   :deleted-state "N"))
+	   (priceinst (if prd-id
+			  (make-instance 'dod-product-pricing
+					 :product-id (nth 0 row)
+					 :price (float (with-input-from-string (in (nth 4 row)) (read in)))
+					 :discount (float (with-input-from-string (in (nth 5 row)) (read in)))
+					 :start-date (get-date-from-string (nth 6 row))
+					 :end-date (get-date-from-string (nth 7 row))))))
+      (unless (equal expected-md5 computed-md5)
+	(list prdinst priceinst)))))
   
 (defun dod-controller-vendor-bulk-add-products-page ()
-:documentation "Here we are going to add products in bulk using CSV file. This page will display options of adding CSV files in two phases. 
+  :documentation "Here we are going to add products in bulk using CSV file. This page will display options of adding CSV files in two phases. 
 Phase1: Temporary Image URLs creation using image files upload.
 Phase2: User should copy those URLs in Products.csv and then upload that file."
   (with-vend-session-check
@@ -454,62 +432,21 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		       (with-html-div-row
 			 (with-html-div-col-6
 			   (:ul :class "list-group"
-				(:li :class "list-group-item" "Step 1: Upload product images,  which will then  be converted to URLs.")
-				(:li :class "list-group-item" "Step 2: Download Products.csv Template")
-				(:li :class "list-group-item" "Step 3: Fill up other required columns of Products.csv file")
-				(:li :class "list-group-item" "Step 4: Upload the Products.csv file")))
-	  		 (:div :class "list-group col-xs-12 col-sm-6 col-md-6 col-lg-6" 
-			       (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodimagesupload-modal")  :href "#" " Upload Product Images")
-			       ;; This download will be enabled when the file is ready for download. 
-			       (if (probe-file (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id))
-				   (cl-who:htm (:a :href (format nil "/img/temp/products-ven-~a.csv" vendor-id) :class "list-group-item list-group-item-action" "click here to download Products.csv"))) 
-			       (:a :class "list-group-item list-group-item-action"  :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodcsvupload-modal")  :href "#"  " Upload CSV File"))
-			 ;; Modal dialog for Uploading  product images
-			 (modal-dialog-v2 (format nil "hhubvendprodimagesupload-modal") " Upload Product Images " (modal.upload-product-images))
-			 ;; Modal dialog for CSV file upload
-			 (modal-dialog-v2 (format nil "hhubvendprodcsvupload-modal") " Upload CSV File " (modal.upload-csv-file))))))))
-      (list widget1))))
-
-
-
-(defun dod-controller-vendor-bulk-add-products-page2 ()
-:documentation "Here we are going to add products in bulk using CSV file. This page will display options of adding CSV files in two phases. 
-Phase1: Temporary Image URLs creation using image files upload.
-Phase2: User should copy those URLs in Products.csv and then upload that file."
-  (with-vend-session-check
-    (with-mvc-ui-page "Bulk Add Products using CSV File" createmodelforvbulkaddproducts2 createwidgetsforvbulkaddproducts2 :role :vendor)))
-
-(defun createmodelforvbulkaddproducts2 ()
-  (let ((vendor-id (slot-value (get-login-vendor) 'row-id)))
-    (function (lambda ()
-      (values vendor-id)))))
-
-(defun createwidgetsforvbulkaddproducts2 (modelfunc)
-  (multiple-value-bind (vendor-id) (funcall modelfunc)
-    (let ((widget1 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil) 
-		       (:br) (:br)
-		       (:br) (:br)
-		       (with-html-div-row
-			 (with-html-div-col-6
-			   (:ul :class "list-group"
 				(:li :class "list-group-item" "Step 1: Download Products.csv Template")
 				(:li :class "list-group-item" "Step 2: Fill up other required columns of Products.csv file")
 				(:li :class "list-group-item" "Step 3: Upload the Products.csv file")))
-	  		 (:div :class "list-group col-xs-12 col-sm-6 col-md-6 col-lg-6" 
-			       (with-catch-submit-event "idgenerateproductcsvtempl"  
+			 
+			 (:div :class "list-group col-xs-12 col-sm-6 col-md-6 col-lg-6" 
+			       (with-catch-submit-event "idgeneratecsvbutton"
 				 (with-html-form "generateproductcsvform" "generateproductcsvaction"
 				   (with-html-submit-button "Generate & Download Products Template")))
-
 			       ;; This download will be enabled when the file is ready for download. 
 			       (if (probe-file (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id))
 				   (cl-who:htm (:a :href (format nil "/img/temp/products-ven-~a.csv" vendor-id) :class "list-group-item list-group-item-action" "Click here to download Products.csv"))) 
-			       (:a :class "list-group-item list-group-item-action"  :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodcsvupload-modal")  :href "#"  " Upload Products CSV File"))
-			 ;; Modal dialog for Uploading  product images
-			 (modal-dialog-v2 (format nil "hhubvendprodimagesupload-modal") " Upload Product Images " (modal.upload-product-images))
-			 ;; Modal dialog for CSV file upload
-			 (modal-dialog-v2 (format nil "hhubvendprodcsvupload-modal") " Upload Products CSV File " (modal.upload-csv-file))))))))
-      (list widget1))))
+			       (:a :class "list-group-item list-group-item-action"  :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodcsvupload-modal")  :href "#"  " Upload Products CSV File")
+			       ;; Modal dialog for CSV file upload
+			       (modal-dialog-v2 (format nil "hhubvendprodcsvupload-modal") " Upload Products CSV File " (modal.upload-csv-file)))))))))
+    (list widget1))))
 
 
 
@@ -519,7 +456,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (with-mvc-redirect-ui createmodelforvgenprodcttempl createwidgetsforgenericredirect)))
 
 (defun createmodelforvgenprodcttempl ()
-  (let* ((header (list "Product ID" "Product Name " "Qty Per Unit" "Unit Of Measure" "Unit Price" "Discount" "Discount Start" "Discount End" "Units In Stock" "Subscription Flag"))
+  (let* ((header (list "ProductID" "ProductName" "QtyPerUnit" "UnitOfMeasure" "UnitPrice" "Discount" "DiscountStart" "DiscountEnd" "UnitsInStock" "SubscriptionFlag" "MD5Digest"))
 	 (vendor (get-login-vendor))
 	 (vendor-id (slot-value vendor  'row-id))
 	 (productlist (hhub-get-cached-vendor-products))
@@ -534,14 +471,35 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun create-products-csv2 (header productlist)
   (cl-who:with-html-output-to-string (*standard-output* nil)
-      (mapcar (lambda (item) (cl-who:str (format nil "~A," item ))) header)
-      (cl-who:str (format nil " ~C~C" #\return #\linefeed))
-    (mapcar (lambda (product)
-	      (with-slots (row-id prd-name description qty-per-unit unit-of-measure current-price sku units-in-stock subscribe-flag) product
-		(let ((db-product-pricing (select-product-pricing-by-product-id row-id (product-company product))))
-		  (with-slots (price discount start-date end-date) db-product-pricing
-		    (cl-who:str (format nil "~A,~A,~A,~A,~A,~A,~A,~A,~A,~A~C~C" row-id prd-name  qty-per-unit unit-of-measure price discount (get-date-string start-date) (get-date-string end-date) units-in-stock subscribe-flag  #\return #\linefeed)))))) productlist)))
+    (loop for item in header
+          for last = (null (cdr (member item header))) ; check if it's the last item
+          do (progn
+               (cl-who:str (format nil "~A" item))
+               (unless last
+		 (cl-who:str ","))))
+    (cl-who:str (format nil "~C~C" #\return #\linefeed))
+  (mapcar (lambda (product)
+	    (with-slots (row-id prd-name description qty-per-unit unit-of-measure current-price sku units-in-stock subscribe-flag) product
+	      (let ((db-product-pricing (select-product-pricing-by-product-id row-id (product-company product))))
+		(with-slots (price discount start-date end-date) db-product-pricing
+		  (let* ((md5digest (create-md5-from-list (normalize-md5-fields row-id prd-name qty-per-unit unit-of-measure price discount (get-date-string start-date) (get-date-string end-date) units-in-stock subscribe-flag))))
+		    (cl-who:str (format nil "~A,~A,~A,~A,~A,~A,~A,~A,~A,~A,~A~C~C" row-id prd-name  qty-per-unit unit-of-measure price discount (get-date-string start-date) (get-date-string end-date) units-in-stock subscribe-flag md5digest  #\return #\linefeed))))))) productlist)))
 
+(defun normalize-md5-fields (row-id prd-name qty-per-unit unit-of-measure
+                            price discount start-date end-date
+                            units-in-stock subscribe-flag)
+  "Normalize and format all product fields to consistent strings for MD5 calculation."
+  (list
+   (princ-to-string row-id)
+   (string-trim " " prd-name)
+   (format nil "~,1F" (coerce qty-per-unit 'float))      ; force 1 decimal place
+   (string-trim " " unit-of-measure)
+   (format nil "~,2F" (coerce price 'float))             ; force 2 decimal places
+   (format nil "~,2F" (coerce discount 'float))          ; force 2 decimal places
+   (string-trim " " start-date)
+   (string-trim " " end-date)
+   (princ-to-string units-in-stock)
+   (string-trim " " subscribe-flag)))
 
 (defun modal.vendor-update-details ()
   (let* ((vendor (get-login-vendor))
