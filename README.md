@@ -9,7 +9,8 @@ There are two kinds of people involved in this marketplace. The Customers and Ve
 * Basic Inventory control with Stock Management. 
 * Warehouses (coming soon...) 
 * Order Management for Vendors.
-* Product Management for Vendors. 
+* Product Management for Vendors.
+* Bulk upload products using CSV file. 
 * Multiple Vendors per order. 
 * Vendors have access to multiple groups/communities.
 * Shipping support - Free Shipping, 3rd Party Shipping providers support (iThinkLogistics), Flat rate & zone wise shipping rates and in store pickup. 
