@@ -42,7 +42,7 @@
     
 
 
-(defun save-temp-guest-customer (name address city state zip phone email)
+(defun save-temp-guest-customer (name address city state zip phone email company)
   (let ((temp-customer (make-instance 'DOD-CUST-PROFILE
 				      :row-id (get-login-customer-id))))
     (setf (slot-value temp-customer 'name) name)
@@ -52,6 +52,7 @@
     (setf (slot-value temp-customer 'zipcode) zip)
     (setf (slot-value temp-customer 'phone) phone)
     (setf (slot-value temp-customer 'email) email)
+    (setf (slot-value temp-customer 'company) company)
     (setf (hunchentoot:session-value :temp-guest-customer) temp-customer)))
 
 
@@ -2112,7 +2113,7 @@
       (save-cust-order-params orderparams-ht)
       ;; Save the Guest customer details so that we can use them within the session if required. 
       (when (equal cust-type "GUEST")
-	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email))
+	(save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email custcomp))
     (function (lambda ()
       (values shopcart-total shiplst storepickupenabled singlevendor freeshipenabled custcomp)))))
 
@@ -2480,7 +2481,6 @@
 	 (subscribe-flag (slot-value product 'subscribe-flag))
 	 (cust-type (slot-value customer 'cust-type))
 	 (prd-vendor (product-vendor product))
-	 (vendor-name (slot-value prd-vendor 'name))
 	 (subscription-plan (slot-value company 'subscription-plan))
 	 (cmp-type (slot-value company 'cmp-type))
 	 (vendor-id (slot-value prd-vendor 'row-id)))
@@ -2497,7 +2497,7 @@
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Images-Thumbnails%" proddetailpagetempl product-images-thumbnails))
     
     (function (lambda ()
-      (values proddetailpagetempl  prd-id  cmp-type subscribe-flag cust-type subscription-plan external-url  vendor-id vendor-name)))))
+      (values proddetailpagetempl  prd-id  cmp-type subscribe-flag cust-type subscription-plan external-url  vendor-id)))))
 
 
 (defun customer-add-to-cart-widget (units-in-stock product product-pricing prd-id prdincart-p numitemsincart)
@@ -2528,7 +2528,7 @@
   
   
 (defun createwidgetsforprddetailsforcustomer (modelfunc)
-  (multiple-value-bind (proddetailpagetempl  prd-id  cmp-type subscribe-flag cust-type subscription-plan external-url  vendor-id vendor-name ) (funcall modelfunc)
+  (multiple-value-bind (proddetailpagetempl  prd-id  cmp-type subscribe-flag cust-type subscription-plan external-url  vendor-id) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)        
 		       (with-html-div-row :style "border-radius: 5px;background-color:#e6f0ff; border-bottom: solid 1px; margin: 15px; padding: 10px; height: 35px; font-size: 1rem;background-image: linear-gradient(to top, #accbee 0%, #e7f0fd 100%);"
@@ -2550,11 +2550,11 @@
 			    (sharetextorurlonclick "#idshareexturl" (parenscript:lisp external-url)))))
 
 			 (with-html-div-col-2 :data-toggle "tooltip" :title "Contact Seller"  
-			   (:a :data-bs-toggle "modal" :data-bs-target (format nil "#vendordetails-modal~A" vendor-id)  :href "#" :name "btnvendormodal"  (cl-who:str vendor-name))
+			   (:a :data-bs-toggle "modal" :data-bs-target (format nil "#vendordetails-modal~A" vendor-id)  :href "#" :name "btnvendormodal"  (:i :class "fa-solid fa-address-card"))
 			       (modal-dialog-v2 (format nil "vendordetails-modal~A" vendor-id) (cl-who:str (format nil "Vendor Details")) (modal.vendor-details vendor-id)))
 
 			 (with-html-div-col-3 :data-toggle "tooltip" :title "Visit Store"  
-			   (:p (:a :href (format nil "hhubcustvendorstore?id=~A" vendor-id) (:i :class "fa-solid fa-store") (cl-who:str (format nil "&nbsp;~A Store" vendor-name))))))
+			   (:p (:a :href (format nil "hhubcustvendorstore?id=~A" vendor-id) (:i :class "fa-solid fa-store")))))
 		       (:hr)))))
 	  (widget2  (function (lambda ()
 		     (product-card-with-details-for-customer2  proddetailpagetempl )))))

@@ -567,7 +567,12 @@ corresponding universal time."
   (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :sha1 (ironclad:ascii-string-to-byte-array plaintext)))) 
 
 (defun create-digest-md5 (plaintext)
-  (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :md5 (ironclad:ascii-string-to-byte-array plaintext)))) 
+  (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :md5 (ironclad:ascii-string-to-byte-array plaintext))))
+
+(defun create-md5-from-list (items)
+  "Takes a list of strings, joins them with commas, and returns the MD5 digest."
+  (let ((joined (format nil "~{~A~^,~}" items)))
+    (create-digest-md5 joined)))
 
 (defun decrypt (ciphertext key)
   (let ((cipher (get-cipher key))

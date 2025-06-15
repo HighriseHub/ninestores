@@ -242,7 +242,7 @@
 	(:div :class "row" 
 	      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 		    (:h4 "Payment Failure! Please contact your System Administrator or try after some time."))))
-       (hunchentoot:redirect "/hhub/customer-login.html")))
+       (hunchentoot:redirect "/hhub/hhubcustloginv2")))
 
 
 
@@ -252,4 +252,4 @@
 	(:div :class "row" 
 	      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
 		    (:h4 "Payment Cancelled."))))
-       (hunchentoot:redirect "/hhub/customer-login.html")))
+       (hunchentoot:redirect "/hhub/hhubcustloginv2")))

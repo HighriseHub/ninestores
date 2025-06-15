@@ -277,14 +277,13 @@
 		     (db-product (select-product-by-id prd-id company))
 		     (db-product-pricing (select-product-pricing-by-product-id prd-id company)))
 		(if db-product
-		    (with-slots (prd-name description qty-per-unit unit-of-measure current-price sku units-in-stock subscribe-flag) product
+		    (with-slots (prd-name  qty-per-unit unit-of-measure current-price current-discount units-in-stock subscribe-flag) product
 		      (setf (slot-value db-product 'prd-name) prd-name)
-		      (setf (slot-value db-product 'description) description)
 		      (setf (slot-value db-product 'qty-per-unit) qty-per-unit)
 		      (setf (slot-value db-product 'unit-of-measure) unit-of-measure)
 		      (setf (slot-value db-product 'current-price) current-price)
+		      (setf (slot-value db-product 'current-discount) current-discount)
 		      (setf (slot-value db-product 'units-in-stock) units-in-stock)
-		      (setf (slot-value db-product 'sku) sku)
 		      (setf (slot-value db-product 'subscribe-flag) subscribe-flag)
 		      (clsql:update-records-from-instance db-product))
 		    ;;else

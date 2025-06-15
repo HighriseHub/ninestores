@@ -27,7 +27,7 @@
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
 							       (start-das)
-							       (hunchentoot:redirect "/hhub/customer-login.html"))))))
+							       (hunchentoot:redirect "/hhub/hhubcustloginv2"))))))
 
 
 (defun safe-read-from-string (string &optional default-value)
