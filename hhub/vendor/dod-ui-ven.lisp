@@ -37,31 +37,37 @@
 	 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defun render-sidebar-offcanvas ()
-    (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
-      (:div :class "offcanvas offcanvas-start" :tabindex"-1" :id "offcanvasExample" :aria-labelledby "offcanvasExampleLabel" :style  "  background: rgb(222,228,255);
+    (let* ((vendor-company (get-login-vendor-company))
+	   (cmp-type (slot-value vendor-company 'cmp-type))
+	   (subscription-plan (slot-value vendor-company 'subscription-plan))
+	   (compbulkupload-p (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan cmp-type)))
+      (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+	(:div :class "offcanvas offcanvas-start" :tabindex"-1" :id "offcanvasExample" :aria-labelledby "offcanvasExampleLabel" :style  "  background: rgb(222,228,255);
 background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 100%); "
-	    (:div :class "offcanvas-header"
-		  (:img :src "/img/logo.png" :alt "" :width "32" :height "32" :class "rounded-circle me-2")
-		  (:h5 :class "offcanvas-title" :id "offcanvasExampleLabel" "Nine Stores")
-		  (:button :type "button" :class "btn-close btn-close" :data-bs-dismiss "offcanvas" :aria-label "Close"))
-	    (:div :class "offcanvas-body"
-		  (:ul :class "nav nav-tabs flex-column mb-auto"
-		       (:li :class "nav-item"
-			    (:a :href "dodvendindex?context=home"
-				(:i :class "fa-solid fa-house")  "&nbsp;&nbsp;Home"))
-		       (:li :class "nav-item"
-			    (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
-				:data-bs-target "#productmaster" :aria-expanded "true" :aria-controls "productmaster"
-			   (:i :class "fa-solid fa-rectangle-list") " Product Master")
-			    (:ul :id "productmaster" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
-				 (:li :class "sidebar-item"
-				      (:a :href "/hhub/dodvenproducts" :class "nav-link" "Product List"))
-				 (:li :class "sidebar-item"
-				      (:a :href "/hhub/dodvendprodcategories" :class "nav-link" "Product Categories"))
-				 (:li :class "sidebar-item"
-				      (:a :href "/hhub/dodvenaddprodpage" :class "nav-link" "Add New Product"))
-				 (:li :class "sidebar-item"
-				      (:a :href "/hhub/dodvenbulkaddprodpage" :class "nav-link" "Bulk Add Products"))))
+	      (:div :class "offcanvas-header"
+		    (:img :src "/img/logo.png" :alt "" :width "32" :height "32" :class "rounded-circle me-2")
+		    (:h5 :class "offcanvas-title" :id "offcanvasExampleLabel" "Nine Stores")
+		    (:button :type "button" :class "btn-close btn-close" :data-bs-dismiss "offcanvas" :aria-label "Close"))
+	      (:div :class "offcanvas-body"
+		    (:ul :class "nav nav-tabs flex-column mb-auto"
+			 (:li :class "nav-item"
+			      (:a :href "dodvendindex?context=home"
+				  (:i :class "fa-solid fa-house")  "&nbsp;&nbsp;Home"))
+			 (:li :class "nav-item"
+			      (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
+				  :data-bs-target "#productmaster" :aria-expanded "true" :aria-controls "productmaster"
+				  (:i :class "fa-solid fa-rectangle-list") " Product Master")
+			      (:ul :id "productmaster" :class "nav-dropdown list-unstyled collapse" :data-bs-parent "#offcanvasExample"
+				   (:li :class "sidebar-item"
+					(:a :href "/hhub/dodvenproducts" :class "nav-link" "Product List"))
+				   (:li :class "sidebar-item"
+					(:a :href "/hhub/dodvendprodcategories" :class "nav-link" "Product Categories"))
+				   (:li :class "sidebar-item"
+					(:a :href "/hhub/dodvenaddprodpage" :class "nav-link" "Add New Product"))
+				   (when compbulkupload-p
+				     (cl-who:htm
+				      (:li :class "sidebar-item"
+					   (:a :href "/hhub/dodvenbulkaddprodpage" :class "nav-link" "Bulk Add Products"))))))
 		       (:li :class "nav-item"
 			    (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
 				:data-bs-target "#orders" :aria-expanded "true" :aria-controls "orders"
@@ -101,7 +107,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 				      (:a :href "hhubvendpushsubscribepage" :class "nav-link" "Browser Push Notification"))
 				 (:li :class "sidebar-item"
 				      (:a :href "/hhub/dodvendprofile?context=home" :class "nav-link" "Vendor Settings"))
-				 ))))))
+				 )))))))
 								
 		  ;; (:div :class "dropdown"
 		  ;; 	(:a :href "#" :class "d-flex align-items-center link-body-emphasis text-decoration-none dropdown-toggle" :data-bs-toggle "dropdown" :aria-expanded "false"
@@ -2228,16 +2234,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun createmodelforshowvendorproducts ()
   (let* ((vendor-products (hhub-get-cached-vendor-products))
-	 (vendor-company (get-login-vendor-company))
-	 (cmp-type (slot-value vendor-company 'cmp-type))
-	 (subscription-plan (slot-value vendor-company 'subscription-plan))
-	 (numproducts (length vendor-products))
-	 (compbulkupload-p (com-hhub-attribute-company-prdbulkupload-enabled subscription-plan cmp-type)))
+	 (numproducts (length vendor-products)))
     (function (lambda ()
-      (values vendor-products numproducts compbulkupload-p)))))
+      (values vendor-products numproducts)))))
 	
 (defun createwidgetsforshowvendorproducts (modelfunc)
-  (multiple-value-bind (vendor-products   numproducts compbulkupload-p) (funcall modelfunc)
+  (multiple-value-bind (vendor-products numproducts) (funcall modelfunc)
   (let ((widget1 (function (lambda ()
 		   (cl-who:with-html-output (*standard-output* nil)    
 		     (:br)
@@ -2246,11 +2248,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			 (with-html-search-form "idvendsearchproduct" "vendsearchproduct" "idtxtvendsearchproduct" "txtvendsearchproduct" "hhubvendsearchproduct" "onkeyupsearchform1event();" "Type few letters of Product Name"
 			   (submitsearchform1event-js "#idtxtvendsearchproduct" "#txtvendsearchproductresult")))
 		       (with-html-div-col-4 
-			 (:span :class "position-absolute top-50 start-50 translate-middle badge rounded-pill bg-danger" (:h5 (cl-who:str (format nil "~A" numproducts)))))
-		       (when compbulkupload-p
-			 (cl-who:htm
-			  (with-html-div-col-4
-			    (:a :class "btn btn-primary" :role "button" :href "dodvenbulkaddprodpage" (:i :class "fa-solid fa-cart-shopping") " Bulk Add Products ")))))))))
+			 (:span :class "position-absolute top-50 start-50 translate-middle badge rounded-pill bg-danger" (:h5 (cl-who:str (format nil "~A" numproducts))))))))))
 	(widget2 (function (lambda ()
 		   (cl-who:with-html-output (*standard-output* nil)    
 		     (:hr)
