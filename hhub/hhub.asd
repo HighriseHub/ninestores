@@ -1,8 +1,8 @@
 
 ;; -*- Mode: LISP; Syntax: COMMON-LISP; Package: CL-USER; Base: 10 -*-
-;;; $Header: hhub.asd,v 1.6 2018/06/26 18:31:03 
+;;; $Header: hhub.asd,v 1.6 2016/06/26 18:31:03 
 
-;;; Copyright (c) 2018-2022, Nine Technologies.  All rights reserved.
+;;; Copyright (c) 2016-2025, Nine Technologies.  All rights reserved.
 
 ;;; Redistribution and use in source and binary forms, with or without
 ;;; modification, are permitted provided that the following conditions
@@ -30,8 +30,8 @@
 
 (asdf:defsystem #:hhub
   :serial t
-  :description "HighriseHub is an online marketplace for a group of people living in an apartment/colony/area/city. It can be extended to more than one apartment in a city or vendors can register their own areas as supply areas. Backend is MYSQL database and it is a web application. It is supported on all the mobile screens like iOS, Android."
-  :author "Pawankumar Deshpande <pawan.deshpande@gmail.com>"
+  :description "Nine Stores  is an online marketplace and e-commerce platform."
+  :author "Nine Stores <support@ninestores.in>"
   :license "THIS SOFTWARE IS PROVIDED BY THE AUTHOR 'AS IS' AND ANY EXPRESSED
 OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -42,92 +42,145 @@ GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
 INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
 WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
-    :version "1.0.0"
+  :version "1.1.0"
+  
+  :components
+  ((:file "hhub/package/packages")
+   (:file "hhub/package/compile")
+   (:file "hhub/package/load")
+   (:file "installation/init")
+   
+   ;; Core
+   (:file "hhub/core/dod-bl-err")
+   (:file "hhub/core/dod-bl-pas")
+   (:file "hhub/core/dod-bl-pol")
+   (:file "hhub/core/dod-bl-rol")
+   (:file "hhub/core/dod-bl-sys")
+   (:file "hhub/core/dod-bl-utl")
+   (:file "hhub/core/dod-dal-bo")
+   (:file "hhub/core/dod-dal-pas")
+   (:file "hhub/core/dod-dal-pol")
+   (:file "hhub/core/dod-dal-rol")
+   (:file "hhub/core/dod-ini-sys")
+   (:file "hhub/core/dod-seed-data")
+   (:file "hhub/core/dod-ui-attr")
+   (:file "hhub/core/dod-ui-pol")
+   (:file "hhub/core/dod-ui-rol")
+   (:file "hhub/core/dod-ui-utl")
+   (:file "hhub/core/dtrace")
+   (:file "hhub/core/extkeys")
+   (:file "hhub/core/hhub-bl-ent")
+   (:file "hhub/core/hhub-bl-egn")
+   (:file "hhub/core/hhub-dal-egn")
+   (:file "hhub/core/hhub-ui-egn")
+   (:file "hhub/core/hhublazy")
+   (:file "hhub/core/memoize")
+   (:file "hhub/core/nst-bl-act")
+   (:file "hhub/core/nst-bl-otp")
+   (:file "hhub/core/nst-sch-mig")
+   (:file "hhub/core/tempuigen")
+   (:file "hhub/core/unit-tests")
+   (:file "hhub/core/xref")
+   
+   ;; Modules
+   (:file "hhub/account/dod-bl-cmp")
+   (:file "hhub/account/dod-dal-cmp")
+   (:file "hhub/account/dod-ui-cmp")
+   
+   (:file "hhub/customer/dod-bl-cus")
+   (:file "hhub/customer/dod-dal-cus")
+   (:file "hhub/customer/dod-ui-cus")
+   
+   (:file "hhub/email/templates/registration")
+   
+   (:file "hhub/invoice/nst-bl-ihd")
+   (:file "hhub/invoice/nst-bl-itm")
+   (:file "hhub/invoice/nst-dal-ihd")
+   (:file "hhub/invoice/nst-dal-itm")
+   (:file "hhub/invoice/nst-ui-ihd")
+   (:file "hhub/invoice/nst-ui-itm")
+   (:file "hhub/invoice/templates/invoicesettings")
+   
+   (:file "hhub/order/dod-bl-odt")
+   (:file "hhub/order/dod-bl-ord")
+   (:file "hhub/order/dod-dal-odt")
+   (:file "hhub/order/dod-dal-ord")
+   (:file "hhub/order/dod-ui-odt")
+   (:file "hhub/order/dod-ui-ord")
+   (:file "hhub/order/nst-bl-Order")
+   (:file "hhub/order/nst-bl-OrderItem")
+   (:file "hhub/order/nst-dal-Order")
+   (:file "hhub/order/nst-dal-OrderItem")
+   (:file "hhub/order/nst-ui-Order")
+   (:file "hhub/order/nst-ui-OrderItem")
+   
+   (:file "hhub/paymentgateway/dod-bl-pay")
+   (:file "hhub/paymentgateway/dod-dal-pay")
+   (:file "hhub/paymentgateway/dod-ui-pay")
+   
+   (:file "hhub/products/dod-bl-gst")
+   (:file "hhub/products/dod-bl-prd")
+   (:file "hhub/products/dod-dal-gst")
+   (:file "hhub/products/dod-dal-prd")
+   (:file "hhub/products/dod-ui-gst")
+   (:file "hhub/products/dod-ui-prd")
+   
+   (:file "hhub/shipping/dod-bl-osh")
+   (:file "hhub/shipping/dod-dal-osh")
+   (:file "hhub/shipping/dod-ui-osh")
+   
+   (:file "hhub/stock/dod-dal-stk")
+   
+   (:file "hhub/subscription/dod-bl-opf")
+   (:file "hhub/subscription/dod-dal-opf")
+   (:file "hhub/subscription/dod-ui-opf")
+   
+   (:file "hhub/sysuser/dod-bl-cad")
+   (:file "hhub/sysuser/dod-bl-usr")
+   (:file "hhub/sysuser/dod-dal-sys")
+   (:file "hhub/sysuser/dod-dal-usr")
+   (:file "hhub/sysuser/dod-ui-cad")
+   (:file "hhub/sysuser/dod-ui-sys")
+   (:file "hhub/sysuser/dod-ui-usr")
+   
+   (:file "hhub/upi/dod-bl-upi")
+   (:file "hhub/upi/dod-dal-upi")
+   (:file "hhub/upi/dod-ui-upi")
+   
+   (:file "hhub/vendor/dod-bl-vas")
+   (:file "hhub/vendor/dod-bl-vad")
+   (:file "hhub/vendor/dod-bl-ven")
+   (:file "hhub/vendor/dod-bl-vpm")
+   (:file "hhub/vendor/dod-dal-vas")
+   (:file "hhub/vendor/dod-dal-vad")
+   (:file "hhub/vendor/dod-dal-ven")
+   (:file "hhub/vendor/dod-dal-vpm")
+   (:file "hhub/vendor/dod-ui-vad")
+   (:file "hhub/vendor/dod-ui-ven")
+   
+   (:file "hhub/warehouse/dod-bl-wrh")
+   (:file "hhub/warehouse/dod-dal-wrh")
+   (:file "hhub/warehouse/dod-ui-wrh")
+   
+   (:file "hhub/webpushnotify/dod-bl-push")
+   (:file "hhub/webpushnotify/dod-dal-push")
+   (:file "hhub/webpushnotify/dod-ui-push")
+   
+   (:file "hhub/dod-sto-zip")
+   
+   ;; Tests
+   (:file "hhub/test/hhub-tst-act")
+   (:file "hhub/test/hhub-tst-che")
+   (:file "hhub/test/hhub-tst-cus")
+   (:file "hhub/test/hhub-tst-flupload")
+   (:file "hhub/test/hhub-tst-gst")
+   (:file "hhub/test/hhub-test-inv")
+   (:file "hhub/test/hhub-tst-ord")
+   (:file "hhub/test/hhub-tst-sms")
+   (:file "hhub/test/hhub-tst-upi")
+   (:file "hhub/test/hhub-tst-vpm")
+   (:file "hhub/test/hhub-tst-webpush")
+   (:file "hhub/test/hhub-tst-wrh")
+   (:file "hhub/test/dod-test-ord")))
 
-  :components ((:file "packages")
-	       
-	       	; Util 
-	       (:file "dod-bl-utl" :depends-on ("packages"))
-	       (:file "dod-ui-utl" :depends-on ("packages"))
-	       (:file "dod-bl-err" :depends-on ("packages"))
-	       (:file "hhub-bl-ent" :depends-on ("packages"))
-	       (:file "email/templates/registration" :depends-on ("packages"))
-	  
-	       ; Initial System
-	       (:file "dod-ini-sys" :depends-on ("packages"))
-				
-	       ; System
-		  (:file "dod-ui-sys" :depends-on ("packages") )
-	       ; User
-	       (:file "dod-ui-usr" :depends-on ("packages") )
-	       (:file "dod-bl-usr" :depends-on ("packages") )
-	       (:file "dod-dal-usr" :depends-on ("packages"))
-	        ; Product 
-	       (:file "dod-dal-prd" :depends-on ("packages"))
-	       (:file "dod-bl-prd" :depends-on ("packages"))
-	       (:file "dod-ui-prd" :depends-on ("packages"))
-	       ; Order 
-	       (:file "dod-bl-ord" :depends-on ("packages"))
-	       (:file "dod-ui-ord" :depends-on ("packages"))
-	       (:file "dod-dal-ord" :depends-on ("packages"))
-	       ; Order Detail
-	       (:file "dod-bl-odt" :depends-on ("packages"))
-	       (:file "dod-ui-odt" :depends-on ("packages"))
-	       (:file "dod-dal-odt"  :depends-on ("packages"))
-	       ; Company 
-	       (:file "dod-dal-cmp" :depends-on ("packages"))
-	       (:file "dod-bl-cmp" :depends-on ("packages"))
-	       (:file "dod-ui-cmp" :depends-on ("packages"))
-	       ; Order preferences
-	       (:file "dod-ui-opf" :depends-on ("packages"))
-	       (:file "dod-dal-opf" :depends-on ("packages"))
-	       (:file "dod-bl-opf" :depends-on ("packages"))
-	       ; Order tracking
-	       ; Policies
-	       (:file "dod-dal-pol" :depends-on ("packages"))
-	       (:file "dod-bl-pol" :depends-on ("packages"))
-	       (:file "dod-ui-pol" :depends-on ("packages"))
-	      
-	       ; Business objects and Business Transactions
-	       (:file "dod-dal-bo" :depends-on ("packages"))
-	       (:file "dod-bl-bo" :depends-on ("packages"))
-	    
-	      ; Role
-	       (:file "dod-ui-rol" :depends-on ("packages"))
-	       (:file "dod-bl-rol" :depends-on ("packages"))
-	       (:file "dod-dal-rol" :depends-on ("packages"))
-					; Vendor
-	       (:file "dod-ui-ven" :depends-on ("packages"))
-	       (:file "dod-bl-ven" :depends-on ("packages"))
-	       (:file "dod-dal-ven" :depends-on ("packages"))
-	      
-	       ; Customer 
-	       (:file "dod-ui-cus":depends-on ("packages") )
-	       (:file "dod-bl-cus" :depends-on ("packages") )
-	       (:file "dod-dal-cus" :depends-on ("packages"))
-	      
-	       ; Payment Transactions 
-	       (:file "dod-ui-pay" :depends-on ("packages"))
-	       (:file "dod-bl-pay" :depends-on ("packages"))
-	       (:file "dod-dal-pay" :depends-on ("packages"))
-	       
-	       ;Password reset
-	       (:file "dod-dal-pas" :depends-on ("packages"))
-	       (:file "dod-bl-pas" :depends-on ("packages"))
-	       
-	         ; Vendor Availability Day 
-	       (:file "dod-dal-vad" :depends-on ("packages"))
-	       (:file "dod-bl-vad" :depends-on ("packages"))
-
-					; Vendor appointment
-	       (:file "dod-dal-vas" :depends-on ("packages"))
-	       (:file "dod-bl-vas" :depends-on ("packages"))
-
-					; Web Push Notifications 
-	       (:file "dod-ui-push" :depends-on ("packages"))
-	       (:file "dod-bl-push" :depends-on ("packages"))
-	       (:file "dod-dal-push" :depends-on ("packages"))
-
-	       
-	       ))
 
