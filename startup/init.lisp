@@ -11,7 +11,11 @@
 
 ;;;Do not do anything here. Just create the swank port, start swank server and exit. 
 
-
+;;; Load HHUB system BEFORE blocking for shutdown signal
+(handler-case
+    (load "/home/ubuntu/ninestores/hhub/package/load.lisp")
+  (error (e)
+    (format t "ERROR DURING SYSTEM LOAD: ~A~%" e)))
 ;;; We need a way to actually kill this baby so we
 ;;; setup a socket listening on a specific port.
 ;;; When we want to stop the lisp process we simply
