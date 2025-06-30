@@ -98,79 +98,79 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    ;; Order
    (:file "order/dod-dal-odt")
    (:file "order/dod-dal-ord")
-   ;;(:file "order/nst-dal-Order")
-   ;;(:file "order/nst-dal-OrderItem")
- (:file "order/dod-bl-odt")
- (:file "order/dod-bl-ord")
- ;;(:file "order/nst-bl-Order")
- ;;(:file "order/nst-bl-OrderItem")
- (:file "order/dod-ui-odt")
- (:file "order/dod-ui-ord")
- ;;(:file "order/nst-ui-Order")
- ;; (:file "order/nst-ui-OrderItem")
+   (:file "order/nst-dal-Order")
+   (:file "order/nst-dal-OrderItem")
+   (:file "order/dod-bl-odt")
+   (:file "order/dod-bl-ord")
+   (:file "order/nst-bl-Order")
+   (:file "order/nst-bl-OrderItem")
+   (:file "order/dod-ui-odt")
+   (:file "order/dod-ui-ord")
+   (:file "order/nst-ui-Order")
+   (:file "order/nst-ui-OrderItem")
 
  ;; Payment Gateway
- (:file "paymentgateway/dod-dal-pay")
- (:file "paymentgateway/dod-bl-pay")
- (:file "paymentgateway/dod-ui-pay")
-
- ;; Products
- (:file "products/dod-dal-gst")
- (:file "products/dod-dal-prd")
- (:file "products/dod-bl-gst")
- (:file "products/dod-bl-prd")
- (:file "products/dod-ui-gst")
- (:file "products/dod-ui-prd")
-
- ;; Shipping
- (:file "shipping/dod-dal-osh")
- (:file "shipping/dod-bl-osh")
- (:file "shipping/dod-ui-osh")
-
- ;; Stock
- (:file "stock/dod-dal-stk")
-
- ;; Subscription
- (:file "subscription/dod-dal-opf")
- (:file "subscription/dod-bl-opf")
- (:file "subscription/dod-ui-opf")
-
+   (:file "paymentgateway/dod-dal-pay")
+   (:file "paymentgateway/dod-bl-pay")
+   (:file "paymentgateway/dod-ui-pay")
+   
+   ;; Products
+   (:file "products/dod-dal-gst")
+   (:file "products/dod-dal-prd")
+   (:file "products/dod-bl-gst")
+   (:file "products/dod-bl-prd")
+   (:file "products/dod-ui-gst")
+   (:file "products/dod-ui-prd")
+   
+   ;; Shipping
+   (:file "shipping/dod-dal-osh")
+   (:file "shipping/dod-bl-osh")
+   (:file "shipping/dod-ui-osh")
+   
+   ;; Stock
+   (:file "stock/dod-dal-stk")
+   
+   ;; Subscription
+   (:file "subscription/dod-dal-opf")
+   (:file "subscription/dod-bl-opf")
+   (:file "subscription/dod-ui-opf")
+   
  ;; Sysuser
- (:file "sysuser/dod-dal-sys")
- (:file "sysuser/dod-dal-usr")
- (:file "sysuser/dod-bl-cad")
- (:file "sysuser/dod-bl-usr")
- (:file "sysuser/dod-ui-cad")
- (:file "sysuser/dod-ui-sys")
- (:file "sysuser/dod-ui-usr")
-
- ;; UPI
- (:file "upi/dod-dal-upi")
- (:file "upi/dod-bl-upi")
- (:file "upi/dod-ui-upi")
-
- ;; Vendor
- (:file "vendor/dod-dal-vas")
- (:file "vendor/dod-dal-vad")
- (:file "vendor/dod-dal-ven")
- (:file "vendor/dod-dal-vpm")
- (:file "vendor/dod-bl-vas")
- (:file "vendor/dod-bl-vad")
- (:file "vendor/dod-bl-ven")
- (:file "vendor/dod-bl-vpm")
- (:file "vendor/dod-ui-vad")
- (:file "vendor/dod-ui-ven")
-
- ;; Warehouse
- (:file "warehouse/dod-dal-wrh")
- (:file "warehouse/dod-bl-wrh")
- (:file "warehouse/dod-ui-wrh")
-
- ;; Web Push Notification
- (:file "webpushnotify/dod-dal-push")
- (:file "webpushnotify/dod-bl-push")
- (:file "webpushnotify/dod-ui-push")
-
- ;; Misc
- (:file "dod-sto-zip")))
+   (:file "sysuser/dod-dal-sys")
+   (:file "sysuser/dod-dal-usr")
+   (:file "sysuser/dod-bl-cad")
+   (:file "sysuser/dod-bl-usr")
+   (:file "sysuser/dod-ui-cad")
+   (:file "sysuser/dod-ui-sys")
+   (:file "sysuser/dod-ui-usr")
+   
+   ;; UPI
+   (:file "upi/dod-dal-upi")
+   (:file "upi/dod-bl-upi")
+   (:file "upi/dod-ui-upi")
+   
+   ;; Vendor
+   (:file "vendor/dod-dal-vas")
+   (:file "vendor/dod-dal-vad")
+   (:file "vendor/dod-dal-ven")
+   (:file "vendor/dod-dal-vpm")
+   (:file "vendor/dod-bl-vas")
+   (:file "vendor/dod-bl-vad")
+   (:file "vendor/dod-bl-ven")
+   (:file "vendor/dod-bl-vpm")
+   (:file "vendor/dod-ui-vad")
+   (:file "vendor/dod-ui-ven")
+   
+   ;; Warehouse
+   (:file "warehouse/dod-dal-wrh")
+   (:file "warehouse/dod-bl-wrh")
+   (:file "warehouse/dod-ui-wrh")
+   
+   ;; Web Push Notification
+   (:file "webpushnotify/dod-dal-push")
+   (:file "webpushnotify/dod-bl-push")
+   (:file "webpushnotify/dod-ui-push")
+   
+   ;; Misc
+   (:file "dod-sto-zip")))
 
