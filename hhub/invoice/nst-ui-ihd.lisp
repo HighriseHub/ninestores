@@ -44,9 +44,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-invoice-settings-page ()
   (with-vend-session-check
-    (with-mvc-ui-page "Invoice Settings Page" createmodelforinvoicesettingspage createwidgetsforinvoicesettingspage :role :vendor)))
+    (with-mvc-ui-page "Invoice Settings Page" #'create-model-for-invoicesettingspage #'create-widgets-for-invoicesettingspage :role :vendor)))
 
-(defun createmodelforinvoicesettingspage ()
+(defun create-model-for-invoicesettingspage ()
   (let* ((vinvsettings (hunchentoot:session-value :login-vendor-invoice-settings))
 	 (printsettings (cdr (assoc 'invoice-print-settings vinvsettings :test 'equal)))
 	 (vinvsettingshtml (funcall (nst-get-cached-invoice-template-func :templatenum 11)))
@@ -56,7 +56,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (function (lambda ()
       (values idinvsettings vinvsettingshtml)))))
 
-(defun createwidgetsforinvoicesettingspage (modelfunc)
+(defun create-widgets-for-invoicesettingspage (modelfunc)
   (multiple-value-bind (idinvsettings vinvsettingshtml) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -171,9 +171,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-save-invoice-print-settings-action ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforinvoiceprintsettingsaction createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-invoiceprintsettingsaction #'create-widgets-for-genericredirect)))
 
-(defun createmodelforinvoiceprintsettingsaction ()
+(defun create-model-for-invoiceprintsettingsaction ()
   (let* ((vendor (get-login-vendor))
 	 (vendor-id (get-login-vendor-id))
 	 (tenant-id (get-login-vendor-tenant-id))
@@ -204,9 +204,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-download-invoice()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelfordownloadinvoice createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-downloadinvoice #'create-widgets-for-genericredirect)))
 
-(defun createmodelfordownloadinvoice ()
+(defun create-model-for-downloadinvoice ()
   (let* ((sessioninvkey (hunchentoot:parameter "sessioninvkey"))
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
@@ -222,9 +222,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-send-invoice-email ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforsendinvoiceemail createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-sendinvoiceemail #'create-widgets-for-genericredirect)))
 
-(defun createmodelforsendinvoiceemail ()
+(defun create-model-for-sendinvoiceemail ()
   (let* ((sessioninvkey (hunchentoot:parameter "sessioninvkey"))
 	 (to (hunchentoot:parameter "invoiceto"))
 	 (subject (hunchentoot:parameter "draftinvoicesubject"))
@@ -238,9 +238,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-edit-invoice-email ()
   (with-vend-session-check
-    (with-mvc-ui-page "Invoice Email" createmodelfordisplayinvoiceemail createwidgetsfordisplayinvoiceemail :role :vendor)))
+    (with-mvc-ui-page "Invoice Email" #'create-model-for-displayinvoiceemail #'create-widgets-for-displayinvoiceemail :role :vendor)))
 
-(defun createmodelfordisplayinvoiceemail ()
+(defun create-model-for-displayinvoiceemail ()
   (let* ((templatenum (parse-integer (hunchentoot:parameter "templatenum")))
 	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum templatenum)))
 	 (company (get-login-vendor-company))
@@ -294,7 +294,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (function (lambda ()
       (values invoicetemplate to subject idtextarea charcountid1 sessioninvkey)))))
 
-(defun createwidgetsfordisplayinvoiceemail (modelfunc)
+(defun create-widgets-for-displayinvoiceemail (modelfunc)
   (multiple-value-bind (draftemailtext to subject idtextarea charcountid1 sessioninvkey) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
@@ -338,7 +338,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (format nil "~A/hhub/displayinvoicepublic?key=~A" *siteurl* param-base64)))
 
 
-(defun createmodelfordisplayinvoicepublic ()
+(defun create-model-for-displayinvoicepublic ()
   (let* ((invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum 9)))  
     	 (parambase64 (hunchentoot:parameter "key"))
 	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
@@ -371,7 +371,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (function (lambda ()
       (values  invoicetemplate)))))
 
-(defun createwidgetsfordisplayinvoicepublic (modelfunc)
+(defun create-widgets-for-displayinvoicepublic (modelfunc)
   (multiple-value-bind ( invoicetemplate) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
@@ -427,7 +427,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       
 
 (defun com-hhub-transaction-display-invoice-public ()
-    (with-mvc-ui-page "Display Invoice Public" createmodelfordisplayinvoicepublic createwidgetsfordisplayinvoicepublic :role :vendor))
+    (with-mvc-ui-page "Display Invoice Public" #'create-model-for-displayinvoicepublic #'create-widgets-for-displayinvoicepublic :role :vendor))
 
 ;;;;;;;;;;;;;;;;;;;;;;;; INVOICE EMAIL OPTIONS MENU ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun invoice-email-options-menu (status sessioninvkey)
@@ -558,10 +558,10 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 ;;;;;;;;;;;;;;;;;;;;;; INVOICE PAID ACTION ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun com-hhub-transaction-invoice-paid-action ()
   (with-vend-session-check ;; delete if not needed. 
-    (let ((uri (with-mvc-redirect-ui createmodelforinvoicepaidaction createwidgetsforgenericredirect)))
+    (let ((uri (with-mvc-redirect-ui #'create-model-for-invoicepaidaction #'create-widgets-for-genericredirect)))
       (format nil "~A" uri))))
 
-(defun createmodelforinvoicepaidaction ()
+(defun create-model-for-invoicepaidaction ()
   (let* ((company (get-login-vendor-company))
 	 (vendor (get-login-vendor))
 	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
@@ -617,9 +617,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 ;;;;;;;;;;;;;;;;;;;;;; SHOW THE INVOICE PAYMENT PAGE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun com-hhub-transaction-show-invoice-payment-page ()
   (with-vend-session-check ;; delete if not needed. 
-    (with-mvc-ui-page "Invoice Payment Page" createmodelforshowinvoicepaymentpage createwidgetsforshowinvoicepaymentpage :role :vendor )))
+    (with-mvc-ui-page "Invoice Payment Page" #'create-model-for-showinvoicepaymentpage #'create-widgets-for-showinvoicepaymentpage :role :vendor )))
 
-(defun createmodelforshowinvoicepaymentpage ()
+(defun create-model-for-showinvoicepaymentpage ()
   (let* ((company (get-login-vendor-company))
 	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
 	 (status (hunchentoot:parameter "status"))
@@ -658,7 +658,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	    ;; return the exception.
 	    (error 'hhub-business-function-error :errstring exceptionstr)))))))
 
-(defun createwidgetsforshowinvoicepaymentpage (modelfunc)
+(defun create-widgets-for-showinvoicepaymentpage (modelfunc)
   (multiple-value-bind (sessioninvkey totalvalue invnum) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (with-vendor-breadcrumb
@@ -697,9 +697,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-show-invoice-confirm-page ()
   (with-vend-session-check ;; delete if not needed. 
-    (with-mvc-ui-page "Invoice Confirm Page" createmodelforshowinvoiceconfirmpage createwidgetsforshowinvoiceconfirmpage :role :vendor )))
+    (with-mvc-ui-page "Invoice Confirm Page" #'create-model-for-showinvoiceconfirmpage #'create-widgets-for-showinvoiceconfirmpage :role :vendor )))
 
-(defun createmodelforshowinvoiceconfirmpage ()
+(defun create-model-for-showinvoiceconfirmpage ()
   (let* ((company (get-login-vendor-company))
 	 (vendor (get-login-vendor))
 	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
@@ -738,7 +738,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	(values sessioninvkey invnum  invoicetemplate))))))
 
 
-(defun createwidgetsforshowinvoiceconfirmpage (modelfunc)
+(defun create-widgets-for-showinvoiceconfirmpage (modelfunc)
   (multiple-value-bind (sessioninvkey  invnum  invoicetemplate) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (with-vendor-breadcrumb
@@ -907,9 +907,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-add-product-to-invoice-page ()
   (with-vend-session-check ;; delete if not needed. 
-    (with-mvc-ui-page "Add Product To Invoice" createmodelforaddprdtoinvoice createwidgetsforaddprdtoinvoice :role :vendor )))
+    (with-mvc-ui-page "Add Product To Invoice" #'create-model-for-addprdtoinvoice #'create-widgets-for-addprdtoinvoice :role :vendor )))
 
-(defun createmodelforaddprdtoinvoice ()
+(defun create-model-for-addprdtoinvoice ()
   (let* ((sessioninvkey (hunchentoot:parameter "sessioninvkey"))
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
@@ -922,7 +922,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (function (lambda ()
       (values products sessioninvitems sessioninvproducts  headerstatus sessioninvkey invnum)))))
 
-(defun createwidgetsforaddprdtoinvoice (modelfunc)
+(defun create-widgets-for-addprdtoinvoice (modelfunc)
   (multiple-value-bind (products sessioninvitems sessioninvproducts headerstatus sessioninvkey invnum) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
@@ -1087,7 +1087,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ADD TO CART BY VENDOR FOR INVOICE GENERATION ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defun createmodelforvendaddtocartforinvoice ()
+(defun create-model-for-vendaddtocartforinvoice ()
   (let* ((company (get-login-vendor-company))
 	 (prd-id (parse-integer (hunchentoot:parameter "prd-id")))
 	 (prdqty (parse-integer (hunchentoot:parameter "prdqty")))
@@ -1161,7 +1161,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (function (lambda ()
 	(values redirectlocation))))))
 
-(defun createwidgetsforvendaddtocartforinvoice (modelfunc)
+(defun create-widgets-for-vendaddtocartforinvoice (modelfunc)
   (multiple-value-bind (redirectlocation) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     redirectlocation))))
@@ -1170,19 +1170,15 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 (defun com-hhub-transaction-vendor-addtocart-for-invoice-action ()
   :documentation "This function is responsible for adding the product and product quantity to the shopping cart."
   (with-vend-session-check
-    (let ((uri (with-mvc-redirect-ui createmodelforvendaddtocartforinvoice createwidgetsforvendaddtocartforinvoice)))
+    (let ((uri (with-mvc-redirect-ui #'create-model-for-vendaddtocartforinvoice #'create-widgets-for-vendaddtocartforinvoice)))
       (format nil "~A" uri))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;ADD TO CART USING BARCODE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun createmodelforvendaddtocartusingbarcode ()
+(defun create-model-for-vendaddtocartusingbarcode ()
   (let* ((company (get-login-vendor-company))
 	 (barcode (hunchentoot:parameter "barcodeinput"))
 	 (sessioninvkey (hunchentoot:parameter "sessioninvkey"))
@@ -1263,14 +1259,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (function (lambda ()
 	(values redirectlocation))))))
 
-(defun createwidgetsforvendaddtocartusingbarcode (modelfunc)
- (createwidgetsforgenericredirect modelfunc))
+(defun create-widgets-for-vendaddtocartusingbarcode (modelfunc)
+ (funcall #'create-widgets-for-genericredirect modelfunc))
 
 
 (defun com-hhub-transaction-vendor-addtocart-using-barcode-action ()
   :documentation "This function is responsible for adding the product and product quantity to the shopping cart."
   (with-cust-session-check
-    (let ((uri (with-mvc-redirect-ui createmodelforvendaddtocartusingbarcode createwidgetsforvendaddtocartusingbarcode)))
+    (let ((uri (with-mvc-redirect-ui #'create-model-for-vendaddtocartusingbarcode #'create-widgets-for-vendaddtocartusingbarcode)))
       (format nil "~A" uri))))
 
 
@@ -1280,9 +1276,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-add-customer-to-invoice-page ()
   (with-vend-session-check ;; delete if not needed. 
-    (with-mvc-ui-page "Add Customer To Invoice" createmodelforaddcusttoinvoice createwidgetsforaddcusttoinvoice :role  :vendor )))
+    (with-mvc-ui-page "Add Customer To Invoice" #'create-model-for-addcusttoinvoice #'create-widgets-for-addcusttoinvoice :role  :vendor )))
 
-(defun createmodelforaddcusttoinvoice()
+(defun create-model-for-addcusttoinvoice()
   (let* ((company (get-login-vendor-company))
 	 (guestcustomer (select-guest-customer company))
 	 (guestcustid (slot-value guestcustomer 'row-id))
@@ -1291,7 +1287,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (function (lambda ()
       (values mycustomers guestcustid)))))
 
-(defun createwidgetsforaddcusttoinvoice (modelfunc)
+(defun create-widgets-for-addcusttoinvoice (modelfunc)
   (multiple-value-bind (mycustomers guestcustid) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
@@ -1353,9 +1349,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 (defun com-hhub-transaction-show-invoices-page ()
   :description "This is a show list page for all the InvoiceHeader entities"
   (with-vend-session-check ;; delete if not needed. 
-    (with-mvc-ui-page "InvoiceHeader" createmodelforshowInvoiceHeader createwidgetsforshowInvoiceHeader :role  :vendor )))
+    (with-mvc-ui-page "InvoiceHeader" #'create-model-for-showInvoiceHeader #'create-widgets-for-showInvoiceHeader :role  :vendor )))
 
-(defun createmodelforshowInvoiceHeader ()
+(defun create-model-for-showInvoiceHeader ()
   :description "This is a model function which will create a model to show InvoiceHeader entities"
   (let* ((company (get-login-vendor-company))
 	 (presenterobj (make-instance 'InvoiceHeaderPresenter))
@@ -1374,7 +1370,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (function (lambda ()
 	(values viewallmodel htmlview))))))
 
-(defun createwidgetsforshowInvoiceHeader (modelfunc)
+(defun create-widgets-for-showInvoiceHeader (modelfunc)
  :description "This is the view/widget function for show InvoiceHeader entities" 
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
@@ -1399,9 +1395,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 		     (render-invoice-settings-menu)))))
       (list widget1 widget2 widget3 widget4))))
 
-(defun createwidgetsforupdateInvoiceHeader (modelfunc)
+(defun create-widgets-for-updateInvoiceHeader (modelfunc)
 :description "This is a widgets function for update InvoiceHeader entity"      
-  (createwidgetsforgenericredirect modelfunc))
+  (funcall #'create-widgets-for-genericredirect modelfunc))
 
 
 (defmethod RenderListViewHTML ((htmlview InvoiceHeaderHTMLView) viewmodellist)
@@ -1409,7 +1405,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
   (when viewmodellist
     (display-as-table (list "Invoice Number" "Date" "Customer Name" "Status" "Total Value" "Action") viewmodellist 'display-InvoiceHeader-row)))
 
-(defun createmodelforsearchInvoiceHeader ()
+(defun create-model-for-searchInvoiceHeader ()
   :description "This is a model function for search InvoiceHeader entities/entity" 
   (let* ((search-clause (hunchentoot:parameter "InvoiceHeaderlivesearch"))
 	 (company (get-login-vendor-company))
@@ -1430,7 +1426,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (function (lambda ()
 	(values viewallmodel htmlview))))))
 
-(defun createwidgetsforsearchInvoiceHeader (modelfunc)
+(defun create-widgets-for-searchInvoiceHeader (modelfunc)
   :description "This is a widget function for search InvoiceHeader entities"
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
@@ -1447,11 +1443,11 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-search-invoice-action ()
   :description "This is a MVC function to search action for InvoiceHeader entities/entity" 
-  (let* ((modelfunc (createmodelforsearchInvoiceHeader))
-	 (widgets (createwidgetsforsearchInvoiceHeader modelfunc)))
+  (let* ((modelfunc (funcall #'create-model-for-searchInvoiceHeader))
+	 (widgets (funcall #'create-widgets-for-searchInvoiceHeader modelfunc)))
     (display-search-results-with-widgets widgets)))
 
-(defun createmodelforupdateInvoiceHeader ()
+(defun create-model-for-updateInvoiceHeader ()
   :description "This is a model function for update InvoiceHeader entity"
   (let* ((invnum (hunchentoot:parameter "invnum"))
 	 (invdate (get-date-from-string (hunchentoot:parameter "invdate")))
@@ -1539,14 +1535,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 (defun com-hhub-transaction-create-invoice-action()
   :description "This is a MVC function for create InvoiceHeader entity"
   (with-vend-session-check ;; delete if not needed. 
-    (let ((url (with-mvc-redirect-ui  createmodelforcreateInvoiceHeader createwidgetsforcreateInvoiceHeader)))
+    (let ((url (with-mvc-redirect-ui  #'create-model-for-createInvoiceHeader #'create-widgets-for-createInvoiceHeader)))
       (format nil "~A" url))))
 
-(defun createwidgetsforcreateInvoiceHeader (modelfunc)
+(defun create-widgets-for-createInvoiceHeader (modelfunc)
   :description "This is a create widget function for InvoiceHeader entity"
-  (createwidgetsforgenericredirect modelfunc))
+  (funcall #'create-widgets-for-genericredirect modelfunc))
 
-(defun createmodelforcreateInvoiceHeader ()
+(defun create-model-for-createInvoiceHeader ()
   :description "This is a create model function for creating a InvoiceHeader entity"
   (let* ((invdate (get-date-from-string (hunchentoot:parameter "invdate")))
 	 (company (get-login-vendor-company))
@@ -1725,9 +1721,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-vendor-create-customer-action ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvendorcreatecustomer createwidgetsforvendorcreatecustomer)))
+    (with-mvc-redirect-ui #'create-model-for-vendorcreatecustomer #'create-widgets-for-vendorcreatecustomer)))
 
-(defun createmodelforvendorcreatecustomer ()
+(defun create-model-for-vendorcreatecustomer ()
   (let* ((fname (hunchentoot:parameter "firstname"))
 	 (lname (hunchentoot:parameter "lastname"))
 	 (cphone (hunchentoot:parameter "phone"))
@@ -1756,9 +1752,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (function (lambda ()
       redirectlocation))))
       
-(defun createwidgetsforvendorcreatecustomer (modelfunc)
+(defun create-widgets-for-vendorcreatecustomer (modelfunc)
   :description "This is a widgets function for create/update customer by vendor"      
-  (createwidgetsforgenericredirect modelfunc))
+  (funcall #'create-widgets-for-genericredirect modelfunc))
   
 (defun display-InvoiceHeader-row (viewmodel &rest arguments)
   (declare (ignore arguments ))
@@ -1777,18 +1773,18 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 (defun com-hhub-transaction-update-invoice-action()
   :description "This is the MVC function to update action for InvoiceHeader entity"
   (with-vend-session-check ;; delete if not needed. 
-    (let ((url (with-mvc-redirect-ui  createmodelforupdateInvoiceHeader createwidgetsforupdateInvoiceHeader)))
+    (let ((url (with-mvc-redirect-ui  #'create-model-for-updateInvoiceHeader #'create-widgets-for-updateInvoiceHeader)))
       (format nil "~A" url))))
 
 
 (defun com-hhub-transaction-edit-invoice-header-page()
   :description "This is the MVC function to show invoice header page"
   (with-vend-session-check ;; delete if not needed. 
-    (with-mvc-ui-page "Edit Invoice" createmodelforeditinvoiceheaderpage createwidgetsforeditinvoiceheaderpage :role :vendor)))
+    (with-mvc-ui-page "Edit Invoice" #'create-model-for-editinvoiceheaderpage #'create-widgets-for-editinvoiceheaderpage :role :vendor)))
 
 
 
-(defun createmodelforeditinvoiceheaderpage ()
+(defun create-model-for-editinvoiceheaderpage ()
   (let* ((company (get-login-vendor-company))
 	 (vendor (get-login-vendor))
 	 (custid (hunchentoot:parameter "custid"))
@@ -1841,7 +1837,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (values context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear external-url status customer  mode sessioninvkey))))))
 
 
-(defun createwidgetsforeditinvoiceheaderpage (modelfunc)
+(defun create-widgets-for-editinvoiceheaderpage (modelfunc)
   (multiple-value-bind (context-id invnum invdate custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear external-url status customer  mode sessioninvkey) (funcall modelfunc)
     (let* ((widget1 (editinvoicewidget-section1 sessioninvkey context-id invnum invdate  custgstin finyear status customer))
 	   (widget2 (editinvoicewidget-section2 custaddr billaddr shipaddr))

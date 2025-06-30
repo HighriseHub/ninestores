@@ -54,7 +54,7 @@
     (:script "window.onload = function() {countdowntimer(0,0,5,0);}"))))
 
 
-(defun createmodelforcustorderpaymentpage  ()
+(defun create-model-for-custorderpaymentpage  ()
   (let* ((orderparams-ht (get-cust-order-params)) 
 	 (odts (gethash "shoppingcart" orderparams-ht))
 	 (shipping-cost (gethash "shipping-cost" orderparams-ht))
@@ -70,7 +70,7 @@
       (values upitotal qrcodepath upiurls vendor charcountid1)))))
 
 
-(defun createwidgetsforcustorderpaymentpage (modelfunc)
+(defun create-widgets-for-custorderpaymentpage (modelfunc)
   (multiple-value-bind
 	(upitotal qrcodepath upiurls vendor charcountid1)
       (funcall modelfunc) 
@@ -102,9 +102,9 @@
 
 (defun hhub-controller-upi-customer-order-payment-page ()
   (with-cust-session-check
-    (with-mvc-ui-page "Customer UPI Payment Page" createmodelforcustorderpaymentpage createwidgetsforcustorderpaymentpage :role :customer)))
+    (with-mvc-ui-page "Customer UPI Payment Page" #'create-model-for-custorderpaymentpage #'create-widgets-for-custorderpaymentpage :role :customer)))
 
-(defun createmodelforupirechargewalletpage ()
+(defun create-model-for-upirechargewalletpage ()
   (let* ((wallet-id (hunchentoot:parameter "wallet-id"))
 	 (amount (hunchentoot:parameter "amount"))
 	 (custcomp (get-login-customer-company))
@@ -117,7 +117,7 @@
     (function (lambda ()
       (values amount qrcodepath upiurls wallet-id transaction-id charcountid1)))))
 
-(defun createwidgetsforupirechargewalletpage (modelfunc)
+(defun create-widgets-for-upirechargewalletpage (modelfunc)
   (multiple-value-bind (amount qrcodepath upiurls wallet-id transaction-id charcountid1)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
@@ -134,10 +134,10 @@
 					   (:label :for "utrnum" "UTR No")
 					   (:div :class "input-group mb-3"
 						 (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup (format nil "countChar(~A.id, this, 12)" charcountid1)  :max "999999999999" :maxlength "12"  :required T)
-					   (:div :id charcountid1 :class "input-group-text" :style "font-size: 1.2rem; font-weight: bold; color: purple;")))))
+					   (:div :id charcountid1 :class "input-group-text" :style "font-size: 1.2rem; font-weight: bold; color: purple;"))))
 			     (:div :class "row mb-3"
 				   (:div :class "col" :style "text-align: center;"
-					 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit")))))
+					 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" (cl-who:str (format nil "Recharge Wallet for ~A" amount))))))))
 			 ;;else
 			 (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
 			   (:h2 (cl-who:str "UPI Details for Vendor Missing"))))))))
@@ -145,7 +145,7 @@
   
 (defun hhub-controller-upi-recharge-wallet-page ()
   (with-cust-session-check
-    (with-mvc-ui-page "Customer Recharge Wallet - UPI Payment Page" createmodelforupirechargewalletpage createwidgetsforupirechargewalletpage :role :customer)))
+    (with-mvc-ui-page "Customer Recharge Wallet - UPI Payment Page" #'create-model-for-upirechargewalletpage #'create-widgets-for-upirechargewalletpage :role :customer)))
   
 (defun hhub-controller-upi-recharge-wallet-action ()
   (with-cust-session-check
@@ -252,7 +252,7 @@
       (hhub-execute-pending-upi-task utrnum)
       (hunchentoot:redirect "/hhub/hhubvendorupitransactions"))))
 
-(defun createmodelforshowvendorupitransactions ()
+(defun create-model-for-showvendorupitransactions ()
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (upipaymentspresenter (make-instance 'UpiPaymentsPresenter))
@@ -267,7 +267,7 @@
     (function (lambda ()
       (values viewallmodel htmlview)))))
 
-(defun createwidgetsforshowvendorupitransactions (modelfunc)
+(defun create-widgets-for-showvendorupitransactions (modelfunc)
 	   ;; this is the view. 
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
@@ -280,7 +280,7 @@
 
 (defun hhub-controller-show-vendor-upi-transactions ()
   (with-vend-session-check
-    (with-mvc-ui-page "Vendor UPI Transactions" createmodelforshowvendorupitransactions createwidgetsforshowvendorupitransactions :role :vendor)))
+    (with-mvc-ui-page "Vendor UPI Transactions" #'create-model-for-showvendorupitransactions #'create-widgets-for-showvendorupitransactions :role :vendor)))
   
 (defmethod RenderListViewHTML ((htmlview UPIPaymentsHTMLView) viewmodellist)
   (unless (= (length viewmodellist) 0)

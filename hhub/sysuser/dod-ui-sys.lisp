@@ -43,9 +43,9 @@
       (:script "window.onload = function() {countdowntimer(0,0,2,0);}"))))
 
 (defun dod-controller-otp-submit-action ()
-  (with-mvc-redirect-ui createmodelforotpsubmitaction createwidgetsforgenericredirect))
+  (with-mvc-redirect-ui #'create-model-for-otpsubmitaction #'create-widgets-for-genericredirect))
 
-(defun createmodelforotpsubmitaction ()
+(defun create-model-for-otpsubmitaction ()
   (let* ((otp (hunchentoot:parameter "otp"))
 	 (phone (hunchentoot:parameter "phone"))
 	 (persona (hunchentoot:parameter "persona"))
@@ -480,9 +480,9 @@
 
 (defun com-hhub-transaction-sadmin-home () 
   (with-opr-session-check
-    (with-mvc-ui-page "Welcome Super Administrator" createmodelforsadminhome createwidgetsforsadminhome :role :superadmin)))
+    (with-mvc-ui-page "Welcome Super Administrator" #'create-model-for-sadminhome #'create-widgets-for-sadminhome :role :superadmin)))
 
-(defun createmodelforsadminhome ()
+(defun create-model-for-sadminhome ()
   (let ((companies (hhub-get-cached-companies))
 	(params nil))
     (setf params (acons "username" (get-login-username) params))
@@ -491,7 +491,7 @@
       (function (lambda ()
 	(values companies))))))
 
-(defun createwidgetsforsadminhome (modelfunc)
+(defun create-widgets-for-sadminhome (modelfunc)
   (multiple-value-bind (companies) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)   
@@ -623,10 +623,10 @@
 	    (hunchentoot:redirect "/hhub/opr-login.html"))))))
 
 (defun com-hhub-transaction-sadmin-login ()
-  (let ((uri (with-mvc-redirect-ui createmodelforsadminlogin createwidgetsforgenericredirect)))
+  (let ((uri (with-mvc-redirect-ui #'create-model-for-sadminlogin #'create-widgets-for-genericredirect)))
     (format nil "~A" uri)))
 
-(defun createmodelforsadminlogin ()
+(defun create-model-for-sadminlogin ()
  (let  ((uname (hunchentoot:parameter "username"))
 	(passwd (hunchentoot:parameter "password"))
 	(cname (hunchentoot:parameter "company"))
@@ -647,7 +647,7 @@
 
 
 ;;;;;;;;;;;;;;com-hhub-transaction-cad-logout;;;;;;;;;;;;;;;
-(defun createmodelforsadminlogout ()
+(defun create-model-for-sadminlogout ()
   (let ((username (get-login-username))
 	(redirectlocation "/hhub/opr-login.html"))
     (progn
@@ -658,7 +658,7 @@
 	redirectlocation)))))
 
 (defun dod-controller-logout ()
-  (let ((uri (with-mvc-redirect-ui createmodelforsadminlogout createwidgetsforgenericredirect)))
+  (let ((uri (with-mvc-redirect-ui #'create-model-for-sadminlogout #'create-widgets-for-genericredirect)))
     (hunchentoot:redirect (format nil "~A" uri))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  
 

@@ -63,14 +63,14 @@
     updatedvendor))
 
 
-(defun createmodelforproductcategoriespage ()
+(defun create-model-for-productcategoriespage ()
   (let* ((company (get-login-company))
 	 (categories (select-prdcatg-by-company company))
 	 (catgcount (length categories)))
     (function (lambda ()
       (values categories catgcount)))))
 
-(defun createwidgetsforproductcategoriespage (modelfunc)
+(defun create-widgets-for-productcategoriespage (modelfunc)
   (multiple-value-bind ( categories catgcount) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -89,7 +89,7 @@
   
 (defun dod-controller-product-categories-page ()
   (with-cad-session-check
-    (with-mvc-ui-page "Company Admin - Product Categories" createmodelforproductcategoriespage createwidgetsforproductcategoriespage :role :compadmin)))
+    (with-mvc-ui-page "Company Admin - Product Categories" #'create-model-for-productcategoriespage #'create-widgets-for-productcategoriespage :role :compadmin)))
 
 
 (defun modal.product-category-add ()
@@ -138,7 +138,7 @@
 
 
 
-(defun createmodelforpublishaccountexturl ()
+(defun create-model-for-publishaccountexturl ()
   (let* ((params nil))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
@@ -156,16 +156,16 @@
   
 (defun com-hhub-transaction-publish-account-exturl ()
   (with-cad-session-check
-    (let ((uri (with-mvc-redirect-ui createmodelforpublishaccountexturl createwidgetsforgenericredirect)))
+    (let ((uri (with-mvc-redirect-ui #'create-model-for-publishaccountexturl #'create-widgets-for-genericredirect)))
       (format nil "~A" uri))))
 
-(defun createmodelforcadprofile ()
+(defun create-model-for-cadprofile ()
   (let ((account (get-login-company))
 	(loginusername (get-login-user-name)))
     (function (lambda ()
       (values account loginusername)))))
 
-(defun createwidgetsforcadprofile (modelfunc)
+(defun create-widgets-for-cadprofile (modelfunc)
   (multiple-value-bind (account loginusername) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -184,7 +184,7 @@
 
 (defun dod-controller-cad-profile ()
   (with-cad-session-check
-    (with-mvc-ui-page "Welcome Company Administrator" createmodelforcadprofile createwidgetsforcadprofile :role :compadmin)))
+    (with-mvc-ui-page "Welcome Company Administrator" #'create-model-for-cadprofile #'create-widgets-for-cadprofile :role :compadmin)))
 
 
 (defun modal.account-admin-change-pin ()
@@ -231,7 +231,7 @@
 			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
 
       
-(defun createmodelforcadupdatedetailsaction ()
+(defun create-model-for-cadupdatedetailsaction ()
   (let* ((params nil)
 	 (redirectlocation "/hhub/hhubcadprofile"))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
@@ -253,7 +253,7 @@
 
 (defun com-hhub-transaction-compadmin-updatedetails-action ()
   (with-cad-session-check
-    (let ((uri (with-mvc-redirect-ui createmodelforcadupdatedetailsaction createwidgetsforgenericredirect)))
+    (let ((uri (with-mvc-redirect-ui #'create-model-for-cadupdatedetailsaction #'create-widgets-for-genericredirect)))
       (format nil "~A" uri))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -306,7 +306,7 @@
 	    (hunchentoot:redirect "/hhub/cad-login.html"))))))
 
 ;;;;;;;;;;;; com-hhub-transaction-compadmin-home ;;;;;;;;;;;;;;;
-(defun createmodelforcompadminhome ()
+(defun create-model-for-compadminhome ()
   (let ((params nil))
     ;; We are not checking the URI for home page, because it contains the session variable. 
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
@@ -318,7 +318,7 @@
 	(function (lambda ()
 	  (values  products numproducts username)))))))
 
-(defun createwidgetsforcompadminhome (modelfunc)
+(defun create-widgets-for-compadminhome (modelfunc)
   (multiple-value-bind ( products numproducts username) (funcall  modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)   
@@ -339,10 +339,10 @@
 
 (defun com-hhub-transaction-compadmin-home () 
   (with-cad-session-check
-    (with-mvc-ui-page "Welcome Company Administrator" createmodelforcompadminhome createwidgetsforcompadminhome :role :compadmin)))
+    (with-mvc-ui-page "Welcome Company Administrator" #'create-model-for-compadminhome #'create-widgets-for-compadminhome :role :compadmin)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;com-hhub-transaction-cad-login-action;;;;;;;;;;;;
-(defun createmodelforcadloginaction ()
+(defun create-model-for-cadloginaction ()
   (let ((params nil)
 	(redirectlocation "/hhub/cad-login.html"))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
@@ -360,7 +360,7 @@
       redirectlocation))))
 
 (defun com-hhub-transaction-cad-login-action ()
-  (let ((uri (with-mvc-redirect-ui createmodelforcadloginaction createwidgetsforgenericredirect)))
+  (let ((uri (with-mvc-redirect-ui #'create-model-for-cadloginaction #'create-widgets-for-genericredirect)))
     (format nil "~A" uri)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -393,7 +393,7 @@
 
 
 ;;;;;;;;;;;;;;com-hhub-transaction-cad-logout;;;;;;;;;;;;;;;
-(defun createmodelforcadlogout ()
+(defun create-model-for-cadlogout ()
   (let ((params nil)
 	(username (get-login-user-name))
 	(redirectlocation "/hhub/cad-login.html"))
@@ -408,11 +408,11 @@
 	  redirectlocation))))))
 
 (defun com-hhub-transaction-cad-logout ()
-  (let ((uri (with-mvc-redirect-ui createmodelforcadlogout createwidgetsforgenericredirect)))
+  (let ((uri (with-mvc-redirect-ui #'create-model-for-cadlogout #'create-widgets-for-genericredirect)))
     (hunchentoot:redirect (format nil "~A" uri))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  
 
-(defun createmodelforcadproductrejectaction ()
+(defun create-model-for-cadproductrejectaction ()
   (let ((params nil)
 	(company (get-login-company))
 	(redirectlocation "/hhub/hhubcadindex"))
@@ -427,12 +427,12 @@
 
 (defun com-hhub-transaction-cad-product-reject-action ()
   (with-cad-session-check
-    (let ((uri (with-mvc-redirect-ui createmodelforcadproductrejectaction createwidgetsforgenericredirect)))
+    (let ((uri (with-mvc-redirect-ui #'create-model-for-cadproductrejectaction #'create-widgets-for-genericredirect)))
       (format nil "~A" uri))))
 
 
 
-(defun createmodelforcadproductapproveaction ()
+(defun create-model-for-cadproductapproveaction ()
   (let ((params nil)
 	(redirectlocation "/hhub/hhubcadindex"))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
@@ -446,7 +446,7 @@
 
 (defun com-hhub-transaction-cad-product-approve-action ()
   (with-cad-session-check
-    (let ((uri (with-mvc-redirect-ui createmodelforcadproductapproveaction createwidgetsforgenericredirect)))
+    (let ((uri (with-mvc-redirect-ui #'create-model-for-cadproductapproveaction #'create-widgets-for-genericredirect)))
       (format nil "~A" uri))))
   
 

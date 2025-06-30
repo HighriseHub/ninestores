@@ -27,7 +27,7 @@
    (payment-api-salt)
    (push-notify-subs-flag)
    (email-add-verified)
-   (tenantobj)))
+   (company)))
 
 (defclass RequestModelVendorApproval (RequestModel)
   ((vendor-id
@@ -59,7 +59,7 @@
    (payment-api-salt)
    (push-notify-subs-flag)
    (email-add-verified)
-   (tenantobj)))
+   (company)))
   
 (defclass VendorViewModel (ViewModel)
   ((name)
@@ -146,9 +146,9 @@
    (approved-by)
    (approval-status)
    (upi-id)
-   (tenantobj
-    :accessor get-vendor-company
-    :initarg :tenantobj)))
+   (company
+    :accessor company
+    :initarg :company)))
 
 ;;; Database object for Vendor profile
 
@@ -366,37 +366,6 @@
 ;;;;;;;;;;; Generic functions ;;;;;;;;;;;;;;;;;;;;;;;;;
 (defgeneric select-vendor-by-phone (VendorDBService Phone)
   (:documentation "Load Vendor from Database given the phone number"))
-
-
-;;;;;;;;;; Method implementations ;;;;;;;;;;;;;;;;;;;;
-
-(defmethod loadAllVendors ((vr BusinessObjectRepository))
-  :documentation "This method will load all the vendors from the database irrespective of the company they belong to."
-  (let* ((ht (make-hash-table :test 'equal))
-	 (allvendors (clsql:select 'dod-vend-profile  :where  [= [:deleted-state] "N"] :caching nil :flatp t)))
-    (loop for db-vendor in allvendors do
-      (let ((key (slot-value db-vendor 'phone))
-	    (vendor (make-instance 'Vendor)))
-	(Copy-DbObject-To-BusinessObject db-vendor vendor)
-	(setf (gethash key ht) vendor)))
-    ;; Return  the hash table. 
-    (setf (slot-value vr 'BusinessObjects) ht)))
-  
-
-(defmethod loadVendors ((vr BusinessObjectRepository) company)
-  :documentation "This method will load all the vendors from database by company."
-  (let* ((tenant-id (slot-value company 'id))
-	 (ht (make-hash-table :test 'equal))
-	 (allvendors (clsql:select 'dod-vend-profile  :where [and [= [:tenant-id] tenant-id] [= [:deleted-state] "N"]] :caching nil :flatp t)))
-    (loop for db-vendor in allvendors do
-      (let ((key (slot-value db-vendor 'phone))
-	    (vendor (make-instance 'Vendor)))
-	(transform db-vendor vendor)
-	(setf (gethash key ht) vendor)))
-    ;; Return  the hash table. 
-    (setf (slot-value vr 'BusinessObjects) ht)))
-
-
 
 
 

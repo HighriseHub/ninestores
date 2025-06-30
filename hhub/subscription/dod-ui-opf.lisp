@@ -1,18 +1,18 @@
-;; -*- mode: common-lisp; coding: utf-8 -*-
+;; -*- mode: common lisp; coding: utf-8 -*-
 (in-package :hhub)
 
 (defun dod-controller-my-orderprefs ()
   (with-cust-session-check
-    (with-mvc-ui-page "Customer Order Subscriptions" createmodelforcustordersubs createwidgetsforcustordersubs :role :customer)))
+    (with-mvc-ui-page "Customer Order Subscriptions" #'create-model-for-custordersubs #'create-widgets-for-custordersubs :role :customer)))
 
 
-(defun createmodelforcustordersubs ()
+(defun create-model-for-custordersubs ()
   (let ((dodorderprefs (hunchentoot:session-value :login-cusopf-cache))
 	(header (list  "Product"  "Day"  "Qty" "Qty Per Unit" "Actions")))
     (function (lambda ()
       (values dodorderprefs header)))))
 
-(defun createwidgetsforcustordersubs (modelfunc)
+(defun create-widgets-for-custordersubs (modelfunc)
   (multiple-value-bind
 	(dodorderprefs header)
       (funcall modelfunc)

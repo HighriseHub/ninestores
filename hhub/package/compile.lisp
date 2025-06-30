@@ -43,12 +43,15 @@
 		     "order/dod-dal-odt.lisp"
 		     "order/dod-dal-otk.lisp"
 		     "order/dod-dal-ord.lisp"
+		     "order/nst-dal-Order.lisp"
 		     ;; Orders Business Layer
 		     "order/dod-bl-odt.lisp"
 		     "order/dod-bl-ord.lisp"
+		     "order/nst-bl-Order.lisp"
 		     ;; Orders UI Layer. 
 		     "order/dod-ui-ord.lisp"
 		     "order/dod-ui-odt.lisp"
+		     "order/nst-ui-Order.lisp"
 
 
 		     ;; Subscription
@@ -143,11 +146,30 @@
 		     ))
 	  
 	  (path "/home/ubuntu/ninestores/hhub/"))
+
+      (mapcar
+       (lambda (file)
+	 (let* ((fullpath (concatenate 'string path file))
+		(fasl-path (compile-file-pathname fullpath)))
+	   
+	   (format t "_____________________________________________________________~%")
+	   (format t "Processing: ~A~%" fullpath)
+	   
+	   ;; Delete old .fasl
+	   (when (probe-file fasl-path)
+	     (format t "Deleting old .fasl: ~A~%" fasl-path)
+	     (delete-file fasl-path))
+	   
+	   ;; Compile the source file
+	   (format t "Compiling: ~A~%" fullpath)
+	   (compile-file fullpath)
+	   
+	   ;; Load the compiled file
+	   (format t "Loading: ~A~%" fasl-path)
+	   (time (load fasl-path))
+	   
+	   (format t "_____________________________________________________________~%")))
+       filelist))))
+
+
       
-      (mapcar (lambda (file)
-		(format t "_____________________________________________________________~C~C" #\return #\linefeed)
-		(format t "~A~C~C" (concatenate 'string path file) #\return #\linefeed)
-		(format t "~A" (time (load (concatenate 'string path file) :verbose *load-verbose*  :print T)))
-		(format t "_____________________________________________________________~C~C" #\return #\linefeed))
-		filelist))))
-  

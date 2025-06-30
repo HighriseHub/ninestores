@@ -12,9 +12,9 @@
 
 (defun com-hhub-transaction-gst-hsn-codes-page ()
   (with-opr-session-check
-    (with-mvc-ui-page "GST HSN Codes" createmodelforshowgsthsncodes createwidgetsforshowgsthsncodes :role :superadmin)))
+    (with-mvc-ui-page "GST HSN Codes" #'create-model-for-showgsthsncodes #'create-widgets-for-showgsthsncodes :role :superadmin)))
 
-(defun createmodelforshowgsthsncodes ()
+(defun create-model-for-showgsthsncodes ()
   (let* ((company (get-login-company))
 	 (username (get-login-user-name))
 	 (gsthsncodespresenter (make-instance 'GSTHSNCodesPresenter))
@@ -34,7 +34,7 @@
       (function (lambda ()
 	(values viewallmodel htmlview username))))))
 
-(defun createwidgetsforshowgsthsncodes (modelfunc)
+(defun create-widgets-for-showgsthsncodes (modelfunc)
   ;; this is the view. 
   (multiple-value-bind (viewallmodel htmlview username) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
@@ -60,7 +60,7 @@
       (list widget1 widget2))))
 
 
-(defun createwidgetsforsearchhsncodes (modelfunc)
+(defun create-widgets-for-searchhsncodes (modelfunc)
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
@@ -79,7 +79,7 @@
   (when viewmodellist
     (display-as-table (list "HSN Code" "4 Digit Code" "Description" "SGST" "CGST" "IGST" "Compensation Cess") viewmodellist 'display-gst-hsn-code-row)))
 
-(defun createmodelforsearchhsncodes ()
+(defun create-model-for-searchhsncodes ()
   (let* ((search-clause (hunchentoot:parameter "hsncodeslivesearch"))
 	 (company (get-login-company))
 	 (gsthsncodespresenter (make-instance 'GSTHSNCodesPresenter))
@@ -103,8 +103,8 @@
 
 
 (defun com-hhub-transaction-search-gst-hsn-codes-action ()
-  (let* ((modelfunc (createmodelforsearchhsncodes))
-	 (widgets (createwidgetsforsearchhsncodes modelfunc)))
+  (let* ((modelfunc (funcall #'create-model-for-searchhsncodes))
+	 (widgets (funcall #'create-widgets-for-searchhsncodes modelfunc)))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
       (logiamhere (format nil "length of search widgets is ~d" (length widgets)))
       (loop for widget in widgets do
@@ -113,14 +113,14 @@
 
 (defun com-hhub-transaction-update-gst-hsn-code-action ()
   (with-opr-session-check
-    (let ((url (with-mvc-redirect-ui  createmodelforupdategsthsncode createwidgetsforupdategsthsncode)))
+    (let ((url (with-mvc-redirect-ui  #'create-model-for-updategsthsncode #'create-widgets-for-updategsthsncode)))
       (format nil "~A" url))))
 
-(defun createwidgetsforupdategsthsncode (modelfunc)
-  (createwidgetsforgenericredirect modelfunc))
+(defun create-widgets-for-updategsthsncode (modelfunc)
+  (funcall #'create-widgets-for-genericredirect modelfunc))
 
 
-(defun createmodelforupdategsthsncode ()
+(defun create-model-for-updategsthsncode ()
   (let* ((code (hunchentoot:parameter "hsncode"))
 	 (code4digit (hunchentoot:parameter "hsncode4digit"))
 	 (description (hunchentoot:parameter "description"))
@@ -160,13 +160,13 @@
 
 (defun com-hhub-transaction-create-gst-hsn-code-action ()
   (with-opr-session-check
-    (let ((url (with-mvc-redirect-ui  createmodelforcreategsthsncode createwidgetsforcreategsthsncode)))
+    (let ((url (with-mvc-redirect-ui  #'create-model-for-creategsthsncode #'create-widgets-for-creategsthsncode)))
       (format nil "~A" url))))
 
 
 
 
-(defun createmodelforcreategsthsncode ()
+(defun create-model-for-creategsthsncode ()
   (let* ((code (hunchentoot:parameter "hsncode"))
 	 (code4digit (hunchentoot:parameter "hsncode4digit"))
 	 (description (hunchentoot:parameter "description"))
@@ -205,8 +205,8 @@
 
 
 
-(defun createwidgetsforcreategsthsncode (modelfunc)
-  (createwidgetsforgenericredirect modelfunc))
+(defun create-widgets-for-creategsthsncode (modelfunc)
+  (funcall #'create-widgets-for-genericredirect modelfunc))
 
  
 (defun display-gst-hsn-code-row (gst-hsn-code &rest arguments)
