@@ -652,7 +652,10 @@ Rooted calling trees:
 ;;; ****************************************************************
 ;;; List Callers ***************************************************
 ;;; ****************************************************************
-(in-package "XREF")
+(defpackage :xref
+  (:use :cl)) ; or other packages you need, like :hhub, :clsql, etc.
+
+(in-package :xref)
 
 (export '(list-callers list-users list-readers list-setters
 	    what-files-call who-calls list-callees source-file clear-tables

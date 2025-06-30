@@ -45,142 +45,132 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
   :version "1.1.0"
   
   :components
-  ((:file "hhub/package/packages")
-   (:file "hhub/package/compile")
-   (:file "hhub/package/load")
-   (:file "installation/init")
-   
-   ;; Core
-   (:file "hhub/core/dod-bl-err")
-   (:file "hhub/core/dod-bl-pas")
-   (:file "hhub/core/dod-bl-pol")
-   (:file "hhub/core/dod-bl-rol")
-   (:file "hhub/core/dod-bl-sys")
-   (:file "hhub/core/dod-bl-utl")
-   (:file "hhub/core/dod-dal-bo")
-   (:file "hhub/core/dod-dal-pas")
-   (:file "hhub/core/dod-dal-pol")
-   (:file "hhub/core/dod-dal-rol")
-   (:file "hhub/core/dod-ini-sys")
-   (:file "hhub/core/dod-seed-data")
-   (:file "hhub/core/dod-ui-attr")
-   (:file "hhub/core/dod-ui-pol")
-   (:file "hhub/core/dod-ui-rol")
-   (:file "hhub/core/dod-ui-utl")
-   (:file "hhub/core/dtrace")
-   (:file "hhub/core/extkeys")
-   (:file "hhub/core/hhub-bl-ent")
-   (:file "hhub/core/hhub-bl-egn")
-   (:file "hhub/core/hhub-dal-egn")
-   (:file "hhub/core/hhub-ui-egn")
-   (:file "hhub/core/hhublazy")
-   (:file "hhub/core/memoize")
-   (:file "hhub/core/nst-bl-act")
-   (:file "hhub/core/nst-bl-otp")
-   (:file "hhub/core/nst-sch-mig")
-   (:file "hhub/core/tempuigen")
-   (:file "hhub/core/unit-tests")
-   (:file "hhub/core/xref")
-   
-   ;; Modules
-   (:file "hhub/account/dod-bl-cmp")
-   (:file "hhub/account/dod-dal-cmp")
-   (:file "hhub/account/dod-ui-cmp")
-   
-   (:file "hhub/customer/dod-bl-cus")
-   (:file "hhub/customer/dod-dal-cus")
-   (:file "hhub/customer/dod-ui-cus")
-   
-   (:file "hhub/email/templates/registration")
-   
-   (:file "hhub/invoice/nst-bl-ihd")
-   (:file "hhub/invoice/nst-bl-itm")
-   (:file "hhub/invoice/nst-dal-ihd")
-   (:file "hhub/invoice/nst-dal-itm")
-   (:file "hhub/invoice/nst-ui-ihd")
-   (:file "hhub/invoice/nst-ui-itm")
-   (:file "hhub/invoice/templates/invoicesettings")
-   
-   (:file "hhub/order/dod-bl-odt")
-   (:file "hhub/order/dod-bl-ord")
-   (:file "hhub/order/dod-dal-odt")
-   (:file "hhub/order/dod-dal-ord")
-   (:file "hhub/order/dod-ui-odt")
-   (:file "hhub/order/dod-ui-ord")
-   (:file "hhub/order/nst-bl-Order")
-   (:file "hhub/order/nst-bl-OrderItem")
-   (:file "hhub/order/nst-dal-Order")
-   (:file "hhub/order/nst-dal-OrderItem")
-   (:file "hhub/order/nst-ui-Order")
-   (:file "hhub/order/nst-ui-OrderItem")
-   
-   (:file "hhub/paymentgateway/dod-bl-pay")
-   (:file "hhub/paymentgateway/dod-dal-pay")
-   (:file "hhub/paymentgateway/dod-ui-pay")
-   
-   (:file "hhub/products/dod-bl-gst")
-   (:file "hhub/products/dod-bl-prd")
-   (:file "hhub/products/dod-dal-gst")
-   (:file "hhub/products/dod-dal-prd")
-   (:file "hhub/products/dod-ui-gst")
-   (:file "hhub/products/dod-ui-prd")
-   
-   (:file "hhub/shipping/dod-bl-osh")
-   (:file "hhub/shipping/dod-dal-osh")
-   (:file "hhub/shipping/dod-ui-osh")
-   
-   (:file "hhub/stock/dod-dal-stk")
-   
-   (:file "hhub/subscription/dod-bl-opf")
-   (:file "hhub/subscription/dod-dal-opf")
-   (:file "hhub/subscription/dod-ui-opf")
-   
-   (:file "hhub/sysuser/dod-bl-cad")
-   (:file "hhub/sysuser/dod-bl-usr")
-   (:file "hhub/sysuser/dod-dal-sys")
-   (:file "hhub/sysuser/dod-dal-usr")
-   (:file "hhub/sysuser/dod-ui-cad")
-   (:file "hhub/sysuser/dod-ui-sys")
-   (:file "hhub/sysuser/dod-ui-usr")
-   
-   (:file "hhub/upi/dod-bl-upi")
-   (:file "hhub/upi/dod-dal-upi")
-   (:file "hhub/upi/dod-ui-upi")
-   
-   (:file "hhub/vendor/dod-bl-vas")
-   (:file "hhub/vendor/dod-bl-vad")
-   (:file "hhub/vendor/dod-bl-ven")
-   (:file "hhub/vendor/dod-bl-vpm")
-   (:file "hhub/vendor/dod-dal-vas")
-   (:file "hhub/vendor/dod-dal-vad")
-   (:file "hhub/vendor/dod-dal-ven")
-   (:file "hhub/vendor/dod-dal-vpm")
-   (:file "hhub/vendor/dod-ui-vad")
-   (:file "hhub/vendor/dod-ui-ven")
-   
-   (:file "hhub/warehouse/dod-bl-wrh")
-   (:file "hhub/warehouse/dod-dal-wrh")
-   (:file "hhub/warehouse/dod-ui-wrh")
-   
-   (:file "hhub/webpushnotify/dod-bl-push")
-   (:file "hhub/webpushnotify/dod-dal-push")
-   (:file "hhub/webpushnotify/dod-ui-push")
-   
-   (:file "hhub/dod-sto-zip")
-   
-   ;; Tests
-   (:file "hhub/test/hhub-tst-act")
-   (:file "hhub/test/hhub-tst-che")
-   (:file "hhub/test/hhub-tst-cus")
-   (:file "hhub/test/hhub-tst-flupload")
-   (:file "hhub/test/hhub-tst-gst")
-   (:file "hhub/test/hhub-test-inv")
-   (:file "hhub/test/hhub-tst-ord")
-   (:file "hhub/test/hhub-tst-sms")
-   (:file "hhub/test/hhub-tst-upi")
-   (:file "hhub/test/hhub-tst-vpm")
-   (:file "hhub/test/hhub-tst-webpush")
-   (:file "hhub/test/hhub-tst-wrh")
-   (:file "hhub/test/dod-test-ord")))
 
+  ((:file "package/packages")
+   (:file "package/compile")
+   ;; Core (some are utilities, no strict DAL/BL/UI structure)
+   (:file "core/dod-dal-bo")
+   (:file "core/dod-dal-pas")
+   (:file "core/dod-dal-pol")
+   (:file "core/dod-dal-rol")
+   (:file "core/dod-bl-err")
+   (:file "core/dod-bl-pas")
+   (:file "core/dod-bl-pol")
+   (:file "core/dod-bl-rol")
+   (:file "core/dod-bl-sys")
+   (:file "core/dod-bl-utl")
+   (:file "core/dod-ini-sys")
+   (:file "core/dod-ui-attr")
+   (:file "core/dod-ui-pol")
+   (:file "core/dod-ui-rol")
+   (:file "core/dod-ui-utl")
+   (:file "core/dtrace")
+   (:file "core/extkeys")
+   (:file "core/hhub-bl-ent")
+   (:file "core/hhublazy")
+   (:file "core/memoize")
+   (:file "core/nst-bl-act")
+   (:file "core/nst-bl-otp")
+   (:file "core/nst-sch-mig")
+   
+ ;; Account
+   (:file "account/dod-dal-cmp")
+   (:file "account/dod-bl-cmp")
+   (:file "account/dod-ui-cmp")
+   
+   ;; Customer
+   (:file "customer/dod-dal-cus")
+   (:file "customer/dod-bl-cus")
+   (:file "customer/dod-ui-cus")
+   
+   ;; Email
+   (:file "email/templates/registration")
+
+   ;; Invoice
+   (:file "invoice/nst-dal-ihd")
+   (:file "invoice/nst-dal-itm")
+   (:file "invoice/nst-bl-ihd")
+   (:file "invoice/nst-bl-itm")
+   (:file "invoice/nst-ui-ihd")
+   (:file "invoice/nst-ui-itm")
+   (:file "invoice/templates/invoicesettings")
+   
+   ;; Order
+   (:file "order/dod-dal-odt")
+   (:file "order/dod-dal-ord")
+   (:file "order/nst-dal-Order")
+   ;;(:file "order/nst-dal-OrderItem")
+ (:file "order/dod-bl-odt")
+ (:file "order/dod-bl-ord")
+ (:file "order/nst-bl-Order")
+ ;;(:file "order/nst-bl-OrderItem")
+ (:file "order/dod-ui-odt")
+ (:file "order/dod-ui-ord")
+ (:file "order/nst-ui-Order")
+ ;; (:file "order/nst-ui-OrderItem")
+
+ ;; Payment Gateway
+ (:file "paymentgateway/dod-dal-pay")
+ (:file "paymentgateway/dod-bl-pay")
+ (:file "paymentgateway/dod-ui-pay")
+
+ ;; Products
+ (:file "products/dod-dal-gst")
+ (:file "products/dod-dal-prd")
+ (:file "products/dod-bl-gst")
+ (:file "products/dod-bl-prd")
+ (:file "products/dod-ui-gst")
+ (:file "products/dod-ui-prd")
+
+ ;; Shipping
+ (:file "shipping/dod-dal-osh")
+ (:file "shipping/dod-bl-osh")
+ (:file "shipping/dod-ui-osh")
+
+ ;; Stock
+ (:file "stock/dod-dal-stk")
+
+ ;; Subscription
+ (:file "subscription/dod-dal-opf")
+ (:file "subscription/dod-bl-opf")
+ (:file "subscription/dod-ui-opf")
+
+ ;; Sysuser
+ (:file "sysuser/dod-dal-sys")
+ (:file "sysuser/dod-dal-usr")
+ (:file "sysuser/dod-bl-cad")
+ (:file "sysuser/dod-bl-usr")
+ (:file "sysuser/dod-ui-cad")
+ (:file "sysuser/dod-ui-sys")
+ (:file "sysuser/dod-ui-usr")
+
+ ;; UPI
+ (:file "upi/dod-dal-upi")
+ (:file "upi/dod-bl-upi")
+ (:file "upi/dod-ui-upi")
+
+ ;; Vendor
+ (:file "vendor/dod-dal-vas")
+ (:file "vendor/dod-dal-vad")
+ (:file "vendor/dod-dal-ven")
+ (:file "vendor/dod-dal-vpm")
+ (:file "vendor/dod-bl-vas")
+ (:file "vendor/dod-bl-vad")
+ (:file "vendor/dod-bl-ven")
+ (:file "vendor/dod-bl-vpm")
+ (:file "vendor/dod-ui-vad")
+ (:file "vendor/dod-ui-ven")
+
+ ;; Warehouse
+ (:file "warehouse/dod-dal-wrh")
+ (:file "warehouse/dod-bl-wrh")
+ (:file "warehouse/dod-ui-wrh")
+
+ ;; Web Push Notification
+ (:file "webpushnotify/dod-dal-push")
+ (:file "webpushnotify/dod-bl-push")
+ (:file "webpushnotify/dod-ui-push")
+
+ ;; Misc
+ (:file "dod-sto-zip")))
 
