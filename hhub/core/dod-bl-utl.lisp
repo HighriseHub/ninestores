@@ -3,6 +3,37 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
+
+(defun generate-entity-tla (entity-name)
+  "Generate a unique 3-letter acronym (TLA) from an entity name like 'order header'."
+  (let* ((tokens (remove-if #'(lambda (s) (string= s "")) 
+                            (split-sequence:split-sequence #\Space (string-downcase entity-name))))
+         (abbr ""))
+    (cond
+     ((>= (length tokens) 3)
+      (setf abbr (concatenate 'string
+                              (subseq (nth 0 tokens) 0 3)
+                              (subseq (nth 1 tokens) 0 3)
+                              (subseq (nth 2 tokens) 0 3))))
+     ((= (length tokens) 2)
+      (setf abbr (concatenate 'string
+                              (subseq (nth 0 tokens) 0 3)
+                              (subseq (nth 1 tokens) 0 4))))
+     ((= (length tokens) 1)
+      (setf abbr (subseq (nth 0 tokens) 0 (min 3 (length (nth 0 tokens))))))
+     (t (setf abbr "obj")))
+    abbr))
+
+(defun generate-lisp-filename (entity-name layer-name)
+  "Generates the Lisp file name like nst-dal-odt.lisp from 'order details' and 'dal'."
+  (let ((tla (generate-entity-tla entity-name)))
+    (format nil "nst-~A-~A.lisp" (string-downcase layer-name) (string-downcase tla))))
+
+(defun generate-descriptive-filename (entity-name layer)
+  (let ((normalized-name (string-downcase (cl-ppcre:regex-replace-all "[ _]" entity-name "-"))))
+    (format nil "nst-~A-~A.lisp" layer normalized-name)))
+
+
 ;; Example 1: Creating a branch for a UI feature with an identifier
 ;; This is for the UI layer, adding a new OTP-based login using HTMX
 ;; (generate-branch-name
@@ -167,48 +198,38 @@
   (declare (ignore number))
   "not implemented" )
 
-(defun create-entity-bl-template (entityname fieldnames destfile)
-  :description "This function will create a set of business layer functions based on the business object / entity name"
-  (let* ((filecontent (hhub-read-file "~/ninestores/hhub/core/hhub-bl-egn.lisp"))
-	 (count 65)
-	 (fieldname ""))
-    (loop for field in fieldnames do
-      (setf fieldname (format nil "field~A" (code-char count)))
-      (setf filecontent (cl-ppcre:regex-replace-all fieldname filecontent field))
-      (incf count))
-      (let ((temp-str (cl-ppcre:regex-replace-all "xxxx" filecontent entityname)))
-	(with-open-file (stream destfile :if-does-not-exist :create :if-exists :append :direction :output)
-	  (print (format stream temp-str))
-	  (terpri stream)))))
-(defun create-entity-ui-template (entityname fieldnames destfile)
-  :description "This function will create a set of business layer functions based on the business object / entity name"
-  (let* ((filecontent (hhub-read-file "~/ninestores/hhub/core/hhub-ui-egn.lisp"))
-	 (count 65)
-	 (fieldname ""))
-    (loop for field in fieldnames do
-      (setf fieldname (format nil "field~A" (code-char count)))
-      (setf filecontent (cl-ppcre:regex-replace-all fieldname filecontent field))
-      (incf count))
-    (let ((temp-str (cl-ppcre:regex-replace-all "xxxx" filecontent entityname)))
-      (with-open-file (stream destfile :if-does-not-exist :create :if-exists :append :direction :output)
-	(print (format stream temp-str))
-	(terpri stream)))))
-(defun create-entity-dal-template (entityname fieldnames destfile)
-  :description "This function will create a set of business layer functions based on the business object / entity name"
-  (let* ((filecontent (hhub-read-file "~/ninestores/hhub/core/hhub-dal-egn.lisp"))
-	 (count 65)
-	 (fieldname ""))
-    (loop for field in fieldnames do
-      (setf fieldname (format nil "field~A" (code-char count)))
-      (setf filecontent (cl-ppcre:regex-replace-all fieldname filecontent field))
-      (incf count))
-      (let ((temp-str (cl-ppcre:regex-replace-all "xxxx" filecontent entityname)))
-	(with-open-file (stream destfile :if-does-not-exist :create :if-exists :append :direction :output)
-	  (print (format stream temp-str))
-	  (terpri stream)))))
+(defun create-domain-entity-from-template (entityname fieldnames &key (output-dir "/home/ubuntu/ninestores/hhub/output"))
+  "Generates domain code for UI, BL, and DAL by replacing placeholders in templates."
+  (let* ((template-paths '((:ui . "/home/ubuntu/ninestores/hhub/core/hhub-ui-egn.lisp")
+                           (:bl . "/home/ubuntu/ninestores/hhub/core/hhub-bl-egn.lisp")
+                           (:dal . "/home/ubuntu/ninestores/hhub/core/hhub-dal-egn.lisp")))
+         (output-files '((:ui . "nst-ui-")
+                         (:bl . "nst-bl-")
+                         (:dal . "nst-dal-"))))
+    
+    ;; Iterate over each layer and process its template
+    (loop for (layer . template-path) in template-paths
+          for (layer2 . prefix) in output-files
+          do (let* ((filecontent (hhub-read-file template-path))
+                    (outfile (merge-pathnames (format nil "~A~A.lisp" prefix entityname) output-dir)))
 
+               ;; Replace placeholders %0%, %1%, ... with actual field names
+               (loop for field in fieldnames
+                     for i from 0
+                     for placeholder = (format nil "%~d%" i)
+                     do (setf filecontent (cl-ppcre:regex-replace-all placeholder filecontent field)))
 
+               ;; Replace 'xxxx' with the entity name
+               (setf filecontent (cl-ppcre:regex-replace-all "%entity-name%" filecontent entityname))
 
+               ;; Write the processed content to the output file
+               (with-open-file (stream outfile
+                                       :if-does-not-exist :create
+                                       :if-exists :supersede
+                                       :direction :output
+                                       :external-format :utf-8)
+                 (format stream "~A" filecontent)
+                 (terpri stream))))))
 
 
 (defun hhub-register-network-function (name funcsymbol)
@@ -389,12 +410,11 @@ corresponding universal time."
 
 (defun get-date-from-string (datestr)
     :documentation  "Read a date string of the form \"DD/MM/YYYY\" and return the corresponding date object."
-(if (not (equal datestr ""))
-(let ((date (parse-integer datestr :start 0 :end 2))
-        (month (parse-integer datestr :start 3 :end 5))
-        (year (parse-integer datestr :start 6 :end 10)))
-    (clsql-sys:make-date :year year :month month :day date :hour 0 :minute 0 :second 0 ))))
-
+  (if (not (equal datestr ""))
+      (let ((date (parse-integer datestr :start 0 :end 2))
+            (month (parse-integer datestr :start 3 :end 5))
+            (year (parse-integer datestr :start 6 :end 10)))
+	(clsql-sys:make-date :year year :month month :day date :hour 0 :minute 0 :second 0 ))))
 
 (defun get-dateobj-from-string-yyyymmdd (datestr)
     :documentation  "Read a date string of the form \"YYYY-MM-DD\" and return the corresponding date object."
@@ -404,6 +424,12 @@ corresponding universal time."
           (date (parse-integer datestr :start 8 :end 10)))
       (clsql-sys:make-date :year year :month month :day date :hour 0 :minute 0 :second 0 ))))
 
+(defun current-date-object ()
+  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+                       (get-decoded-time)
+    (declare (ignore sec min hr dow dst-p tz))
+    (clsql-sys:make-date :year yr :month mon :day day :hour 0 :minute 0 :second 0)))
+    
 
 (defun current-date-string ()
   "Returns current date as a string in YYYY/MM/DD format"
