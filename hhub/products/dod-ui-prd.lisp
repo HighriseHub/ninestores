@@ -528,7 +528,7 @@
 
 
 
-(defun createmodelforprdpricewithdiscount (product product-pricing)
+(defun create-model-for-prdpricewithdiscount (product product-pricing)
   (let* ((qty-per-unit (slot-value product 'qty-per-unit))
 	 (unit-of-measure (slot-value product 'unit-of-measure))
 	 (current-price (slot-value product 'current-price))
@@ -543,7 +543,7 @@
     (function (lambda ()
       (values discountexpired-p current-price current-discount currsymbol  qty-per-unit unit-of-measure  pricewith-discount)))))
     
-(defun createwidgetsforprdpricewithdiscount (modelfunc)
+(defun create-widgets-for-prdpricewithdiscount (modelfunc)
   (multiple-value-bind ( discountexpired-p current-price current-discount currsymbol  qty-per-unit unit-of-measure  pricewith-discount) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output  (*standard-output* nil)
@@ -559,7 +559,7 @@
       (list widget1))))
 
 (defun product-price-with-discount-widget (product product-pricing)
-  (with-mvc-ui-component createwidgetsforprdpricewithdiscount createmodelforprdpricewithdiscount product product-pricing))
+  (with-mvc-ui-component #'create-widgets-for-prdpricewithdiscount #'create-model-for-prdpricewithdiscount product product-pricing))
     
 (defun product-card (product-instance prdincart-p)
   (let* ((prd-name (slot-value product-instance 'prd-name))

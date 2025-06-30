@@ -54,9 +54,9 @@
       (hhub-html-page-footer))))
 
 (defun hhub-controller-aboutus-page ()
-  (with-mvc-ui-page "Nine Stores - Contact Us" createmodelwithnildata createwidgetsforaboutuspage :role :customer))
+  (with-mvc-ui-page "Nine Stores - Contact Us" #'create-model-withnildata #'create-widgets-for-aboutuspage :role :customer))
 
-(defun createwidgetsforaboutuspage (modelfunc)
+(defun create-widgets-for-aboutuspage (modelfunc)
   (multiple-value-bind () (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -91,9 +91,9 @@
   
 
 (defun hhub-controller-contactus-page ()
-  (with-mvc-ui-page "Nine Stores - Contact Us" createmodelwithnildata createwidgetsforcontactuspage :role :customer))
+  (with-mvc-ui-page "Nine Stores - Contact Us" #'create-model-withnildata #'create-widgets-for-contactuspage :role :customer))
 
-(defun createwidgetsforcontactuspage (modelfunc)
+(defun create-widgets-for-contactuspage (modelfunc)
   (multiple-value-bind () (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
@@ -138,9 +138,9 @@
       (list widget1 widget2 widget3))))
 
 (defun hhub-controller-contactus-action ()
-  (with-mvc-ui-page "Thank You For Contacting Us" createmodelforcontactusaction createwidgetforcontactusaction :role :customer))
+  (with-mvc-ui-page "Thank You For Contacting Us" #'create-model-for-contactusaction #'create-widgets-for-contactusaction :role :customer))
 
-(defun createmodelforcontactusaction ()
+(defun create-model-for-contactusaction ()
   (let* ((firstname (hunchentoot:parameter "firstname"))
 	 (lastname (hunchentoot:parameter "lastname"))
 	 (captcha-resp (hunchentoot:parameter "g-recaptcha-response"))
@@ -166,7 +166,7 @@
     (function (lambda ()
       (values nil)))))
 
-(defun createwidgetforcontactusaction (modelfunc)
+(defun create-widgets-for-contactusaction (modelfunc)
   (multiple-value-bind () (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)

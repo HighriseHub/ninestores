@@ -65,48 +65,48 @@
     (setf (slot-value dbas 'dbobject) (copyvendor-dbtodomain dbobj  businessobject))))
 
   
-(defun copyvendor-domaintodb (source destination)
-  (let* ((tenantobj (slot-value source 'tenantobj))
-	 (tid (slot-value tenantobj 'row-id)))
-    
-    (with-slots (row-id name address phone email password salt email-add-verified suspend-flag active-flag approved-flag approval-status approved-by upi-id tenant-id) destination 
-      (setf row-id (slot-value source 'row-id))
-      (setf name (slot-value source 'name))
-      (setf address (slot-value source 'address))
-      (setf phone (slot-value source 'phone))
-      (setf email (slot-value source 'email))
-      (setf password (slot-value source 'password))
-      (setf salt (slot-value source 'salt))
-      (setf email-add-verified (slot-value source 'email-add-verified))
-      (setf suspend-flag (slot-value source 'suspend-flag))
-      (setf active-flag (slot-value source 'active-flag))
-      (setf approved-flag (slot-value source 'approved-flag))
-      (setf approval-status (slot-value source 'approval-status))
-      (setf approved-by (slot-value source 'approved-by))
-      (setf upi-id (slot-value source 'upi-id))
+(defun copyvendor-domaintodb (businessobj dbobj)
+  (let* ((company (slot-value businessobj 'company))
+	 (tid (slot-value company 'row-id)))
+    (with-slots
+	  (row-id name address phone email  email-add-verified suspend-flag active-flag approved-flag approval-status approved-by upi-id tenant-id) dbobj
+      (setf row-id (slot-value businessobj 'row-id))
+      (setf (slot-value dbobj 'salt) (slot-value businessobj 'salt))
+      (setf name (slot-value businessobj 'name))
+      (setf address (slot-value businessobj 'address))
+      (setf phone (slot-value businessobj 'phone))
+      (setf email (slot-value businessobj 'email))
+      (setf (slot-value dbobj 'password) (slot-value businessobj 'password))
+      (setf email-add-verified (slot-value businessobj 'email-add-verified))
+      (setf suspend-flag (slot-value businessobj 'suspend-flag))
+      (setf active-flag (slot-value businessobj 'active-flag))
+      (setf approved-flag (slot-value businessobj 'approved-flag))
+      (setf approval-status (slot-value businessobj 'approval-status))
+      (setf approved-by (slot-value businessobj 'approved-by))
+      (setf upi-id (slot-value businessobj 'upi-id))
       (setf tenant-id tid)
-      destination)))
+      dbobj)))
 
 
-(defun copyvendor-dbtodomain (source destination)
-  (let* ((comp (select-company-by-id (slot-value source 'tenant-id))))
-    (with-slots (row-id name address phone email password salt email-add-verified suspend-flag active-flag approved-flag approval-status approved-by upi-id tenantobj) destination
-      (setf row-id (slot-value source 'row-id))
-      (setf name (slot-value source 'name))
-      (setf address (slot-value source 'address))
-      (setf phone (slot-value source 'phone))
-      (setf email (slot-value source 'email))
-      (setf password (slot-value source 'password))
-      (setf salt (slot-value source 'salt))
-      (setf email-add-verified (slot-value source 'email-add-verified))
-      (setf suspend-flag (slot-value source 'suspend-flag))
-      (setf active-flag (slot-value source 'active-flag))
-      (setf approved-flag (slot-value source 'approved-flag))
-      (setf approval-status (slot-value source 'approval-status))
-      (setf approved-by (slot-value source 'approved-by))
-      (setf upi-id (slot-value source 'upi-id))
+(defun copyvendor-dbtodomain (dbobj businessobj)
+  (let* ((comp (select-company-by-id (slot-value dbobj 'tenant-id))))
+    (with-slots (row-id name address phone email  email-add-verified suspend-flag active-flag approved-flag approval-status approved-by upi-id tenantobj) businessobj
+      (setf row-id (slot-value dbobj 'row-id))
+      (setf name (slot-value dbobj 'name))
+      (setf address (slot-value dbobj 'address))
+      (setf phone (slot-value dbobj 'phone))
+      (setf email (slot-value dbobj 'email))
+      (setf (slot-value businessobj 'password) (slot-value dbobj 'password))
+      (setf (slot-value businessobj 'salt) (slot-value dbobj 'salt))
+      (setf email-add-verified (slot-value dbobj 'email-add-verified))
+      (setf suspend-flag (slot-value dbobj 'suspend-flag))
+      (setf active-flag (slot-value dbobj 'active-flag))
+      (setf approved-flag (slot-value dbobj 'approved-flag))
+      (setf approval-status (slot-value dbobj 'approval-status))
+      (setf approved-by (slot-value dbobj 'approved-by))
+      (setf upi-id (slot-value dbobj 'upi-id))
       (setf tenantobj comp)
-      destination)))
+      businessobj)))
 
 (defmethod ProcessCreateRequest ((adapter VendorAdapter) (requestmodel RequestVendor))
   :description  "Adapter Service method to call the BusinessService Create method. Returns the created vendor object."
@@ -205,68 +205,6 @@
 		       :caching nil :flatp t ))))
     (setf (slot-value dbas 'dbobject) dbvendor)
     dbvendor))
-
-
-
-
-(defmethod doService ((vpservice VendorProfileService) params )
-  (let* ((repository (cdr (assoc "repository" params :test 'equal)))
-	 (vendor-id (cdr (assoc "vendor-id" params :test 'equal)))
-	 (vendors-ht  (slot-value repository 'businessobjects))
-	 (vendor (gethash vendor-id vendors-ht))
-	 (name (slot-value vendor 'name))
-	 (address (slot-value vendor 'address))
-	 (phone (slot-value vendor 'phone))
-	 (email (slot-value vendor 'email))
-	 (vdbservice (make-instance 'vendorDBService))
-	 (dbvendor (select-vendor-by-phone vdbservice phone)))
-    
-    ;; initialise the vendor db service with the vendor object. 
-    (init vdbservice vendor)
-        
-    (if dbvendor
-	(progn
-	  (setf (slot-value dbvendor 'name) name)
-	  (setf (slot-value dbvendor 'address) address)
-	  (setf (slot-value dbvendor 'phone) phone)
-	  (setf (slot-value dbvendor 'email) email)
-	  (setf (slot-value vdbservice 'dbobject) dbvendor)
-	  (db-save vdbservice)
-	  (format t "Vendor ~A has been updated" name))
-	;;else
-	(format t "Vendor not found"))
-
-    (let ((dbvendor (select-vendor-by-phone vdbservice phone)))
-      (if dbvendor
-	  (progn 
-	    (setf (slot-value vdbservice 'dbobject) dbvendor)
-	    (syncobjects vdbservice)
-	    (addbo repository (getbusinessobject vdbservice))
-	    repository)))))
-
-;; This is a client function which will be calling the business service layer. 
-(defun testVendorUpdateProfile(server)
-  (let* ((vr (make-instance 'VendorRepository))
-	 (vendor (make-instance 'Vendor))
-	 (vendor-id (slot-value vendor 'id))
-	 (vpservice (discoverService server "HSRV10001"))
-	 (params nil))
-
-    (setf (slot-value vendor 'name) "Demo Vendor")
-    (setf (slot-value vendor 'address) "Near Mahalaxmi layout entrance")
-    (setf (slot-value vendor 'phone) "9999999990")
-    (setf (slot-value vendor 'email) "pawan.deshpande@gmail.com")
-    (addbo vr vendor)
-    
-    (setf params (acons "repository" vr params))
-    (setf params (acons "vendor-id" vendor-id params))
-    (doservice vpservice params)))
-
-
-
-
-
-
 
 (defun get-vendors-for-approval (tenant-id)
 :documentation "This function will be used only by the company admin user" 

@@ -4,9 +4,9 @@
 
 (defun com-hhub-transaction-vendor-upload-product-images-action ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvuploadprdimages  createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vuploadprdimages  #'create-widgets-for-genericredirect)))
 
-(defun createmodelforvuploadprdimages ()
+(defun create-model-for-vuploadprdimages ()
     (logiamhere (format nil "Files to be uploaded are ~A" (hunchentoot:post-parameters hunchentoot:*request*)))
   (let* ((images (remove "uploadedimagefiles" (hunchentoot:post-parameters hunchentoot:*request*) :test (complement #'equal) :key #'car))
 	 (prd-id (parse-integer (hunchentoot:parameter "prd-id")))
@@ -190,7 +190,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 			       (:li :class "nav-item"  (:a :class "nav-link" :href "dodvendprofile?context=home" (:i :class "fa-regular fa-user")))
 			       (:li :class "nav-item" (:a :class "nav-link" :href "dodvendlogout" (:i :class "fa-solid fa-arrow-right-from-bracket"))))))))))
   
-(defun createmodelforvendorprodpricingaction ()
+(defun create-model-for-vendorprodpricingaction ()
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (prd-price (float (with-input-from-string (in (hunchentoot:parameter "prdprice"))
@@ -225,7 +225,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun dod-controller-vendor-product-pricing-action ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvendorprodpricingaction createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vendorprodpricingaction #'create-widgets-for-genericredirect)))
 
 (defun vendor-card (vendor)
   (let* ((vname (slot-value vendor 'name))
@@ -239,14 +239,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun dod-controller-vendor-pushsubscribe-page ()
   (with-vend-session-check
-    (with-mvc-ui-page "Webpush Subscription for Vendor" createmodelforvendpushsubscribepage createwidgetsforvendpushsubscribepage :role :vendor)))
+    (with-mvc-ui-page "Webpush Subscription for Vendor" #'create-model-for-vendpushsubscribepage #'create-widgets-for-vendpushsubscribepage :role :vendor)))
 
-(defun createmodelforvendpushsubscribepage ()
+(defun create-model-for-vendpushsubscribepage ()
   (let ((url *siteurl*))
     (function (lambda ()
       (values url)))))
 
-(defun createwidgetsforvendpushsubscribepage (modelfunc)
+(defun create-widgets-for-vendpushsubscribepage (modelfunc)
   (multiple-value-bind (url) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
@@ -344,9 +344,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun com-hhub-transaction-vendor-bulk-products-add ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvbulkproductsadd createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vbulkproductsadd #'create-widgets-for-genericredirect)))
 
-(defun createmodelforvbulkproductsadd ()
+(defun create-model-for-vbulkproductsadd ()
   (let* ((csvfileparams (hunchentoot:post-parameter "uploadedcsvfile"))
 	 (vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
@@ -422,14 +422,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 Phase1: Temporary Image URLs creation using image files upload.
 Phase2: User should copy those URLs in Products.csv and then upload that file."
   (with-vend-session-check
-    (with-mvc-ui-page "Bulk Add Products using CSV File" createmodelforvbulkaddproducts createwidgetsforvbulkaddproducts :role :vendor)))
+    (with-mvc-ui-page "Bulk Add Products using CSV File" #'create-model-for-vbulkaddproducts #'create-widgets-for-vbulkaddproducts :role :vendor)))
 
-(defun createmodelforvbulkaddproducts ()
+(defun create-model-for-vbulkaddproducts ()
   (let ((vendor-id (slot-value (get-login-vendor) 'row-id)))
     (function (lambda ()
       (values vendor-id)))))
 
-(defun createwidgetsforvbulkaddproducts (modelfunc)
+(defun create-widgets-for-vbulkaddproducts (modelfunc)
   (multiple-value-bind (vendor-id) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
@@ -459,9 +459,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-generate-products-templ ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvgenprodcttempl createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vgenprodcttempl #'create-widgets-for-genericredirect)))
 
-(defun createmodelforvgenprodcttempl ()
+(defun create-model-for-vgenprodcttempl ()
   (let* ((header (list "ProductID" "ProductName" "QtyPerUnit" "UnitOfMeasure" "UnitPrice" "Discount" "DiscountStart" "DiscountEnd" "UnitsInStock" "SubscriptionFlag" "MD5Digest"))
 	 (vendor (get-login-vendor))
 	 (vendor-id (slot-value vendor  'row-id))
@@ -549,9 +549,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-update-action ()
   (with-vend-session-check 
-    (with-mvc-redirect-ui createmodelforvendorupdateaction createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vendorupdateaction #'create-widgets-for-genericredirect)))
 
-(defun createmodelforvendorupdateaction ()
+(defun create-model-for-vendorupdateaction ()
   (let* ((name (hunchentoot:parameter "name"))
 	 (address (hunchentoot:parameter "address"))
 	 (phone (hunchentoot:parameter "phone"))
@@ -592,9 +592,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun hhub-controller-save-vendor-upi-settings ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvendorupisettings createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vendorupisettings #'create-widgets-for-genericredirect)))
 
-(defun createmodelforvendorupisettings ()
+(defun create-model-for-vendorupisettings ()
   (let* ((upi-id (hunchentoot:parameter "vendor-upi-id"))
 	 (vendor (get-login-vendor))
 	 (redirecturl "/hhub/dodvendprofile"))
@@ -655,9 +655,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-payment-methods-update-action ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvendpaymentmethodsupdate createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vendpaymentmethodsupdate #'create-widgets-for-genericredirect)))
 
-(defun createmodelforvendpaymentmethodsupdate ()
+(defun create-model-for-vendpaymentmethodsupdate ()
   (let* ((codenbld (hunchentoot:parameter "codenabled"))
 	 (upienbld (hunchentoot:parameter "upienabled"))
 	 (walletenbld (hunchentoot:parameter "walletenabled"))
@@ -733,9 +733,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-update-payment-gateway-settings-action ()
   (with-vend-session-check 
-    (with-mvc-redirect-ui createmodelforvendupdatepgsettings createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vendupdatepgsettings #'create-widgets-for-genericredirect)))
 
-(defun createmodelforvendupdatepgsettings ()
+(defun create-model-for-vendupdatepgsettings ()
   (let* ((payment-api-key (hunchentoot:parameter "payment-api-key"))
 	 (payment-api-salt (hunchentoot:parameter "payment-api-salt"))
 	 (pg-mode  (hunchentoot:parameter "pg-mode"))
@@ -1013,10 +1013,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun com-hhub-transaction-vend-prd-shipinfo-add-action ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvprodshipinfoaddaction createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vprodshipinfoaddaction #'create-widgets-for-genericredirect)))
 
 
-(defun createmodelforvprodshipinfoaddaction()
+(defun create-model-for-vprodshipinfoaddaction()
   (let* ((vendor (get-login-vendor))
 	 (shipping-enabled (slot-value vendor 'shipping-enabled))
 	 (id (hunchentoot:parameter "id"))
@@ -1045,9 +1045,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun com-hhub-transaction-vendor-product-add-action () 
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvprodaddaction createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vprodaddaction #'create-widgets-for-genericredirect)))
 
-(defun createmodelforvprodaddaction ()
+(defun create-model-for-vprodaddaction ()
   (let* ((prodname (hunchentoot:parameter "prdname"))
 	 (prd-id (parse-integer (hunchentoot:parameter "prd-id")))
 	 (vendor (get-login-vendor))
@@ -1269,7 +1269,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		  (with-html-card "/img/logo.png" "" "Vendor - Login to Nine Stores" ""
 		    (with-html-form  "form-vendorsignin" "hhubvendloginotpstep"
 		      (:div :class "form-group"
-			    (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
+			    (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999990" :type "number" :required "true" ))
 		      (:div :class "form-group"
 			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Get OTP")))
 		    (hhub-html-page-footer)))))))
@@ -1283,9 +1283,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-my-customers-page ()
   (with-vend-session-check
-    (with-mvc-ui-page "My Customers" createmodelforshowvendorcustomers createwidgetsforshowvendorcustomers :role  :vendor )))
+    (with-mvc-ui-page "My Customers" #'create-model-for-showvendorcustomers #'create-widgets-for-showvendorcustomers :role  :vendor )))
 
-(defun createmodelforshowvendorcustomers ()
+(defun create-model-for-showvendorcustomers ()
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (wallets (get-cust-wallets-for-vendor vendor company))
@@ -1296,7 +1296,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (function (lambda ()
       (values mycustomers)))))
 
-(defun createwidgetsforshowvendorcustomers (modelfunc)
+(defun create-widgets-for-showvendorcustomers (modelfunc)
   (multiple-value-bind (mycustomers) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
@@ -1453,9 +1453,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
    
 (defun dod-controller-vend-profile ()
   (with-vend-session-check
-    (with-mvc-ui-page "Vendor Profile" createmodelforvendorprofile createwidgetsforvendorprofile :role :vendor)))
+    (with-mvc-ui-page "Vendor Profile" #'create-model-for-vendorprofile #'create-widgets-for-vendorprofile :role :vendor)))
 
-(defun createmodelforvendorprofile ()
+(defun create-model-for-vendorprofile ()
   (let* ((company (get-login-vendor-company))
 	 (vendor (get-login-vendor))
 	 (adapter (make-instance 'VPaymentMethodsAdapter))
@@ -1467,7 +1467,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (function (lambda ()
       (values vendorname  vpaymentmethods)))))
 
-(defun createwidgetsforvendorprofile (modelfunc)
+(defun create-widgets-for-vendorprofile (modelfunc)
   (multiple-value-bind (vendorname vpaymentmethods) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -1499,9 +1499,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vend-shipping-methods ()
   (with-vend-session-check
-    (with-mvc-ui-page "Vendor Shipping Methods for E-Commerce" createmodelforvendshippingmethods createwidgetsforvendshippingmethods :role :vendor)))
+    (with-mvc-ui-page "Vendor Shipping Methods for E-Commerce" #'create-model-for-vendshippingmethods #'create-widgets-for-vendshippingmethods :role :vendor)))
 
-(defun createmodelforvendshippingmethods ()
+(defun create-model-for-vendshippingmethods ()
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (shippingmethod (get-shipping-method-for-vendor vendor company))
@@ -1516,7 +1516,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (function (lambda ()
       (values vendor shippingmethod flatrateshipenabled flatratetype flatrateprice extshipenabled shippartnerkey shippartnersecret minorderamt freeshipenabled )))))
 
-(defun createwidgetsforvendshippingmethods (modelfunc)
+(defun create-widgets-for-vendshippingmethods (modelfunc)
   (multiple-value-bind (vendor shippingmethod flatrateshipenabled flatratetype flatrateprice extshipenabled shippartnerkey shippartnersecret minorderamt freeshipenabled) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -2124,7 +2124,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (hunchentoot:redirect "/hhub/dodvenproducts"))
      	(hunchentoot:redirect "/hhub/hhubvendloginv2"))) 
 
-(defun createmodelforprddetailsforvendor ()
+(defun create-model-for-prddetailsforvendor ()
   (let* ((prd-id (parse-integer (hunchentoot:parameter "id")))
 	 (productlist (if (> prd-id 0) (hhub-get-cached-vendor-products)))
 	 (product (if (> prd-id 0) (search-item-in-list 'row-id prd-id productlist)))
@@ -2161,7 +2161,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (function (lambda ()
       (values proddetailpagetempl  product )))))
   
-(defun createwidgetsforprddetailsforvendor (modelfunc)
+(defun create-widgets-for-prddetailsforvendor (modelfunc)
   (multiple-value-bind (proddetailpagetempl product) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -2175,7 +2175,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-prd-details-for-vendor ()
   (with-cust-session-check 
-    (with-mvc-ui-page "Product Details for Vendor" createmodelforprddetailsforvendor  createwidgetsforprddetailsforvendor :role :vendor)))
+    (with-mvc-ui-page "Product Details for Vendor" #'create-model-for-prddetailsforvendor  #'create-widgets-for-prddetailsforvendor :role :vendor)))
 		
 (defun dod-controller-vendor-deactivate-product ()
   (with-vend-session-check 
@@ -2230,15 +2230,15 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-products ()
   (with-vend-session-check
-    (with-mvc-ui-page "Vendor Products" createmodelforshowvendorproducts createwidgetsforshowvendorproducts :role :vendor)))
+    (with-mvc-ui-page "Vendor Products" #'create-model-for-showvendorproducts #'create-widgets-for-showvendorproducts :role :vendor)))
 
-(defun createmodelforshowvendorproducts ()
+(defun create-model-for-showvendorproducts ()
   (let* ((vendor-products (hhub-get-cached-vendor-products))
 	 (numproducts (length vendor-products)))
     (function (lambda ()
       (values vendor-products numproducts)))))
 	
-(defun createwidgetsforshowvendorproducts (modelfunc)
+(defun create-widgets-for-showvendorproducts (modelfunc)
   (multiple-value-bind (vendor-products numproducts) (funcall modelfunc)
   (let ((widget1 (function (lambda ()
 		   (cl-who:with-html-output (*standard-output* nil)    
@@ -2407,9 +2407,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun com-hhub-transaction-vendor-order-setfulfilled ()
   (with-vend-session-check
-    (with-mvc-redirect-ui createmodelforvendorsetorderfulfilled createwidgetsforgenericredirect)))
+    (with-mvc-redirect-ui #'create-model-for-vendorsetorderfulfilled #'create-widgets-for-genericredirect)))
 
-(defun createmodelforvendorsetorderfulfilled ()
+(defun create-model-for-vendorsetorderfulfilled ()
   (let* ((id (hunchentoot:parameter "id"))
 	 (company-instance (hunchentoot:session-value :login-vendor-company))
 	 (order-instance (get-order-by-id id company-instance))
@@ -2570,9 +2570,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun dod-controller-vendor-orderdetails ()
   (with-vend-session-check
-    (with-mvc-ui-page "Vendor Order Details" createmodelforvendororderdetails createwidgetsforvendororderdetails :role :vendor)))
+    (with-mvc-ui-page "Vendor Order Details" #'create-model-for-vendororderdetails #'create-widgets-for-vendororderdetails :role :vendor)))
 
-(defun createmodelforvendororderdetails ()
+(defun create-model-for-vendororderdetails ()
   (let* ((dodvenorder (get-vendor-orders-by-orderid (hunchentoot:parameter "id") (get-login-vendor) (get-login-vendor-company)))
 	 (customer (get-customer dodvenorder))
 	 (wallet (get-cust-wallet-by-vendor customer (get-login-vendor) (get-login-vendor-company)))
@@ -2589,7 +2589,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (function (lambda ()
       (values order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled)))))
 
-(defun createwidgetsforvendororderdetails (modelfunc)
+(defun create-widgets-for-vendororderdetails (modelfunc)
   (multiple-value-bind (order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 

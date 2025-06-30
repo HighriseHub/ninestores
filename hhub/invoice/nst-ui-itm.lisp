@@ -14,9 +14,9 @@
 (defun com-hhub-transaction-show-InvoiceItem-page ()
   :description "This is a show list page for all the InvoiceItem entities"
   (with-vend-session-check ;; delete if not needed. 
-    (with-mvc-ui-page "InvoiceItem" createmodelforshowInvoiceItem createwidgetsforshowInvoiceItem :role :vendor))) ;; keep only one role, delete reset. 
+    (with-mvc-ui-page "InvoiceItem" #'create-model-for-showInvoiceItem #'create-widgets-for-showInvoiceItem :role :vendor))) ;; keep only one role, delete reset. 
 
-(defun createmodelforshowInvoiceItem ()
+(defun create-model-for-showInvoiceItem ()
   :description "This is a model function which will create a model to show InvoiceItem entities"
   (let* ((company (get-login-company))
 	 (username (get-login-user-name))
@@ -37,7 +37,7 @@
       (function (lambda ()
 	(values viewallmodel htmlview username))))))
 
-(defun createwidgetsforshowInvoiceItem (modelfunc)
+(defun create-widgets-for-showInvoiceItem (modelfunc)
  :description "This is the view/widget function for show InvoiceItem entities" 
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
@@ -62,16 +62,16 @@
       (list widget1 widget2 widget3))))
 
 
-(defun createwidgetsforupdateInvoiceItem (modelfunc)
+(defun create-widgets-for-updateInvoiceItem (modelfunc)
 :description "This is a widgets function for update InvoiceItem entity"      
-  (createwidgetsforgenericredirect modelfunc))
+  (funcall #'create-widgets-for-genericredirect modelfunc))
 
 (defmethod RenderListViewHTML ((htmlview InvoiceItemHTMLView) viewmodellist)
   :description "This is a HTML View rendering function for InvoiceItem entities, which will display each InvoiceItem entity in a row"
   (when viewmodellist
     (display-as-table (list "InvoiceHeader" "prdid" "prddesc" "hsncode" "qty" "uom" "price" "discount" "taxablevalue" "cgstrate" "cgstamt" "sgstrate" "sgstamt" "igstrate" "igstamt" "totalitemval" "company" "fieldR" "fieldS") viewmodellist 'display-InvoiceItem-row)))
 
-(defun createmodelforsearchInvoiceItem ()
+(defun create-model-for-searchInvoiceItem ()
   :description "This is a model function for search InvoiceItem entities/entity" 
   (let* ((search-clause (hunchentoot:parameter "InvoiceItemlivesearch"))
 	 (company (get-login-company))
@@ -97,13 +97,13 @@
 
 (defun com-hhub-transaction-search-InvoiceItem-action ()
   :description "This is a MVC function to search action for InvoiceItem entities/entity" 
-  (let* ((modelfunc (createmodelforsearchInvoiceItem))
-	 (widgets (createwidgetsforsearchInvoiceItem modelfunc)))
+  (let* ((modelfunc (funcall #'create-model-for-searchInvoiceItem))
+	 (widgets (funcall #'create-widgets-for-searchInvoiceItem modelfunc)))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
       (loop for widget in widgets do
 	(cl-who:str (funcall widget))))))
 
-(defun createmodelforupdateInvoiceItem ()
+(defun create-model-for-updateInvoiceItem ()
   :description "This is a model function for update InvoiceItem entity"
   (let* ((company (get-login-vendor-company))
 	 (prd-id (parse-integer (hunchentoot:parameter "prd-id")))
@@ -160,7 +160,7 @@
 	 ;;(error 'hhub-business-function-error :errstring (format t "got an exception ~A" c)))))))
 
 
-(defun createmodelforcreateInvoiceItem ()
+(defun create-model-for-createInvoiceItem ()
   :description "This is a create model function for creating a InvoiceItem entity"
   )
 
@@ -212,14 +212,14 @@
 
 
 
-(defun createwidgetsforcreateInvoiceItem (modelfunc)
+(defun create-widgets-for-createInvoiceItem (modelfunc)
   :description "This is a create widget function for InvoiceItem entity"
-  (createwidgetsforgenericredirect modelfunc))
+  (funcall #'create-widgets-for-genericredirect modelfunc))
 
 
 
 
-(defun createwidgetsforsearchInvoiceItem (modelfunc)
+(defun create-widgets-for-searchInvoiceItem (modelfunc)
   :description "This is a widget function for search InvoiceItem entities"
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
@@ -297,14 +297,14 @@
 (defun com-hhub-transaction-update-invoiceitem-action ()
   :description "This is the MVC function to update action for InvoiceItem entity"
   (with-vend-session-check ;; delete if not needed. 
-    (let ((url (with-mvc-redirect-ui  createmodelforupdateInvoiceItem createwidgetsforupdateInvoiceItem)))
+    (let ((url (with-mvc-redirect-ui  #'create-model-for-updateInvoiceItem #'create-widgets-for-updateInvoiceItem)))
       (format nil "~A" url))))
 
 
 (defun com-hhub-transaction-create-InvoiceItem-action ()
   :description "This is a MVC function for create InvoiceItem entity"
   (with-vend-session-check ;; delete if not needed. 
-    (let ((url (with-mvc-redirect-ui  createmodelforcreateInvoiceItem createwidgetsforcreateInvoiceItem)))
+    (let ((url (with-mvc-redirect-ui  #'create-model-for-createInvoiceItem #'create-widgets-for-createInvoiceItem)))
       (format nil "~A" url))))
 
 
@@ -313,10 +313,10 @@
 (defun com-hhub-transaction-delete-invoiceitem-action ()
   :description "This is a MVC function for delete InvoiceItem entity"
   (with-vend-session-check ;; delete if not needed. 
-    (let ((url (with-mvc-redirect-ui  createmodelfordeleteinvoiceitem createwidgetsfordeleteinvoiceitem)))
+    (let ((url (with-mvc-redirect-ui  #'create-model-for-deleteinvoiceitem #'create-widgets-for-deleteinvoiceitem)))
       (format nil "~A" url))))
 
-(defun createmodelfordeleteinvoiceitem ()
+(defun create-model-for-deleteinvoiceitem ()
   (let* ((company (get-login-vendor-company))
 	 (prd-id (parse-integer (hunchentoot:parameter "prd-id")))
 	 (productlist (hhub-get-cached-vendor-products))
@@ -349,7 +349,7 @@
 	;; (error 'hhub-business-function-error :errstring (format t "~A:got an exception ~A" (mysql-now)  c)))))))
   
 
-(defun createwidgetsfordeleteinvoiceitem (modelfunc)
-  (createwidgetsforgenericredirect modelfunc))
+(defun create-widgets-for-deleteinvoiceitem (modelfunc)
+  (funcall #'create-widgets-for-genericredirect modelfunc))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

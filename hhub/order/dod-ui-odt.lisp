@@ -2,7 +2,7 @@
 (in-package :hhub)
 
 ;;;;;;;;;;; CUSTOMER ORDER EDIT ;;;;;;;;;;;;;;;;;
-(defun createmodelfortranscusteditorderitem ()
+(defun create-model-for-transcusteditorderitem ()
   (let ((params nil))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (setf params (acons "company" (get-login-customer-company) params))
@@ -42,7 +42,7 @@
 	(function (lambda ()
 	  (values redirectlocation)))))))
 
-(defun createwidgetsfortranscusteditorderitem (modelfunc)
+(defun create-widgets-for-transcusteditorderitem (modelfunc)
   (multiple-value-bind (redirectlocation) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     redirectlocation))))
@@ -50,7 +50,7 @@
 
 (defun com-hhub-transaction-cust-edit-order-item ()
   (with-cust-session-check
-    (let ((uri (with-mvc-redirect-ui createmodelfortranscusteditorderitem createwidgetsfortranscusteditorderitem)))
+    (let ((uri (with-mvc-redirect-ui #'create-model-for-transcusteditorderitem #'create-widgets-for-transcusteditorderitem)))
       (format nil "~A" uri))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -204,7 +204,7 @@
 	(with-html-input-text-hidden "ord" order-id)
 	(:input :type "submit" :class "btn btn-lg btn-danger"  :value "Delete")))))
 
-(defun createmodelfordisplayordheaderforcust (order-instance)
+(defun create-model-for-displayordheaderforcust (order-instance)
   (let* ((payment-mode (slot-value order-instance 'payment-mode))
 	 (orderid (slot-value order-instance 'row-id))
 	 (payment-mode (cond ((equal payment-mode "PRE") "Prepaid Wallet")
@@ -217,7 +217,7 @@
     (function (lambda ()
       (values orderid payment-mode orderstatus orderdate reqdate shipped-date comments)))))
 
-(defun createwidgetsfordisplayorderheaderforcust (modelfunc)
+(defun create-widgets-for-displayorderheaderforcust (modelfunc)
   (multiple-value-bind (orderid payment-mode orderstatus orderdate reqdate shipped-date comments) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -237,16 +237,16 @@
 
 
 (defun display-order-header-for-customer (order-instance)
-  (with-mvc-ui-component createwidgetsfordisplayorderheaderforcust createmodelfordisplayordheaderforcust order-instance))
+  (with-mvc-ui-component #'create-widgets-for-displayorderheaderforcust #'create-model-for-displayordheaderforcust order-instance))
 
 
 
-(defun createmodelfordisplayorderheaderforvendor (order-instance)
+(defun create-model-for-displayorderheaderforvendor (order-instance)
   (let* ((customer (get-customer order-instance))
 	 (wallet (if customer (get-cust-wallet-by-vendor customer (get-login-vendor) (get-login-vendor-company))))
 	 (balance (if wallet (slot-value wallet 'balance) 0))
 	 (payment-mode (slot-value order-instance 'payment-mode))
-	 (ship-address (slot-value order-instance 'ship-address))
+	 (ship-address (slot-value order-instance 'shipaddr))
 	 (customer-phone (slot-value customer 'phone))
 	 (orderid (slot-value order-instance 'row-id))
 	 (orderstatus (slot-value order-instance 'status))
@@ -259,7 +259,7 @@
     (function (lambda ()
       (values orderid payment-mode balance customer-phone ship-address cust-type orderstatus reqdate shipped-date orderdate comments order-fulfilled)))))
 
-(defun createwidgetsfordisplayorderheaderforvendor (modelfunc)
+(defun create-widgets-for-displayorderheaderforvendor (modelfunc)
   (multiple-value-bind (orderid payment-mode balance customer-phone ship-address cust-type orderstatus reqdate shipped-date orderdate comments order-fulfilled) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
@@ -297,6 +297,6 @@
       (list widget1))))
 
 (defun display-order-header-for-vendor (order-instance)
-  (with-mvc-ui-component createwidgetsfordisplayorderheaderforvendor createmodelfordisplayorderheaderforvendor order-instance))
+  (with-mvc-ui-component #'create-widgets-for-displayorderheaderforvendor #'create-model-for-displayorderheaderforvendor order-instance))
 
 

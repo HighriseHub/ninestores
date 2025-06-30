@@ -3,23 +3,86 @@
 
 (defun hhub-test-order ()
   (let* ((company (select-company-by-id 2))
+	 (vendor (select-vendor-by-id 1))
 	 (customer (select-customer-by-id 1 company))
-	 (OrderDate (current-date-string))
-	 (RequestDate (current-date-string))
-	 (ShipDate (get-date-from-string "01/01/9999"))
+	 (order-date (current-date-object))
+	 (request-date (current-date-object))
+	 (shipped-date nil)
+	 (expected-delivery-date (clsql::date+ (clsql::get-date) (clsql::make-duration :day 2)))
 	 (NandiniBlue (select-product-by-id 1 company))
 	 (NandiniGreen (select-product-by-id 2 company))
-	 (products (select-products-by-company company))
-	 (oitem1 (create-odtinst-shopcart nil NandiniBlue 1 (slot-value NandiniBlue 'current-price) company))
-	 (oitem2 (create-odtinst-shopcart nil NandiniGreen 1 (slot-value NandiniGreen 'current-price) company))
+	 (shopcart-products (list NandiniBlue NandiniGreen))
+	 (oitem1 (create-odtinst-shopcart nil NandiniBlue 1 (slot-value NandiniBlue 'current-price) (slot-value NandiniBlue 'current-discount) company))
+	 (oitem2 (create-odtinst-shopcart nil NandiniGreen 1 (slot-value NandiniGreen 'current-price) (slot-value NandiniGreen 'current-discount) company))
 	 (oitem1price (slot-value NandiniBlue 'current-price))
 	 (oitem2price (slot-value NandiniGreen 'current-price))
-	 (shopcart-total (+ oitem1price oitem2price))
-	 (odts (list oitem1 oitem2))
-	 (shipaddress "A-456, Brigade Metropolis, Mahadevapura, Bangalore")
-	 (orderid (create-order-from-shopcart odts products OrderDate RequestDate ShipDate shipaddress  shopcart-total 0 nil "COD" "" customer company nil nil)))
-    orderid))
-
+	 (oitem1discount (slot-value NandiniBlue 'current-discount))
+	 (oitem2discount (slot-value NandiniGreen 'current-discount))
+	 (order-items (list oitem1 oitem2))
+	 (shipaddr "A-456, Brigade Metropolis, Mahadevapura, Bangalore 560066")
+	 (shipzipcode "560066")
+	 (shipcity "Mahadevapura, Bangalore")
+	 (shipstate "Karnataka")
+	 (billaddr shipaddr)
+	 (billzipcode shipzipcode)
+	 (billcity shipcity)
+	 (billstate shipstate)
+	 (billsameasship "Y")
+	 (storepickupenabled "N")
+	 (gstnumber "")
+	 (gstorgname "")
+	 (order-amt (+ oitem1price oitem2price))
+	 (total-discount (+ oitem1discount oitem2discount))
+	 (total-tax 0.00)
+	 (payment-mode "PRE")
+	 (comments "This order is created")
+	 (order-type "SALE")
+	 (order-source "WEB")
+	 (customer-name (slot-value customer 'name))
+	 (vshipping-method (get-shipping-method-for-vendor vendor company))
+	 (shiplst (calculate-shipping-cost-for-order vshipping-method shipzipcode order-amt order-items shopcart-products vendor company))
+	 (shipping-cost (nth 0 shiplst))
+	 ;;(shipping-info (nth 1 shiplst))
+	 ;;(utrnum "829349823423")
+	 (requestmodel (make-instance 'orderRequestModel
+				      :ord-date order-date
+				      :req-date request-date
+				      :shipped-date shipped-date
+				      :expected-delivery-date expected-delivery-date
+				      :ordnum ""
+				      :shipaddr shipaddr
+				      :shipzipcode shipzipcode
+				      :shipcity shipcity
+				      :shipstate shipstate
+				      :billaddr billaddr
+				      :billzipcode billzipcode
+				      :billcity billcity
+				      :billstate billstate
+				      :billsameasship billsameasship
+				      :storepickupenabled storepickupenabled
+				      :gstnumber gstnumber
+				      :gstorgname gstorgname
+				      :order-fulfilled "N"
+				      :order-amt order-amt
+				      :shipping-cost shipping-cost
+				      :total-discount total-discount
+				      :total-tax total-tax
+				      :payment-mode payment-mode
+				      :comments comments
+				      :context-id (format nil "~A" (uuid:make-v1-uuid))
+				      :status "PEN"
+				      :order-type order-type
+				      :order-source order-source
+				      :is-converted-to-invoice "N"
+				      :is-cancelled "N"
+				      :cancel-reason "NOT APPLICABLE"
+				      :deleted-state "N"
+				      :external-url (format nil "https://~A/" *siteurl*)
+				      :custname customer-name
+				      :customer customer
+				      :company company)))
+    (with-entity-create 'orderAdapter requestmodel
+      entity)))
 
 (defun hhub-test-shipping-rate-check ()
   (let ((ratecheckfunction
