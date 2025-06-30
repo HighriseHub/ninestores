@@ -98,15 +98,15 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    ;; Order
    (:file "order/dod-dal-odt")
    (:file "order/dod-dal-ord")
-   (:file "order/nst-dal-Order")
+   ;;(:file "order/nst-dal-Order")
    ;;(:file "order/nst-dal-OrderItem")
  (:file "order/dod-bl-odt")
  (:file "order/dod-bl-ord")
- (:file "order/nst-bl-Order")
+ ;;(:file "order/nst-bl-Order")
  ;;(:file "order/nst-bl-OrderItem")
  (:file "order/dod-ui-odt")
  (:file "order/dod-ui-ord")
- (:file "order/nst-ui-Order")
+ ;;(:file "order/nst-ui-Order")
  ;; (:file "order/nst-ui-OrderItem")
 
  ;; Payment Gateway
