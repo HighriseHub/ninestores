@@ -1,4 +1,6 @@
 var $busyindicator = document.getElementById('busy-indicator');
+const ninespinner = new NineStoresSpinner ($busyindicator);
+
 var $error = document.getElementById('hhub-error');
 var $success = document.getElementById('hhub-success');
 var  $formcustsignin = $(".form-custsignin"),  $formvendsignin = $(".form-vendorsignin");
@@ -7,6 +9,9 @@ var cartitemscount = 0;
 var ajaxCallParams = {};
 var ajaxDataParams = {}; 
 var slideindex =1;
+
+// disable right click for the entire site. 
+document.addEventListener('contextmenu', event => event.preventDefault());
 
 
 // Final recommended implementation (universal)
@@ -329,10 +334,10 @@ function ajaxCall(callParams, dataParams, callback) {
         data: dataParams,
         cache: true,
 	beforeSend: function(){
-    	    $busyindicator.appendChild(spinner.el);
+	    ninespinner.show();
 	},
 	complete: function(){
-   	    $busyindicator.removeChild(spinner.el);
+	    ninespinner.hide();
 	},
 	success:function (response) {
             callback(response);
@@ -346,25 +351,6 @@ function ajaxCall(callParams, dataParams, callback) {
 	    }}
     });
 }
-
-/* This function displays the spinner on every link click. 
-
-$("a").click(function(){
-    var href = $(this).prop('href');
-    if(href.endsWith("#") == false)
-	$busyindicator.appendChild(spinner.el);
-});*/
-
-$(document).ready(function () {
-    $.ajaxSetup({
-    	beforeSend: function(){
-    	    $busyindicator.appendChild(spinner.el);
-	},
-	complete: function(){
-   	    $busyindicator.removeChild(spinner.el);
-	}
-    });
-});
 
 function goback (){
     window.onpageshow = function(event) {
@@ -570,7 +556,7 @@ function getCookie(k)
 
 
 $(document).ready(function(){
-    $busyindicator.removeChild(spinner.el);
+    //$busyindicator.removeChild(spinner.el);
 });
 
 
