@@ -132,16 +132,6 @@
 ;; NINE STORE OTP store
 (defvar *otp-store* (make-otp-store))
 
-(defun set-customer-page-title (name)
-  (setf *customer-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
- 
-(defun set-vendor-page-title (name)
-  (setf *vendor-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
-
-(defun set-admin-page-title (name)
-  (setf *admin-page-title* (format nil "Welcome to Nine Stores - ~A." name))) 
-
-
 ;; Connect to the database (see the CLSQL documentation for vendor
 ;; specific connection specs).
 
@@ -152,27 +142,21 @@ Username
 Password 
 Servername 
 Database type: Supported type is ':odbc'"
-
-  (progn 
-    (case strdbtype
-      ((:mysql :postgresql :postgresql-socket)
-       (setf *dod-db-instance* (clsql:connect `(,servername
-			,strdb
-			,strusr
-			,strpwd)
-		      :database-type strdbtype)))
-      ((:odbc :aodbc :oracle)
-       (clsql:connect `(,strdb
-			,strusr
-			,strpwd)
-		      :database-type strdbtype))
-      (:sqlite
-       (clsql:connect `(,strdb)
-		      :database-type strdbtype)))
-
-    (clsql:start-sql-recording)))
-
-
+  (case strdbtype
+    ((:mysql :postgresql :postgresql-socket)
+     (setf *dod-db-instance* (clsql:connect `(,servername
+					      ,strdb
+					      ,strusr
+					      ,strpwd)
+					    :database-type strdbtype)))
+    ((:odbc :aodbc :oracle)
+     (clsql:connect `(,strdb
+		      ,strusr
+		      ,strpwd)
+		    :database-type strdbtype))
+    (:sqlite
+     (clsql:connect `(,strdb)
+		    :database-type strdbtype))))
 
 (defvar *http-server* nil)
 (defvar *ssl-http-server* nil)

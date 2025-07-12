@@ -7,9 +7,13 @@
 
 (defun hhub-controller-permission-denied ()
   (let ((message (hunchentoot:parameter "message")))
-    (with-no-navbar-page "Permission Denied"
-      (with-html-div-row (:h4 "Permission Denied"))
-      (html-back-button)
+    (with-no-navbar-page-v2 "Permission Denied"
+      (:div :class "card"
+	    (:img :src "/img/permissiondenied.jpg"  :class "rounded-lg  mx-auto d-block mt-3" :alt "Standard Shipping" :style "width: 300px; height: 300px;")
+	    (:div :class "card-body text-center"
+		  (:h2 :class "card-title" "Permission Denied")
+		  (:h3 :class "card-text"
+		       (cl-who:str (html-back-button)))))
       (jscript-displayerror message))))
 
 
@@ -21,14 +25,18 @@
     (with-no-navbar-page-v2  "OTP Page"
       (:br)
       (:div :class "account-wall" :align "center"
-	    (with-html-card "/img/logo.png" "" "" (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6))))
-	      
+	    (with-html-card
+		(:title "OTP Login Page"
+		 :image-src "/img/logo.png"
+		 :image-alt "OTP Login to Nine Stores"
+		 :image-style "width: 200px; height: 200px;")
+	      (:h3 (cl-who:str (format nil "OTP has been sent to your phone ~A" (concatenate 'string "xxxxx" (subseq phone 6)))))
 	      (with-html-form-having-submit-event  "form-hhubotppage" "hhubotpsubmitaction" 
 		(:div :id "withCountDownTimerExpired"
 		      (with-html-input-text-hidden "persona" persona)
 		      (with-html-input-text-hidden "purpose" purpose)
 		      (with-html-input-text-hidden "phone" phone)
-		      (with-html-input-password "otp" "" "Enter OTP" nil T "Please enter OTP" "1")
+		      (with-html-input-text "otp" "One Time Password" "Enter OTP" nil T "Please enter OTP" "1" :autocomplete "one-time-code" :inputmode "numeric" :pattern "[0-9]*" :maxlength "6")
 		      (:p :id "withCountDownTimer" :style "color: crimson;")
 		      (:div :class "form-group"
 			    (:button :class "submit center-block btn btn-primary btn-block" :type "submit" "Send OTP"))))

@@ -97,9 +97,12 @@
 		 (let ((external-url (slot-value cmp 'external-url))
 		       (cname (slot-value cmp 'name)))
 		   (cl-who:htm
-		    (with-html-div-col-4
-		      (with-html-card nil "" cname ""
-			(with-html-form "custsignup1form" "custsignup1action" 
+		    (with-html-card
+			(:title (format nil "~A" cname)
+			 :image-src ""
+			 :image-alt ""
+			 :image-style "width: 200px; height: 200px;")
+	    	      (with-html-form "custsignup1form" "custsignup1action" 
 			  (:div :class "form-group"
 				(:input :type "hidden" :name  "cname" :value (cl-who:str (format nil "~A" cname))))
 			  (:div :class "form-group"
@@ -107,7 +110,7 @@
 			(:a :target "_blank" :href (format nil "dascustloginasguest?tenant-id=~A" (slot-value cmp 'row-id)) (:i :class "fa-solid fa-shopping-cart") " Shop Now")
 			(when external-url
 			  (cl-who:htm (:div :class "col-xs-2" :align "right" :data-toggle "tooltip" :title "Copy External URL" 
-					    (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes")))))))))) company-list))
+					    (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes"))))))))) company-list))
 					;else
       (cl-who:htm (with-html-div-col
 		    (:h3 "Record Not Found."))))))

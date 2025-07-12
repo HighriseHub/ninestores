@@ -13,7 +13,7 @@
 
 ;;; Load HHUB system BEFORE blocking for shutdown signal
 (handler-case
-    (load "/home/ubuntu/ninestores/hhub/package/load.lisp")
+    (load "/home/ubuntu/ninestores/startup/load.lisp")
   (error (e)
     (format t "ERROR DURING SYSTEM LOAD: ~A~%" e)))
 ;;; We need a way to actually kill this baby so we

@@ -55,98 +55,110 @@
     (setf (slot-value temp-customer 'company) company)
     (setf (hunchentoot:session-value :temp-guest-customer) temp-customer)))
 
+(defun render-pickup-only-page (modelfunc)
+  ;; Generates HTML for the pickup only page
+  (multiple-value-bind (vaddress vcity vzipcode vphone currsymbol shopcart-total) (funcall modelfunc)
+    (with-html-card
+	(:title "Pickup In Store."
+	 :image-src "/img/PickupInStore.jpg" 
+	 :image-alt "Pickup In Store"
+	 :image-style "width: 300px; height: 300px;")
+      (:h3
+       (:p "Please pick up your items from our store")
+       (:p :class "location-info" 
+	   (cl-who:str (format nil "Address: ~A, ~A, ~A" vaddress vcity vzipcode)))
+       (:p :class "location-info" (cl-who:str (format nil "Phone: ~A" vphone)))
+       (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" currsymbol shopcart-total)))
+       (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" currsymbol 0.00)))
+       (:hr)
+       (:p :id "costwithoutshipping" :class "total-cost"
+	   (:h3 :style "color: green;" 
+		(:span :class "text-bg-success" 
+		       (cl-who:str (format nil "Total: ~A ~$" currsymbol  shopcart-total)))))
+       (:hr)))))
+
+;; Assuming the existence of these rendering functions
+(defun render-free-shipping-page (modelfunc)
+  ;; Generates HTML for the free shipping page, using shipping-options if needed for details
+  (multiple-value-bind (currsymbol freeshipminorderamt) (funcall modelfunc)
+    (with-html-card
+	(:title "Free Shipping !!!"
+	 :image-src "/img/FreeShipping.png" 
+	 :image-alt "Free Shipping"
+	 :image-style "width: 300px; height: 300px;")
+      (:h2 (:strong (:p :class "info-message" (cl-who:str (format nil "As your order is over  ~A ~$, you will receive FREE Shipping. " currsymbol freeshipminorderamt))))))))
+
+(defun render-standard-shipping-page (modelfunc)
+  (multiple-value-bind (freeshipenabled freeshipminorderamt shipping-cost currsymbol shopcart-total) (funcall modelfunc)
+    (with-html-card
+	(:title "Standard Shipping"
+	 :image-src "/img/StandardShipping.jpg" 
+	 :image-alt "Standard Shipping Shipping"
+	 :image-style "width: 300px; height: 300px;")
+      (:h3
+       (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" currsymbol shopcart-total)))
+       (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" currsymbol shipping-cost)))
+       (:hr)
+       (:p :id "costwithshipping" :class "total-cost"
+	   (:h3 :style "color: green;" 
+		(:span :class "text-bg-success" 
+		       (cl-who:str (format nil "Total: ~A ~$" currsymbol  (+ shopcart-total shipping-cost))))))
+       (:strong
+	(:p :class "info-message"
+	    (if (equal freeshipenabled "Y") (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" currsymbol (- freeshipminorderamt shopcart-total))))))))))
 
 ;; This is a pure function.
-
 (defun display-cust-shipping-costs-widget (shopcart-total shipping-options storepickupenabled vendor freeshipenabled company)
   :description "The display-cust-shipping-costs-widget function generates an HTML widget for displaying shipping costs, allowing users to choose between shipping or store pickup. It dynamically updates cost information and visibility based on user interactions"
   (let* ((vaddress (address vendor))
          (vcity (city vendor))
          (vzipcode (zipcode vendor))
-         (phone (phone vendor))
+         (vphone (phone vendor))
          (vshipping-enabled (slot-value vendor 'shipping-enabled))
          (shipping-cost (nth 0 shipping-options))
          (freeshipminorderamt (nth 2 shipping-options))
-	 (freeshippingapplied (if (> shopcart-total freeshipminorderamt) T NIL))
-	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
-   
-    (cl-who:with-html-output (*standard-output* nil)
-      (when (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y") (> shipping-cost 0))
-        (cl-who:htm
-	 (:div :class "custom-control custom-switch"
-	       (:input :type "checkbox" :class "custom-control-input" :id "idstorepickup" :name "storepickup" :value "Y"
-		       :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
-	       (:label :class "custom-control-label" :for "idstorepickup" "Pickup In Store"))))
-      (with-html-div-row :id "costwithshipping" :class "shipping-cost-section"
-	(with-html-div-col-2)
-	(with-html-div-col-8
-          (cond ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
-                 (cl-who:htm
-		  (:div :class "card"
-			(:img :src "/img/StandardShipping.jpg"  :class "rounded-circle mx-auto d-block mt-3" :alt "Standard Shipping" :style "width: 300px; height: 300px;")
-			(:div :class "card-body text-center"
-			      (:h2 :class "card-title" "Standard Shipping")
-			      (:h3 :class "card-text"
-				   (:br)
-				   (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" currsymbol shopcart-total)))
-				   (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" currsymbol shipping-cost)))
-				   (:hr)
-				   (:p :id "costwithshipping" :class "total-cost"
-				       (:h3 :style "color: green;" 
-					    (:span :class "text-bg-success" 
-						   (cl-who:str (format nil "Total: ~A ~$" currsymbol  (+ shopcart-total shipping-cost))))))
-				   (:strong
-				    (:p :class "info-message"
-					(if (equal freeshipenabled "Y") (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" currsymbol (- freeshipminorderamt shopcart-total)))))))))))
-                
-		((and (equal vshipping-enabled "Y") (= shipping-cost 0) freeshippingapplied)
-                 (cl-who:htm
-		  (:div :class "card"
-			(:img :src "/img/FreeShipping.jpg"  :class "rounded-circle mx-auto d-block mt-3" :alt "Free Shipping !!!" :style "width: 300px; height: 300px;")
-			(:div :class "card-body text-center"
-			      (:h2 :class "card-title" "FREE Shipping !!!")
-			      (:h3 :class "card-text"
-				   (:h2 (:strong (:p :class "info-message" (cl-who:str (format nil "As your order is over  ~A ~$, you will receive FREE Shipping. " currsymbol freeshipminorderamt))))))))))
-
-		((and (equal vshipping-enabled "Y") (= shipping-cost 0))
-                 (cl-who:htm (:h2 (:strong (:p :class "info-message" (cl-who:str "Shipping: FREE!"))))))
-
-		((equal vshipping-enabled "N")
-                 (cl-who:htm (:p "Please pick up your items from our store")
-                             (:p :class "location-info" 
-                                 (cl-who:str (format nil "Address: ~A, ~A, ~A" vaddress vcity vzipcode)))
-                             (:p :class "location-info" (cl-who:str (format nil "Phone: ~A" phone))))))))
-      
+	 (freeshippingapplied (if (and (equal freeshipenabled "Y") (> shopcart-total freeshipminorderamt)) T NIL))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company)))
+	 (html-page-func (nth 3 shipping-options)))
+    (logiamhere (format nil "~A" shipping-options))
+      (cl-who:with-html-output (*standard-output* nil)
+	(when (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y")) ;; (> shipping-cost 0))
+          (cl-who:htm
+	   (:div :class "custom-control custom-switch"
+		 (:input :type "checkbox" :class "custom-control-input" :id "idstorepickup" :name "storepickup" :value "N"
+			 :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
+		 (:label :class "custom-control-label" :for "idstorepickup" "Pickup In Store"))))
+	(with-html-div-row :id "costwithshipping" :class "shipping-cost-section"
+	  (with-html-div-col-2)
+	  (with-html-div-col-8
+	    (cond
+	      ;; Standard Shipping
+	      ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
+	       (render-standard-shipping-page (lambda () (values freeshipenabled freeshipminorderamt shipping-cost currsymbol shopcart-total))))
+	      ;; Free Shipping
+	      ((and (equal vshipping-enabled "Y") (= shipping-cost 0) freeshippingapplied)
+	       (render-free-shipping-page (lambda () (values currsymbol freeshipminorderamt))))
+	      ;; Pickup in Store only
+	      ((equal vshipping-enabled "N")
+	       (render-pickup-only-page (lambda () (values vaddress vcity vzipcode vphone currsymbol shopcart-total)))))))
       (with-html-div-row :id "costwithoutshipping" :style "display: none;" :class "shipping-cost-section"
 	(with-html-div-col-2)
 	(with-html-div-col-8
           (:br)
-	  (:div :class "card"
-		(:img :src "/img/PickupInStore.jpg"  :class "rounded-circle mx-auto d-block mt-3" :alt "Pickup In Store" :style "width: 300px; height: 300px;")
-		(:div :class "card-body text-center"
-		      (:h2 :class "card-title" "Pickup In Store")
-		      (:h3 :class "card-text"
-			   (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" currsymbol shopcart-total)))
-			   (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" currsymbol 0.00)))
-			   
-			   (:hr)
-			   (:p :id "costwithoutshipping" :class "total-cost"
-			       (:h3 :style "color: green;" 
-				    (:span :class "text-bg-success" 
-					   (cl-who:str (format nil "Total: ~A ~$" currsymbol  shopcart-total)))))
-			   (:hr))))))
-      
-      (:script "function togglepickupinstore () {
-                      const storepickup = document.getElementById('idstorepickup');
-                      if( storepickup.checked ){
-                          $('#costwithoutshipping').show();
-                          $('#costwithshipping').hide();
-                      }else
-                      {
-                          $('#costwithoutshipping').hide();
-                          $('#costwithshipping').show();
-                      }
-                  }"))))
+	  (render-pickup-only-page (lambda () (values vaddress vcity vzipcode vphone currsymbol shopcart-total)))))
+      (:script "function togglepickupinstore() {
+    const storepickup = document.getElementById('idstorepickup');
+
+    if (storepickup.checked) {
+        storepickup.value = \"Y\"; // set value to Y
+        $('#costwithoutshipping').show();
+        $('#costwithshipping').hide();
+    } else {
+        storepickup.value = \"N\"; // set value to N
+        $('#costwithoutshipping').hide();
+        $('#costwithshipping').show();
+    }
+}"))))
 
 
 (defun dod-controller-customer-payment-methods-page ()
@@ -196,10 +208,13 @@
 				      :company custcomp
 				      :vendor singlevendor))
 	 (vpaymentmethods (processreadrequest adapter requestmodel)))
-    
+
+    (when (and storepickup (equal storepickup "N"))
+      (setf (gethash "orderpickupinstore" orderparams-ht) "N"))
+      
     (when (and storepickup (equal storepickup "Y"))
       (setf (gethash "shipping-cost" orderparams-ht) 0.00)
-      (setf (gethash "storepickupenabled" orderparams-ht) "Y")
+      (setf (gethash "orderpickupinstore" orderparams-ht) "Y")
       (setf (gethash "vendoraddress" orderparams-ht) vendoraddress)
       (save-cust-order-params orderparams-ht)) 
     ;; create a list of all the required data points or create a model and return it. 
@@ -500,22 +515,6 @@
 (defun get-login-cust-company ()
     :documentation "get the login customer company."
     (hunchentoot:session-value :login-customer-company))
-
-					;(if (null (get-login-cust-name)) nil t))
-
-;    (handler-case 
-	;expression
-;	(if (not (null (get-login-cust-name)))
-;	       (if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) t))	      
-        ; handle this condition
-   
- ;     (clsql:sql-database-data-error (condition)
-;	  (if (equal (clsql:sql-error-error-id condition) 2006 ) (clsql:reconnect :database *dod-db-instance*)))
-;      (clsql:sql-fatal-error (errorinst) (if (equal (clsql:sql-error-database-message errorinst) "database is closed.") 
-;					     (progn (clsql:stop-sql-recording :type :both)
-;					            (clsql:disconnect) 
-;						    (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql))))))
-      
 
 (defun get-login-cust-name ()
     :documentation "gets the name of the currently logged in customer"
@@ -1385,8 +1384,12 @@
 	    (with-standard-customer-page-v2 "Welcome Customer"
 	      (with-html-div-row
 		(with-html-div-col-12
-		    (with-html-card "/img/logo.png" "" "Customer Login" ""
-		      (:form :class "form-custsignin" :role "form" :method "POST" :action "dodcustlogin" :data-toggle "validator"
+		  (with-html-card
+			(:title "Customer Login"
+			 :image-src "/img/logo.png" 
+			 :image-alt "Customer Login"
+			 :image-style "width: 200px; height: 200px;")
+	    	    (:form :class "form-custsignin" :role "form" :method "POST" :action "dodcustlogin" :data-toggle "validator"
 			     (:div :class "form-group"
 				   (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
 			     (:div :class "form-group"
@@ -1414,8 +1417,12 @@
 	(with-standard-customer-page-v2 "Welcome Customer" 
 	      (with-html-div-row
 		(with-html-div-col-12
-		  (with-html-card "/img/logo.png" "" "Customer Login" ""
-		    (with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
+		  (with-html-card
+			(:title "Customer Login" 
+			 :image-src "/img/logo.png"
+			 :image-alt "Customer Login"
+			 :image-style "width: 200px; height: 200px;")
+	    	    (with-html-form  "form-custsignin" "hhubcustloginotpstep" :data-toggle "validator"
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true" ))
 		      (:div :class "form-group"
@@ -1972,7 +1979,7 @@
 	 (utrnum (gethash "utrnum" orderparams-ht))
 	 (payment-mode (gethash "paymentmode" orderparams-ht))
 	 (comments (gethash "comments" orderparams-ht))
-	 (storepickupenabled (gethash "storepickupenabled" orderparams-ht))
+	 (orderpickupinstore (gethash "orderpickupinstore" orderparams-ht))
 	 (customer (get-login-customer))
 	 (company (get-login-customer-company))
 	 (customer-name (slot-value customer 'name))
@@ -2006,7 +2013,7 @@
 	(unless lowwalletbalanceflag
 	  (let ((order-id (create-order-from-shopcart
 			   (function (lambda ()
-			     (values order-items shopcart-products shipping-info temp-customer utrnum order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments customer order-type  order-source customer-name company))))))
+			     (values order-items shopcart-products shipping-info temp-customer utrnum order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship orderpickupinstore gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments customer order-type  order-source customer-name company))))))
 	    (setf (gethash "GUEST-EMAIL" temp-ht) (symbol-function 'send-order-email-guest-customer))
 	    (setf (gethash "GUEST-SMS" temp-ht) (symbol-function 'send-order-sms-guest-customer))
 	    (setf (gethash "STANDARD-EMAIL" temp-ht) (symbol-function 'send-order-email-standard-customer))
@@ -2023,8 +2030,8 @@
 	    (reset-cust-order-params)
 	    (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer customer))
 	    (setf (hunchentoot:session-value :login-shopping-cart ) nil)))
-	(function (lambda ()
-	  (values redirectlocation)))))))
+	 (lambda ()
+	  (values redirectlocation))))))
 	
   
 
@@ -2173,8 +2180,10 @@
 ;; This is a pure function. 
 (defun calculate-shipping-cost-for-order (vshipping-method shipzipcode shopcart-total shopping-cart products vendor company)
   (let* ((vshipping-enabled (slot-value vendor 'shipping-enabled))
+	 (storepickupenabled (slot-value vshipping-method 'storepickupenabled))
 	 (freeshippingenabled (slot-value vshipping-method 'freeshipenabled))
 	 (flatrateshipenabled (slot-value vshipping-method 'flatrateshipenabled))
+	 (calculated-free-shipping-applies nil)
 	 (tablerateshipenabled (slot-value vshipping-method 'tablerateshipenabled))
 	 (extshipenabled (slot-value vshipping-method 'extshipenabled))
 	 (defaultshipmethod (getdefaultshippingmethod vshipping-method))
@@ -2183,35 +2192,122 @@
 	 (total-items (reduce #'+ (mapcar (lambda (item) (slot-value item 'prd-qty)) shopping-cart)))
 	 (shipping-options nil)
 	 (shipping-cost 0.0)
+         (has-pickup-option nil)
+         (html-page-to-display nil)
 	 (saleproducts-p  (every #'(lambda (x) (if x T))
 				 (mapcar (lambda (product)
 					   (let ((prd-type (slot-value product 'prd-type)))
 					     (equal prd-type "SALE"))) products))))
+    ;; 1. Add "Pickup from Store" (if enabled)
+    (when (equal storepickupenabled "Y")
+      (push (list :method-name "Pickup-from-Store" :cost 0.0 :is-default nil) shipping-options)
+      (setf has-pickup-option t)
+      (setf shipping-cost 0.0))
+     ;; 2. Evaluate "Free Shipping"
+    (when (and
+	   (equal vshipping-enabled "Y")  
+	   (equal freeshippingenabled "Y") 
+	   (>= shopcart-total freeshipminorderamt))
+      (setf calculated-free-shipping-applies t)
+      (push (list :method-name "Free-Shipping" :cost 0.0 :is-default nil) shipping-options)
+      (setf shipping-cost 0.0))
     ;; If we have a single service product or number of service products are more than 1 then do not calculate
     ;; shipping cost. Or calculate shipping cost only for SALES products. 
-    ;;(logiamhere (format nil "Value of saleproducts-p is ~A" saleproducts-p))
+  (logiamhere (format nil "Value of saleproducts-p is ~A. Value of vendor shipping enabled is ~A. Defaultshipmethod is ~A, flatrateshipenabled is ~A" saleproducts-p vshipping-enabled defaultshipmethod flatrateshipenabled))
+   ;; --- Step 3: Evaluate Paid Shipping (ONLY if Free Shipping is NOT applicable) ---
+  (unless calculated-free-shipping-applies
+    ;; Paid shipping is only considered if the vendor enables overall shipping
+    ;; and all products are 'SALE' type 
     (when (and (equal vshipping-enabled "Y")
-	       (<= shopcart-total freeshipminorderamt)
 	       saleproducts-p)
-      (when (and flatrateshipenabled (equal defaultshipmethod "FRS"))
-	(let ((flatratetype (getflatratetype vshipping-method))
+      (cond
+	;; Flat Rate Shipping (Order/Item Based)
+	((and (equal flatrateshipenabled "Y") (equal defaultshipmethod "FRS"))
+	 (logiamhere (format nil "I in FRS shipping method determination"))
+	 (let ((flatratetype (getflatratetype vshipping-method))
 	      (flatrateprice (getflatrateprice vshipping-method)))
-	  (cond ((equal flatratetype "ORD") (setf shipping-cost flatrateprice))
-		((equal flatratetype "ITM") (setf shipping-cost (* flatrateprice total-items))))))
-      (when (and tablerateshipenabled (equal defaultshipmethod "TRS"))
-	(let ((total-weight (calculate-cartitems-weight-kgs shopping-cart products)))
-	  (setf shipping-cost (get-shipping-rate-from-table shipzipcode total-weight vendor company))))
-      (when (and extshipenabled (equal defaultshipmethod "EXS"))
-	(setf shipping-options (order-shipping-rate-check shopping-cart products shipzipcode vendor-zipcode))
-	(setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
+	  (cond
+	    ((equal flatratetype "ORD") (setf shipping-cost flatrateprice))
+	    ((equal flatratetype "ITM") (setf shipping-cost (* flatrateprice total-items)))
+	    (t 0.0))
+	   (when (> shipping-cost 0.0)
+               (push (list :method-name "Standard-Shipping-(Flat-Rate)" :cost shipping-cost :is-default nil) shipping-options))))
+	;; Table Rate Shipping (Zone Wise)
+	((and (equal tablerateshipenabled "Y") (equal defaultshipmethod "TRS"))
+	 (let ((total-weight (calculate-cartitems-weight-kgs shopping-cart products)))
+	   (setf shipping-cost (get-shipping-rate-from-table shipzipcode total-weight vendor company))
+	   (when (> shipping-cost 0.0)
+             (push (list :method-name "Standard-Shipping-(Table-Rate)" :cost shipping-cost :is-default nil) shipping-options))))
+	;; External (Third-Party) Shipping
+	((and (equal extshipenabled "Y") (equal defaultshipmethod "EXS"))
+	 (handler-case 
+	     (setf shipping-options (order-shipping-rate-check shopping-cart products shipzipcode vendor-zipcode))
+	   (error (condition)
+	     (let ((exceptionstr (format nil  "External Shipping Rate Check Error :~A: ~a~%" (mysql-now) condition)))
+	       (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE*
+				       :direction :output
+				       :if-exists :append
+				       :if-does-not-exist :create)
+		 (format stream "~A~A" exceptionstr (sb-debug:list-backtrace)))
+               ;; return the exception.
+               (error 'nst-shipping-error :errstring exceptionstr))))    
+	 (setf shipping-cost (if shipping-options (min-item (mapcar (lambda (elem)
 								     (nth 9 elem)) shipping-options))
 				;; else
-				0.00)))
-      (when (and freeshippingenabled 
-		 (>= shopcart-total freeshipminorderamt))
-	(setf shipping-cost 0.0)))
-    (list shipping-cost shipping-options freeshipminorderamt)))
-    
+				 0.00))
+	 (push (list :method-name "Standard-Shipping-(External-Shipping-Partner)" :cost shipping-cost :is-default nil) shipping-options)))))
+	 
+      
+     ;; 4. Handle No Options Available
+    (when (null shipping-options)
+      (return-from calculate-shipping-cost-for-order
+        (list 0.0 nil freeshipminorderamt "+page-no-options-available+")))
+
+
+  ;; --- Step 5: Determine Default Shipping Option ---
+  ;; The rule implies Free Shipping is always the preferred default if applicable.
+  ;; Otherwise, the cheapest non-free option.
+  (setf shipping-options (determine-default-shipping-option shipping-options calculated-free-shipping-applies))
+  ;; 6. Determine html-page-to-display
+  (setf html-page-to-display (determine-shipping-html-page shipping-options calculated-free-shipping-applies has-pickup-option))
+  ;; return the list of shipping options, cost, and the page to display
+  (list shipping-cost shipping-options freeshipminorderamt html-page-to-display)))
+
+
+(defun determine-default-shipping-option (shipping-options calculated-free-shipping-applies)
+  (setf shipping-options (sort shipping-options #'< :key #'(lambda (opt) (getf opt :cost))))
+  (let ((default-option nil))
+    (cond
+      (calculated-free-shipping-applies
+       (setf default-option (find-if #'(lambda (opt) (equal (getf opt :method-name) "Free-Shipping")) shipping-options))
+         (when default-option
+           (setf (getf default-option :is-default) t)))
+      (t
+       ;; If no free shipping, sort by cost and pick the cheapest (could be pickup or paid)
+         (setf shipping-options (sort shipping-options #'< :key #'(lambda (opt) (getf opt :cost))))
+         (setf default-option (first shipping-options))
+         (when default-option
+           (setf (getf default-option :is-default) t))))
+    shipping-options))
+       
+
+(defun determine-shipping-html-page (shipping-options calculated-free-shipping-applies  has-pickup-option)
+  (let ((html-page-to-display nil))
+    (cond
+      ;; If free shipping applied for the order, show the dedicated free shipping page.
+      ;; This takes precedence over all other page determinations.
+      (calculated-free-shipping-applies
+       (setf html-page-to-display #'render-free-shipping-page))
+      ;; Case: Only Pickup is available
+      ;; If only Pickup is available (and free shipping didn't apply)
+      ((and has-pickup-option
+            (null (remove-if-not #'(lambda (opt) (> (getf opt :cost) 0.0)) shipping-options))) ; No paid options
+       (setf html-page-to-display  #'render-pickup-only-page))
+      ;; All other combinations lead to the standard shipping page
+      (t
+       (setf html-page-to-display #'render-free-shipping-page)))
+    ;; return the html page to display
+    html-page-to-display))
     
 
 (defun create-model-for-custshowshopcartreadonly ()
@@ -2234,7 +2330,7 @@
 	 (gstorgname (gethash "gstorgname" orderparams-ht))
 	 (shopcart-total (gethash "shopcart-total" orderparams-ht))
 	 (shipping-cost (gethash "shipping-cost" orderparams-ht))
-	 (storepickupenabled (gethash "storepickupenabled" orderparams-ht))
+	 (orderpickupinstore (gethash "orderpickupinstore" orderparams-ht))
 	 (vendoraddress (gethash "vendoraddress" orderparams-ht))
 	 (payment-mode (hunchentoot:parameter "paymentmode"))
 	 (utrnum (hunchentoot:parameter "utrnum"))
@@ -2268,11 +2364,11 @@
     (save-cust-order-params orderparams-ht)
     ;; return the variables in a function. 
     (function (lambda ()
-      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts storepickupenabled vendoraddress vshipping-enabled currsymbol)))))
+      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts orderpickupinstore vendoraddress vshipping-enabled currsymbol)))))
 
 (defun create-widgets-for-custshowshopcartreadonly (modelfunc)
   (multiple-value-bind
-	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts storepickupenabled vendoraddress vshipping-enabled currsymbol)
+	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts orderpickupinstore vendoraddress vshipping-enabled currsymbol)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -2325,7 +2421,7 @@
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (cl-who:str (ui-list-shopcart-readonly shopcart-products odts))))))
 	  (widget4 (function (lambda ()
-		     (if (or storepickupenabled (eq vshipping-enabled "N")) (displaystorepickupwidget vendoraddress))))))
+		     (if (or (equal orderpickupinstore "Y")  (equal vshipping-enabled "N")) (displaystorepickupwidget vendoraddress))))))
       (list widget1 widget2 widget3 widget4))))
 
 
@@ -2819,12 +2915,13 @@
 	  (widget4 (function (lambda ()
 		     (submitformevent-js "#idcustshoppingcartitems"))))
 	  (widget5 (function (lambda ()
-		      (cl-who:with-html-output (*standard-output* nil) 
-			(with-html-div-row
-			  (with-html-div-col-6
-				(cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping" )))
-			  (with-html-div-col-6 :style "align: right;" 
-			     (:a :class "btn btn-lg btn-primary btn-block" :href "dodcustorderaddpage" :style "font-weight: bold; font-size: 20px !important;" "Checkout " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" lstcount)))))))))))
+		     (when (> lstcount 0)
+		       (cl-who:with-html-output (*standard-output* nil) 
+			 (with-html-div-row
+			   (with-html-div-col-6
+			     (cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping" )))
+			   (with-html-div-col-6 :style "align: right;" 
+			     (:a :class "btn btn-lg btn-primary btn-block" :href "dodcustorderaddpage" :style "font-weight: bold; font-size: 20px !important;" "Checkout " (:i :class "fa-solid fa-cart-shopping") (:span :class "position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" (cl-who:str (format nil "~A" lstcount))))))))))))
       (list widget1 widget2 widget3 widget4 widget5))))
 	    
 (defun dod-controller-cust-show-shopcart ()
@@ -3018,15 +3115,6 @@
 	(stop-das) 
 	(start-das)
 	(hunchentoot:redirect "/hhub/hhubcustloginv2")))))
-
-
- ;     (clsql:sql-fatal-error (errorinst) (if (equal (clsql:sql-error-database-message errorinst) "Database is closed.") 
-;					     (progn (clsql:stop-sql-recording :type :both)
-;					            (clsql:disconnect) 
-;						    (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql)
-;(hunchentoot:redirect "/hhub/customer-login.html"))))))
-      
-
 
 
 

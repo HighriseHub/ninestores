@@ -9,5 +9,8 @@
 
 (in-package :hhub)
 (start-das)
+(setf *HHUBOTPTESTING* NIL)
+(setf *SITEURL* "https://www.ninestores.in")
+(clsql:stop-sql-recording)
 
 (format t "✅ HHUB Platform successfully started at ~A~%" (mysql-now))

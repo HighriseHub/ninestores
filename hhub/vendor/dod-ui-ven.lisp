@@ -1235,7 +1235,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		  (with-standard-vendor-page-v2 "Welcome to Nine Stores Platform - Vendor Login "
 		    (with-html-div-row
 		      (with-html-div-col-12
-			(with-html-card "/img/logo.png" "" "Vendor - Login to Nine Stores" ""
+			(with-html-card
+			    (:title "Login"
+			     :image-src "/img/logo.png"
+			     :image-alt "Vendor Login to Nine Stores"
+			     :image-style "width: 200px; height: 200px;")
 			  (:form :class "form-vendorsignin" :role "form" :method "POST" :action "dodvendlogin"
 				 (:div :class "form-group"
 				       (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex:9999999990" :type "text" ))
@@ -1266,7 +1270,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    (with-standard-vendor-page-v2  "Welcome to Nine Stores Platform - Vendor Login "
 	      (with-html-div-row
 		(with-html-div-col-12
-		  (with-html-card "/img/logo.png" "" "Vendor - Login to Nine Stores" ""
+		  (with-html-card
+		      (:title "Login"
+		       :image-src "/img/logo.png"
+		       :image-alt "Vendor Login to Nine Stores"
+		       :image-style "width: 200px; height: 200px;")
 		    (with-html-form  "form-vendorsignin" "hhubvendloginotpstep"
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999990" :type "number" :required "true" ))

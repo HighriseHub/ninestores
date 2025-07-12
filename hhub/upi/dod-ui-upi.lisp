@@ -79,8 +79,12 @@
 		       (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
 		       (:li :class "breadcrumb-item" (:a :href "dodcustorderaddpage" "Address"))))))
 	  (widget2 (function (lambda ()
-		     (with-html-card "/img/UPI.png" "UPI" "UPI Payment" ""  
-		       (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
+		     (with-html-card
+			     (:title "UPI Payment"
+			      :image-src "/img/UPI.png"
+			      :image-alt "UPI Payment"
+			      :image-style "width: 200px; height: 200px;")
+	    	       (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
 			 (display-upi-widget upitotal qrcodepath upiurls))
 		       (with-html-form "customerupipaymentform" "dodcustshopcartro" 
 			 (:div :class "row mb-3"
@@ -122,8 +126,12 @@
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (if qrcodepath
-			 (with-html-card "/img/UPI.png" "UPI" "UPI Payment" ""  
-			   (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
+			 (with-html-card
+			     (:title "UPI Payment"
+			      :image-src "/img/UPI.png"
+			      :image-alt "UPI Payment"
+			      :image-style "width: 200px; height: 200px;")
+	    		   (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
 			     (display-upi-widget amount qrcodepath upiurls)
 			     (with-html-form "customerupipaymentform" "hhubcustwalletrechargeaction"
 			       (:div :class "row mb-3"

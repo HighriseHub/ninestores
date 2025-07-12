@@ -356,17 +356,17 @@
 
 (defun create-order (modelfunc)
   (multiple-value-bind
-	(order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments context-id customer order-type  order-source customer-name company) (funcall modelfunc) 
+	(order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship orderpickupinstore gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments context-id customer order-type  order-source customer-name company) (funcall modelfunc) 
   (let ((customer-id (slot-value  customer 'row-id) )
 	(tenant-id (slot-value company 'row-id)))
     (persist-order (function (lambda ()
-		     (values order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments context-id customer-id order-type  order-source customer-name tenant-id)))))))
+		     (values order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship orderpickupinstore gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments context-id customer-id order-type  order-source customer-name tenant-id)))))))
 
 
-(defun create-order-from-pref (order-pref-list order-date request-date ship-date ship-address order-amt discount shipping-cost storepickupenabled customer-instance company-instance)
+(defun create-order-from-pref (order-pref-list order-date request-date ship-date ship-address order-amt discount shipping-cost orderpickupinstore customer-instance company-instance)
   (let ((uuid (uuid:make-v1-uuid ))
 	(tenant-id (slot-value company-instance 'row-id)))
-      (progn  (create-order (function (lambda () (values order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost "PRE" nil storepickupenabled  company-instance))))
+      (progn  (create-order (function (lambda () (values order-date customer-instance request-date ship-date ship-address (print-object uuid nil) order-amt shipping-cost "PRE" nil orderpickupinstore  company-instance))))
 	      (let ((order (get-order-by-context-id (print-object uuid nil) company-instance))
 		    (vendors (get-opref-vendorlist order-pref-list))
 		    (cust-id (slot-value customer-instance 'row-id)))
@@ -475,7 +475,7 @@
     (update-prd-details product)))
 
 
-(defun save-vendor-orders-in-db (order order-date request-date ship-date ship-address payment-mode  storepickupenabled  order-items products  shipping-info shipping-cost  guest-customer customer-instance company-instance utrnum)
+(defun save-vendor-orders-in-db (order order-date request-date ship-date ship-address payment-mode  orderpickupinstore  order-items products  shipping-info shipping-cost  guest-customer customer-instance company-instance utrnum)
   (let* ((order-id (slot-value order 'row-id))
 	 (cust-id (slot-value customer-instance 'row-id))
 	 (cust-type (slot-value customer-instance 'cust-type))
@@ -493,7 +493,7 @@
 		     (order-disp-str (create-order-email-content vproducts vitems custinst order-id shipping-cost total))
 		     (shipstr (process-shipping-information-for-email shipping-info))) 
       		
-		(persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost storepickupenabled)
+		(persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost orderpickupinstore)
 		;; Save the UPI Transaction 
 		(when utrnum (save-upi-transaction total utrnum (format nil "#ORD:~A" order-id) custinst vendor company-instance (slot-value custinst 'phone)))
 		;;Send a mail to the vendor
@@ -504,20 +504,20 @@
 
 (defun create-order-from-shopcart (modelfunc)
   (multiple-value-bind
-	(order-items shopcart-products shipping-info temp-customer utrnum order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments customer order-type  order-source customer-name company) (funcall modelfunc)
+	(order-items shopcart-products shipping-info temp-customer utrnum order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship orderpickupinstore gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments customer order-type  order-source customer-name company) (funcall modelfunc)
     (let ((context-id (uuid:make-v1-uuid)))
       ;; Create an order in the database. 
       (create-order (function (lambda ()
-		      (values order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments (print-object context-id nil) customer order-type  order-source customer-name company))))
+		      (values order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship orderpickupinstore gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments (print-object context-id nil) customer order-type  order-source customer-name company))))
       (let* ((order (get-order-by-context-id (print-object context-id nil) company))
 	     (order-id (slot-value order 'row-id)))
 	;; Create the order-items and also update the current products in stock. 
 	(save-order-items-in-db order order-items shopcart-products company)
 	;; Create one row per vendor in the vendor_orders table. Send an order received email to each vendor. 
-	(save-vendor-orders-in-db order  order-date request-date shipped-date shipaddr payment-mode  storepickupenabled  order-items shopcart-products  shipping-info shipping-cost  temp-customer customer company utrnum)
+	(save-vendor-orders-in-db order  order-date request-date shipped-date shipaddr payment-mode  orderpickupinstore  order-items shopcart-products  shipping-info shipping-cost  temp-customer customer company utrnum)
     order-id))))
    
-(defun persist-vendor-orders(order-id cust-id vendor-id tenant-id ord-date req-date ship-date ship-address payment-mode order-amt shipping-cost storepickupenabled)
+(defun persist-vendor-orders(order-id cust-id vendor-id tenant-id ord-date req-date ship-date ship-address payment-mode order-amt shipping-cost orderpickupinstore)
  (clsql:update-records-from-instance (make-instance 'dod-vendor-orders
 					 :order-id order-id
 					 :cust-id cust-id
@@ -531,7 +531,7 @@
 					 :payment-mode payment-mode 
 					 :order-amt order-amt
 					 :shipping-cost shipping-cost
-					 :storepickupenabled storepickupenabled
+					 :storepickupenabled orderpickupinstore
 					 :deleted-state "N"
 					 :tenant-id tenant-id )))
 

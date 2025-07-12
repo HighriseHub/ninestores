@@ -298,5 +298,3 @@
 
 (defun display-order-header-for-vendor (order-instance)
   (with-mvc-ui-component #'create-widgets-for-displayorderheaderforvendor #'create-model-for-displayorderheaderforvendor order-instance))
-
-

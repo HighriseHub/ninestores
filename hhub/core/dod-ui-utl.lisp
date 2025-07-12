@@ -12,7 +12,11 @@
 	(with-no-navbar-page-v2 (format nil "Welcome ~A" persona)
 	  (with-html-div-row
 	    (with-html-div-col-12
-	      (with-html-card "/img/logo.png" "" (format nil "~A Login" persona) ""
+	      (with-html-card
+		  (:title "Login"
+		   :image-src "/img/logo.png"
+		   :image-alt (format nil "~A Login" persona)
+		   :image-style "width: 200px; height: 200px;")
 		(:form :class "form-custsignin" :role "form" :method "POST" :action formaction :data-toggle "validator"
 		       (:div :class "form-group"
 			     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true"))
@@ -846,10 +850,10 @@ individual tiles. It also supports search functionality by including the searchr
 
 (defun html-back-button ()
   :documentation "HTML Back button"
-  `(cl-who:with-html-output-to-string (*standard-output* nil ) 
+  (cl-who:with-html-output-to-string (*standard-output* nil ) 
      (with-html-div-row
        (with-html-div-col 
-	 (:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "bi bi-arrow-left"))))))
+	 (:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "fa-solid fa-left-long"))))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -883,17 +887,22 @@ individual tiles. It also supports search functionality by including the searchr
 		,@body)))))
 
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro with-html-card (cardimage cardimagealt cardtitle cardtext  &body body)
-    :documentation "A HTML bootstrap 5.x card"
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "card"
-	     (:img :src ,cardimage :class "rounded-circle mx-auto d-block mt-3" :alt ,cardimagealt :style "width: 100px; height: 100px;")
-	     (:div :class "card-body text-center"
-		   (:h3 :class "card-title" ,cardtitle)
-		   (:p :class "card-text" ,cardtext)
-		   ,@body)))))
 
+(defmacro with-html-card ((&key title image-src image-alt (image-style "") (image-classes '("rounded-circle" "mx-auto" "d-block" "mt-3")) (card-classes '("card")) (body-classes '("card-body" "text-center"))) &body cardbody)
+  "A HTML Bootstrap 5.x card generator macro."
+  (let ((image-classes-str (if (listp image-classes) (format nil "~{~A~^ ~}" image-classes) image-classes))
+        (card-classes-str (if (listp card-classes) (format nil "~{~A~^ ~}" card-classes) card-classes))
+        (body-classes-str (if (listp body-classes) (format nil "~{~A~^ ~}" body-classes) body-classes)))
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:div :class ,card-classes-str
+             ,(when image-src
+                `(:img :src ,image-src
+                       :class ,image-classes-str
+                       :alt ,image-alt
+                       :style ,image-style))
+             (:div :class ,body-classes-str
+                   (:h3 :class "card-title" ,title)
+                   (:p :class "card-text" ,@cardbody))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-div-row ( &body body) 
