@@ -103,7 +103,6 @@
      :type (string 3)
      :initarg :defaultshippingmethod)
     
-
     (shippartnerkey
      :type (string 50)
      :initarg :shippartnerkey)

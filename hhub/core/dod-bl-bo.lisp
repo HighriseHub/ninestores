@@ -176,8 +176,9 @@
 	 (policy-func (if policy (slot-value policy 'policy-func)))
 	 (exceptionstr nil))
     (handler-case 
-	(multiple-value-bind (returnvalues) (funcall (intern  (string-upcase policy-func) :hhub) params)
-					;Return a list of return values and exception as nil. 
+	(multiple-value-bind (returnvalues)
+	    (funcall (intern  (string-upcase policy-func) :hhub) params)
+	  ;; Return a list of return values and exception as nil. 
 	  (logiamhere (format nil "Executing Policy - ~A" policy-func))
 	  (list returnvalues nil))
 
@@ -196,9 +197,9 @@
 	(setf exceptionstr (format nil  "~A: HHUB General ABAC Policy Error: ~A :: ~A~%" (mysql-now) (string-upcase policy-name) c))
 	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
 				:direction :output
-			      :if-exists :append
+				:if-exists :append
 				:if-does-not-exist :create)
 	  (format stream "~A: ~A~A" (mysql-now)  exceptionstr (sb-debug:list-backtrace)))
-	(list nil (format nil "HHUB General Authorization Error. Contact your system administrator."))))))
+	(list nil (format nil "Nind Stores General Authorization Error. Contact your system administrator."))))))
 
 

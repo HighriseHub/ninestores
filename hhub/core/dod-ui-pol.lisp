@@ -289,6 +289,7 @@ T)
 (defun com-hhub-policy-create-order (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
 	 (suspend-flag (slot-value company 'suspend-flag)))
+    (logiamhere (format nil "I am in com-hhub-policy-create-order"))
     (cond  ;; Check whether the account is suspended. 
       ((com-hhub-attribute-company-issuspended suspend-flag)
        (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
