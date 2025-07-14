@@ -47,10 +47,13 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun displaystorepickupwidget (address)
     (cl-who:with-html-output (*standard-output* nil)
-      (with-html-div-row 
-	(:div :align "right" :class "stampbox rotated" "Store Pickup")
+      (with-html-card
+	  (:title "Pickup In Store"
+	   :image-src "/img/PickupInStore.jpg" 
+	   :image-alt "Pickup In Store"
+	   :image-style "width: 100px; height: 100px;")
 	(:p (:strong "NOTE: This order needs to be picked up from store."))
-	(if address (cl-who:htm (:div (:span (cl-who:str (format nil "&nbsp;Store Address:~A" address ))))))))))
+	(:p (:span (cl-who:str (format nil "&nbsp;Store Address:~A" address ))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun with-html-collapse (collapseid listcollapseitemsfuncs) 
