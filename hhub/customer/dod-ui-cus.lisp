@@ -118,8 +118,8 @@
          (shipping-cost (nth 0 shipping-options))
          (freeshipminorderamt (nth 2 shipping-options))
 	 (freeshippingapplied (if (and (equal freeshipenabled "Y") (> shopcart-total freeshipminorderamt)) T NIL))
-	 (currsymbol (get-currency-html-symbol (get-account-currency company)))
-	 (html-page-func (nth 3 shipping-options)))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
+	 
     (logiamhere (format nil "~A" shipping-options))
       (cl-who:with-html-output (*standard-output* nil)
 	(when (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y")) ;; (> shipping-cost 0))
@@ -2401,6 +2401,9 @@
 				    (:p (cl-who:str (format nil "GST Number: ~A/~A" gstnumber gstorgname)))))))
 			 (with-html-div-col-6
 			   (:div :class "place-order-details"
+				 (if (or (equal orderpickupinstore "Y")
+					 (equal vshipping-enabled "N"))
+				     (cl-who:htm (:div :class "ribbon" "Pickup In Store")))
 				 (:p (cl-who:str (format nil "Sub-total: ~A ~$" currsymbol shopcart-total)))
 				 (:p (cl-who:str (format nil "Shipping: ~A ~$" currsymbol shipping-cost)))
 				 (:hr)
