@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (defun role-dropdown (controlname &optional selectedkey)
   (let* ((rolelist (hhub-get-cached-roles))

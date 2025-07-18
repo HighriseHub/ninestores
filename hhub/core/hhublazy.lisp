@@ -1,4 +1,4 @@
-(in-package :hhub)
+(in-package :nstores)
 (defmacro lazy (&body body)
   (let ((forced (gensym))
 	(value (gensym)))

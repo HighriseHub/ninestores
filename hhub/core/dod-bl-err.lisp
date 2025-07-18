@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-condition hhub-business-function-error (error)

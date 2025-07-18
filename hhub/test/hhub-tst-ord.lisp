@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (defun hhub-test-order ()
   (let* ((company (select-company-by-id 2))
@@ -258,7 +258,7 @@
     (lambda ()
      (let ((func (cdr (assoc lasttimefunckey funclist :test '=))))
        (setf lasttimefunckey (* complexfactor lasttimefunckey))
-       (funcall (intern (string-upcase func) :hhub))
+       (funcall (intern (string-upcase func) :nstores))
        ))))
 
 (defvar *counter* (let ((count 0))

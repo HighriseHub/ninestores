@@ -28,7 +28,7 @@
 ;;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 ;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(asdf:defsystem #:hhub
+(asdf:defsystem #:nstores
   :serial t
   :description "Nine Stores  is an online marketplace and e-commerce platform."
   :author "Nine Stores <support@ninestores.in>"
@@ -42,7 +42,7 @@ GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
 INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
 WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
-  :version "1.1.0"
+  :version "1.1.1"
   
   :components
 

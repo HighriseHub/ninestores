@@ -1,7 +1,7 @@
 (in-package :cl-user)
-(defpackage :com.hhub.app
+(defpackage :com.nstores.app
   (:use :cl)
-  (:nicknames :hhub) 
+  (:nicknames :nstores) 
   (:export #:*logged-in-users*
 	   #:*dod-db-instance*
 	    #:*http-server*))

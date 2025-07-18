@@ -1,6 +1,6 @@
 
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 (defun test-invoiceheader-DBSave ()
 ;; (handler-case   
   (let* ((company (select-company-by-id 2))

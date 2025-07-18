@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
 (defun display-products-carousel (numitems products)
@@ -1915,7 +1915,6 @@
   (let* ((shopcart-total (get-shop-cart-total shopcart))
 	 (subject (format nil "Nine Stores order ~A" order-id))
 	 (order-disp-str (create-order-email-content products shopcart temp-customer order-id shipping-cost shopcart-total)))
-    (logiamhere (format nil "subject is ~d" order-id))
     (send-message *NSTSENDORDEREMAILACTOR* (lambda () (values email subject order-disp-str)))))
  ;;(send-order-mail email subject order-disp-str)))
     
@@ -2018,7 +2017,7 @@
 	    (setf (gethash "GUEST-SMS" temp-ht) (symbol-function 'send-order-sms-guest-customer))
 	    (setf (gethash "STANDARD-EMAIL" temp-ht) (symbol-function 'send-order-email-standard-customer))
 	    (setf (gethash "STANDARD-SMS" temp-ht) (symbol-function 'send-order-sms-standard-customer))
-	    (logiamhere (format nil "order id is ~d" order-id))
+	    ;;(logiamhere (format nil "order id is ~d" order-id))
 	    ;; Send order SMS to guest customer if phone is provided. (Phone is required field for Guest customer, hence SMS will always be sent)
 	    (when (and (equal cust-type "GUEST") phone) (funcall (gethash (format nil "~A-SMS" cust-type) temp-ht) order-id  phone))
 	    ;; Send order email to guest customer if email is provided. 

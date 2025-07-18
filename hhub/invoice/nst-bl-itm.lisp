@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-%
-(in-package :hhub)
+(in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 ;; METHODS FOR ENTITY CREATE 
 ;; This file contains template code which will be used to generate for class methods.

@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*
-(in-package :hhub)
+(in-package :nstores)
 
 (defun OrderItems-search-html ()
   :description "This will create a html search box widget"

@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 ;;;; -*- Mode: Lisp; Syntax: Common-Lisp -*-
 ;;;; Code from Paradigms of AI Programming
