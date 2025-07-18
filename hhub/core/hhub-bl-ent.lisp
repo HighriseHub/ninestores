@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 
 ;; Level 1 
@@ -531,7 +531,7 @@
 	 (method "doservice")
 	 (requestmodel (getrequestmodel service)))
     ;; Call the doservice method on the BusinessService.
-    (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
+    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
 
 
 (defmethod ProcessReadRequest ((service AdapterService) (requestmodel RequestModel))
@@ -540,7 +540,7 @@
 	 (bserviceinstance (make-instance bservicename))
 	 (method "doread")) 
     ;; Call the doread method on the BusinessService.
-    (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
+    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
 
 (defmethod ProcessReadAllRequest ((service AdapterService) (requestmodel RequestModel))
   :description "This method acts as a gateway for all incoming READ requests to Nine Stores Business layer"
@@ -548,7 +548,7 @@
 	 (bserviceinstance (make-instance bservicename))
 	 (method "doreadall")) 
     ;; Call the doread method on the BusinessService.
-    (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
+    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
 
 
 (defmethod ProcessCreateRequest ((service AdapterService) (requestmodel RequestModel)) 
@@ -557,7 +557,7 @@
 	  (bserviceinstance (make-instance bservicename))
 	  (method "docreate"))
     ;; Call the docreate method on the BusinessService.
-    (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
+    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
   
 
 (defmethod ProcessDeleteRequest ((service AdapterService) (requestmodel RequestModel)) 
@@ -566,7 +566,7 @@
 	 (bserviceinstance (make-instance bservicename))
 	 (method "dodelete"))
     ;; Call the docreate method on the BusinessService.
-    (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
+    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
   
 
 (defmethod ProcessUpdateRequest ((service AdapterService) (requestmodel RequestModel))
@@ -575,7 +575,7 @@
 	 (bserviceinstance (make-instance bservicename))
 	 (method "doupdate"))
     ;; Call the doupdate method on the BusinessService.
-    (funcall (intern (string-upcase method) :hhub) bserviceinstance requestmodel)))
+    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
   
 
 

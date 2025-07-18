@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (clsql:def-view-class dod-password-reset ()
   ((row-id

@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (defun test-warehouse-DBSave (managername phone)
   (let* ((democompany (select-company-by-id 2))

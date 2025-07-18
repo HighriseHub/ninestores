@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (defun hhub-html-page-footer ()
   (cl-who:with-html-output (*standard-output* nil)

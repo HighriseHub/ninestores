@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (defun com-hhub-transaction-display-store ()
   (let* ((parambase64 (hunchentoot:parameter "key"))

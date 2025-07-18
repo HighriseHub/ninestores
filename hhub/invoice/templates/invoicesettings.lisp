@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (defparameter *invoice-settings-alist*
   '((invoice-print-settings.default-paper-size . "A4")

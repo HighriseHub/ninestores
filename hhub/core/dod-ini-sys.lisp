@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
 
@@ -57,7 +57,7 @@
 (defvar *PAYGATEWAYRETURNURL* "https://www.ninestores.in/hhub/custpaymentsuccess")
 (defvar *PAYGATEWAYCANCELURL* "https://www.ninestores.in/hhub/custpaymentcancel")
 (defvar *PAYGATEWAYFAILUREURL* "https://www.ninestores.in/hhub/custpaymentfailure")
-(defvar *HHUBRESOURCESDIR* "/data/www/public/img")
+(defvar *HHUBRESOURCESDIR* "/data/www/ninestores.in/public/img")
 (defvar *HHUBDEFAULTPRDIMG* "HHubDefaultPrdImg.png")
 (defvar *HHUBDEFAULTLOGOIMG* "/img/logo.png")
 (defvar *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* NIL)
@@ -84,7 +84,7 @@
 (defvar *HHUBSUPPORTEMAIL* "support@ninestores.in")
 (defvar *HHUBPENDINGUPIFUNCTIONS-HT* nil)
 (defvar *HHUBTRIALCOMPANYEXPIRYDAYS* 90)
-(defvar *HHUBOTPTESTING* T)
+(defvar *HHUBOTPTESTING* NIL)
 (defvar *HHUBUSELOCALSTORFORRES* NIL)
 (defvar *HHUBWHATAPPLINKURLINDIA* "https://wa.me/91")
 (defvar *HHUBWHATSAPPBUTTONIMG* "WhatsAppButtonGreenSmall.png")
@@ -165,12 +165,15 @@ Database type: Supported type is ':odbc'"
 
 
 (defun init-hhubplatform ()
-  (cond  ((null *dod-debug-mode*) (setf *dod-database-caching* T))
-	 (*dod-debug-mode* (setf *dod-database-caching* nil))
-	 (T (setf *dod-database-caching* NIL))))
+  (cond  ((null *dod-debug-mode*)
+	  (setf *dod-database-caching* T))
+	 (*dod-debug-mode*
+	  (setf *dod-database-caching* nil))
+	 (T
+	  (setf *dod-database-caching* NIL))))
 
 
-(defun start-das(&optional (withssl nil) (debug-mode T)  )
+(defun start-das (&optional (withssl nil) (debug-mode T))
   :documentation "Start ninestores server with or without ssl. If withssl is T, then start the hunchentoot server with ssl settings"
   (setf *dod-debug-mode* debug-mode)
   (setf *random-state* (make-random-state t))

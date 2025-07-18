@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-x
-(in-package :hhub)
+(in-package :nstores)
 
 (defvar *golden-cache* (make-hash-table :test 'eql)) ;;stores (complex-number . closure)
 (defparameter *golden-ratio* (/ (+ 1 (sqrt 5)) 2))  ;; φ ≈ 1.618

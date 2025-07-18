@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
 ;;;;;;;;;;;;;;;;;;;;; business logic for dod-bus-object ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -177,7 +177,7 @@
 	 (exceptionstr nil))
     (handler-case 
 	(multiple-value-bind (returnvalues)
-	    (funcall (intern  (string-upcase policy-func) :hhub) params)
+	    (funcall (intern  (string-upcase policy-func) :nstores) params)
 	  ;; Return a list of return values and exception as nil. 
 	  (logiamhere (format nil "Executing Policy - ~A" policy-func))
 	  (list returnvalues nil))

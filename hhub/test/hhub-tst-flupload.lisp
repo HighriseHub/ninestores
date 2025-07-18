@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (defun test-file-delete-s3bucket (object-id objectname)
   (let* ((vendor (select-vendor-by-id 1))

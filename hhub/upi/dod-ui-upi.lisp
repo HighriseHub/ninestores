@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :hhub)
+(in-package :nstores)
 
 (defun generateqrcodeforvendor  (vendor retailer-category-code transaction-id amount)
   ;; upiapp values are phonepe, paytmmp, gpay, upi

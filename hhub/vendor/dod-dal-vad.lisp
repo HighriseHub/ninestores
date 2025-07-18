@@ -1,4 +1,4 @@
-(in-package :hhub)
+(in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
 (clsql:def-view-class dod-vendor-availability-day ()
