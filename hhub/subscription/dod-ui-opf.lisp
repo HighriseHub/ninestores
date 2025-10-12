@@ -1,9 +1,9 @@
 ;; -*- mode: common lisp; coding: utf-8 -*-
 (in-package :nstores)
 
-(defun dod-controller-my-orderprefs ()
+(defun dod-controller-customer-subscriptions ()
   (with-cust-session-check
-    (with-mvc-ui-page "Customer Order Subscriptions" #'create-model-for-custordersubs #'create-widgets-for-custordersubs :role :customer)))
+    (with-mvc-ui-page "Customer Order Subscriptions" #'create-model-for-custordersubs #'create-ui-for-custordersubs :role :customer)))
 
 
 (defun create-model-for-custordersubs ()
@@ -12,21 +12,35 @@
     (function (lambda ()
       (values dodorderprefs header)))))
 
-(defun create-widgets-for-custordersubs (modelfunc)
-  (multiple-value-bind
-	(dodorderprefs header)
-      (funcall modelfunc)
-    (let ((widget1 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil)  
+(defun customer-subscriptions-header-top-widget ()
+  (make-ui-widget (lambda ()
+		    (cl-who:with-html-output (*standard-output* nil)  
 		       (with-html-div-row
-			 (with-html-div-col (:h3 "My Subscriptions."))      
-			 (with-html-div-col (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustindex") "Shop Now")))
-		       (with-html-div-row :id "idcustsubscriptions"
-			 (cl-who:str (display-as-table header dodorderprefs 'cust-opf-as-row)))))))
-	  (widget2 (function (lambda ()
-		     (submitformevent-js "#idcustsubscriptions")))))
-      (list widget1 widget2))))
+			 (with-html-div-col-4 (:h3 "My Subscriptions."))      
+			 (with-html-div-col-4 (:a :class "btn btn-primary" :role "button" :href (format nil "dodcustindex") "Shop Now")))))))
 
+(defun customer-subscriptions-table-widget (header dodorderprefs)
+  (make-ui-widget (lambda ()
+		    (cl-who:with-html-output (*standard-output* nil)  
+		      (with-html-div-row :id "idcustsubscriptions"
+			(cl-who:str (display-as-table header dodorderprefs 'cust-opf-as-row)))))))
+
+
+
+(defun customer-subscriptions-component ()
+  (make-ui-component :customer-subscriptions-component
+		     (lambda (mf)
+		       (multiple-value-bind (dodorderprefs header) (funcall mf)
+			 (list (customer-subscriptions-header-top-widget)
+			       (customer-subscriptions-table-widget header dodorderprefs))))))
+(defun customer-subscriptions-page ()
+  (make-ui-page
+   :customer
+   :customer-subscriptions-page
+   (customer-subscriptions-component)))
+
+(defun create-ui-for-custordersubs (modelfunc)
+  (render-ui-page (customer-subscriptions-page) modelfunc))
 
 (defun cust-opf-as-row (orderpref &rest params)
   (declare (ignore params))
@@ -34,7 +48,6 @@
 	 (opf-product (get-opf-product orderpref))
 	 (prd-name (slot-value opf-product  'prd-name)))
     (cl-who:with-html-output (*standard-output* nil)
-      
       (:td  :height "12px" (cl-who:str prd-name))
       (:td :height "12px"    (cl-who:str (if (equal (slot-value orderpref 'sun) "Y") "Su, "))
 	       (cl-who:str (if (equal (slot-value orderpref 'mon) "Y") "Mo, "))
