@@ -8,7 +8,11 @@
     ;; Add more migrations here
     ("09052025-add-price&discount-columns"  migrate-2025May-add-discount-column "Added current price and current discount to DOD_PRD_MASTER table")
     ("16062025-modify-dod_order-table"  migrate-2025Jun-dod-order-schema "Modify dod_order table add many columns, drop columns, add indexes and foreign keys")
-   ))
+    ("22082025-modify-dod_order_items-table"  migrate-2025Aug-OrderItem-upgrade "Modify dod_order_items table add many columns")
+    ("02092025-modify-dod_order_items-sgst"  migrate-2025Sep-orderitem-upgrade-sgst "Modify dod_order_items table modify the sgst column to decimal(4,2) and drop taxable_value column")))
+
+
+
 
 (defun get-applied-migrations ()
   (mapcar #'first
@@ -79,6 +83,40 @@
          (result (clsql:query query :flatp t)))
     (not (null result))))
 
+(defun table-exists-p (table)
+  (let* ((sql (format nil
+                      "SELECT COUNT(*) FROM information_schema.tables
+                       WHERE table_schema = DATABASE()
+                         AND table_name = '~A'"
+                      table))
+         (result (clsql:query sql :flatp t)))
+    (> (first result) 0)))
+
+
+(defun migrate-2025Sep-orderitem-upgrade-sgst ()
+  (when (column-exists-p "DOD_ORDER_ITEMS" "SGST")
+    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS MODIFY COLUMN SGST decimal(4,2);"))
+  (when (column-exists-p "DOD_ORDER_ITEMS" "TAXABLE_VALUE")
+    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS DROP COLUMN TAXABLE_VALUE;")))
+
+(defun migrate-2025Aug-OrderItem-upgrade ()
+  ;; 1 - Add column - TAXABLE_VALUE
+  (unless (column-exists-p "DOD_ORDER_ITEMS" "TAXABLEVALUE")
+    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN TAXABLEVALUE  decimal(15,2);"))
+  ;; 2 - Add column - SGSTAMT
+  (unless (column-exists-p "DOD_ORDER_ITEMS" "SGSTAMT")
+    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN SGSTAMT decimal(15,2);"))
+  ;; 2 - Add column - CGSTAMT
+  (unless (column-exists-p "DOD_ORDER_ITEMS" "CGSTAMT")
+    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN CGSTAMT decimal(15,2);"))
+  ;; 2 - Add column - IGSTAMT
+  (unless (column-exists-p "DOD_ORDER_ITEMS" "IGSTAMT")
+    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN IGSTAMT decimal(15,2);"))
+  ;; 2 - Add column - TOTALITEMVAL
+  (unless (column-exists-p "DOD_ORDER_ITEMS" "TOTALITEMVAL")
+    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN TOTALITEMVAL decimal(15,2);")))
+
+
 (defun migrate-2025May-add-discount-column ()
   ;; Add Current pricing and Current discount columns to dod_prd_master table
   (unless (column-exists-p "DOD_PRD_MASTER" "unit-price")
@@ -93,9 +131,10 @@
 
 (defun migrate-2025May-add-product-code ()
   ;; 1 - Add column
-  (clsql:execute-command "ALTER TABLE DOD_PRD_MASTER ADD COLUMN PRODUCT_CODE VARCHAR(50);")
+  (unless (column-exists-p "DOD_PRD_MASTER" "PRODUCT_CODE")
+    (clsql:execute-command "ALTER TABLE DOD_PRD_MASTER ADD COLUMN PRODUCT_CODE VARCHAR(50);"))
   ;; 2. Update with unique values 
-  (clsql:execute-command "UPDATE dod_prd_master SET product_code = CONCAT('PRD', LPAD(row_id, 6, '0')) WHERE product_code IS NULL OR product_code = '';")
+  (clsql:execute-command "UPDATE DOD_PRD_MASTER SET product_code = CONCAT('PRD', LPAD(row_id, 6, '0')) WHERE product_code IS NULL OR product_code = '';")
   ;; 3. Set NOT NULL  
   (clsql:execute-command "ALTER TABLE DOD_PRD_MASTER MODIFY COLUMN PRODUCT_CODE VARCHAR(50) NOT NULL;")
   ;; 4. Add UNIQUE constraint 
