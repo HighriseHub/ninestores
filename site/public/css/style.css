@@ -520,15 +520,15 @@ body {
 
  
    .all-products > .product-card{
-      width:233px;
-      height:377px;
+      width:200px;
+      height:300px;
      .product-card  img {
-	  width: 150px;
-	  height: 150px;
-	  margin: 0.5rem;                                                                                                                                                                       
-	  transition: all 0.3s;                                                                                                                                                                 
-	  padding:0.5rem;                                                                                                                                                                       
-      }       
+	  width: 120px;
+	  height: 120px;
+	  margin: 0.5rem;
+          transition: all 0.3s;
+          padding:0.5rem;
+     }       
    }
 
    .prd-vendors-container > .vendor-card {
@@ -558,9 +558,9 @@ body {
       .product-card > img {
 	  width: 150px;
 	  height: 150px;
-	  margin: 0.5rem;                                                                                                                                                                       
-	  transition: all 0.3s;                                                                                                                                                                 
-	  padding:0.5rem;                                                                                                                                                                       
+	  margin: 0.5rem;
+          transition: all 0.3s;
+          padding:0.5rem;
       }       
  
   }
@@ -591,10 +591,10 @@ body {
 	img {
 	    width: 150px;
 	    height: 150px;
-	    margin: 0.5rem;                                                                                                                                                                       
-	    transition: all 0.3s;                                                                                                                                                                 
-	    padding:0.5rem;                                                                                                                                                                       
-	}       
+	    margin: 0.5rem;
+            transition: all 0.3s;
+            padding:0.5rem;
+        }       
 	
     }
    .prd-vendors-container > .vendor-card {

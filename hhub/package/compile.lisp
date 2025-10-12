@@ -44,14 +44,17 @@
 		     "order/dod-dal-otk.lisp"
 		     "order/dod-dal-ord.lisp"
 		     "order/nst-dal-Order.lisp"
+		     "order/nst-dal-OrderItem.lisp"
 		     ;; Orders Business Layer
 		     "order/dod-bl-odt.lisp"
 		     "order/dod-bl-ord.lisp"
 		     "order/nst-bl-Order.lisp"
+		     "order/nst-bl-OrderItem.lisp"
 		     ;; Orders UI Layer. 
 		     "order/dod-ui-ord.lisp"
 		     "order/dod-ui-odt.lisp"
 		     "order/nst-ui-Order.lisp"
+		     "order/nst-ui-OrderItem.lisp"
 
 
 		     ;; Subscription
@@ -68,6 +71,8 @@
 		     "customer/dod-dal-cus.lisp"
 		     "customer/dod-bl-cus.lisp"
 		     "customer/dod-ui-cus.lisp"
+		     "customer/nst-ui-cuswall.lisp"
+		     "customer/nst-ui-prodetpag.lisp"
 
 		     ;; Products
 		     "products/dod-dal-prd.lisp"

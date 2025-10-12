@@ -1257,10 +1257,6 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 							       (start-das)
 							       (hunchentoot:redirect "/hhub/vendor-login.html"))))))
 
-
-
-
-
 (defun dod-controller-vendor-otploginpage ()
   (handler-case 
       (progn  
@@ -1269,13 +1265,13 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    (hunchentoot:redirect "/hhub/dodvendindex?context=home")
 	    (with-standard-vendor-page-v2  "Welcome to Nine Stores Platform - Vendor Login "
 	      (with-html-div-row
-		(with-html-div-col-12
+		(with-html-div-col-12 
 		  (with-html-card
 		      (:title "Login"
 		       :image-src "/img/logo.png"
 		       :image-alt "Vendor Login to Nine Stores"
 		       :image-style "width: 200px; height: 200px;")
-		    (with-html-form  "form-vendorsignin" "hhubvendloginotpstep"
+		    (with-html-form-having-submit-event  "form-vendorsignin" "hhubvendloginotpstep"
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999990" :type "number" :required "true" ))
 		      (:div :class "form-group"
@@ -2533,7 +2529,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (mainorder (get-order-by-id (slot-value vorder-instance 'order-id) company))
 	 (order-id (if mainorder (slot-value mainorder 'row-id)))
 	 (payment-mode (if mainorder (slot-value mainorder 'payment-mode)))
-	 (header (list "Product" "Product Qty" "Unit Price"  "Sub-total"))
+	 (header (list "Product" "Product Qty" "Unit Price" "SGST" "CGST" "IGST"  "Sub-total"))
 	 (odtlst (if mainorder (dod-get-cached-order-items-by-order-id (slot-value mainorder 'row-id) (hunchentoot:session-value :order-func-list) )) )
 	 (order-amt (slot-value vorder-instance 'order-amt))
 	 (shipping-cost (slot-value vorder-instance 'shipping-cost))
@@ -2555,6 +2551,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		  (cl-who:htm (:h2 (:span :class "label label-danger" (cl-who:str (format nil "Low wallet Balance = Rs ~$" balance))))))
 					;else
 	      (:h3 (:span :class "label label-success" (cl-who:str (format nil "Total: ~A ~$" currsymbol total))))
+	      (if (equal venorderfulfilled "N") 
+		  (cl-who:htm
+		   (with-html-form "form-vendordercancel" "dodvenordcancel" 
+		     (with-html-input-text-hidden "id" order-id)
+		     (:div :class "form-group" :style "display:block"
+			   (:input :type "submit"  :class "btn btn-primary" :value "Cancel Order")))))
 	      (if (equal venorderfulfilled "Y") 
 		  (cl-who:htm (:span :class "label label-info" "FULFILLED"))
 		  ;; ELSE
@@ -2565,46 +2567,45 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		     ;; (:a :onclick "return CancelConfirm();" :href (format nil "dodvenordcancel?id=~A" (slot-value order 'row-id) ) (:span :class "btn btn-primary"  "Cancel")) "&nbsp;&nbsp;"
 		     (:div :class "form-group"
 			   (if mainorder ;; if the order is present only then show the complete button. 
-			       (cl-who:htm (:input :type "submit"  :class "btn btn-primary" :value "Complete")))))))))
+			       (cl-who:htm (:input :type "submit"  :class "btn btn-primary" :value "Fulfill Order")))))))))
       (when (and (equal storepickupenabled "Y") (= shipping-cost 0.00))
 	(cl-who:htm
 	 (:div :align "right" :class "stampbox-big rotated" "Store Pickup")))
-      (if odtlst (ui-list-vend-orderdetails header odtlst) "No order details")
-      (if mainorder (display-order-header-for-vendor mainorder))
-      (with-html-form "form-vendordercancel" "dodvenordcancel" 
-	(with-html-input-text-hidden "id" order-id)
-	(:div :class "form-group" :style "display:none"
-	      (:input :type "submit"  :class "btn btn-primary" :value "Cancel Order"))))))
+      (if odtlst (ui-list-vend-orderdetails header odtlst currsymbol) "No order details")
+      (if mainorder (display-order-header-for-vendor mainorder)))))
 
 (defun dod-controller-vendor-orderdetails ()
   (with-vend-session-check
     (with-mvc-ui-page "Vendor Order Details" #'create-model-for-vendororderdetails #'create-widgets-for-vendororderdetails :role :vendor)))
 
 (defun create-model-for-vendororderdetails ()
-  (let* ((dodvenorder (get-vendor-orders-by-orderid (hunchentoot:parameter "id") (get-login-vendor) (get-login-vendor-company)))
+  (let* ((vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (dodvenorder (get-vendor-orders-by-orderid (hunchentoot:parameter "id") vendor company))
 	 (customer (get-customer dodvenorder))
-	 (wallet (get-cust-wallet-by-vendor customer (get-login-vendor) (get-login-vendor-company)))
+	 (wallet (get-cust-wallet-by-vendor customer vendor company))
 	 (balance (slot-value wallet 'balance))
 	 (venorderfulfilled (if dodvenorder (slot-value dodvenorder 'fulfilled)))
-	 (order (get-order-by-id (hunchentoot:parameter "id") (get-login-vendor-company)))
+	 (order (get-order-by-id (hunchentoot:parameter "id") company))
 	 (order-id (if order (slot-value order 'row-id)))
 	 (payment-mode (slot-value order 'payment-mode))
 	 (header (list "Product" "Product Qty" "Unit Price"  "Sub-total"))
 	 (odtlst (if order (dod-get-cached-order-items-by-order-id (slot-value order 'row-id) (hunchentoot:session-value :order-func-list)  )) )
 	 (total (reduce #'+  (mapcar (lambda (odt)
 				       (* (slot-value odt 'current-price) (slot-value odt 'prd-qty))) odtlst)))
-	 (lowwalletbalance (< balance total)))
+	 (lowwalletbalance (< balance total))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
     (function (lambda ()
-      (values order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled)))))
+      (values order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled currsymbol)))))
 
 (defun create-widgets-for-vendororderdetails (modelfunc)
-  (multiple-value-bind (order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled) (funcall modelfunc)
+  (multiple-value-bind (order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled currsymbol) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
 		       (if order (display-order-header-for-vendor  order))))))
 	  (widget2 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
-		       (if odtlst (ui-list-vend-orderdetails header odtlst) "No order details")))))
+		       (if odtlst (ui-list-vend-orderdetails header odtlst currsymbol) "No order details")))))
 	  (widget3 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
 		       (with-html-div-row 
@@ -2625,7 +2626,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 
-(defun ui-list-vend-orderdetails (header data)
+(defun ui-list-vend-orderdetails (header data currsymbol)
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class  "panel panel-default"
 	    (:div :class "panel-heading" "Order Items")
@@ -2636,10 +2637,19 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			  (:tbody
 			   (mapcar (lambda (odt)
 				     (let* ((odt-product  (get-odt-product odt))
-					    (pricewith-discount (calculate-order-item-cost odt))
-					    (prd-qty (slot-value odt 'prd-qty)))
+					    (prd-qty (slot-value odt 'prd-qty))
+					    (sgst (slot-value odt 'sgst))
+					    (sgstamt (slot-value odt 'sgstamt))
+					    (cgst (slot-value odt 'cgst))
+					    (cgstamt (slot-value odt 'cgstamt))
+					    (igst (slot-value odt 'igst))
+					    (igstamt (slot-value odt 'igstamt))
+					    (taxablevalue (slot-value odt 'taxablevalue))
+					    (totalitemval (slot-value odt 'totalitemval)))
 				       (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value odt-product 'prd-name)))
-						 (:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
-						 (:td  :height "12px" (cl-who:str (format nil  "Rs. ~$" pricewith-discount)))
-						 (:td  :height "12px" (cl-who:str (format nil "Rs. ~$" (* pricewith-discount prd-qty))))
-						 )))) (if (not (typep data 'list)) (list data) data))))))))
+							(:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$" currsymbol taxablevalue)))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol sgstamt sgst)))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol cgstamt cgst)))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol igstamt igst)))
+							(:td  :height "12px" (cl-who:str (format nil "~A ~$" currsymbol (* totalitemval  prd-qty)))))))) (if (not (typep data 'list)) (list data) data))))))))

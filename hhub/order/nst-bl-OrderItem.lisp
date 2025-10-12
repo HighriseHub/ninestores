@@ -7,15 +7,15 @@
 ;; DO NOT ADD THIS FILE TO COMPILE.LISP FOR MASS COMPILATION. 
 
 
-(defmethod ProcessCreateRequest ((adapter OrderItemsAdapter) (requestmodel OrderItemsRequestModel))
+(defmethod ProcessCreateRequest ((adapter OrderItemAdapter) (requestmodel OrderItemRequestModel))
   :description  "Adapter Service method to call the BusinessService Create method. Returns the created Warehouse object."
     ;; set the business service
-  (setf (slot-value adapter 'businessservice) (find-class 'OrderItemsService))
+  (setf (slot-value adapter 'businessservice) (find-class 'OrderItemService))
   ;; call the parent ProcessCreate
   (call-next-method))
 
 
-(defmethod init ((dbas OrderItemsDBService) (bo OrderItems))
+(defmethod init ((dbas OrderItemDBService) (bo OrderItem))
   :description "Set the DB object and domain object"
   (let* ((DBObj  (make-instance 'database-table-object-name-here)))
     ;; Set specific fields of the DB object if you need to. 
@@ -27,8 +27,8 @@
 
 
 
-(defmethod doCreate ((service OrderItemsService) (requestmodel OrderItemsRequestModel))
-  (let* ((OrderItemsdbservice (make-instance 'OrderItemsDBService))
+(defmethod doCreate ((service OrderItemService) (requestmodel OrderItemRequestModel))
+  (let* ((OrderItemdbservice (make-instance 'OrderItemDBService))
 	 (company (company requestmodel))
 	 (row-id (row-id requestmodel))
 	 (order (order requestmodel))
@@ -45,17 +45,17 @@
 	 (fulfilled (fulfilled requestmodel))
 	 (status (status requestmodel))
 	 (deleted-state (deleted-state requestmodel))
-	 (domainobj (createOrderItemsobject row-id order product vendor prd-qty unit-price disc-rate cgst sgst igst addl-tax1-rate comments fulfilled status deleted-state company)))
+	 (domainobj (createOrderItemobject row-id order product vendor prd-qty unit-price disc-rate cgst sgst igst addl-tax1-rate comments fulfilled status deleted-state company)))
          ;; Initialize the DB Service
-    (init OrderItemsdbservice domainobj)
-    (copy-businessobject-to-dbobject OrderItemsdbservice)
-    (db-save OrderItemsdbservice)
+    (init OrderItemdbservice domainobj)
+    (copy-businessobject-to-dbobject OrderItemdbservice)
+    (db-save OrderItemdbservice)
     ;; Return the newly created orderitems domain object
     domainobj))
 
 
-(defun createOrderItemsobject (row-id order product vendor prd-qty unit-price disc-rate cgst sgst igst addl-tax1-rate comments fulfilled status deleted-state company)
-  (let* ((domainobj  (make-instance 'OrderItems 
+(defun createOrderItemobject (row-id order product vendor prd-qty unit-price disc-rate cgst sgst igst addl-tax1-rate comments fulfilled status deleted-state company)
+  (let* ((domainobj  (make-instance 'OrderItem 
 				       :row-id row-id
 				       :order order
 				       :product product
@@ -75,14 +75,14 @@
 				       :company company)))
     domainobj))
 
-(defmethod Copy-BusinessObject-To-DBObject ((dbas OrderItemsDBService))
+(defmethod Copy-BusinessObject-To-DBObject ((dbas OrderItemDBService))
   :description "Syncs the dbobject and the domainobject"
   (let ((dbobj (slot-value dbas 'dbobject))
 	(domainobj (slot-value dbas 'businessobject)))
-    (setf (slot-value dbas 'dbobject) (copyOrderItems-domaintodb domainobj dbobj))))
+    (setf (slot-value dbas 'dbobject) (copyOrderItem-domaintodb domainobj dbobj))))
 
 ;; source = domain destination = db
-(defun copyOrderItems-domaintodb (source destination) 
+(defun copyOrderItem-domaintodb (source destination) 
   (let ((vendor (slot-value source 'vendor))
 	(company (slot-value source 'company))
 	(product (slot-value source 'product))
@@ -107,30 +107,30 @@
 
 
 ;; PROCESS UPDATE REQUEST  
-(defmethod ProcessUpdateRequest ((adapter OrderItemsAdapter) (requestmodel OrderItemsRequestModel))
+(defmethod ProcessUpdateRequest ((adapter OrderItemAdapter) (requestmodel OrderItemRequestModel))
   :description "Adapter service method to call the BusinessService Update method"
-  (setf (slot-value adapter 'businessservice) (find-class 'OrderItemsService))
+  (setf (slot-value adapter 'businessservice) (find-class 'OrderItemService))
   ;; call the parent ProcessUpdate
   (call-next-method))
 
 ;; PROCESS READ ALL REQUEST.
-(defmethod ProcessReadAllRequest ((adapter OrderItemsAdapter) (requestmodel OrderItemsRequestModel))
+(defmethod ProcessReadAllRequest ((adapter OrderItemAdapter) (requestmodel OrderItemRequestModel))
   :description "Adapter service method to read UPI Payments"
-  (setf (slot-value adapter 'businessservice) (find-class 'OrderItemsService))
+  (setf (slot-value adapter 'businessservice) (find-class 'OrderItemService))
   (call-next-method))
 
-(defmethod doreadall ((service OrderItemsService) (requestmodel OrderItemsRequestModel))
+(defmethod doreadall ((service OrderItemService) (requestmodel OrderItemRequestModel))
   (let* ((vendor (vendor requestmodel))
 	 (order (order requestmodel))
 	 (dbobjlst (get-order-items-for-vendor-by-order-id order vendor)))
     ;; return back a list of domain objects 
     (mapcar (lambda (dbobject)
-	      (let ((domainobject (make-instance 'OrderItems)))
-		(copyOrderItems-dbtodomain dbobject domainobject))) dbobjlst)))
+	      (let ((domainobject (make-instance 'OrderItem)))
+		(copyOrderItem-dbtodomain dbobject domainobject))) dbobjlst)))
 
 
-(defmethod CreateViewModel ((presenter OrderItemsPresenter) (responsemodel OrderItemsResponseModel))
-  (let ((viewmodel (make-instance 'OrderItemsViewModel)))
+(defmethod CreateViewModel ((presenter OrderItemPresenter) (responsemodel OrderItemResponseModel))
+  (let ((viewmodel (make-instance 'OrderItemViewModel)))
     (with-slots (row-id order product vendor prd-qty unit-price disc-rate cgst sgst igst addl-tax1-rate comments fulfilled status deleted-state company) responsemodel
       (setf (slot-value viewmodel 'vendor) vendor)
       (setf (slot-value viewmodel 'row-id) row-id)
@@ -152,22 +152,22 @@
        viewmodel)))
   
 
-(defmethod ProcessResponse ((adapter OrderItemsAdapter) (busobj OrderItems))
-  (let ((responsemodel (make-instance 'OrderItemsResponseModel)))
+(defmethod ProcessResponse ((adapter OrderItemAdapter) (busobj OrderItem))
+  (let ((responsemodel (make-instance 'OrderItemResponseModel)))
     (createresponsemodel adapter busobj responsemodel)))
 
-(defmethod ProcessResponseList ((adapter OrderItemsAdapter) OrderItemslist)
+(defmethod ProcessResponseList ((adapter OrderItemAdapter) OrderItemlist)
   (mapcar (lambda (domainobj)
-	    (let ((responsemodel (make-instance 'OrderItemsResponseModel)))
-	      (createresponsemodel adapter domainobj responsemodel))) OrderItemslist))
+	    (let ((responsemodel (make-instance 'OrderItemResponseModel)))
+	      (createresponsemodel adapter domainobj responsemodel))) OrderItemlist))
 
-(defmethod CreateAllViewModel ((presenter OrderItemsPresenter) responsemodellist)
+(defmethod CreateAllViewModel ((presenter OrderItemPresenter) responsemodellist)
   (mapcar (lambda (responsemodel)
 	    (createviewmodel presenter responsemodel)) responsemodellist))
 
 
-(defmethod CreateResponseModel ((adapter OrderItemsAdapter) (source OrderItems) (destination OrderItemsResponseModel))
-  :description "source = OrderItems destination = OrderItemsResponseModel"
+(defmethod CreateResponseModel ((adapter OrderItemAdapter) (source OrderItem) (destination OrderItemResponseModel))
+  :description "source = OrderItem destination = OrderItemResponseModel"
   (with-slots (row-id order product vendor prd-qty unit-price disc-rate cgst sgst igst addl-tax1-rate comments fulfilled status deleted-state company) destination  
     (setf row-id (slot-value source 'row-id))
     (setf order (slot-value source 'order))
@@ -189,60 +189,60 @@
 
 
 
-(defmethod doupdate ((service OrderItemsService) (requestmodel OrderItemsRequestModel))
+(defmethod doupdate ((service OrderItemService) (requestmodel OrderItemRequestModel))
   (with-slots (row-id order product vendor prd-qty unit-price disc-rate cgst sgst igst addl-tax1-rate comments fulfilled status deleted-state company) requestmodel
-    (let* ((OrderItemsdbservice (make-instance 'OrderItemsDBService))
+    (let* ((OrderItemdbservice (make-instance 'OrderItemDBService))
 	   (prd-id (slot-value product 'row-id))
 	   (order-id (slot-value order 'row-id))
 	   (vendor-id (slot-value vendor 'row-id))
 	   (tenant-id (slot-value company 'row-id))
-	   (OrderItemsdbobj (get-order-items-by-product-id prd-id order-id tenant-id))
-	   (domainobj (make-instance 'OrderItems)))
+	   (OrderItemdbobj (get-order-items-by-product-id prd-id order-id tenant-id))
+	   (domainobj (make-instance 'OrderItem)))
     ;; FIELD UPDATE CODE STARTS HERE 
-    (when OrderItemsdbobj 
-      (setf (slot-value OrderItemsdbobj 'vendor-id) vendor-id)
-      (setf (slot-value OrderItemsdbobj 'prd-qty) prd-qty)
-      (setf (slot-value OrderItemsdbobj 'unit-price) unit-price)
-      (setf (slot-value OrderItemsdbobj 'disc-rate) disc-rate)
-      (setf (slot-value OrderItemsdbobj 'cgst) cgst)
-      (setf (slot-value OrderItemsdbobj 'sgst) sgst)
-      (setf (slot-value OrderItemsdbobj 'igst) igst)
-      (setf (slot-value OrderItemsdbobj 'addl-tax1-rate) addl-tax1-rate)
-      (setf (slot-value OrderItemsdbobj 'comments) comments)
-      (setf (slot-value OrderItemsdbobj 'fulfilled) fulfilled)
-      (setf (slot-value OrderItemsdbobj 'status) status)
-      (setf (slot-value OrderItemsdbobj 'deleted-state) deleted-state))
+    (when OrderItemdbobj 
+      (setf (slot-value OrderItemdbobj 'vendor-id) vendor-id)
+      (setf (slot-value OrderItemdbobj 'prd-qty) prd-qty)
+      (setf (slot-value OrderItemdbobj 'unit-price) unit-price)
+      (setf (slot-value OrderItemdbobj 'disc-rate) disc-rate)
+      (setf (slot-value OrderItemdbobj 'cgst) cgst)
+      (setf (slot-value OrderItemdbobj 'sgst) sgst)
+      (setf (slot-value OrderItemdbobj 'igst) igst)
+      (setf (slot-value OrderItemdbobj 'addl-tax1-rate) addl-tax1-rate)
+      (setf (slot-value OrderItemdbobj 'comments) comments)
+      (setf (slot-value OrderItemdbobj 'fulfilled) fulfilled)
+      (setf (slot-value OrderItemdbobj 'status) status)
+      (setf (slot-value OrderItemdbobj 'deleted-state) deleted-state))
        
      ;;  FIELD UPDATE CODE ENDS HERE. 
     
-    (setf (slot-value OrderItemsdbservice 'dbobject) OrderItemsdbobj)
-    (setf (slot-value OrderItemsdbservice 'businessobject) domainobj)
+    (setf (slot-value OrderItemdbservice 'dbobject) OrderItemdbobj)
+    (setf (slot-value OrderItemdbservice 'businessobject) domainobj)
     
-    (setcompany OrderItemsdbservice company)
-    (db-save OrderItemsdbservice)
+    (setcompany OrderItemdbservice company)
+    (db-save OrderItemdbservice)
     ;; Return the newly created UPI domain object
-    (copyOrderItems-dbtodomain OrderItemsdbobj domainobj))))
+    (copyOrderItem-dbtodomain OrderItemdbobj domainobj))))
 
 
 ;; PROCESS THE READ REQUEST
-(defmethod ProcessReadRequest ((adapter OrderItemsAdapter) (requestmodel OrderItemsRequestModel))
-  :description "Adapter service method to read a single OrderItems"
-  (setf (slot-value adapter 'businessservice) (find-class 'OrderItemsService))
+(defmethod ProcessReadRequest ((adapter OrderItemAdapter) (requestmodel OrderItemRequestModel))
+  :description "Adapter service method to read a single OrderItem"
+  (setf (slot-value adapter 'businessservice) (find-class 'OrderItemService))
   (call-next-method))
 
-(defmethod doread ((service OrderItemsService) (requestmodel OrderItemsRequestModel))
+(defmethod doread ((service OrderItemService) (requestmodel OrderItemRequestModel))
   (let* ((row-id (row-id requestmodel))
 	 (company (company requestmodel))
 	 (order (order requestmodel))
-	 (dbOrderItems (get-order-item-by-id row-id))
-	 (OrderItemsobj (make-instance 'OrderItems)))
+	 (dbOrderItem (get-order-item-by-id row-id))
+	 (OrderItemobj (make-instance 'OrderItem)))
     ;; return back a Vpaymentmethod  response model
-    (setf (slot-value OrderItemsobj 'company) company)
-    (setf (slot-value OrderItemsobj 'order) order) 
-    (copyOrderItems-dbtodomain dbOrderItems OrderItemsobj)))
+    (setf (slot-value OrderItemobj 'company) company)
+    (setf (slot-value OrderItemobj 'order) order) 
+    (copyOrderItem-dbtodomain dbOrderItem OrderItemobj)))
 
 
-(defun copyOrderItems-dbtodomain (source destination)
+(defun copyOrderItem-dbtodomain (source destination)
   (let* ((dbcomp (select-company-by-id (slot-value source 'tenant-id)))
 	 (prd-id (slot-value source 'prd-id))
 	 (dbproduct (select-product-by-id prd-id dbcomp))

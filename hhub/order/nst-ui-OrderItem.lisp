@@ -26,83 +26,83 @@
 	 (objlst (processreadallrequest adapterobj requestmodelobj))
 	 (responsemodellist (processresponselist adapterobj objlst))
 	 (viewallmodel (CreateAllViewModel presenterobj responsemodellist))
-	 (htmlview (make-instance 'OrderItemsHTMLView))
+	 (htmlview (make-instance 'OrderItemHTMLView))
 	 (params nil))
 
     (setf params (acons "username" (get-login-user-name) params))
     (setf params (acons "rolename" (get-login-user-role-name) params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-    (with-hhub-transaction "com-hhub-transaction-OrderItems-page" params 
+    (with-hhub-transaction "com-hhub-transaction-OrderItem-page" params 
       (function (lambda ()
 	(values viewallmodel htmlview username))))))
 
-(defun create-widgets-for-showOrderItems (modelfunc)
- :description "This is the view/widget function for show OrderItems entities" 
+(defun create-widgets-for-showOrderItem (modelfunc)
+ :description "This is the view/widget function for show OrderItem entities" 
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (with-vendor-breadcrumb)
-		       (OrderItems-search-html)
+		       (OrderItem-search-html)
 			 (:hr)))))
 	  (widget2 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
 		       (with-html-div-row
-			 (:h4 "Showing records for OrderItems."))
-		       (:div :id "OrderItemslivesearchresult" 
+			 (:h4 "Showing records for OrderItem."))
+		       (:div :id "OrderItemlivesearchresult" 
 			     (:div :class "row"
 				   (:div :class"col-xs-6"
-					 (:a :href "/hhub/addOrderItems" (:i :class "fa-solid fa-plus") "&nbsp;&nbsp;Create OrderItems"))
+					 (:a :href "/hhub/addOrderItem" (:i :class "fa-solid fa-plus") "&nbsp;&nbsp;Create OrderItem"))
 				   (:div :class "col-xs-6" :align "right" 
 					 (:span :class "badge" (cl-who:str (format nil "~A" (length viewallmodel))))))
 			     (:hr)
 			     (cl-who:str (RenderListViewHTML htmlview viewallmodel)))))))
 	  (widget3 (function (lambda ()
-		     (submitformevent-js "#OrderItemslivesearchresult")))))
+		     (submitformevent-js "#OrderItemlivesearchresult")))))
       (list widget1 widget2 widget3))))
 
-(defun create-widgets-for-updateOrderItems (modelfunc)
-:description "This is a widgets function for update OrderItems entity"      
+(defun create-widgets-for-updateOrderItem (modelfunc)
+:description "This is a widgets function for update OrderItem entity"      
   (funcall #'create-widgets-for-genericredirect modelfunc))
 
-(defmethod RenderListViewHTML ((htmlview OrderItemsHTMLView) viewmodellist)
-  :description "This is a HTML View rendering function for OrderItems entities, which will display each OrderItems entity in a row"
+(defmethod RenderListViewHTML ((htmlview OrderItemHTMLView) viewmodellist)
+  :description "This is a HTML View rendering function for OrderItem entities, which will display each OrderItem entity in a row"
   (when viewmodellist
-    (display-as-table (list "row-id" "order" "product" "vendor" "prd-qty" "unit-price" "disc-rate" "cgst" "sgst" "igst" "addl-tax1-rate" "comments" "fulfilled" "status" "deleted-state" "company" "%16%" "%17%" "%18%" "%19%" "%20%" "%21%" "%22%" "%23%" "%24%" "%25%" "%26%" "%27%" "%28%" "%29%" "%30%" "%31%" "%32%" "%33%" "%34%" "%35%" "%36%" "%37%") viewmodellist 'display-OrderItems-row)))
+    (display-as-table (list "row-id" "order" "product" "vendor" "prd-qty" "unit-price" "disc-rate" "cgst" "sgst" "igst" "addl-tax1-rate" "comments" "fulfilled" "status" "deleted-state" "company" "%16%" "%17%" "%18%" "%19%" "%20%" "%21%" "%22%" "%23%" "%24%" "%25%" "%26%" "%27%" "%28%" "%29%" "%30%" "%31%" "%32%" "%33%" "%34%" "%35%" "%36%" "%37%") viewmodellist 'display-OrderItem-row)))
 
-(defun create-model-for-searchOrderItems ()
-  :description "This is a model function for search OrderItems entities/entity" 
-  (let* ((search-clause (hunchentoot:parameter "OrderItemslivesearch"))
+(defun create-model-for-searchOrderItem ()
+  :description "This is a model function for search OrderItem entities/entity" 
+  (let* ((search-clause (hunchentoot:parameter "OrderItemlivesearch"))
 	 (company (get-login-company))
-	 (presenterobj (make-instance 'OrderItemsPresenter))
-	 (requestmodelobj (make-instance 'OrderItemsSearchRequestModel
+	 (presenterobj (make-instance 'OrderItemPresenter))
+	 (requestmodelobj (make-instance 'OrderItemSearchRequestModel
 						 :field1 search-clause
 						 :company company))
-	 (adapterobj (make-instance 'OrderItemsAdapter))
+	 (adapterobj (make-instance 'OrderItemAdapter))
 	 (domainobjlst (processreadallrequest adapterobj requestmodelobj))
 	 (responsemodellist (processresponselist adapterobj domainobjlst))
 	 (viewallmodel (CreateAllViewModel presenterobj responsemodellist))
-	 (htmlview (make-instance 'OrderItemsHTMLView))
+	 (htmlview (make-instance 'OrderItemHTMLView))
 	 (params nil))
 
     (setf params (acons "username" (get-login-user-name) params))
     (setf params (acons "rolename" (get-login-user-role-name) params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-    (with-hhub-transaction "com-hhub-transaction-search-OrderItems-action" params 
+    (with-hhub-transaction "com-hhub-transaction-search-OrderItem-action" params 
       (function (lambda ()
 	(values viewallmodel htmlview))))))
 
 
 
-(defun com-hhub-transaction-search-OrderItems-action ()
-  :description "This is a MVC function to search action for OrderItems entities/entity" 
-  (let* ((modelfunc (funcall #'create-model-for-searchOrderItems))
-	 (widgets (funcall #'create-widgets-for-searchOrderItems modelfunc)))
+(defun com-hhub-transaction-search-OrderItem-action ()
+  :description "This is a MVC function to search action for OrderItem entities/entity" 
+  (let* ((modelfunc (funcall #'create-model-for-searchOrderItem))
+	 (widgets (funcall #'create-widgets-for-searchOrderItem modelfunc)))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
       (loop for widget in widgets do
 	(cl-who:str (funcall widget))))))
 
-(defun create-model-for-updateOrderItems ()
-  :description "This is a model function for update OrderItems entity"
+(defun create-model-for-updateOrderItem ()
+  :description "This is a model function for update OrderItem entity"
   (let* ((row-id (hunchentoot:parameter "row-id"))
 	 (order (hunchentoot:parameter "order"))
 	 (product (hunchentoot:parameter "product"))
@@ -121,7 +121,7 @@
 	 (status (hunchentoot:parameter "status"))
 	 (deleted-state (hunchentoot:parameter "deleted-state"))
 	 (company (get-login-company)) ;; or get ABAC subject specific login company function. 
-	 (requestmodel (make-instance 'OrderItemsRequestModel
+	 (requestmodel (make-instance 'OrderItemRequestModel
 					 :row-id row-id
 					 :order order
 					 :product product
@@ -138,13 +138,13 @@
 					 :status status
 					 :deleted-state deleted-state
 					 :company company))
-	 (adapterobj (make-instance 'OrderItemsAdapter))
-	 (redirectlocation  "/hhub/OrderItems")
+	 (adapterobj (make-instance 'OrderItemAdapter))
+	 (redirectlocation  "/hhub/OrderItem")
 	 (params nil))
     (setf params (acons "username" (get-login-user-name) params))
     (setf params (acons "rolename" (get-login-user-role-name) params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-    (with-hhub-transaction "com-hhub-transaction-update-OrderItems-action" params 
+    (with-hhub-transaction "com-hhub-transaction-update-OrderItem-action" params 
       (handler-case 
 	  (let ((domainobj (ProcessUpdateRequest adapterobj requestmodel)))
 	    (function (lambda ()
@@ -153,8 +153,8 @@
 	  (error 'hhub-business-function-error :errstring (format t "got an exception ~A" c)))))))
 
 
-(defun create-model-for-createOrderItems ()
-  :description "This is a create model function for creating a OrderItems entity"
+(defun create-model-for-createOrderItem ()
+  :description "This is a create model function for creating a OrderItem entity"
   (let* ((row-id (hunchentoot:parameter "row-id"))
 	 (order (hunchentoot:parameter "order"))
 	 (product (hunchentoot:parameter "product"))
@@ -173,7 +173,7 @@
 	 (status (hunchentoot:parameter "status"))
 	 (deleted-state (hunchentoot:parameter "deleted-state"))
 	 (company (get-login-company)) ;; or get ABAC subject specific login company function. 
-	 (requestmodel (make-instance 'OrderItemsRequestModel
+	 (requestmodel (make-instance 'OrderItemRequestModel
 					 :row-id row-id
 					 :order order
 					 :product product
@@ -191,13 +191,13 @@
 					 :deleted-state deleted-state
 					 :company company
 					 :company company))
-	 (adapterobj (make-instance 'OrderItemsAdapter))
-	 (redirectlocation  "/hhub/OrderItems")
+	 (adapterobj (make-instance 'OrderItemAdapter))
+	 (redirectlocation  "/hhub/OrderItem")
 	 (params nil))
     (setf params (acons "username" (get-login-user-name) params))
     (setf params (acons "rolename" (get-login-user-role-name) params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-    (with-hhub-transaction "com-hhub-transaction-create-OrderItems-action" params 
+    (with-hhub-transaction "com-hhub-transaction-create-OrderItem-action" params 
       (handler-case 
 	  (let ((domainobj (ProcessCreateRequest adapterobj requestmodel)))
 	    ;; Create the GST HSN Code object if not present. 
@@ -206,8 +206,8 @@
 	(error (c)
 	  (error 'hhub-business-function-error :errstring (format t "got an exception ~A" c)))))))
 
-(defun com-hhub-transaction-create-OrderItems-dialog (&optional domainobj)
-  :description "This function creates a dialog to create OrderItems entity"
+(defun com-hhub-transaction-create-OrderItem-dialog (&optional domainobj)
+  :description "This function creates a dialog to create OrderItem entity"
   (let* ((row-id  (if domainobj (slot-value domainobj 'row-id)))
 	 (order  (if domainobj (slot-value domainobj 'order)))
 	 (product  (if domainobj (slot-value domainobj 'product)))
@@ -227,10 +227,10 @@
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "row" 
 	    (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		  (with-html-form (format nil "form-addOrderItems~A" row-id)  (if domainobj "updateOrderItemsaction" "createOrderItemsaction")
+		  (with-html-form (format nil "form-addOrderItem~A" row-id)  (if domainobj "updateOrderItemaction" "createOrderItemaction")
 		    (:img :class "profile-img" :src "/img/logo.png" :alt "")
 		    (:div :class "form-group"
-			  (:input :class "form-control" :name "row-id" :maxlength "20"  :value  row-id :placeholder "OrderItems (max 20 characters) " :type "text" ))
+			  (:input :class "form-control" :name "row-id" :maxlength "20"  :value  row-id :placeholder "OrderItem (max 20 characters) " :type "text" ))
 		    
 		    (:div :class "form-group" :id "charcount")
 		    (:div :class "form-group"
@@ -270,22 +270,22 @@
 
 
 
-(defun create-widgets-for-createOrderItems (modelfunc)
-  :description "This is a create widget function for OrderItems entity"
+(defun create-widgets-for-createOrderItem (modelfunc)
+  :description "This is a create widget function for OrderItem entity"
   (funcall #'create-widgets-for-genericredirect modelfunc))
 
 
 
 
-(defun create-widgets-for-searchOrderItems (modelfunc)
-  :description "This is a widget function for search OrderItems entities"
+(defun create-widgets-for-searchOrderItem (modelfunc)
+  :description "This is a widget function for search OrderItem entities"
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil) 
 		       (:div :class "row"
 			     (:div :class"col-xs-6"
-				   (:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target "#editOrderItems-modal" "Add OrderItems")
-				   (modal-dialog "editOrderItems-modal" "Add/Edit OrderItems" (com-hhub-transaction-create-OrderItems-dialog)))
+				   (:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target "#editOrderItem-modal" "Add OrderItem")
+				   (modal-dialog "editOrderItem-modal" "Add/Edit OrderItem" (com-hhub-transaction-create-OrderItem-dialog)))
 			     (:div :class "col-xs-6" :align "right" 
 				   (:span :class "badge" (cl-who:str (format nil "~A" (length viewallmodel))))))
 		       (:hr)
@@ -295,9 +295,9 @@
 
 
  
-(defun display-OrderItems-row (OrderItems)
-  :description "This function has HTML row code for OrderItems entity row"
-  (with-slots (row-id order product vendor prd-qty unit-price disc-rate cgst sgst igst addl-tax1-rate comments fulfilled status deleted-state company %16% %17% %18% %19% %20% %21% %22% %23% %24% %25% %26% %27% %28% %29% %30% %31% %32% %33% %34% %35% %36% %37%) OrderItems 
+(defun display-OrderItem-row (OrderItem)
+  :description "This function has HTML row code for OrderItem entity row"
+  (with-slots (row-id order product vendor prd-qty unit-price disc-rate cgst sgst igst addl-tax1-rate comments fulfilled status deleted-state company %16% %17% %18% %19% %20% %21% %22% %23% %24% %25% %26% %27% %28% %29% %30% %31% %32% %33% %34% %35% %36% %37%) OrderItem 
     (cl-who:with-html-output (*standard-output* nil)
       (:td  :height "10px" (cl-who:str row-id))
       (:td  :height "10px" (cl-who:str order))
@@ -316,22 +316,22 @@
       (:td  :height "10px" (cl-who:str deleted-state))
       (:td  :height "10px" (cl-who:str company))
       (:td  :height "10px" 
-	    (:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target (format nil "#editOrderItems-modal~A" row-id) (:i :class "fa-solid fa-pencil"))
-	    (modal-dialog-v2 (format nil "editOrderItems-modal~A" row-id) (cl-who:str (format nil "Add/Edit OrderItems " )) (com-hhub-transaction-create-OrderItems-dialog OrderItems))
-	    (modal-dialog (format nil "editOrderItems-modal~A" row-id) "Add/Edit OrderItems" (com-hhub-transaction-create-OrderItems-dialog OrderItems))))))
+	    (:button :type "button" :class "btn btn-primary" :data-toggle "modal" :data-target (format nil "#editOrderItem-modal~A" row-id) (:i :class "fa-solid fa-pencil"))
+	    (modal-dialog-v2 (format nil "editOrderItem-modal~A" row-id) (cl-who:str (format nil "Add/Edit OrderItem " )) (com-hhub-transaction-create-OrderItem-dialog OrderItem))
+	    (modal-dialog (format nil "editOrderItem-modal~A" row-id) "Add/Edit OrderItem" (com-hhub-transaction-create-OrderItem-dialog OrderItem))))))
 
 
-(defun com-hhub-transaction-update-OrderItems-action ()
-  :description "This is the MVC function to update action for OrderItems entity"
+(defun com-hhub-transaction-update-OrderItem-action ()
+  :description "This is the MVC function to update action for OrderItem entity"
   (with-cust-session-check ;; delete if not needed. 
-    (let ((url (with-mvc-redirect-ui  #'create-model-for-updateOrderItems #'create-widgets-for-updateOrderItems)))
+    (let ((url (with-mvc-redirect-ui  #'create-model-for-updateOrderItem #'create-widgets-for-updateOrderItem)))
       (format nil "~A" url))))
 
 
-(defun com-hhub-transaction-create-OrderItems-action ()
-  :description "This is a MVC function for create OrderItems entity"
+(defun com-hhub-transaction-create-OrderItem-action ()
+  :description "This is a MVC function for create OrderItem entity"
   (with-cust-session-check ;; delete if not needed. 
-    (let ((url (with-mvc-redirect-ui  #'create-model-for-createOrderItems #'create-widgets-for-createOrderItems)))
+    (let ((url (with-mvc-redirect-ui  #'create-model-for-createOrderItem #'create-widgets-for-createOrderItem)))
       (format nil "~A" url))))
 
 

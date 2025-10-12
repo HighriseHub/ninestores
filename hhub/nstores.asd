@@ -83,6 +83,8 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "customer/dod-dal-cus")
    (:file "customer/dod-bl-cus")
    (:file "customer/dod-ui-cus")
+   (:file "customer/nst-ui-cuswall")
+   (:file "customer/nst-ui-prodetpag")
    
    ;; Email
    (:file "email/templates/registration")

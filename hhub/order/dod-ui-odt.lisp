@@ -109,6 +109,10 @@
 (defun ui-list-shopcart (products shopcart)
     :documentation "A function used for rendering the shopping cart data in HTML format."
     (cl-who:with-html-output-to-string (*standard-output* nil)
+      (:div :class "product-card-row"
+	    (mapcar (lambda (column)
+		      (cl-who:htm
+		       (with-html-div-col-2 (cl-who:str column)))) (list "Product" "Price/Qty Per Unit" "Prd Qty" "Discount %" "Item Total")))
       (:div :id "idcustshoppingcartitems" :class "all-products-row"
 	    (mapcar (lambda (product odt)
 		      (cl-who:htm (:div :class "product-card-row" (product-card-shopcart product odt))))  products shopcart))))
@@ -118,9 +122,13 @@
     :documentation "A function used for rendering the shopping cart data in HTML format."
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "all-products-row"
+	    (:table :class "table table-sm  table-striped  table-hover"
+		    (:thead (:tr
+			     (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) (list "Product Image" "Name" "SGST" "CGST" "IGST" "Qty" "Rate"))))) 
+	    (cl-who:htm 
 	    (mapcar (lambda (product odt)
 		      (cl-who:htm (:div :class "product-card-row" (product-card-shopcart-readonly product odt))))  products shopcart))
-      (:hr)))
+      (:hr))))
 
 
 
@@ -135,11 +143,14 @@
   :description "calculates the order item cost with respect to the unit price, discount, and tax rates if applicable"
   (let* ((discount (slot-value order-item 'disc-rate)) 
 	 (unit-price (slot-value order-item 'unit-price))
-	 (pricewith-discount (if discount
-				 (- unit-price (/ (* unit-price discount) 100))
-				 ;;else
-				 unit-price)))
-    pricewith-discount))
+	 (sgstamt (check-null (slot-value order-item 'sgstamt)))
+	 (cgstamt (check-null (slot-value order-item 'cgstamt)))
+	 (igstamt (check-null (slot-value order-item 'igstamt)))
+	 (itemtotal (if discount
+			(+ sgstamt cgstamt igstamt (- unit-price (/ (* unit-price discount) 100)))
+			;;else
+			(+ sgstamt cgstamt igstamt unit-price))))
+    itemtotal))
 
 
 (defun ui-list-cust-orderdetails  (header data)

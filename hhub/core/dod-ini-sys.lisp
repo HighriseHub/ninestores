@@ -57,7 +57,7 @@
 (defvar *PAYGATEWAYRETURNURL* "https://www.ninestores.in/hhub/custpaymentsuccess")
 (defvar *PAYGATEWAYCANCELURL* "https://www.ninestores.in/hhub/custpaymentcancel")
 (defvar *PAYGATEWAYFAILUREURL* "https://www.ninestores.in/hhub/custpaymentfailure")
-(defvar *HHUBRESOURCESDIR* "/data/www/ninestores.in/public/img")
+(defvar *HHUBRESOURCESDIR* "/data/www/public/img")
 (defvar *HHUBDEFAULTPRDIMG* "HHubDefaultPrdImg.png")
 (defvar *HHUBDEFAULTLOGOIMG* "/img/logo.png")
 (defvar *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* NIL)
@@ -88,6 +88,10 @@
 (defvar *HHUBUSELOCALSTORFORRES* NIL)
 (defvar *HHUBWHATAPPLINKURLINDIA* "https://wa.me/91")
 (defvar *HHUBWHATSAPPBUTTONIMG* "WhatsAppButtonGreenSmall.png")
+(defvar *HHUBUPIBUTTON* "upibutton.png")
+(defvar *HHUBUPILOGOIMG* "upilogo.png")
+(defvar *HHUBUTRNUMHELPIMG* "phonepeutrnum.png")
+(defvar *HHUBCHECKOUTBUTTON* "checkoutbutton.png")
 (defvar *HTMLRUPEESYMBOL* "&#8377;")
 (defvar *HTMLDOLLARSYMBOL* "&#36;")
 (defvar *HHUBSHIPPINGZONES* nil)
@@ -123,6 +127,9 @@
 (defvar *NST-PRDDETAILSFORCUST-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/products/templates/prddetailsforcust.html")
 (defvar *NST-PRDDETAILSFORVEND-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/products/templates/prddetailsforvend.html")
 (defvar *NST-PRODUCT-TEMPLATES* nil)
+;; order templates
+(defvar *NST-ORDER-TEMPLATEFILE-1* "/home/ubuntu/ninestores/hhub/order/templates/ordertemplate1.html")
+(defvar *NST-ORDER-TEMPLATES* nil)
 
 
 ;; NINE STORES ACTOR MODEL
@@ -196,6 +203,7 @@ Database type: Supported type is ':odbc'"
     (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))
     (setf *NST-INVOICE-TEMPLATES* (nst-load-invoice-templates))
     (setf *NST-PRODUCT-TEMPLATES* (nst-load-product-templates))
+    (setf *NST-ORDER-TEMPLATES* (nst-load-order-templates))
     (setf *NST-EMAIL-TEMPLATES* (nst-load-email-templates))
     (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
     (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
@@ -438,6 +446,22 @@ Database type: Supported type is ':odbc'"
     (case templatenum
       (1 prddetailsforcusthtmlfunc)
       (2 prddetailsforvendhtmlfunc))))
+
+;;;;;;;;;;;;;;;;;;;;;;;ORDER TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun nst-load-order-templates ()
+  :documentation "Load the order templates at startup"
+  (let* ((onlinecustomerorder  (hhub-read-file *NST-ORDER-TEMPLATEFILE-1*)))
+    (function (lambda ()
+      (values
+       (function (lambda () onlinecustomerorder)))))))
+
+(defun nst-get-cached-order-template-func (&key templatenum)
+  :documentation "returns the function responsible for order HTML template. Call the returning function to get the HTML."
+  (multiple-value-bind (onlinecustomerorder) (funcall *NST-ORDER-TEMPLATES*)
+    (case templatenum
+      (1 onlinecustomerorder))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;;;;;;;;;;;;;;;;;;EMAIL TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;
