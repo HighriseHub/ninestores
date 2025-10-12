@@ -1,0 +1,178 @@
+    <style>
+      table {
+          width: 100%;
+          border-collapse: collapse;
+	  border-radius: 8px;
+	  overflow: hidden; 
+      }
+      table.center {
+          margin-left: auto;
+          margin-right: auto;
+      }
+      table,
+      th,
+      td {
+          border: 0.5px dashed grey;
+      }
+      th,
+      td {
+          padding: 1px;
+          text-align: left;
+      }
+
+      td img {
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
+      }
+      .ord-amount {
+	  font-size: 2.0rem;
+	  font-weight: bold;
+	  line-height: 1.1;
+	  background-image: linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%);
+      }
+      .highlighted-row {
+	  background-image: linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%);
+	  font-weight: bold;
+      }
+  </style>
+  <table>
+    <thead>
+      <tr>
+        <th colspan="3">Order Details</th>
+        <th colspan="4"></th>
+        <th colspan="3"></th>
+        <th colspan="3"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td colspan="2">Order No.</td>
+        <td colspan="3">%Order Number%</td>
+	<td colspan="2">Order Date : </td>
+	<td colspan="2"> %Order Date%</td>
+	<td colspan="2"></td>
+        <td colspan="2"></td>
+	  </tr>
+      <tr>
+	<td colspan="2">State Code :</td>
+        <td colspan="4">%State Code%</td>
+	<td colspan="2">Place of Supply :</td>
+	<td colspan="5">%Place of Supply%</td>
+      </tr>
+      <tr>
+        <th colspan="7">Details of Receiver / Billed to:</th>
+        <th colspan="6">Details of Consignee / Shipped to:</th>
+      </tr>
+      <tr>
+        <td colspan="2">Name :</td>
+        <td colspan="5">%Billed To%</td>
+        <td colspan="2">Name :</td>
+        <td colspan="4">%Shipped To%</td>
+      </tr>
+      <tr>
+	<td colspan="2">Address :</td>
+	<td colspan="5">%Billed to Address%</td>
+	<td colspan="2">Address :</td>
+	<td colspan="4">%Shipped to Address%</td>
+      </tr>
+      <tr>
+	<td colspan="2">GSTIN :</td>
+        <td colspan="5">%Billed to GSTIN%</td>
+        <td colspan="6"></td>
+      </tr>
+      <tr>
+	<td colspan="2">State :</td>
+        <td colspan="5">%Billed to State%</td>
+        <td colspan="2">State :</td>
+        <td colspan="4">%Shipped to State%</td>
+      </tr>
+      <tr>
+        <th>Sr. No</th>
+        <th>Name of Product/Service</th>
+        <th>HSN/SAC</th>
+        <th>Qty Per Unit</th>
+        <th>Qty</th>
+        <th>Rate</th>
+        <th>Less: Discount%</th>
+        <th>Taxable Value</th>
+        <th>CGST</th>
+        <th>SGST</th>
+        <th>IGST</th>
+        <th>Total</th>
+      </tr>
+      <!-- Insert row data here-->
+      %Order Items Rows%
+      <tr class="highlighted-row">
+	<td colspan="3"></td>
+        <td colspan="4">Total :</td>
+        <td colspan="1">%Total Value before GST/TAX%</td>
+	<td colspan="1">%Add CGST%</td>
+	<td colspan="1">%Add SGST%</td>
+	<td colspan="1">%Add IGST%</td>
+	<td colspan="1">%Add Total With GST%</td>
+      </tr>
+      <tr>
+        <td colspan="7">&nbsp;</td>
+        <td colspan="3"></td>
+	<td colspan="3"></td>
+      </tr>
+      <tr>
+        <td colspan="4">Shipping Charges :</td>
+	<td colspan="9">%Shipping Charges%</td>
+      </tr>
+      <tr>
+        <td colspan="4">Total Amount Before Tax :</td>
+	<td colspan="9">%Total Value before GST/TAX%</td>
+      </tr>
+      <tr>
+        <td colspan="4">Add : CGST :</td>
+	<td colspan="9">%Add CGST%</td>
+      </tr>
+      <tr>
+        <td colspan="4">Add : SGST :</td>
+	<td colspan="9">%Add SGST%</td>
+      </tr>
+      <tr>
+	<td colspan="4">Add : IGST :</td>
+	<td colspan="9">%Add IGST%</td>
+      </tr>
+      <tr>
+        <td colspan="4">Total Tax Amount - GST:</td>
+	<td colspan="9">%Tax Amount%</td>
+      </tr>
+      <tr>
+	<td colspan="4">Total Amount After Tax :</td>
+	<td colspan="9">
+	  <span class="ord-amount">%Total After Tax & Shipping%</span>
+	</td>
+      </tr>
+      <tr>
+        <td colspan="4">Total Order Amount in Words:</td>
+        <td colspan="9">%Total in Words%</td>
+      </tr>
+      <tr>
+        <td colspan="7">Certified that the particulars given above are true and correct.</td>
+        <td colspan="3">(Authorized Signatory)</td>
+	<td colspan="3">%Authorised Signatory%</td>
+      </tr>
+      <tr>
+	<td colspan="7">For, %Company Name%</td>
+	<td colspan="6"></td>
+      </tr>
+      <tr>
+	<td colspan="4">GSTIN: </td>
+	<td colspan="9">%Vendor GST Number%</td>
+      </tr>
+      
+      <tr>
+        <td colspan="13">Terms and Conditions :</td>
+      </tr>
+      <tr>
+        <td colspan="13">%Terms and Conditions%</td>
+      </tr>
+    </tbody>
+  </table>
+          
+
+          
