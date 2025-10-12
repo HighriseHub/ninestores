@@ -397,20 +397,22 @@
 	(if (member day lst) t nil)))
 
 
-(defun create-order-email-content (vproducts vitems customer order-id shipping-cost sub-total)
+(defun create-order-email-content (vproducts vitems customer order-id shipping-cost sub-total paymentmode)
   (with-slots (zipcode address phone email city state name company) customer
     (let* ((currsymbol (get-currency-html-symbol (get-account-currency company)))
 	   (headerstr (with-html-table "" (list "Particulars" "Details") "1"
 			(:tr (:td (cl-who:str (format nil "Order No")))
 			     (:td (cl-who:str (format nil "~A" order-id))))
+			(:tr (:td (cl-who:str (format nil "Payment Mode")))
+			     (:td (cl-who:str (format nil "~A" paymentmode))))
 			(:tr (:td (cl-who:str (format nil "Name")))
-			     (:td (cl-who:str (format nil "~A" name)))
-			     (:tr (:td (cl-who:str (format nil "Address")))
-				  (:td (cl-who:str (format nil "~A, ~A, ~A, ~A" address city zipcode state))))
-			     (:tr (:td (cl-who:str (format nil "Phone")))
-				  (:td (cl-who:str (format nil "~A" phone))))
-			     (:tr (:td (cl-who:str (format nil "Email")))
-				  (:td (cl-who:str (format nil "~A" email)))))))
+			     (:td (cl-who:str (format nil "~A" name))))
+			(:tr (:td (cl-who:str (format nil "Address")))
+			     (:td (cl-who:str (format nil "~A, ~A, ~A, ~A" address city zipcode state))))
+			(:tr (:td (cl-who:str (format nil "Phone")))
+			     (:td (cl-who:str (format nil "~A" phone))))
+			(:tr (:td (cl-who:str (format nil "Email")))
+			     (:td (cl-who:str (format nil "~A" email))))))
 	   (datastr (ui-list-shopcart-for-email vproducts vitems))
 	   (footer (cl-who:with-html-output-to-string (*standard-output* nil)
 		     (:tr (:td :align "right"
@@ -459,12 +461,10 @@
 
 (defun save-order-items-in-db (order order-items products company-instance)
   (mapcar (lambda (odt)
-	    (let* ((prd (search-item-in-list 'row-id (slot-value odt 'prd-id) products))
-		   (unit-price (slot-value odt 'unit-price))
-		   (discount (slot-value odt 'disc-rate))
-		   (prd-qty (slot-value odt 'prd-qty)))
-	      (create-order-items order prd  prd-qty unit-price discount company-instance)
-	      (update-stock-inventory prd prd-qty))) order-items))
+	    (let* ((prd (search-item-in-list 'row-id (slot-value odt 'prd-id) products)))
+		   (with-slots (unit-price disc-rate prd-qty sgst sgstamt cgst cgstamt igst igstamt taxablevalue totalitemval) odt 
+		     (create-order-items order prd  prd-qty unit-price disc-rate sgst sgstamt cgst cgstamt igst igstamt taxablevalue totalitemval company-instance)
+		     (update-stock-inventory prd prd-qty)))) order-items))
 
 
 (defun update-stock-inventory (product prd-qty)
@@ -490,7 +490,7 @@
 		     (total (get-order-items-total-for-vendor vendor vitems))
 		     (vendor-id (slot-value vendor 'row-id))
 		     (custinst (if (equal cust-type "GUEST") guest-customer customer-instance))
-		     (order-disp-str (create-order-email-content vproducts vitems custinst order-id shipping-cost total))
+		     (order-disp-str (create-order-email-content vproducts vitems custinst order-id shipping-cost total payment-mode))
 		     (shipstr (process-shipping-information-for-email shipping-info))) 
       		
 		(persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost orderpickupinstore)
