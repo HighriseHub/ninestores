@@ -2,21 +2,21 @@
 (in-package :nstores)
 
 
-(defclass OrderItemsAdapter (AdapterService)
+(defclass OrderItemAdapter (AdapterService)
   ())
 
-(defclass OrderItemsDBService (DBAdapterService)
+(defclass OrderItemDBService (DBAdapterService)
   ())
 
-(defclass OrderItemsPresenter (PresenterService)
+(defclass OrderItemPresenter (PresenterService)
   ())
 
-(defclass OrderItemsService (BusinessService)
+(defclass OrderItemService (BusinessService)
   ())
-(defclass OrderItemsHTMLView (HTMLView)
+(defclass OrderItemHTMLView (HTMLView)
   ())
 
-(defclass OrderItemsViewModel (ViewModel)
+(defclass OrderItemViewModel (ViewModel)
   ((row-id
     :initarg :row-id
     :accessor row-id)
@@ -38,6 +38,22 @@
    (disc-rate
     :initarg :disc-rate
     :accessor disc-rate)
+   (taxablevalue
+    :initarg :taxablevalue
+    :accessor taxablevalue)
+   (cgstamt
+    :initarg :cgstamt
+    :accessor cgstamt)
+   (sgstamt
+    :initarg :sgstamt
+    :accessor sgstamt)
+   (igstamt
+    :initarg :igstamt
+    :accessor igstamt)
+   (totalitemval
+    :initarg :totalitemval
+    :accessor totalitemval)
+
    (cgst
     :initarg :cgst
     :accessor cgst)
@@ -66,7 +82,7 @@
     :initarg :company
     :accessor company)))
 
-(defclass OrderItemsResponseModel (ResponseModel)
+(defclass OrderItemResponseModel (ResponseModel)
   ((row-id
     :initarg :row-id
     :accessor row-id)
@@ -88,6 +104,22 @@
    (disc-rate
     :initarg :disc-rate
     :accessor disc-rate)
+   (taxablevalue
+    :initarg :taxablevalue
+    :accessor taxablevalue)
+   (cgstamt
+    :initarg :cgstamt
+    :accessor cgstamt)
+   (sgstamt
+    :initarg :sgstamt
+    :accessor sgstamt)
+   (igstamt
+    :initarg :igstamt
+    :accessor igstamt)
+   (totalitemval
+    :initarg :totalitemval
+    :accessor totalitemval)
+
    (cgst
     :initarg :cgst
     :accessor cgst)
@@ -117,7 +149,7 @@
     :accessor company)))
    
 
-(defclass OrderItemsRequestModel (RequestModel)
+(defclass OrderItemRequestModel (RequestModel)
   ((row-id
     :initarg :row-id
     :accessor row-id)
@@ -139,6 +171,22 @@
    (disc-rate
     :initarg :disc-rate
     :accessor disc-rate)
+   (taxablevalue
+    :initarg :taxablevalue
+    :accessor taxablevalue)
+   (cgstamt
+    :initarg :cgstamt
+    :accessor cgstamt)
+   (sgstamt
+    :initarg :sgstamt
+    :accessor sgstamt)
+   (igstamt
+    :initarg :igstamt
+    :accessor igstamt)
+   (totalitemval
+    :initarg :totalitemval
+    :accessor totalitemval)
+
    (cgst
     :initarg :cgst
     :accessor cgst)
@@ -168,10 +216,10 @@
     :accessor company)))
 
 
-(defclass OrderItemsSearchRequestModel (OrderItemsRequestModel)
+(defclass OrderItemSearchRequestModel (OrderItemRequestModel)
   ())
 
-(defclass OrderItems (BusinessObject)
+(defclass OrderItem (BusinessObject)
   ((row-id
     :initarg :row-id
     :accessor row-id)
@@ -193,6 +241,22 @@
    (disc-rate
     :initarg :disc-rate
     :accessor disc-rate)
+   (taxablevalue
+    :initarg :taxablevalue
+    :accessor taxablevalue)
+   (cgstamt
+    :initarg :cgstamt
+    :accessor cgstamt)
+   (sgstamt
+    :initarg :sgstamt
+    :accessor sgstamt)
+   (igstamt
+    :initarg :igstamt
+    :accessor igstamt)
+   (totalitemval
+    :initarg :totalitemval
+    :accessor totalitemval)
+
    (cgst
     :initarg :cgst
     :accessor cgst)
@@ -220,6 +284,7 @@
    (company
     :initarg :company
     :accessor company)))
+
 
 (clsql:def-view-class dod-order-items ()
   ((row-id
@@ -285,6 +350,30 @@
     :type float
     :initarg :unit-price)
 
+   (taxablevalue
+    :type float
+    :initarg :taxablevalue
+    :accessor taxablevalue)
+   
+   (cgstamt
+    :type float
+    :initarg :cgstamt
+    :accessor cgstamt)
+   
+   (sgstamt
+    :type float
+    :initarg :sgstamt
+    :accessor sgstamt)
+   
+   (igstamt
+    :type float
+    :initarg :igstamt
+    :accessor igstamt)
+   (totalitemval
+    :type float
+    :initarg :totalitemval
+    :accessor totalitemval)
+
    (cgst
     :accessor cgst
     :type float
@@ -346,6 +435,9 @@
 
    
   (:BASE-TABLE dod_order_items))
+
+
+
 
 
 
