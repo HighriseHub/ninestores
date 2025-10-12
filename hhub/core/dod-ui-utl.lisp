@@ -3,6 +3,46 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
+;; A simple UI framework within MVC which have these 3 things
+;; 1) Page - a page is html page containing one or more components
+;; 2) Component - a component is a logical UI entity containing more than one widgets.
+;; 3) Widgets - A widget is a leaf node in the page and component hierarchy. The widget contains the
+;; actual HTML, CSS and JAVASCRIPT. 
+
+;; Widget is a function that when called renders HTML/JS/CSS
+(defun make-ui-widget (render-fn)
+  ;; returns a widget structure containing closure
+  (list :type :widget :render render-fn))
+
+(defun render-ui-widget (widget)
+  ;; return closure, not immediate execution
+  (getf widget :render))
+
+;; Component is a collection of widgets or nested components
+(defun make-ui-component (name renderer-fn)
+  "Create a component.
+NAME is a keyword identifier.
+RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
+  (list :type :component :name name :renderer renderer-fn))
+
+(defun render-ui-component (component modelfunc)
+  "Render a component by invoking its renderer with MODELFUNC.
+Returns a list of widget outputs."
+  (let* ((renderer (getf component :renderer))
+         (widgets (funcall renderer modelfunc)))
+    (mapcar #'render-ui-widget widgets)))
+
+;; Page is a collection of components
+(defun make-ui-page (persona name &rest components)
+  (list :type :page :persona persona :name name :components components))
+
+(defun render-ui-page (page modelfunc)
+  (mapcan (lambda (component)
+	    (render-ui-component component modelfunc)) (getf page :components)))
+
+
+;;;;;;;;;;;;;;;;;;;; Simple UI Framework ends here ;;;;;;;;;;;;;;;;;;;;
+
 (defun nst-generic-login-with-password (persona formaction redirectonfailure)
   (handler-case 
       (progn  
@@ -456,7 +496,7 @@
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.9/validator.min.js"))
 		;; header completes here.
 	        (:body
-		 (:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
+		 (:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-anand-dandekar-1532771.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;")
@@ -508,7 +548,7 @@
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js"))
 	       ;; header completes here.
 	       (:body
-		(:div :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
+		(:div :id "dod-main-container" :style "background: url(../img/pexels-anand-dandekar-1532771.jpg) no-repeat center center; background-size: cover;" 
 		      (:a :id "scrollup" "" )
 		      (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		      (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;")
@@ -559,7 +599,7 @@
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
 		) ;; header completes here.
 	       (:body
-		(:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-jess-bailey-designs-965119.jpg) no-repeat center center; background-size: cover;" 
+		(:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-anand-dandekar-1532771.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;" )
