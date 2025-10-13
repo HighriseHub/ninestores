@@ -137,7 +137,9 @@
 (defvar *NSTAWSS3FILEUPLOADACTOR* NIL)
 (defvar *NSTAWSS3FILEDELETEACTOR* NIL)
 ;; NINE STORE OTP store
-(defvar *otp-store* (make-otp-store))
+(defvar *otp-store* nil)
+
+
 
 ;; Connect to the database (see the CLSQL documentation for vendor
 ;; specific connection specs).
@@ -213,6 +215,7 @@ Database type: Supported type is ':odbc'"
     (setf *NSTGSTSTATECODES-HT* (init-gst-statecodes))
     (setf *NSTUOM-HT* (get-system-UOM-map))
     (init-gst-invoice-terms)
+    (setf *otp-store* (make-otp-store))
     (define-shipping-zones)
     (setf *NSTSENDORDEREMAILACTOR* (make-instance 'nst-actor
 						  :name "Send Order Email Actor"
@@ -264,7 +267,9 @@ Database type: Supported type is ':odbc'"
 	 (destroy-actor *NSTSENDORDEREMAILACTOR*)
 	 (setf *NSTSENDORDEREMAILACTOR* nil)
 	 (destroy-actor *NSTAWSS3FILEUPLOADACTOR*)
-	 (setf *NSTAWSS3FILEUPLOADACTOR* nil)))
+	 (setf *NSTAWSS3FILEUPLOADACTOR* nil)
+	 ;; clear the OTP store
+	 (funcall *otp-store* :clear)))
 
 
 ;;;;*********** Globally Cached lists and their accessor functions *********************************
