@@ -253,9 +253,9 @@
 	  (widget2 (function (lambda ()
 		     (with-html-card
 			     (:title "UPI Payment"
-			      :image-src (format nil "/img/~A" *HHUBUPIBUTTON*)
+			      :image-src (format nil "/img/~A" *HHUBUPILOGOIMG*)
 			      :image-alt "UPI Payment"
-			      :image-style "width: 200px; height: 200px;")
+			      :image-style  "width: 150px; height: 150px; background-size: cover; background-repeat: no-repeat; background-position: center;")
 	    	       (with-html-div-row-fluid :style "box-shadow: rgba(17, 17, 26, 0.1) 0px 0px 16px;"
 			 (display-upi-widget  upitotal currency qrcodepath upiurls))
 		       (with-html-form-having-submit-event  "customerupipaymentform" "dodmyorderaddaction" 

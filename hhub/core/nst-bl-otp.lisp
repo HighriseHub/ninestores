@@ -1,7 +1,7 @@
 ; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 
-(defparameter *otp-cleanup-interval* 60)     ; seconds between TTL cleanup
+(defparameter *otp-cleanup-interval* 60)     ; seconds between TTL cleanup. should be less than TTL. 
 (defparameter *otp-default-ttl* 120)         ; 2 minutes
 (defparameter *log-dump-interval* 3600)       ; every 1 hour
 

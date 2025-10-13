@@ -87,7 +87,7 @@
   (multiple-value-bind (currsymbol freeshipminorderamt) (funcall modelfunc)
     (with-html-card
 	(:title "Free Shipping !!!"
-	 :image-src "/img/FreeShipping.png" 
+	 :image-src (format nil "/img/~A" *HHUBFREESHIPPINGIMG*) 
 	 :image-alt "Free Shipping"
 	 :image-style "width: 300px; height: 300px;")
       (:h2 (:strong (:p :class "info-message" (cl-who:str (format nil "As your order is over  ~A ~$, you will receive FREE Shipping. " currsymbol freeshipminorderamt))))))))
@@ -285,15 +285,16 @@
 
 (defun create-upi-payment-widget (vupiid-p upienabled)
   (lambda ()
-    (let ((itembodyhtml
+    (let* ((upibuttonstyle (format nil "background-image: url('/img/~A'); width: 200px; height: 70px; background-size: contain; background-repeat: no-repeat; background-position: center; font-weight: bold;border-radius: 8px;cursor: pointer;" *HHUBUPILOGOIMG*))
+	  (itembodyhtml
 	    (cl-who:with-html-output (*standard-output* nil)
 	      (:li :class "list-group-item"    
 		   (when (and vupiid-p (equal upienabled "Y")) 
 		     (cl-who:htm
 		      (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-			    (with-html-form "form-standardcustpaymentmode" "hhubcustupipage"
+			    (with-html-form "form-standardcustpaymentmode" "hhubcustorderupipage"
 			      (with-html-input-text-hidden "paymentmode" "UPI")
-			      (:input :type "submit"  :class "btn btn-primary" :value "UPI Payment")))))))))
+			      (:button :type "submit"  :style upibuttonstyle )))))))))
       (values itembodyhtml))))
   
 
