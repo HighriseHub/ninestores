@@ -496,7 +496,7 @@ Returns a list of widget outputs."
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.9/validator.min.js"))
 		;; header completes here.
 	        (:body
-		 (:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-anand-dandekar-1532771.jpg) no-repeat center center; background-size: cover;" 
+		 (:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-lumn-295771.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;")
@@ -548,7 +548,7 @@ Returns a list of widget outputs."
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js"))
 	       ;; header completes here.
 	       (:body
-		(:div :id "dod-main-container" :style "background: url(../img/pexels-anand-dandekar-1532771.jpg) no-repeat center center; background-size: cover;" 
+		(:div :id "dod-main-container" :style "background: url(../img/pexels-lumn-295771.jpg) no-repeat center center; background-size: cover;" 
 		      (:a :id "scrollup" "" )
 		      (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		      (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;")
@@ -599,7 +599,7 @@ Returns a list of widget outputs."
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
 		) ;; header completes here.
 	       (:body
-		(:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-anand-dandekar-1532771.jpg) no-repeat center center; background-size: cover;" 
+		(:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-lumn-295771.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
 		       (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		       (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;" )
