@@ -12,7 +12,7 @@ SRC_IMG="$SRC_BASE/img"
 SRC_HTML="$SRC_BASE/index.html"
 
 # Destination path
-DEST_BASE=/data/www/public
+DEST_BASE=/data/www/ninestores.in/public
 
 # Create destination directories if not present
 mkdir -p "$DEST_BASE/js"
