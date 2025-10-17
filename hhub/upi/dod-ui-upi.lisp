@@ -57,13 +57,10 @@
 	 (currency (get-account-currency company))
 	 (charcountid1 (format nil "idchcount~A" (hhub-random-password 3)))
 	 (params nil))
-
     (setf ordertemplate (funcall (ordertemplatefillforupipage ordertemplate orderheader order-items orderitemshtmlfunc qrcodepath currency vendor)))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
-    
-    
-      (function (lambda ()
-	(values ordertemplate qrcodepath upiappurls charcountid1 order-amt currency)))))
+    (function (lambda ()
+      (values ordertemplate qrcodepath upiappurls charcountid1 order-amt currency)))))
 
 
 (defun create-widgets-for-showcustomerupipage (modelfunc)
@@ -80,17 +77,16 @@
 			(with-html-div-row
 			  (with-html-div-col-10
 			    ;;(:div :class "col-sm-8" :style "text-align: center;"
-			    (:label :for "utrnum" "UTR No")
 			    (:input :class "form-control" :name "paymentmode" :value "UPI" :type "hidden")
 			    (:input :class "form-control" :name "amount" :value order-amt :type "hidden")
 			    (:div :class "input-group mb-3"
+				  (:label :for "utrnum" "UTR No")
 				  (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup (format nil "countChar(~A.id, this, 12)" charcountid1)  :max "999999999999" :maxlength "12"  :required T)
 				  (:div :id charcountid1 :class "input-group-text" :style "font-size: 1.2rem; font-weight: bold; color: purple;"))))
-			(with-html-div-row
-			   (with-html-div-col-6
-			     (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "hhubcustpaymentmethodspage" "Previous"))
-			  (with-html-div-col-6
-			    (:input :type "submit" :class "btn btn-lg btn-primary btn-block checkout-button"  :value "Place Order")))))))
+			(with-html-div-row 
+			  (with-html-div-col-10
+			    (:input :type "submit" :class "btn btn-lg btn-primary btn-block checkout-button"  :value "Place Order")))
+			(:hr)))))
 	   
 	   (widget3 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
@@ -101,6 +97,7 @@
   (function (lambda ()
     (with-slots (name address gstnumber state) vendor
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Vendor Name%" ordertemplate name))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Authorised Signatory%" ordertemplate name))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Vendor Address%" ordertemplate address))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Vendor GST Number%" ordertemplate gstnumber))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Place of Supply%" ordertemplate (string-upcase state))))
@@ -126,22 +123,18 @@
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Add Total With GST%" ordertemplate (format nil "~A" (calculate-order-totalaftertax orderitems))))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Total Value before GST/TAX%" ordertemplate (format nil "~A" (calculate-order-totalbeforetax orderitems))))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Total After Tax & Shipping%" ordertemplate (format nil "~A ~A" (get-currency-html-symbol currency) order-amt)))
-      (setf ordertemplate (cl-ppcre:regex-replace-all "%Tax Amount%" ordertemplate (format nil "~A" (calculate-order-totalgst order orderitems vendor))))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Total Tax Amount%" ordertemplate (format nil "~A" (calculate-order-totalgst order orderitems vendor))))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Add CGST%" ordertemplate (format nil "~A" (calculate-order-totalcgst orderitems))))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Add SGST%" ordertemplate (format nil "~A" (calculate-order-totalsgst orderitems))))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Add IGST%" ordertemplate (format nil "~A" (calculate-order-totaligst orderitems))))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Terms and Conditions%" ordertemplate "Terms and Conditions"))
-       (setf ordertemplate (cl-ppcre:regex-replace-all "%Authorised Signatory%" ordertemplate "Vendor Name"))
-       (setf ordertemplate (cl-ppcre:regex-replace-all "%Financial Year%" ordertemplate "NA"))
-       (setf ordertemplate (cl-ppcre:regex-replace-all "%Company Name%" ordertemplate (slot-value company 'name)))
-       (setf ordertemplate (cl-ppcre:regex-replace-all "%Bank IFSC Code%" ordertemplate "NA"))
-       (setf ordertemplate (cl-ppcre:regex-replace-all "%Bank Account Number%" ordertemplate "NA"))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Financial Year%" ordertemplate "NA"))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Company Name%" ordertemplate (slot-value company 'name)))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Bank IFSC Code%" ordertemplate "NA"))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Bank Account Number%" ordertemplate "NA"))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%GST on Reverse Charge%" ordertemplate "0.00")))
-      (setf ordertemplate (cl-ppcre:regex-replace-all "%Order Items Rows%" ordertemplate (funcall orderitemshtmlfunc)))
-      ordertemplate)))
-
-
-
+    (setf ordertemplate (cl-ppcre:regex-replace-all "%Order Items Rows%" ordertemplate (funcall orderitemshtmlfunc)))
+    ordertemplate)))
 
 (defun ordertemplatefillitemrows (orderitems products)
   (function (lambda ()
