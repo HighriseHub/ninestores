@@ -407,8 +407,8 @@
       destination)))
  
 (defun calculate-order-totalgst (order orderitems vendor)
-  (let ((placeofsupply (slot-value vendor 'state))
-	(statecode (slot-value order 'shipstate)))
+  (let ((placeofsupply (string-upcase (slot-value vendor 'state)))
+	(statecode (string-upcase (slot-value order 'shipstate))))
     (if (equal placeofsupply statecode)
 	(+ (calculate-order-totalcgst orderitems) (calculate-order-totalsgst orderitems))
 	;;else
