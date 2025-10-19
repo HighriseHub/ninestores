@@ -471,6 +471,7 @@ body {
 	transition: all 0.3s;
 }
 
+
 /* Media Queries */
 
 /* Media Queries */
@@ -483,7 +484,6 @@ body {
   .h1 .h2 .h3 .h4 .h5 .h6 {
       font-size: 0.9rem;
   }
- 
 }
 
 @media (min-width: 576px) {
@@ -504,7 +504,6 @@ body {
       width:178px;
       height:250px;
   }
-  
 }
 
 @media only screen and (min-width: 768px) {
@@ -517,9 +516,7 @@ body {
   .h1 .h2 .h3 .h4 .h5 .h6 {
       font-size: 0.9rem;
   }
-
- 
-   .all-products > .product-card{
+  .all-products > .product-card{
       width:200px;
       height:300px;
      .product-card  img {
@@ -535,8 +532,7 @@ body {
        font-size: 0.8rem;
        width:200px;
        height:250px;
-  }
- 
+   }
 }
 
 @media screen and (min-width: 992px) {
@@ -569,8 +565,6 @@ body {
       width:225px;
       height:275px;
   }
- 
-  
 }
 
 @media screen and (min-width: 1200px) {
@@ -602,7 +596,6 @@ body {
 	width:250px;
 	height:300px;
     }
- 
 }
 
 
@@ -1367,4 +1360,3 @@ input[type=range]:focus::-moz-range-track {
   transform-origin: 0% 100%;
   background-color: #FF0000; /* the main color  */
 }
-

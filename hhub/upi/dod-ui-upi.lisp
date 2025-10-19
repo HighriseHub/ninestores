@@ -52,7 +52,7 @@
 	 (order-cxt (format nil "#ORDER:UPI~A" (get-universal-time)))
 	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" order-cxt  order-amt)))
 	 (upiappurls (generateupiurlsforvendor vendor "ABC" order-cxt order-amt))
-	 (ordertemplate (funcall (nst-get-cached-order-template-func :templatenum 1)))  
+	 (ordertemplate (funcall (nst-get-cached-order-template-func :templatenum 2)))  
 	 (orderitemshtmlfunc (ordertemplatefillitemrows order-items shopcart-products))
 	 (currency (get-account-currency company))
 	 (charcountid1 (format nil "idchcount~A" (hhub-random-password 3)))
@@ -72,7 +72,7 @@
 	   (widget2 (function (lambda()
 		      (with-html-form-having-submit-event  "customerupipaymentform" "dodmyorderaddaction" 
 			(with-html-div-row 
-			  (with-html-div-col-10
+			  (with-html-div-col-12
 			    (display-upi-widget order-amt currency qrcodepath upiappurls)))
 			(with-html-div-row
 			  (with-html-div-col-10
@@ -84,7 +84,7 @@
 				  (:input :class "form-control" :name "utrnum" :value "" :placeholder "12 Digit UTR Number" :type "number" :onkeyup (format nil "countChar(~A.id, this, 12)" charcountid1)  :max "999999999999" :maxlength "12"  :required T)
 				  (:div :id charcountid1 :class "input-group-text" :style "font-size: 1.2rem; font-weight: bold; color: purple;"))))
 			(with-html-div-row 
-			  (with-html-div-col-10
+			  (with-html-div-col-12
 			    (:input :type "submit" :class "btn btn-lg btn-primary btn-block checkout-button"  :value "Place Order")))
 			(:hr)))))
 	   
@@ -142,7 +142,7 @@
 	(let ((incr (let ((count 0)) (lambda () (incf count)))))
 	  (mapcar (lambda (item product) (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (display-order-item-row item product))))  orderitems products))))))
 
-(defun display-order-item-row (orderitem product)
+(defun display-order-item-table-row (orderitem product)
   (cl-who:with-html-output (*standard-output* nil)
     (with-slots (prd-qty unit-price disc-rate taxablevalue sgst cgst igst sgstamt cgstamt igstamt totalitemval) orderitem
       (cl-who:htm
@@ -157,6 +157,28 @@
        (:td :height "10px" (cl-who:str sgstamt))
        (:td :height "10px" (cl-who:str igstamt))
        (:td :height "10px" (cl-who:str totalitemval))))))
+
+
+
+(defun display-order-item-row (orderitem product)
+  "Generates a single item row using Bootstrap 5.3 grid divs."
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-slots (prd-qty unit-price disc-rate taxablevalue sgst cgst igst sgstamt cgstamt igstamt totalitemval) orderitem
+      (cl-who:htm
+       (:div :class "row g-0"
+         (:div :class "col-1 col-cell" )
+         (:div :class "col-1 col-cell" (cl-who:str (slot-value product 'prd-name)))
+         (:div :class "col-1 col-cell" (cl-who:str (slot-value product 'hsn-code)))
+         (:div :class "col-1 col-cell" (cl-who:str (slot-value product 'unit-of-measure)))
+         (:div :class "col-1 col-cell" (cl-who:str prd-qty))
+         (:div :class "col-1 col-cell" (cl-who:str unit-price))
+         (:div :class "col-1 col-cell" (cl-who:str disc-rate))
+         (:div :class "col-1 col-cell" (cl-who:str taxablevalue))
+         (:div :class "col-1 col-cell" (cl-who:str cgstamt))
+         (:div :class "col-1 col-cell" (cl-who:str sgstamt))
+         (:div :class "col-1 col-cell" (cl-who:str igstamt))
+         (:div :class "col-1 col-cell" (cl-who:str totalitemval)))))))
+
 
 
 (defun generateqrcodeforvendor  (vendor retailer-category-code transaction-id amount)
@@ -209,10 +231,12 @@
 		(with-html-div-col :style "text-align: center;"
 		  (:img :style "width: 200px; height: 200px;" :src qrcodepath)))))
       (:hr)
-      (:h5 "1. Pay Now: Scan the UPI QR or click a link above to pay. You will not be redirected back.")
-      (:h5 "2. Confirm Order: After successful payment, locate the 12-digit Reference ID (or UTR) in your payment app. You must paste this ID into the box below and click 'Place Order' to complete your order.")
       (:p
-       (:h5 "Having trouble? Click here for a step-by-step guide to finding your Reference ID.")
+       (:small "1. Pay Now: Scan the UPI QR or click a link above to pay. You will not be redirected back."))
+      (:p
+       (:small "2. Confirm Order: After successful payment, locate the 12-digit Reference ID (or UTR) in your payment app. You must paste this ID into the box below and click 'Place Order' to complete your order."))
+      (:p
+       (:small "Having trouble? Click here for a step-by-step guide to finding your Reference ID.")
        (:a :href utrnumhelplinkimage :target "_blank" "Click Here"))
       (:script "window.onload = function() {countdowntimer(0,0,5,0);}"))))
 

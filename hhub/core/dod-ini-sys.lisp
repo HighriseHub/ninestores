@@ -132,6 +132,7 @@
 (defvar *NST-PRODUCT-TEMPLATES* nil)
 ;; order templates
 (defvar *NST-ORDER-TEMPLATEFILE-1* "/home/ubuntu/ninestores/hhub/order/templates/ordertemplate1.html")
+(defvar *NST-ORDER-TEMPLATEFILE-2* "/home/ubuntu/ninestores/hhub/order/templates/ordertemplate2.html")
 (defvar *NST-ORDER-TEMPLATES* nil)
 
 
@@ -458,16 +459,19 @@ Database type: Supported type is ':odbc'"
 ;;;;;;;;;;;;;;;;;;;;;;;ORDER TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun nst-load-order-templates ()
   :documentation "Load the order templates at startup"
-  (let* ((onlinecustomerorder  (hhub-read-file *NST-ORDER-TEMPLATEFILE-1*)))
+  (let* ((ordertemplate1  (hhub-read-file *NST-ORDER-TEMPLATEFILE-1*))
+	 (ordertemplate2  (hhub-read-file *NST-ORDER-TEMPLATEFILE-2*)))
     (function (lambda ()
       (values
-       (function (lambda () onlinecustomerorder)))))))
+       (function (lambda () ordertemplate1))
+       (function (lambda () ordertemplate2)))))))
 
 (defun nst-get-cached-order-template-func (&key templatenum)
   :documentation "returns the function responsible for order HTML template. Call the returning function to get the HTML."
-  (multiple-value-bind (onlinecustomerorder) (funcall *NST-ORDER-TEMPLATES*)
+  (multiple-value-bind (ordertemplate1 ordertemplate2) (funcall *NST-ORDER-TEMPLATES*)
     (case templatenum
-      (1 onlinecustomerorder))))
+      (1 ordertemplate1)
+      (2 ordertemplate2))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

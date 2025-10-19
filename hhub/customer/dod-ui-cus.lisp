@@ -2,10 +2,6 @@
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
-
-
-
-
 (defun display-products-carousel (numitems products)
  (let ((prdcount (length products)))
   (cl-who:with-html-output (*standard-output* nil)      
@@ -183,7 +179,7 @@
 	  (widget2 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)  
 		       (with-html-div-row
-			 (with-html-div-col-6
+			 (with-html-div-col-12
 			   (:h4 (cl-who:str (format nil "Amount Before Tax =  ~$" totalbeforetax)))
 			   (:h4 (cl-who:str (format nil "Amount After Tax (GST)  =  ~$" shopcart-total)))
 			   (:h4 (cl-who:str (format nil "Shipping Cost =  ~$" shipping-cost)))
@@ -263,7 +259,7 @@
 		 
 		 (with-html-form "form-standardcustpaymentmode" "dodmyorderaddaction"
 		   (with-html-input-text-hidden "paymentmode" "PRE")
-		   (:input :type "submit"  :class "btn btn-primary" :value "Prepaid Checkout"))))))))
+		   (:input :type "submit"  :class "btn btn-primary btn-lg" :value "Prepaid Checkout"))))))))
       (values itembodyhtml))))
 
 (defun create-cash-on-delivery-widget (phone codenabled)
@@ -279,8 +275,8 @@
 			      (with-html-form "form-custpaymentmode" "dodcustshopcartotpstep"
 				(with-html-input-text-hidden "paymentmode" "COD")
 				(with-html-input-text-hidden "phone" phone)
-				(:input :type "submit"  :class "btn btn-primary" :value "Cash On Delivery"))))))))))
-	  (values itembodyhtml))))
+				(:input :type "submit" :class "btn btn-primary btn-lg" :value "Cash On Delivery"))))))))))
+      (values itembodyhtml))))
   
 
 (defun create-upi-payment-widget (vupiid-p upienabled)
@@ -294,7 +290,7 @@
 		      (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
 			    (with-html-form "form-standardcustpaymentmode" "hhubcustorderupipage"
 			      (with-html-input-text-hidden "paymentmode" "UPI")
-			      (:button :type "submit"  :style upibuttonstyle )))))))))
+			      (:input :type "submit"  :class "btn btn-primary btn-lg" :value "UPI Payment")))))))))
       (values itembodyhtml))))
   
 
@@ -309,7 +305,7 @@
 		      (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
 			    (with-html-form "form-standardcustpaymentmode" "dodcustshopcartro"
 			      (with-html-input-text-hidden "paymentmode" "OPY")
-			      (:input :type "submit"  :class "btn btn-primary" :value "Payment Gateway")))))))))
+			      (:input :type "submit"  :class "btn btn-primary btn-lg" :value "Payment Gateway")))))))))
 	  (values itembodyhtml))))
   
 
