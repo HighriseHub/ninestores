@@ -1,0 +1,208 @@
+<style>
+    /* Mimics original table styling */
+    .table-grid {
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 0.5px dashed grey; /* Outer border */
+    }
+
+    /* Mimics original th/td styling */
+    .table-grid .col-cell {
+        border: 0.5px dashed grey;
+        padding: 5px; /* Increased padding slightly for better look */
+        text-align: left;
+    }
+
+    /* Keep original special styling */
+    .ord-amount {
+        font-size: 2.0rem;
+        font-weight: bold;
+        line-height: 1.1;
+        background-image: linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%);
+    }
+
+    .highlighted-row {
+        background-image: linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%);
+        font-weight: bold;
+    }
+
+    .img-center {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    
+/* Media Queries */
+
+/* Media Queries */
+@media (min-width: 400px) {
+  .table-grid{
+      font-size: 0.6rem;
+  }
+ 
+}
+
+@media (min-width: 576px) {
+    .table-grid{
+      font-size: 0.7rem;
+  }
+}
+
+@media only screen and (min-width: 768px) {
+    .table-grid{
+	font-size: 0.8rem;
+    }
+}
+
+@media screen and (min-width: 992px) {
+    .table-grid{
+	font-size: 0.8rem;
+    }
+}
+
+@media screen and (min-width: 1200px) {
+    .table-grid{
+	font-size: 0.8rem;
+    }
+}
+</style>
+<div class="table-grid"> 
+    <div class="row g-0">
+        <div class="col-12 col-cell highlighted-row p-2">
+            <h5 class="mb-0">Order Details</h5>
+        </div>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-2 col-cell">Order No.</div>
+        <div class="col-3 col-cell">%Order Number%</div>
+        <div class="col-2 col-cell">Order Date : </div>
+        <div class="col-3 col-cell">%Order Date%</div>
+        <div class="col-2 col-cell"></div> </div>
+
+    <div class="row g-0">
+        <div class="col-2 col-cell">State Code :</div>
+        <div class="col-3 col-cell">%State Code%</div>
+        <div class="col-2 col-cell">Place of Supply :</div>
+        <div class="col-3 col-cell">%Place of Supply%</div>
+	<div class="col-2 col-cell"></div>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-7 col-cell highlighted-row">Details of Receiver / Billed to:</div>
+        <div class="col-5 col-cell highlighted-row">Details of Consignee / Shipped to:</div>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-2 col-cell">Name :</div>
+        <div class="col-5 col-cell">%Billed To%</div>
+        <div class="col-2 col-cell">Name :</div>
+        <div class="col-3 col-cell">%Shipped To%</div>
+    </div>
+    <div class="row g-0">
+        <div class="col-2 col-cell">Address :</div>
+        <div class="col-5 col-cell">%Billed to Address%</div>
+        <div class="col-2 col-cell">Address :</div>
+        <div class="col-3 col-cell">%Shipped to Address%</div>
+    </div>
+    <div class="row g-0">
+        <div class="col-2 col-cell">GSTIN :</div>
+        <div class="col-5 col-cell">%Billed to GSTIN%</div>
+        <div class="col-5 col-cell"></div> </div>
+    <div class="row g-0">
+        <div class="col-2 col-cell">State :</div>
+        <div class="col-5 col-cell">%Billed to State%</div>
+        <div class="col-2 col-cell">State :</div>
+        <div class="col-3 col-cell">%Shipped to State%</div>
+    </div>
+
+    <div class="row g-0 highlighted-row text-center">
+        <div class="col-1 col-cell">Sr. No</div>
+        <div class="col-1 col-cell">Name of Product/Service</div> <div class="col-1 col-cell">HSN/SAC</div>
+        <div class="col-1 col-cell">Qty/Unit</div>
+        <div class="col-1 col-cell">Qty</div>
+        <div class="col-1 col-cell">Rate</div>
+        <div class="col-1 col-cell">Disc%</div>
+        <div class="col-1 col-cell">Tax Val</div>
+        <div class="col-1 col-cell">CGST</div>
+        <div class="col-1 col-cell">SGST</div>
+        <div class="col-1 col-cell">IGST</div>
+        <div class="col-1 col-cell">Total</div>
+    </div>
+    %Order Items Rows%
+    <div class="row g-0 highlighted-row">
+        <div class="col-4 col-cell"></div>
+        <div class="col-3 col-cell">Total :</div>
+        <div class="col-1 col-cell">%Total Value before GST/TAX%</div>
+        <div class="col-1 col-cell">%Add CGST%</div>
+        <div class="col-1 col-cell">%Add SGST%</div>
+        <div class="col-1 col-cell">%Add IGST%</div>
+        <div class="col-1 col-cell">%Add Total With GST%</div> </div>
+    
+    <div class="row g-0">
+        <div class="col-12 col-cell">&nbsp;</div>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-4 col-cell">Shipping Charges :</div>
+        <div class="col-8 col-cell">%Shipping Charges%</div>
+    </div>
+    <div class="row g-0">
+        <div class="col-4 col-cell">Total Amount Before Tax :</div>
+        <div class="col-8 col-cell">%Total Value before GST/TAX%</div>
+    </div>
+    <div class="row g-0">
+        <div class="col-4 col-cell">Add : CGST :</div>
+        <div class="col-8 col-cell">%Add CGST%</div>
+    </div>
+    <div class="row g-0">
+        <div class="col-4 col-cell">Add : SGST :</div>
+        <div class="col-8 col-cell">%Add SGST%</div>
+    </div>
+    <div class="row g-0">
+        <div class="col-4 col-cell">Add : IGST :</div>
+        <div class="col-8 col-cell">%Add IGST%</div>
+    </div>
+    <div class="row g-0">
+        <div class="col-4 col-cell">Total Tax Amount - GST:</div>
+        <div class="col-8 col-cell">%Total Tax Amount%</div>
+    </div>
+    <div class="row g-0">
+        <div class="col-4 col-cell">Total Amount After Tax :</div>
+        <div class="col-8 col-cell">
+            <span class="ord-amount">%Total After Tax & Shipping%</span>
+        </div>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-4 col-cell">Total Order Amount in Words:</div>
+        <div class="col-8 col-cell">%Total in Words%</div>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-7 col-cell">Certified that the particulars given above are true and correct.</div>
+        <div class="col-3 col-cell">(Authorized Signatory)</div>
+        <div class="col-2 col-cell">%Authorised Signatory%</div>
+    </div>
+    <div class="row g-0">
+        <div class="col-7 col-cell">For, %Company Name%</div>
+        <div class="col-5 col-cell"></div>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-4 col-cell">GSTIN: </div>
+        <div class="col-8 col-cell">%Vendor GST Number%</div>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-12 col-cell highlighted-row">Terms and Conditions :</div>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-12 col-cell">%Terms and Conditions%</div>
+    </div>
+</div>
