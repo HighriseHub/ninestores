@@ -93,7 +93,8 @@ Returns a list of widget outputs."
 	   :image-alt "Pickup In Store"
 	   :image-style "width: 100px; height: 100px;")
 	(:p (:strong "NOTE: This order needs to be picked up from store."))
-	(:p (:span (cl-who:str (format nil "&nbsp;Store Address:~A" address ))))))))
+	(:p (:span (cl-who:str (format nil "&nbsp;Store Address:~A" address ))))
+	(:div :class "ribbon" "Pickup In Store")))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun with-html-collapse (collapseid listcollapseitemsfuncs) 
@@ -510,8 +511,6 @@ Returns a list of widget outputs."
 		 (:script :src "/js/dod.js"))))))
 
 
-
-
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-standard-page-template-v2 (title nav-func  &body body)
     `(cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
@@ -521,13 +520,13 @@ Returns a list of widget outputs."
 	       (:head
 		(:meta :http-equiv "content-type" 
 		       :content    "text/html;charset=utf-8")
-		(:meta :name "viewport" :content "width=device-width,user-scalable=no")
+		(:meta :name "viewport" :content "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=no")
 		(:meta :name "theme-color" :content "#5382EE")
 		(:meta :names "description" :content "A marketplace app.")
 		(:meta :name "author" :content "Nine Stores")
 		(:link :rel "icon" :href "/favicon.ico")
 		(:title ,title )
-					; Link to the app manifest for PWA. 
+		;; Link to the app manifest for PWA. 
 		(:link :rel "manifest" :href "/manifest.json")
 		;; Bootstrap CSS
 		;;(:link :href "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" :rel "stylesheet")
@@ -547,18 +546,63 @@ Returns a list of widget outputs."
 		(:script :src "https://www.google.com/recaptcha/api.js")
 		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js"))
 	       ;; header completes here.
-	       (:body
-		(:div :id "dod-main-container" :style "background: url(../img/pexels-lumn-295771.jpg) no-repeat center center; background-size: cover;" 
+	       (:body 
+		(:div :id "dod-main-container"
+		      :class "min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#3b82f6] d-flex flex-column"
+		      :style "position: relative;"
+		     ;; :style "background: url(../img/pexels-lumn-295771.jpg) no-repeat center center; background-size: cover;" 
 		      (:a :id "scrollup" "" )
 		      (:div :id "hhub-error" :class "hhub-error-alert" :style "display:none;" )
 		      (:div :id "hhub-success" :class "hhub-success-alert" :style "display:none;")
 		      (:div :id "busy-indicator")
 		      ;;(:script :src "/js/hhubbusy.js")
-		      (if hunchentoot:*session* (,nav-func)) 
-		      (:div :class "container" :style "background-color: white; min-height: calc(100vh - 100px);" 
-			    (:div :id "hhubmaincontent"
-				  ,@body))
+		      (if hunchentoot:*session* (,nav-func))
+		      (:div :class "container py-4 bg-light rounded shadow-sm flex-grow-1"
+			    ;;:style "background-color: rgba(255, 255, 255, 0.05);backdrop-filter: blur(4px);min-height: calc(100vh - 100px);"
+		      ,@body)
 		 (:script :src "/js/dod.js")))))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-standard-page-template-v3 (title nav-func &body body)
+    `(cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+       (:html :lang "en"
+              (:head
+               (:meta :charset "UTF-8")
+	       (:meta :name "viewport" :content "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=no")
+               (:title ,title)
+               (:link :rel "icon" :href "/favicon.ico")
+	       ;; Link to the app manifest for PWA. 
+	       (:link :rel "manifest" :href "/manifest.json")
+               ;; ✅ Tailwind CSS (CDN)
+               (:script :src "https://cdn.tailwindcss.com")
+	       (:link :href "https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/themes/cupertino/jquery-ui.min.css" :rel "stylesheet")
+	       (:link :href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" :rel "stylesheet")
+	       (:link :href "https://fonts.googleapis.com/css?family=Merriweather:400,900,900i" :rel "stylesheet")
+	
+
+	       ;; ✅ jQuery (safe fallback for production)
+	       (:script :src "https://code.jquery.com/jquery-3.5.1.min.js" :integrity "sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" :crossorigin "anonymous")
+	       (:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin "anonymous")
+	
+	       ;; ✅ Project-wide JS
+	       (:script :src "https://www.google.com/recaptcha/api.js")
+	       (:script :src "/js/nine-spinner.js")
+               ;; Fonts & icons
+               (:link :href "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" :rel "stylesheet")
+               (:link :href "https://fonts.googleapis.com/css?family=Inter:400,500,600&display=swap" :rel "stylesheet"))
+              (:body :class "min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#3b82f6] flex flex-col items-center justify-center"
+                     ;;(:div :id "dod-main-container" 
+                     ;; Error/success/busy indicators retained for future transition
+                     (:div :id "hhub-error" :class "hidden bg-red-500 text-white text-center p-2 rounded shadow")
+                     (:div :id "hhub-success" :class "hidden bg-green-500 text-white text-center p-2 rounded shadow")
+                     (:div :id "busy-indicator")
+                     ;; Navigation if session active
+                     (if hunchentoot:*session* (,nav-func))
+                     ;; Main page content
+                     ;;(:main :id "hhubmaincontent" ;;:class "flex-1 container mx-auto p-4"
+                     ,@body
+		     (:script :src "/js/dod.js"))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defmacro with-standard-page-template-with-sidebar (title nav-func sidebar-func  &body body)
@@ -623,9 +667,17 @@ Returns a list of widget outputs."
   (defmacro with-standard-customer-page-v2 (title &body body)
     `(with-standard-page-template-v2  ,title with-customer-navigation-bar-v2 ,@body)))
 
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (defmacro with-standard-customer-page-v3 (title &body body)
+    `(with-standard-page-template-v3  ,title with-customer-navigation-bar-v2 ,@body)))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-vendor-page-v2 ( title &body body)
     `(with-standard-page-template-v2  ,title with-vendor-navigation-bar-v2  ,@body)))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-standard-vendor-page-v3 ( title &body body)
+    `(with-standard-page-template-v3  ,title with-vendor-navigation-bar-v2  ,@body)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-standard-admin-page-v2 (title &body body)
@@ -1172,8 +1224,35 @@ individual tiles. It also supports search functionality by including the searchr
 			   (:div :class "modal-footer"
 				 (:button :type "button" :class "btn btn-secondary" :data-bs-dismiss "modal" "Close")))))))))
 
-
-
-
-
+(defmacro defdb-adapter (name lambda-list &body body)
+  "Defines a Read Database Adapter function that executes a single CLSQL query 
+   and automatically maps the result to one of the four TCUF states, logging 
+   critical failures (:U and :C)."
+  (let ((results-sym (gensym "RESULTS"))
+        (db-error-sym (gensym "DB-ERROR"))
+        (caller-sym (gensym "CALLER")))
+    `(defun ,name ,lambda-list
+       "TCUF Boundary Adapter for database reads. Returns (PAYLOAD/NIL TCUF-STATUS)."
+       (handler-case
+           (let ((,results-sym ,@body)) 
+             (cond
+               ;; T: Exactly one result found.
+               ((= (length ,results-sym) 1)
+                (values (car ,results-sym) +true+))
+               ;; F: Zero results found. (Handled gracefully by caller)
+               ((= (length ,results-sym) 0)
+                (values nil +false+))
+               ;; C: More than one result found. (Critical Log required here)
+               (t
+                (log-critical-error +contradiction+
+                                    (format nil "Data Contradiction in ~A: Expected 1, found ~A results." 
+                                            ',name (length ,results-sym))
+                                    ,results-sym)
+                (values ,results-sym +contradiction+))))
+         ;; U: Catch any Lisp/database error. (Critical Log required here)
+         (error (,db-error-sym)
+           (log-critical-error +unknown+
+                               (format nil "DB UNKNOWN Error in ~A: ~A" ',name ,db-error-sym)
+                               ,db-error-sym)
+           (values nil +unknown+))))))
 
