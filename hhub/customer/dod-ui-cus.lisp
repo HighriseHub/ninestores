@@ -337,8 +337,7 @@
 
 (defun create-upi-payment-widget (vupiid-p upienabled)
   (lambda ()
-    (let* ((upibuttonstyle (format nil "background-image: url('/img/~A'); width: 200px; height: 70px; background-size: contain; background-repeat: no-repeat; background-position: center; font-weight: bold;border-radius: 8px;cursor: pointer;" *HHUBUPILOGOIMG*))
-	  (itembodyhtml
+    (let* ((itembodyhtml
 	    (cl-who:with-html-output (*standard-output* nil)
 	      (:li :class "list-group-item"    
 		   (when (and vupiid-p (equal upienabled "Y")) 
@@ -1773,9 +1772,9 @@ Only shows sections based on availability flags and customer type."
 	  (:div :class "form-group"
 		(:span :id "areaname" :class "label label-info" ""))
 	  (:div :class "form-group" (:label :for "city" "City" )
-		(:input :class "form-control" :type "text" :class "form-control" :name "shipcity" :value city :id "shipcity" :placeholder "City" :readonly T :required T))
+		(:input :class "form-control" :type "text" :class "form-control" :name "shipcity" :value city :id "shipcity" :placeholder "City"  :required T))
 	  (:div :class "form-group" (:label :for "state" "State" )
-		(:input :class "form-control" :type "text" :class "form-control" :name "shipstate" :value state :id "shipstate"  :placeholder "State"  :readonly T :required T ))))
+		(:input :class "form-control" :type "text" :class "form-control" :name "shipstate" :value state :id "shipstate"  :placeholder "State"  :required T ))))
       
       (with-html-div-row :id "billingaddressrow" :style "display: none;" 
 	(with-html-div-col-8
