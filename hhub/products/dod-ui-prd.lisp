@@ -580,6 +580,79 @@
     
 (defun product-card (product-instance prdincart-p)
   (let* ((prd-name (slot-value product-instance 'prd-name))
+         (images-str (slot-value product-instance 'prd-image-path))
+         (imageslst (safe-read-from-string images-str))
+         (units-in-stock (slot-value product-instance 'units-in-stock))
+         (prd-id (slot-value product-instance 'row-id))
+         (subscribe-flag (slot-value product-instance 'subscribe-flag))
+         (customer-type (get-login-customer-type))
+         (company (product-company product-instance))
+         (subscription-plan (slot-value company 'subscription-plan))
+         (cmp-type (slot-value company 'cmp-type))
+         (product-pricing (select-product-pricing-by-product-id prd-id company)))
+    (cl-who:with-html-output (*standard-output* nil)
+      ;; ⬇️ Outer tile wrapper
+      ;; Product image section
+      (:a :href (format nil "prddetailsforcust?id=~A" prd-id)
+          (render-single-product-image prd-name imageslst images-str "100" "83"))
+      ;; Product details section
+      (:div :class "product-details"
+            ;; price section
+            (product-price-with-discount-widget product-instance product-pricing)
+            ;; product title
+            (:p :class "product-title"
+                (:a :href (format nil "prddetailsforcust?id=~A" prd-id)
+                    (cl-who:str prd-name)))
+            ;; subscription button (if eligible)
+            (when (and
+                   (com-hhub-attribute-company-prdsubs-enabled subscription-plan cmp-type)
+                   (equal subscribe-flag "Y")
+                   (equal customer-type "STANDARD"))
+              (cl-who:htm
+               (:button :data-bs-toggle "modal"
+                        :data-bs-target (format nil "#productsubscribe-modal~A" prd-id)
+                        :class "btn btn-sm btn-primary"
+                        :id (format nil "btnsubscribe~A" prd-id)
+                        :name (format nil "btnsubscribe~A" prd-id)
+			(:i :class "fa-solid fa-hand-point-up")
+			" Subscribe")
+               (modal-dialog-v2 (format nil "productsubscribe-modal~A" prd-id)
+                                "Subscribe Product/Service"
+                                (product-subscribe-html prd-id))))
+            ;; add-to-cart / already-in-cart / out-of-stock logic
+            (cond
+              (prdincart-p
+               (cl-who:htm
+                (:a :class "btn btn-sm btn-success"
+                    :role "button"
+                    :onclick "return false;"
+                    :href "javascript:void(0);"
+                    (:i :class "fa-solid fa-check")
+                    " In Cart")))
+	      
+              ((and units-in-stock (> units-in-stock 0))
+               (cl-who:htm
+                (:button :data-bs-toggle "modal"
+                         :data-bs-target (format nil "#producteditqty-modal~A" prd-id)
+                         :class "btn btn-sm btn-outline-primary add-to-cart-btn"
+                         :onclick "addtocartclick(this.id);"
+                         :id (format nil "btnaddproduct_~A" prd-id)
+                         :name (format nil "btnaddproduct~A" prd-id)
+                         "Add "
+                         (:i :class "fa-solid fa-plus"))
+                (modal-dialog-v2
+                 (format nil "producteditqty-modal~A" prd-id)
+                 (format nil "Edit Product Quantity - Available: ~A" units-in-stock)
+                 (product-qty-add-html product-instance product-pricing))))
+              (t
+               (cl-who:htm
+                (:div :class "text-danger small fw-bold mt-2"
+                      "Out of Stock"))))))))
+
+
+
+(defun product-card-old (product-instance prdincart-p)
+  (let* ((prd-name (slot-value product-instance 'prd-name))
 	 (images-str (slot-value product-instance 'prd-image-path))
 	 (imageslst (safe-read-from-string images-str))
 	 (units-in-stock (slot-value product-instance 'units-in-stock))

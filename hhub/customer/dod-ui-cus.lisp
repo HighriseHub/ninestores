@@ -56,56 +56,81 @@
     (setf (hunchentoot:session-value :temp-guest-customer) temp-customer)))
 
 (defun render-pickup-only-page (modelfunc)
-  ;; Generates HTML for the pickup only page
-  (multiple-value-bind (vaddress vcity vzipcode vphone currsymbol shopcart-total) (funcall modelfunc)
+  (multiple-value-bind (vaddress vcity vzipcode vphone currsymbol shopcart-total)
+      (funcall modelfunc)
     (with-html-card
-	(:title "Pickup In Store."
-	 :image-src "/img/PickupInStore.jpg" 
-	 :image-alt "Pickup In Store"
-	 :image-style "width: 300px; height: 300px;")
-      (:h3
-       (:p "Please pick up your items from our store")
-       (:p :class "location-info" 
-	   (cl-who:str (format nil "Address: ~A, ~A, ~A" vaddress vcity vzipcode)))
-       (:p :class "location-info" (cl-who:str (format nil "Phone: ~A" vphone)))
-       (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" currsymbol shopcart-total)))
-       (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" currsymbol 0.00)))
-       (:hr)
-       (:p :id "costwithoutshipping" :class "total-cost"
-	   (:h3 :style "color: green;" 
-		(:span :class "text-bg-success" 
-		       (cl-who:str (format nil "Total: ~A ~$" currsymbol  shopcart-total)))))
-       (:hr)))))
+        (:title "Pickup In Store"
+         :image-src "/img/PickupInStore.jpg"
+         :image-alt "Pickup In Store"
+         :image-style "width: 300px; height: 300px; object-fit: cover; border-radius: .5rem;")
+      (cl-who:htm
+       (:div :class "text-center p-3"
+             (:h4 :class "fw-semibold mb-2 text-primary" "Pick Up Your Order In-Store")
+             (:p :class "text-muted mb-1"
+                 (cl-who:str (format nil "Address: ~A, ~A, ~A" vaddress vcity vzipcode)))
+             (:p :class "text-muted"
+                 (cl-who:str (format nil "Phone: ~A" vphone)))
+             (:div :class "mt-3 border-top pt-3"
+                   (:p :class "fw-semibold"
+                       (cl-who:str (format nil "Cost of Items: ~A ~$" currsymbol shopcart-total)))
+                   (:p "Shipping Charges: Free (Pickup Only)")
+                   (:h5 :class "text-success mt-2"
+                         (cl-who:str (format nil "Total: ~A ~$" currsymbol shopcart-total))))
+             (:div :class "mt-3"
+                   (:i :class "fa-solid fa-store fa-2x text-primary")))))))
+
+
 
 ;; Assuming the existence of these rendering functions
 (defun render-free-shipping-page (modelfunc)
-  ;; Generates HTML for the free shipping page, using shipping-options if needed for details
-  (multiple-value-bind (currsymbol freeshipminorderamt) (funcall modelfunc)
+  (multiple-value-bind (currsymbol freeshipminorderamt)
+      (funcall modelfunc)
     (with-html-card
-	(:title "Free Shipping !!!"
-	 :image-src (format nil "/img/~A" *HHUBFREESHIPPINGIMG*) 
-	 :image-alt "Free Shipping"
-	 :image-style "width: 300px; height: 300px;")
-      (:h2 (:strong (:p :class "info-message" (cl-who:str (format nil "As your order is over  ~A ~$, you will receive FREE Shipping. " currsymbol freeshipminorderamt))))))))
+        (:title "Free Shipping"
+         :image-src (format nil "/img/~A" *HHUBFREESHIPPINGIMG*)
+         :image-alt "Free Shipping"
+         :image-style "width: 300px; height: 300px; object-fit: cover; border-radius: .5rem;")
+      (cl-who:htm
+       (:div :class "text-center p-3"
+             (:h4 :class "text-success fw-bold mb-3" "You’ve unlocked FREE Shipping!")
+             (:p :class "text-muted"
+                 (cl-who:str (format nil "Your order exceeds ~A ~$. Enjoy FREE delivery on all items."
+                                     currsymbol freeshipminorderamt)))
+             (:div :class "mt-3"
+                   (:i :class "fa-solid fa-truck-fast fa-2x text-success")))))))
 
 (defun render-standard-shipping-page (modelfunc)
-  (multiple-value-bind (freeshipenabled freeshipminorderamt shipping-cost currsymbol shopcart-total) (funcall modelfunc)
+  (multiple-value-bind (freeshipenabled freeshipminorderamt shipping-cost currsymbol shopcart-total)
+      (funcall modelfunc)
     (with-html-card
-	(:title "Standard Shipping"
-	 :image-src "/img/StandardShipping.jpg" 
-	 :image-alt "Standard Shipping Shipping"
-	 :image-style "width: 300px; height: 300px;")
-      (:h3
-       (:p :class "cost-item" (cl-who:str (format nil "Cost of Items: ~A ~$" currsymbol shopcart-total)))
-       (:p :class "cost-item" (cl-who:str (format nil "Shipping Charges: ~A ~$" currsymbol shipping-cost)))
-       (:hr)
-       (:p :id "costwithshipping" :class "total-cost"
-	   (:h3 :style "color: green;" 
-		(:span :class "text-bg-success" 
-		       (cl-who:str (format nil "Total: ~A ~$" currsymbol  (+ shopcart-total shipping-cost))))))
-       (:strong
-	(:p :class "info-message"
-	    (if (equal freeshipenabled "Y") (cl-who:str (format nil "Shop for ~A ~$ more and we will ship it FREE!" currsymbol (- freeshipminorderamt shopcart-total))))))))))
+        (:title "Standard Shipping"
+         :image-src "/img/StandardShipping.jpg"
+         :image-alt "Standard Shipping"
+         :image-style "width: 300px; height: 300px; object-fit: cover; border-radius: .5rem;")
+      (cl-who:htm
+       (:div :class "text-center p-3"
+             (:h5 :class "text-secondary fw-semibold mb-3" "Order Summary")
+             (:div :class "d-flex justify-content-between border-bottom pb-2 mb-2"
+                   (:span "Cost of Items:")
+                   (:span :class "fw-semibold"
+                          (cl-who:str (format nil "~A ~$" currsymbol shopcart-total))))
+             (:div :class "d-flex justify-content-between border-bottom pb-2 mb-2"
+                   (:span "Shipping Charges:")
+                   (:span :class "fw-semibold"
+                          (cl-who:str (format nil "~A ~$" currsymbol shipping-cost))))
+             (:div :class "d-flex justify-content-between mt-3"
+                   (:span :class "fw-bold text-success"
+                          (cl-who:str (format nil "Total: ~A ~$" currsymbol (+ shopcart-total shipping-cost)))))
+             (when (equal freeshipenabled "Y")
+               (if (< shopcart-total freeshipminorderamt)
+                   (cl-who:htm
+                    (:p :class "text-warning mt-3 fw-semibold"
+                        (cl-who:str (format nil "Shop for ~A ~$ more for FREE shipping!"
+                                            currsymbol (- freeshipminorderamt shopcart-total)))))
+                   (cl-who:htm
+                    (:p :class "text-success mt-3 fw-semibold"
+                        "Congratulations! You qualify for FREE shipping!")))))))))
+
 
 ;; This is a pure function.
 (defun display-cust-shipping-costs-widget (shopcart-total shipping-options storepickupenabled vendor freeshipenabled company)
@@ -119,9 +144,7 @@
          (freeshipminorderamt (nth 2 shipping-options))
 	 (freeshippingapplied (if (and (equal freeshipenabled "Y") (> shopcart-total freeshipminorderamt)) T NIL))
 	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
-	 
-    (logiamhere (format nil "~A" shipping-options))
-      (cl-who:with-html-output (*standard-output* nil)
+    (cl-who:with-html-output (*standard-output* nil)
 	(with-html-div-row
 	  (with-html-div-col-12 (:hr)))
 	(when (and (equal vshipping-enabled "Y") (equal storepickupenabled "Y")) ;; (> shipping-cost 0))
@@ -131,8 +154,7 @@
 			 :onclick (parenscript:ps (togglepickupinstore)) :tabindex "1")
 		 (:label :class "custom-control-label" :for "idstorepickup" "Pickup In Store"))))
 	(with-html-div-row :id "costwithshipping" :class "shipping-cost-section"
-	  (with-html-div-col-2)
-	  (with-html-div-col-8
+	  (with-html-div-col-12
 	    (cond
 	      ;; Standard Shipping
 	      ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
@@ -144,9 +166,8 @@
 	      ((equal vshipping-enabled "N")
 	       (render-pickup-only-page (lambda () (values vaddress vcity vzipcode vphone currsymbol shopcart-total)))))))
       (with-html-div-row :id "costwithoutshipping" :style "display: none;" :class "shipping-cost-section"
-	(with-html-div-col-2)
-	(with-html-div-col-8
-          (:br)
+	(with-html-div-col-12
+	  (:br)
 	  (render-pickup-only-page (lambda () (values vaddress vcity vzipcode vphone currsymbol shopcart-total)))))
       (:script "function togglepickupinstore() {
     const storepickup = document.getElementById('idstorepickup');
@@ -170,29 +191,65 @@
 
 (defun create-widgets-for-customerpaymentmethodspage (modelfunc)
   (multiple-value-bind
-	(cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone codenabled upienabled payprovidersenabled walletenabled paylaterenabled shipping-cost shopcart-total totalbeforetax)
+        (cust-type lstcount vendor-list customer custcomp singlevendor-p
+         vpayapikey-p vupiid-p phone codenabled upienabled payprovidersenabled
+         walletenabled paylaterenabled shipping-cost shopcart-total totalbeforetax)
       (funcall modelfunc)
-    (let ((widget1 (function (lambda ()
-		     (with-customer-breadcrumb
-		       (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
-		       (:li :class "breadcrumb-item" (:a :href "dodcustordershipaddrpage" "Address"))))))
-	  (widget2 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil)  
-		       (with-html-div-row
-			 (with-html-div-col-12
-			   (:h4 (cl-who:str (format nil "Amount Before Tax =  ~$" totalbeforetax)))
-			   (:h4 (cl-who:str (format nil "Amount After Tax (GST)  =  ~$" shopcart-total)))
-			   (:h4 (cl-who:str (format nil "Shipping Cost =  ~$" shipping-cost)))
-			   (:hr)
-			   (:h4 (cl-who:str (format nil "Total Amount =  ~$" (+ shopcart-total shipping-cost))))
-			   (:hr)
-			   (:h5 :class "text-center"  "Choose Payment Method")))))))
+    (let ((widget1
+           (function
+            (lambda ()
+              ;; Breadcrumb navigation
+              (with-customer-breadcrumb
+                (:li :class "breadcrumb-item"
+                     (:a :href "dodcustshopcart" "Cart"))
+                (:li :class "breadcrumb-item"
+                     (:a :href "dodcustordershipaddrpage" "Address"))
+                (:li :class "breadcrumb-item active"
+                     :aria-current "page"
+                     "Payment")))))
+          ;; Order summary card
+          (widget2
+           (function
+            (lambda ()
+              (cl-who:with-html-output (*standard-output* nil)
+                (with-html-div-row :class "justify-content-center"
+                  (with-html-div-col-12
+                    (:div :class "card shadow-sm border-0 mb-4"
+                          (:div :class "card-body p-4"
+                                (:h4 :class "card-title text-center text-primary fw-bold mb-3"
+                                     "Order Summary")
+                                (:ul :class "list-group list-group-flush text-start mb-3"
+                                     (:li :class "list-group-item d-flex justify-content-between align-items-center"
+                                          "Amount Before Tax"
+                                          (:span :class "fw-semibold"
+                                                 (cl-who:str (format nil "~$" totalbeforetax))))
+                                     (:li :class "list-group-item d-flex justify-content-between align-items-center"
+                                          "Amount After Tax (GST)"
+                                          (:span :class "fw-semibold"
+                                                 (cl-who:str (format nil "~$" shopcart-total))))
+                                     (:li :class "list-group-item d-flex justify-content-between align-items-center"
+                                          "Shipping Cost"
+                                          (:span :class "fw-semibold"
+                                                 (cl-who:str (format nil "~$" shipping-cost)))))
+                                (:div :class "d-flex justify-content-between align-items-center mt-3 pt-3 border-top"
+                                      (:h4 :class "text-success fw-bold mb-0" "Total Amount:")
+                                      (:h4 :class "text-success fw-bold mb-0"
+                                            (cl-who:str (format nil "~$" (+ shopcart-total shipping-cost)))))
+                                (:div :class "text-center mt-4"
+                                      (:h5 :class "fw-semibold text-secondary"
+                                           "Select a Payment Method Below"))))))))))
+
+	  ;; Payment method accordion
 	  (widget3 (function (lambda ()
 		     (if (> lstcount 0)
 			 (custpaymentmethods
 			  (function (lambda ()
 			    (values cust-type vendor-list customer custcomp phone singlevendor-p vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled paylaterenabled)))))))))
-      (list widget1 widget2 widget3))))
+       (list widget1 widget2 widget3))))
+
+
+
+
 
 
 (defun create-model-for-customerpaymentmethodspage ()
@@ -241,25 +298,24 @@
     (let ((itembodyhtml
 	    (cl-who:with-html-output (*standard-output* nil)
 	      (:li :class "list-group-item"  
-	      (when (and (equal cust-type "STANDARD") (equal walletenabled "Y"))
-		(cl-who:htm
-		 (with-html-div-row
-		   (with-html-div-col
-		     (:h5 (:u "Prepaid Wallet Balance"))))
-		 (mapcar (lambda (vendor)
-			   (let* ((wallet (get-cust-wallet-by-vendor customer vendor custcomp))
-				  (wallet-balance (slot-value wallet 'balance))
-				  (vendorname (slot-value vendor 'name)))
-			     (cl-who:htm
-			      (with-html-div-row
-				(with-html-div-col
-				  (:h6 (cl-who:str (format nil "Vendor - ~A" vendorname))))
-				(with-html-div-col
-				  (:span  :style "color:blue" (cl-who:str (format nil "~d" wallet-balance)))))))) vendor-list)
-		 
-		 (with-html-form "form-standardcustpaymentmode" "dodmyorderaddaction"
-		   (with-html-input-text-hidden "paymentmode" "PRE")
-		   (:input :type "submit"  :class "btn btn-primary btn-lg" :value "Prepaid Checkout"))))))))
+		   (when (and (equal cust-type "STANDARD") (equal walletenabled "Y"))
+		     (cl-who:htm
+		      (with-html-div-row
+			(with-html-div-col
+			  (:h5 (:u "Prepaid Wallet Balance"))))
+		      (mapcar (lambda (vendor)
+				(let* ((wallet (get-cust-wallet-by-vendor customer vendor custcomp))
+				       (wallet-balance (slot-value wallet 'balance))
+				       (vendorname (slot-value vendor 'name)))
+				  (cl-who:htm
+				   (with-html-div-row
+				     (with-html-div-col
+				       (:h6 (cl-who:str (format nil "Vendor - ~A" vendorname))))
+				     (with-html-div-col
+				       (:span  :style "color:blue" (cl-who:str (format nil "~d" wallet-balance)))))))) vendor-list)
+		      (with-html-form "form-standardcustpaymentmode" "dodmyorderaddaction"
+			(with-html-input-text-hidden "paymentmode" "PRE")
+			(:input :type "submit"  :class "btn btn-primary btn-lg" :value "Prepaid Checkout"))))))))
       (values itembodyhtml))))
 
 (defun create-cash-on-delivery-widget (phone codenabled)
@@ -311,14 +367,146 @@
 
 ;; This is not a pure function as it talks to the database.  
 (defun custpaymentmethods (vpmsettingsfunc)
-  (multiple-value-bind (cust-type vendor-list customer custcomp phone singlevendor-p vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled ) (funcall vpmsettingsfunc)
-    (let ((widget1 (create-prepaid-wallet-widget customer cust-type vendor-list custcomp walletenabled)) 
-	  (widget2 (create-cash-on-delivery-widget  phone codenabled))
-	  (widget3 (create-upi-payment-widget vupiid-p upienabled))
-	  (widget4 (create-payment-gateway-widget singlevendor-p vpayapikey-p payprovidersenabled)))
-      (cl-who:with-html-output (*standard-output*)
-	(:ul :class "list-group"
-	     (mapcar #'funcall (list widget1 widget2 widget3 widget4)))))))
+  "Render the available payment method widgets dynamically using Bootstrap 5.3 accordion.
+Only shows sections based on availability flags and customer type."
+  (multiple-value-bind (cust-type vendor-list customer custcomp phone singlevendor-p
+                                  vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled)
+      (funcall vpmsettingsfunc)
+
+    ;; Create available widgets based on feature flags
+    (let* ((accordion-items '())
+           (show-wallet (and (equal cust-type "STANDARD") walletenabled))
+           (show-cod codenabled)
+           (show-upi upienabled)
+           (show-gateway payprovidersenabled)
+           (wallet-widget (when show-wallet
+                            (create-prepaid-wallet-widget customer cust-type vendor-list custcomp walletenabled)))
+           (cod-widget (when show-cod
+                         (create-cash-on-delivery-widget phone codenabled)))
+           (upi-widget (when show-upi
+                         (create-upi-payment-widget vupiid-p upienabled)))
+           (gateway-widget (when show-gateway
+                             (create-payment-gateway-widget singlevendor-p vpayapikey-p payprovidersenabled))))
+
+      ;; Build accordion items list in order
+      (when show-wallet (push 'wallet accordion-items))
+      (when show-cod (push 'cod accordion-items))
+      (when show-upi (push 'upi accordion-items))
+      (when show-gateway (push 'gateway accordion-items))
+      (setq accordion-items (reverse accordion-items))
+
+      (if (null accordion-items)
+          ;; Fallback message if no payment options are available
+          (cl-who:with-html-output (*standard-output* nil)
+            (:div :class "alert alert-warning text-center mt-4"
+                  "No payment methods are currently available. Please contact support."))
+          
+          ;; Render accordion with available options
+          (cl-who:with-html-output (*standard-output* nil)
+            (:div :class "accordion mt-3" :id "paymentAccordion"
+
+                  ;; 💰 Wallet Payment
+                  (when show-wallet
+                    (cl-who:htm
+                     (:div :class "accordion-item"
+                           (:h2 :class "accordion-header" :id "headingWallet"
+                                 (:button :class (format nil "accordion-button fw-semibold ~A"
+                                                         (if (eq (car accordion-items) 'wallet) "" "collapsed"))
+                                          :type "button"
+                                          :data-bs-toggle "collapse"
+                                          :data-bs-target "#collapseWallet"
+                                          :aria-expanded (if (eq (car accordion-items) 'wallet) "true" "false")
+                                          :aria-controls "collapseWallet"
+                                          "💰 Wallet Payment"))
+                           (:div :id "collapseWallet"
+                                 :class (format nil "accordion-collapse collapse ~A"
+                                                (if (eq (car accordion-items) 'wallet) "show" ""))
+                                 :aria-labelledby "headingWallet"
+                                 :data-bs-parent "#paymentAccordion"
+                                 (:div :class "accordion-body"
+                                       (funcall wallet-widget))))))
+
+                  ;; 📦 Cash On Delivery
+                  (when show-cod
+                    (cl-who:htm
+                     (:div :class "accordion-item"
+                           (:h2 :class "accordion-header" :id "headingCOD"
+                                 (:button :class (format nil "accordion-button fw-semibold ~A"
+                                                         (if (and (not show-wallet)
+                                                                  (eq (car accordion-items) 'cod)) "" "collapsed"))
+                                          :type "button"
+                                          :data-bs-toggle "collapse"
+                                          :data-bs-target "#collapseCOD"
+                                          :aria-expanded (if (and (not show-wallet)
+                                                                  (eq (car accordion-items) 'cod)) "true" "false")
+                                          :aria-controls "collapseCOD"
+                                          "📦 Cash on Delivery"))
+                           (:div :id "collapseCOD"
+                                 :class (format nil "accordion-collapse collapse ~A"
+                                                (if (and (not show-wallet)
+                                                         (eq (car accordion-items) 'cod)) "show" ""))
+                                 :aria-labelledby "headingCOD"
+                                 :data-bs-parent "#paymentAccordion"
+                                 (:div :class "accordion-body"
+                                       (funcall cod-widget))))))
+
+                  ;; 📱 UPI Payment
+                  (when show-upi
+                    (cl-who:htm
+                     (:div :class "accordion-item"
+                           (:h2 :class "accordion-header" :id "headingUPI"
+                                 (:button :class (format nil "accordion-button fw-semibold ~A"
+                                                         (if (and (not show-wallet)
+                                                                  (not show-cod)
+                                                                  (eq (car accordion-items) 'upi)) "" "collapsed"))
+                                          :type "button"
+                                          :data-bs-toggle "collapse"
+                                          :data-bs-target "#collapseUPI"
+                                          :aria-expanded (if (and (not show-wallet)
+                                                                  (not show-cod)
+                                                                  (eq (car accordion-items) 'upi)) "true" "false")
+                                          :aria-controls "collapseUPI"
+                                          "📱 UPI Payment"))
+                           (:div :id "collapseUPI"
+                                 :class (format nil "accordion-collapse collapse ~A"
+                                                (if (and (not show-wallet)
+                                                         (not show-cod)
+                                                         (eq (car accordion-items) 'upi)) "show" ""))
+                                 :aria-labelledby "headingUPI"
+                                 :data-bs-parent "#paymentAccordion"
+                                 (:div :class "accordion-body"
+                                       (funcall upi-widget))))))
+
+                  ;; 💳 Online Payment Gateway
+                  (when show-gateway
+                    (cl-who:htm
+                     (:div :class "accordion-item"
+                           (:h2 :class "accordion-header" :id "headingGateway"
+                                 (:button :class (format nil "accordion-button fw-semibold ~A"
+                                                         (if (and (not show-wallet)
+                                                                  (not show-cod)
+                                                                  (not show-upi)
+                                                                  (eq (car accordion-items) 'gateway)) "" "collapsed"))
+                                          :type "button"
+                                          :data-bs-toggle "collapse"
+                                          :data-bs-target "#collapseGateway"
+                                          :aria-expanded (if (and (not show-wallet)
+                                                                  (not show-cod)
+                                                                  (not show-upi)
+                                                                  (eq (car accordion-items) 'gateway)) "true" "false")
+                                          :aria-controls "collapseGateway"
+                                          "💳 Online Payment Gateway"))
+                           (:div :id "collapseGateway"
+                                 :class (format nil "accordion-collapse collapse ~A"
+                                                (if (and (not show-wallet)
+                                                         (not show-cod)
+                                                         (not show-upi)
+                                                         (eq (car accordion-items) 'gateway)) "show" ""))
+                                 :aria-labelledby "headingGateway"
+                                 :data-bs-parent "#paymentAccordion"
+                                 (:div :class "accordion-body"
+                                       (funcall gateway-widget))))))))))))
+
 
 
 
@@ -1535,12 +1723,14 @@
 (defun display-orddatereqdate-text-widget ()
   (cl-who:with-html-output-to-string (*standard-output* nil)
     (with-html-div-row
-      (with-html-div-col-6 
+      (with-html-div-col-10 
 	(:h1 :class "text-center login-title"  "Personal Details & Shipping Address")
 	(:div  :class "form-group" (:label :for "orddate" "Order Date" )
-	       (:input :class "form-control" :name "orddate" :value (cl-who:str (get-date-string (clsql-sys::get-date))) :type "text"  :readonly T  ))
-	(:div :class "form-group"  (:label :for "reqdate" "Preferred Delivery Date - Click To Change" )
-	      (:input :class "form-control" :name "reqdate" :id "required-on" :placeholder  (cl-who:str (format nil "~A. Click to change" (get-date-string (clsql::date+ (clsql::get-date) (clsql::make-duration :day 1))))) :type "text" :value (get-date-string (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day 1)))))))))
+	       (:input :class "form-control" :name "orddate" :value (cl-who:str (get-date-string (clsql-sys::get-date))) :type "text"  :readonly T  ))))
+      (with-html-div-row
+	(with-html-div-col-10 
+	  (:div :class "form-group"  (:label :for "reqdate" "Preferred Delivery Date - Click To Change" )
+		(:input :class "form-control" :name "reqdate" :id "required-on" :placeholder  (cl-who:str (format nil "~A. Click to change" (get-date-string (clsql::date+ (clsql::get-date) (clsql::make-duration :day 1))))) :type "text" :value (get-date-string (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day 1)))))))))
 
 (defun display-phone-text-widget (phone tabindex)
   (cl-who:with-html-output-to-string (*standard-output* nil)
@@ -2395,9 +2585,7 @@
 				    (:p (cl-who:str (format nil "GST Number: ~A/~A" gstnumber gstorgname)))))))
 			 (with-html-div-col-6
 			   (:div :class "place-order-details"
-				 (if (or (equal orderpickupinstore "Y")
-					 (equal vshipping-enabled "N"))
-				     (cl-who:htm (:div :class "ribbon" "Pickup In Store")))
+				 
 				 (:p (cl-who:str (format nil "Sub-total: ~A ~$" currsymbol shopcart-total)))
 				 (:p (cl-who:str (format nil "Shipping: ~A ~$" currsymbol shipping-cost)))
 				 (:hr)
@@ -2855,7 +3043,7 @@
 			 (with-html-div-row (:br))
 			 (with-html-div-row
 			   (:div :class "col-6"
-				 (:h3 (cl-who:str (format nil "Shopping Cart - ~A Items" (length products))))))
+				 (:h6 (cl-who:str (format nil "Shopping Cart - ~A Items" (length products))))))
 			 (with-html-div-row
 			   (:div :class "col-6" 
 				 (cl-who:htm  (:a :class "btn btn-primary" :role "button" :href "/hhub/dodcustindex" "Back To Shopping"  ))))
