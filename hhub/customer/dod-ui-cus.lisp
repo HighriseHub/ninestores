@@ -283,6 +283,7 @@
       
     (when (and storepickup (equal storepickup "Y"))
       (setf (gethash "shipping-cost" orderparams-ht) 0.00)
+      (setf shipping-cost 0.00)
       (setf (gethash "orderpickupinstore" orderparams-ht) "Y")
       (setf (gethash "vendoraddress" orderparams-ht) vendoraddress)
       (save-cust-order-params orderparams-ht)) 
