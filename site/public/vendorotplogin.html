@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vendor OTP Login – Nine Stores</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('#idform-custsignin');
+    if (!form) return;
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const targetForm = e.target;
+      if (targetForm.name === 'fileUploadForm') return;
+
+      submitformandredirect(targetForm);
+    });
+  });
+</script>
+
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#3b82f6] flex items-center justify-center">
+
+  <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl w-[90%] max-w-md p-8 text-center text-white">
+    
+    <!-- Logo -->
+    <img src="/img/logo.png" alt="Nine Stores Logo" class="mx-auto mb-6 w-28 h-28 rounded-full shadow-lg border border-white/10 bg-white/10 p-2">
+
+    <!-- Title -->
+    <h1 class="text-2xl font-bold mb-2">Welcome to Nine Stores</h1>
+    <p class="text-gray-300 mb-6">Vendor OTP Login Portal</p>
+
+    <!-- OTP Login Form -->
+    <form id="idform-custsignin" method="POST" action="hhubvendloginotpstep" class="space-y-5">
+      <div>
+        <input
+          type="number"
+          name="phone"
+          required
+          placeholder="Enter RMN. Ex: 9999999990"
+          class="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder-gray-300 text-white"
+        />
+      </div>
+
+      <button
+        type="submit"
+        class="w-full py-3 bg-gradient-to-r from-[#38bdf8] to-[#3b82f6] hover:opacity-90 rounded-lg text-white font-semibold text-lg shadow-md transition"
+      >
+        Get OTP
+      </button>
+    </form>
+
+    <!-- Divider -->
+    <div class="my-6 border-t border-white/20"></div>
+
+    <!-- Alternative login -->
+    <div class="mt-4">
+      <p class="text-sm text-gray-300">Prefer password login?</p>
+      <a
+        href="/hhub/vendor-login.html"
+        class="text-[#93c5fd] font-medium hover:underline"
+      >
+        Go to Password Login
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-8 text-xs text-gray-400">
+      &copy; 2025 Nine Stores. All rights reserved.
+    </footer>
+
+    <script src='/js/dod.js'></script>
+  </div>
+
+</body>
+</html>
