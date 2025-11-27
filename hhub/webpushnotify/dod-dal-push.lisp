@@ -88,7 +88,10 @@
 (defclass RequestDeleteWebPushNotifyVendor (RequestModel)
   ((vendor
     :initarg :vendor
-    :accessor vendor)))
+    :accessor vendor)
+   (company
+    :initarg :company
+    :accessor company)))
 
 
 (defclass WebPushNotifyRepository (BusinessObjectRepository)

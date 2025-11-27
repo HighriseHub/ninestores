@@ -255,22 +255,60 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 			  (:h3 "Subscribe to Notifications on your Browser"))
 			(with-html-div-row
 			  (:p "Note: We send notifications for various events, for example:  when you receive a new order. Push notification will be sent to one browser only.")
-			  (:p "If you would like to subscribe to notifications on a different browser, you need to unsubscribe in current browser and subscribe in other browser"))
-			(with-html-div-row
-			  (with-html-div-col-4
-			    (:button :class "btn btn-lg btn-primary btn-block" :id "btnPushNotifications" :name "btnPushNotifications" "Subscribe")))))))
+			  (:p "If you would like to subscribe to notifications on a different browser, you need to unsubscribe in current browser and subscribe in other browser"))))))
 	   (widget2 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
-			(with-html-div-row
-			  (with-html-div-col-4
-			    (:a :href "dodvendindex?context=home" "Home"))
-			  (with-html-div-col-4
-			    (:a :id "btnPushSubscriptionRemoveFromServer" :href "#" (:i :class "fa-regular fa-trash-can"))))))))
+                        (:div :class "push-status-container"
+			      (:h3 "📢 Push Notification Subscription Status")
+			      (:p "Review the status below. The main button will guide you on the next required action based on the lifecycle state.")
+			      ;; --- 1. STATUS SUMMARY CARD (ALWAYS VISIBLE) ---
+			      ;; This is the primary UI element, dynamically colored by JavaScript.
+			      (:div :id "sync-status-panel" :class "alert alert-info" :role "alert"
+				    (:span :id "current-sync-message" "Checking subscription status..."))
+			      ;; --- 2. ACTION BUTTONS (ALWAYS VISIBLE) ---
+			      (:div :class "mt-3 d-flex flex-wrap gap-2"
+				    ;; The main toggle button
+				    (:button :id "btnPushNotifications"  :class "btn btn-sm btn-secondary"   :disabled "disabled" "Loading...")
+				    ;; The secondary action button (for force cleanup/State 4)
+                                    (:button :id "btnPushSubscriptionRemoveFromServer"
+					     :class "btn btn-sm btn-outline-danger"
+					     :style "display:none;" ; Initially hidden, shown by JS only in State 4
+					     "Force Remove from Backend"))
+			      ;; --- 3. COLLAPSIBLE TECHNICAL DETAILS (HIDDEN BY DEFAULT) ---
+			      (:p :class "mt-4"
+				  (:a :data-bs-toggle "collapse"  :href "#technicalDetailsCollapse"  :role "button" :aria-expanded "false" :aria-controls "technicalDetailsCollapse"      "Show Technical Sync Details (for troubleshooting)"))
+		              (:div :class "collapse" :id "technicalDetailsCollapse"
+			            (:p :class "text-muted small mt-2" "Diagnostics for IT support.")
+				    (:table :class "table table-striped table-bordered"
+				            (:thead
+					     (:tr
+					      (:th "Detail")
+					      (:th "Browser Status")
+					      (:th "Backend DB Status")))
+					    (:tbody
+					     (:tr
+					      (:td (cl-who:esc "**Subscription State**"))
+					      (:td :id "browser-state" "--")
+					      (:td :id "backend-state" "--"))
+					     (:tr
+					      (:td (cl-who:esc "**Endpoint Exists**"))
+					      (:td :id "browser-endpoint" "--")
+					      (:td :id "backend-endpoint" "--"))
+					     (:tr
+					      (:td (cl-who:esc "**Expiration Time**"))
+					      (:td :id "browser-expiry" "--")
+					      (:td :id "backend-expiry" "--"))))))))))   
+
 	   (widget3 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
-			(:script :src (format nil "~A/js/pushsubscribe.js" url)))))))
+			(with-html-div-row
+			  (with-html-div-col-4
+			    (:a :href "dodvendindex?context=home" "Home")))))))
+	   (widget4 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(:script :src (format nil "/js/pushsubscribe.js")))))))
 	   
-      (list widget1 widget2 widget3))))
+      (list widget1 widget2 widget3 widget4))))
 
 (defun async-upload-files-s3bucket-behavior (state messagefunc)
   (multiple-value-bind (product images objectname object-id vendor) (funcall messagefunc) 
@@ -1257,7 +1295,61 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 							       (start-das)
 							       (hunchentoot:redirect "/hhub/vendor-login.html"))))))
 
+
+
 (defun dod-controller-vendor-otploginpage ()
+  (handler-case
+      (progn
+        (when (equal (caar (clsql:query "select 1"
+                                        :flatp nil :field-names nil
+                                        :database *dod-db-instance*)) 1)
+          t)
+        (if (is-dod-vend-session-valid?)
+            (hunchentoot:redirect "/hhub/dodvendindex?context=home")
+            (with-standard-page-template-v3
+                "Vendor OTP Login | Nine Stores"
+               (lambda ()
+                    (cl-who:htm
+                      (:nav :class "bg-gray-950/80 backdrop-blur-md text-white p-4 shadow-md"
+                        (:div :class "container mx-auto flex justify-between items-center"
+                          (:div :class "text-lg font-semibold tracking-wide"
+                            "Nine Stores Vendor Portal")
+                          (:div
+                            (:a :href "/" :class "text-gray-300 hover:text-white transition"
+                                "← Back to Home"))))))
+              (:div :class "bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl w-[90%] max-w-md p-8 text-center text-white"
+                    (:img :src "/img/logo.png" :alt "Nine Stores Logo" :class "mx-auto mb-6 w-28 h-28 rounded-full shadow-lg border border-white/10 bg-white/10 p-2")
+		    ;;<!-- Title -->
+		    (:h1 :class "text-2xl font-bold mb-2" "Welcome to Nine Stores")
+		    (:p :class "text-gray-300 mb-6" "Vendor OTP Login Portal")
+		    (with-catch-submit-event "idform-vendsignin"
+		      (:form :id "vendsigninwithotp" :method "POST" :action "hhubvendloginotpstep" :class "space-y-5"
+			     (:div
+			      (:input :type "number"
+				      :id "phone"
+				      :name "phone"
+				      :placeholder "Enter RMN. Ex: 9999999990"
+				      :required "true"
+				      :class "w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder-gray-300 text-white"))
+			     (:button :type "submit"
+				      :class "w-full py-3 bg-gradient-to-r from-[#38bdf8] to-[#3b82f6] hover:opacity-90 rounded-lg text-white font-semibold text-lg shadow-md transition"
+				      "Get OTP")))
+			  ;;<!-- Divider -->
+			  (:div :class "my-6 border-t border-white/20")
+			  ;;<!-- Alternative login -->
+			  
+			  ;;<!-- Footer -->
+		     (:footer :class "mt-8 text-xs text-gray-400" "&copy 2025 Nine Stores. All rights reserved.")))))
+    (clsql:sql-database-data-error (condition)
+      (when (equal (clsql:sql-error-error-id condition) 2013)
+        (progn
+          (stop-das)
+          (start-das)
+          (hunchentoot:redirect "/hhub/vendor-login.html"))))))
+
+
+
+(defun dod-controller-vendor-otploginpagev2 ()
   (handler-case 
       (progn  
 	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
@@ -1267,7 +1359,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	      (with-html-div-row
 		(with-html-div-col-12 
 		  (with-html-card
-		      (:title "Login"
+		      (:title "Vendor Login"
 		       :image-src "/img/logo.png"
 		       :image-alt "Vendor Login to Nine Stores"
 		       :image-style "width: 200px; height: 200px;")

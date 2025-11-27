@@ -103,7 +103,8 @@
 (defun hhub-remove-vendor-push-subscription ()
   (let* ((vendor (get-login-vendor))
 	 (requestmodel (make-instance 'RequestDeleteWebPushNotifyVendor
-				      :vendor vendor))
+				      :vendor vendor
+				      :company (get-login-vendor-company)))
 	 (webpushadapter (make-instance 'VendorWebPushNotifyAdapter)))
     (processdeleterequest webpushadapter requestmodel)))
 
