@@ -11,10 +11,12 @@
 (defmethod doDelete ((service VendorWebPushNotifyService) (requestmodel RequestDeleteWebPushNotifyVendor))
   :description "This method is responsible for Deleting a Web push notification subscription for a given vendor"
   (let* ((vendor (vendor requestmodel))
+	 (company (company requestmodel))
 	 (webpushdbservice (make-instance 'WebPushNotifyDBService))
 	 (subscription (db-fetch-Vendor-WebPushNotifySubscriptions webpushdbservice vendor)))
     (when subscription 
       (setf (dbobject webpushdbservice) subscription)
+      (setf (company webpushdbservice) company)
       ;; Delete the record
       (db-delete webpushdbservice))))
     	
