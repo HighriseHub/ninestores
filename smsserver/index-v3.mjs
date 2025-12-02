@@ -1,9 +1,3 @@
-/**
- * Converted to AWS SDK for JavaScript v3 (ESM syntax)
- * File: index-v3.mjs
- * * UPDATED to include current date and time in console logs.
- */
-
 import express from 'express';
 import * as dotenv from 'dotenv';
 dotenv.config();
@@ -16,12 +10,9 @@ const snsClient = new SNSClient({
     region: process.env.AWS_REGION
 });
 
-// Helper function to get a standardized timestamp
 const getTimestamp = () => {
     return new Date().toISOString();
 };
-
-// --- Routes ---
 
 app.get("/sms/status", (req, res) => {
     const timestamp = getTimestamp();
