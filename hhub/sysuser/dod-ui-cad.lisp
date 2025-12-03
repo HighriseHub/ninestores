@@ -476,7 +476,7 @@
 	 (with-html-div-col :align "right"
 	   (:span :class "badge" (cl-who:str (format nil "~A" (length pendingvendors))))))
        (:hr)
-       (cl-who:str (display-as-tiles pendingvendors 'vendor-card-for-approval "product-box" ))))))
+       (cl-who:str (display-as-tiles pendingvendors 'vendor-card-for-approval "vendor-card" ))))))
 
 
 
@@ -493,19 +493,19 @@
       (when (and (equal approved-flag "N") (equal approval-status "PENDING"))
 	(cl-who:with-html-output (*standard-output* nil)
 	  (with-html-div-row
-	    (:div :class "col-xs-12" (:h5 (cl-who:str (format nil "~A" company-name)))))
+	    (with-html-div-col-12
+	      (:h5 (cl-who:str (format nil "~A" company-name)))))
 	  (with-html-div-row
-	    (with-html-div-col
-	      (:h5 :class "product-name" (cl-who:str (if (> (length name) 30)  (subseq name  0 30) name))))
-	    (with-html-div-col
-	      (:h5 :class "product-name" (cl-who:str phone))))
+	    (:h5 :class "product-name" (cl-who:str (if (> (length name) 30)  (subseq name  0 30) name))))
 	  (with-html-div-row
-	    (with-html-div-col
-	      (:button :data-toggle "modal" :data-target (format nil "#dodvendreject-modal~A" vendor-id)  :href "#"  (:i :class "fa-solid fa-ban") "Reject")
-	      (modal-dialog (format nil "dodvendreject-modal~A" vendor-id) "Reject Vendor" (modal.reject-vendor-html  vendor-id)))
-	    (with-html-div-col
-	      (:button :data-toggle "modal" :data-target (format nil "#dodvendaccept-modal~A" vendor-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") "Approve")
-	      (modal-dialog (format nil "dodvendaccept-modal~A" vendor-id) "Approve Vendor" (modal.approve-vendor-html vendor-id ))))))))
+	    (:h5 :class "product-name" (cl-who:str phone)))
+	  (with-html-div-row
+	    (with-html-div-col-6
+	      (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendreject-modal~A" vendor-id)  :href "#"  (:i :class "fa-solid fa-ban") "Reject")
+	      (modal-dialog-v2 (format nil "dodvendreject-modal~A" vendor-id) "Reject Vendor" (modal.reject-vendor-html vendor-id)))
+	    (with-html-div-col-6
+	      (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendaccept-modal~A" vendor-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") "Approve")
+	      (modal-dialog-v2 (format nil "dodvendaccept-modal~A" vendor-id) "Approve Vendor" (modal.approve-vendor-html vendor-id ))))))))
 
 
 

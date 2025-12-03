@@ -134,8 +134,9 @@
 (defvar *NST-ORDER-TEMPLATEFILE-1* "/home/ubuntu/ninestores/hhub/order/templates/ordertemplate1.html")
 (defvar *NST-ORDER-TEMPLATEFILE-2* "/home/ubuntu/ninestores/hhub/order/templates/ordertemplate2.html")
 (defvar *NST-ORDER-TEMPLATES* nil)
-
-
+;; customer templates
+(defvar *NST-DUPLICATE-CUSTOMER-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/customer/templates/duplicate-customer.html")
+(defvar *NST-CUSTOMER-TEMPLATES* nil)
 ;; NINE STORES ACTOR MODEL
 (defvar  *NSTSENDORDEREMAILACTOR* NIL)
 (defvar *NSTAWSS3FILEUPLOADACTOR* NIL)
@@ -211,6 +212,7 @@ Database type: Supported type is ':odbc'"
     (setf *NST-PRODUCT-TEMPLATES* (nst-load-product-templates))
     (setf *NST-ORDER-TEMPLATES* (nst-load-order-templates))
     (setf *NST-EMAIL-TEMPLATES* (nst-load-email-templates))
+    (setf *NST-CUSTOMER-TEMPLATES* (nst-load-customer-templates))
     (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
     (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
     (setf *HHUBBUSINESSSESSIONS-HT* (make-hash-table)) 
@@ -265,6 +267,9 @@ Database type: Supported type is ':odbc'"
 	 (setf *http-server* nil)
 	 (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* NIL)
 	 (setf *NST-INVOICE-TEMPLATES* NIL)
+	 (setf *NST-ORDER-TEMPLATES* NIL)
+	 (setf *NST-EMAIL-TEMPLATES* NIL)
+	 (setf *NST-CUSTOMER-TEMPLATES* NIL)
 	 (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* NIL)
 	 (setf *HHUBBUSINESSSESSIONS-HT* NIL)
 	 (deletebusinessserver)
@@ -472,6 +477,23 @@ Database type: Supported type is ':odbc'"
     (case templatenum
       (1 ordertemplate1)
       (2 ordertemplate2))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;CUSTOMER TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun nst-load-customer-templates ()
+  :documentation "Load the order templates at startup"
+  (let* ((duplicatecustomertemplate  (hhub-read-file *NST-DUPLICATE-CUSTOMER-TEMPLATEFILE*)))
+    (function (lambda ()
+      (values
+       (function (lambda () duplicatecustomertemplate)))))))
+
+(defun nst-get-cached-customer-template-func (&key templatenum)
+  :documentation "returns the function responsible for order HTML template. Call the returning function to get the HTML."
+  (multiple-value-bind (duplicatecustomertemplate) (funcall *NST-CUSTOMER-TEMPLATES*)
+    (case templatenum
+      (1 duplicatecustomertemplate))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
