@@ -1239,49 +1239,146 @@ Only shows sections based on availability flags and customer type."
 			(:div :class "form-group"
 			      (:input :class "form-control" :name "tenant-name" :value (format nil "~A" cname) :type "text" :readonly T ))))))))
 
-			
-
-
 (defun dod-controller-cust-register-page ()
+  (with-mvc-ui-page "Customer/Vendor SignUp Page" #'create-model-for-custven-signup-page #'create-widgets-for-custven-signup-page :role :customer))
+
+
+(defun create-model-for-custven-signup-page ()
   (let* ((cname (hunchentoot:parameter "cname"))
 	 (company (select-company-by-name cname))
 	 (cmpname (slot-value company 'name))
-	 (cmpaddress (slot-value company 'address)))
-
+         (cmpaddress (slot-value company 'address)))
     ;; Need to logout of all logged in sessions if any
     (if hunchentoot:*session*  (hunchentoot:remove-session hunchentoot:*session*))
-    ;; We need a page without a navbar. 
-    (with-no-navbar-page-v2 "Welcome to Nine Stores Platform."
-      	(:form :class "form-custregister" :role "form" :data-toggle "validator"  :method "POST" :action "custsignup1step2"
-	   (:div :class "row"
-		 (:img :class "profile-img" :src "/img/logo.png" :alt "")
-		 (:h1 :class "text-center login-title"  (cl-who:str (format nil "New Registration to ~A Store" cmpname)))
-		 (:hr)) 
-	   (with-html-div-row
-	     (with-html-div-col-8
-	     (:div :class "form-group"
-		   (:input :class "form-control" :name "tenant-name" :value (format nil "~A" cname) :type "text" :readonly T ))
-	     (:div :class "form-group" 
-		   (:textarea :class "form-control" :name "address"   :rows "2" :readonly T (cl-who:str (format nil "~A" cmpaddress))))
-	     
-	     (:div  :class "form-group" (:label :for "reg-type" "Register as:" )
-		    (customer-vendor-dropdown))
-	     
-	     (:div :class "form-group"
-		   (:input :class "form-control" :name "name" :placeholder "Full Name (Required)" :type "text" :required T ))
-	     (:div :class "form-group"
-		   (:input :class "form-control" :name "email" :placeholder "Email (Required)" :type "text" :required T ))
-	     (:div :class "form-group"
-		   (:input :class "form-control" :name "phone" :placeholder "Your Mobile Number (Required)" :type "text" :required T))
-	     (:div :class "form-group"
-		   (:div :class "g-recaptcha" :data-sitekey *HHUBRECAPTCHAV2KEY* )
-		   (:div :class "form-group"
-			 (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))
-      (hhub-html-page-footer))))
+    (function (lambda ()
+      (values cmpname cmpaddress)))))
 
+(defun create-widgets-for-custven-signup-page (modelfunc)
+  (multiple-value-bind (cmpname cmpaddress) (funcall modelfunc)
+    ;; --- WIDGET 1: Company Header & Read-only Info ---
+    (let* ((widget1 (function (lambda ()
+                     (cl-who:with-html-output (*standard-output* nil)
+                         ;; This widget contains the Company/Tenant Name, Address, and the Reg Type dropdown
+                         (:div :class "mb-4"
+                           (:p :class "text-muted mb-4" (cl-who:str (format nil "Joining: ~A Store" cmpname)))
+                           ;; Read-Only Company Name
+                           (:div :class "mb-3 text-start"
+                             (:label :for "tenant-name" :class "form-label fw-bold" "Company:")
+                             (:input :class "form-control-plaintext border-bottom" :name "tenant-name"
+                                     :value (format nil "~A" cmpname) :type "text" :readonly T))
+                           ;; Read-Only Address
+                           (:div :class "mb-4 text-start"
+                             (:label :for "address" :class "form-label fw-bold" "Address:")
+                             (:textarea :class "form-control-plaintext border-bottom" :name "address"
+                                        :rows "2" :readonly T (cl-who:str (format nil "~A" cmpaddress))))
+                           ;; Registration Type Dropdown (CRITICAL for conditional logic)
+                           (:div :class "mb-3 text-start"
+                             (:label :for "reg-type" :class "form-label" "Register as:")
+                             (customer-vendor-dropdown))
+                           (:hr))))))
+          ;; --- WIDGET 2: Core Registration Details (User Account) ---
+	  (widget2 (function (lambda ()
+                     (cl-who:with-html-output (*standard-output* nil)
+                       (:div :class "mb-4"
+                             (:h5 :class "text-primary mb-3" "Your Contact Details")
+                             ;; Full Name Field
+                             (:div :class "mb-3"
+				   (:input :class "form-control" :name "name" :placeholder "Full Name (Required)"
+					   :type "text" :required T ))
+                             ;; Email Field
+                             (:div :class "mb-3"
+				   (:input :class "form-control" :name "email" :placeholder "Email (Required)"
+					   :type "email" :required T ))
+                             ;; Phone Field
+                             (:div :class "mb-3"
+                               (:input :class "form-control" :name "phone" :placeholder "Your Mobile Number (Required)"
+                                       :type "text" :required T))
+                             (:hr))))))
+          ;; --- WIDGET 3: Conditional Vendor Fields (Tax/Compliance) ---
+	  (widget3 (function (lambda ()
+                           (cl-who:with-html-output (*standard-output* nil)
+                             ;; d-none hides this section initially - controlled by JS based on widget1's dropdown
+                             (:div :id "vendor-fields" :class "border p-3 rounded mb-4 d-none"
+                               (:h5 :class "mb-3 text-danger" "Vendor Tax & Payment Details (India)")
+                               
+                               ;; GSTIN
+                               (:div :class "mb-3"
+                                 (:input :class "form-control" :name "gstin" :placeholder "GSTIN (Required for Vendors)"
+                                         :type "text" :maxlength "15"))
 
+                               ;; PAN
+                               (:div :class "mb-3"
+                                 (:input :class "form-control" :name "pan" :placeholder "PAN Number (Required)"
+                                         :type "text" :maxlength "10"))
 
+                               ;; Bank Account Details
+                               (:div :class "mb-3"
+                                 (:input :class "form-control" :name "bank-acc-no" :placeholder "Bank Account Number"
+                                         :type "text"))
+                               
+                               (:div :class "mb-3"
+                                 (:input :class "form-control" :name "ifsc-code" :placeholder "IFSC Code"
+                                         :type "text"))
+                             )))))
+          ;; --- WIDGET 4: Conditional Customer Fields (Billing/B2B) ---
+	  (widget4 (function (lambda ()
+                             (cl-who:with-html-output (*standard-output* nil)
+                               ;; d-none hides this section initially - controlled by JS based on widget1's dropdown
+                               (:div :id "customer-fields" :class "border p-3 rounded mb-4 d-none"
+                                 (:h5 :class "mb-3 text-success" "Billing/B2B Details (Optional)")
+                                 
+                                 ;; Customer GSTIN (Optional B2B)
+                                 (:div :class "mb-3"
+                                   (:input :class "form-control" :name "cust-gstin" :placeholder "GSTIN (If claiming Input Tax Credit)"
+                                           :type "text" :maxlength "15"))
+                                 
+                                 ;; Billing Address
+                                 (:div :class "mb-3"
+                                   (:textarea :class "form-control" :name "billing-address" :rows "2" :placeholder "Billing/Registered Address"))
+                               )))))
+            
+            ;; --- WIDGET 5: Submit Button and Captcha (Optional, but included for completeness) ---
+            ;; We'll use 4 widgets and put the last elements here for simplicity,
+            ;; or treat them as a part of widget2 for a strict 4-widget division.
+            ;; Let's make the final output block part of the main rendering logic for simplicity.
+
+            ;; The overall page structure that wraps the widgets:
+          (main-wrapper (function (lambda ()
+                          (cl-who:with-html-output (*standard-output* nil)
+                            (:div :class "container my-5"
+                                  (:div :class "row justify-content-center"
+                                        (:div :class "col-md-7 col-lg-5"
+					      (with-html-card
+						  (:title (format nil "Registration to ~A Store" cmpname)
+						   :image-src "/img/logo.png" 
+						   :image-alt "Customer Logo"
+						   :image-style "width: 200px; height: 200px;")
+	    					;; Wrap all widgets in the form container
+						(with-html-form-having-submit-event "form-custvensignup" "custsignup1step2"
+                                                  ;; Render the content of the widgets sequentially
+						  (funcall widget1)
+						  (funcall widget2)
+						  (funcall widget3)
+						  (funcall widget4)
+						  ;; Final Elements (reCAPTCHA and Submit Button)
+						  (:div :class "mb-4 text-center"
+							(:div :class "g-recaptcha d-inline-block" :data-sitekey *HHUBRECAPTCHAV2KEY*))
+						  (:div :class "d-grid gap-2"
+							(:button :class "btn btn-lg btn-primary" :type "submit" "Submit Registration"))
+						  ) ; end with-html-form-having-submit-event
+						) ; end with-html-card
+                                              ) ; end col-md-7 col-lg-5
+                                       ) ; end row justify-content-center
+                                  ) ; end container
+                            (hhub-html-page-footer))))))
+      ;; Return only the primary, final wrapper widget to be rendered by the caller
+      (list main-wrapper))))
+
+            
 (defun com-hhub-transaction-customer&vendor-create-otpstep ()
+  (with-mvc-redirect-ui #'create-model-for-customer&vendor-create-otpstep #'create-widgets-for-genericredirect))
+
+(defun create-model-for-customer&vendor-create-otpstep ()
   (let* ((reg-type (hunchentoot:parameter "reg-type"))
 	 (captcha-resp (hunchentoot:parameter "g-recaptcha-response"))
 	 (paramname (list "secret" "response" ) ) 
@@ -1307,59 +1404,69 @@ Only shows sections based on availability flags and customer type."
 	 (tenant-id (slot-value company 'row-id))
 	 (persona (if (equal reg-type "CUS") "customer" "vendor"))
 	 (purpose "newregistration")
-	 (context "dodcustregisteraction"))
+	 (context "dodcustregisteraction")
+	 (redirectlocation ""))
+
     
     ;; Start a new session 
     (hunchentoot:start-session)
     ;; Keep the session for 5 mins only. 
     (setf hunchentoot:*session-max-time* (* 60 5))
+    (when (equal reg-type "VEN")
+      (progn
+        (logiamhere (format nil "Registration type is Vendor ~A" reg-type))
+	(let ((vendor (make-instance 'dod-vend-profile
+				     :name name
+				     :address fulladdress
+				     :email email 
+				     :phone phone
+				     :city nil 
+				     :state nil 
+				     :zipcode nil
+				     :approved-flag "N"
+				     :active-flag "Y"
+				     :approval-status "PENDING"
+				     :tenant-id tenant-id
+				     :push-notify-subs-flag "N"
+				     :deleted-state "N")))
+	  (setf (hunchentoot:session-value :newvendorcreate) vendor)
+	  (setf redirectlocation (generateotp&redirect persona purpose phone context)))))
+    (when (equal reg-type "CUS")
+     ;; Check for duplicate customer FIRST within the CUS block
+      (cond
+	((duplicate-customerp phone company)
+	 (progn
+	   ;; let us logout of the session that we created
+	   (hunchentoot:remove-session hunchentoot:*session*)
+	   (setf redirectlocation (format nil "/hhub/duplicate-cust.html?email=~A&phone=~A" email phone))))
+	(T ; If not duplicate, create customer
+	 (let ((customer (make-instance 'dod-cust-profile
+					:name name
+					:address fulladdress
+					:email email 
+					:birthdate nil 
+					:phone phone
+					:city nil
+					:state nil
+					:zipcode nil
+					:approved-flag "N"
+					:active-flag "Y"
+					:approval-status "PENDING"
+					:tenant-id tenant-id
+					:cust-type "STANDARD"
+					:deleted-state "N")))
+	   (setf (hunchentoot:session-value :newcustomercreate) customer)
+	   (setf redirectlocation (generateotp&redirect persona purpose phone context))))))
+    ;; Universal Check 1: Check whether captcha has been solved (If this applies to ALL types)
+    (when (null (cdr (car json-response))) (dod-response-captcha-error))
     
-    (cond
-      ;;((null encryptedpass) (dod-response-passwords-do-not-match-error))
-      ;; Check for duplicate customer
-      ((and (equal reg-type "CUS") (duplicate-customerp phone company)) (hunchentoot:redirect "/hhub/duplicate-cust.html"))
-      ;; Check whether captcha has been solved 
-      ((null (cdr (car json-response))) (dod-response-captcha-error))
-     
-      ((equal reg-type "VEN")
-       (let ((vendor (make-instance 'dod-vend-profile
-				    :name name
-				    :address fulladdress
-				    :email email 
-				    :phone phone
-				    :city nil 
-				    :state nil 
-				    :zipcode nil
-				    :approved-flag "N"
-				    :active-flag "Y"
-				    :approval-status "PENDING"
-				    :tenant-id tenant-id
-				    :push-notify-subs-flag "N"
-				    :deleted-state "N")))
-	 (setf (hunchentoot:session-value :newvendorcreate) vendor)))
-      ((equal reg-type "CUS")
-       (let ((customer (make-instance 'dod-cust-profile
-				      :name name
-				      :address fulladdress
-				      :email email 
-				      :birthdate nil 
-				      :phone phone
-				      :city nil
-				      :state nil
-				      :zipcode nil
-				      :approved-flag "N"
-				      :active-flag "Y"
-				      :approval-status "PENDING"
-				      :tenant-id tenant-id
-				      :cust-type "STANDARD"
-				      :deleted-state "N")))
-	 (setf (hunchentoot:session-value :newcustomercreate) customer))))
-
     (setf (hunchentoot:session-value :reg-type) reg-type)
     (setf (hunchentoot:session-value :company) company)
-    (generateotp&redirect persona purpose phone context)))
-
-
+    
+    
+    (function (lambda ()
+	  (values redirectlocation)))))
+   
 
 (defun com-hhub-transaction-customer&vendor-create ()
   (let* ((reg-type (hunchentoot:session-value :reg-type))
@@ -1367,6 +1474,7 @@ Only shows sections based on availability flags and customer type."
 	 (customer (hunchentoot:session-value :newcustomercreate))
 	 (vendor (hunchentoot:session-value :newvendorcreate))
 	 (params nil))
+        (logiamhere (format nil "Registration type is ~A and session is ~A" reg-type hunchentoot:*session*))
     ;; Let us clear the session we created in previous pages. 
       (hunchentoot:remove-session hunchentoot:*session*)
     ;; Preparing for security policy execution. 
@@ -1375,35 +1483,38 @@ Only shows sections based on availability flags and customer type."
     (with-hhub-transaction "com-hhub-transaction-customer&vendor-create" params 
       (cond
       	((equal reg-type "VEN")
-	(progn 
-					; 1 
-	  (clsql:update-records-from-instance vendor)
-	  (sleep 1) ; Sleep for 1 second after creating the vendor record.  
-	  (let ((name (slot-value vendor 'name))
-		(email (slot-value vendor 'email)))
-	    (create-vendor-tenant vendor "Y" company)
-					; 2
-	    (create-free-shipping-method *HHUBFREESHIPMINORDERAMT*  vendor company)
-	    ;;3
-	    (send-registration-email name email))
-				    ;;4
-	 (with-no-navbar-page "Welcome to Nine Stores platform"
-	   (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
-	   (:a :href "/hhub/vendor-login.html" "Login now"))))
-      
-      ((equal reg-type "CUS")  
-       (progn 
-					; 1 
-	 (clsql:update-records-from-instance customer)
-					; 2
-	 (let ((name (slot-value customer 'name))
-	       (email (slot-value customer 'email)))
-	   (send-registration-email name email))
-					;3
-	 (with-no-navbar-page "Welcome to Nine Stores platform"
-	   (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
-	   (:a :href "/hhub/customer-login.html" "Login now"))))))))
-  
+	 (progn
+	   (logiamhere (format nil "I will be creating a vendor now ~A" vendor))
+	   ;; 1 
+	   (clsql:update-records-from-instance vendor)
+	   (sleep 1) ; Sleep for 1 second after creating the vendor record.  
+	   (let ((name (slot-value vendor 'name))
+		 (email (slot-value vendor 'email)))
+	     (create-vendor-tenant vendor "Y" company)
+	     ;; 2
+	     (create-free-shipping-method *HHUBFREESHIPMINORDERAMT*  vendor company)
+	     ;; 3
+	     (send-registration-email name email))
+	   ;; 4
+	   (with-no-navbar-page "Welcome to Nine Stores platform"
+	     (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
+	     (:a :href "/hhub/hhubvendloginv2" "Vendor Login"))))
+        ((equal reg-type "CUS")  
+	 (progn 
+	   ;; 1 
+	   (clsql:update-records-from-instance customer)
+	   ;; 2
+	   (let ((name (slot-value customer 'name))
+		 (email (slot-value customer 'email)))
+	     (send-registration-email name email))
+	   ;; 3
+	   (with-no-navbar-page "Welcome to Nine Stores platform"
+	     (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
+	     (:a :href "/hhub/hhubcustloginv2" "Customer Login"))))))))
+
+
+
+
 (defun dod-response-passwords-do-not-match-error ()
    (with-standard-customer-page (:title "Passwords do not match error.")
     (:h2 "Passwords do not match. Please try again. ")
@@ -1411,10 +1522,27 @@ Only shows sections based on availability flags and customer type."
 (defun dod-response-captcha-error ()
   (with-standard-customer-page (:title "Captcha response error from Google")
     (:h2 "Captcha response error from Google. Looks like some unusual activity. Please try again later")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; DUPLICATE CUSTOMER PAGE ;;;;;;;;;;;;;;;;;;;;;;
 (defun dod-controller-duplicate-customer ()
-     (with-standard-customer-page (:title "Welcome to Nine Stores platform")
-	 (:h3 (cl-who:str(format nil "Customer record has already been created" )))
-	 (:a :href "cust-register.html" "Register new customer")))
+  (with-mvc-ui-page "Duplicate Customer"  #'create-model-for-duplicate-customer-page  #'create-widgets-for-duplicate-customer-page :role :customer))
+
+(defun create-model-for-duplicate-customer-page ()
+  (let ((dupcustpage (funcall (nst-get-cached-customer-template-func :templatenum 1)))
+	(customeremail (hunchentoot:parameter "email"))
+	(customerphone (hunchentoot:parameter "phone")))
+    (setf dupcustpage (cl-ppcre:regex-replace-all "%Customer Email%" dupcustpage customeremail))
+    (setf dupcustpage (cl-ppcre:regex-replace-all "%Customer Phone%" dupcustpage customerphone))
+    (function (lambda ()
+      (values dupcustpage)))))
+
+(defun create-widgets-for-duplicate-customer-page (modelfunc)
+  (multiple-value-bind (dupcustpage) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (cl-who:str dupcustpage))))))
+      (list widget1))))
+;;;;;;;;;;;;;;;;;;;;;; END DUPLICATE CUSTOMER PAGE ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun dod-controller-company-search-action ()
   (let*  ((qrystr (hunchentoot:parameter "accountlivesearch"))

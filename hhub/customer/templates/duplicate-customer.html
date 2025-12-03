@@ -1,0 +1,121 @@
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #e9ecef; /* Light gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .alert-card {
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .icon-container {
+            font-size: 3rem;
+            color: #dc3545; /* Bootstrap-like danger red */
+            margin-bottom: 20px;
+            line-height: 1;
+        }
+
+        .alert-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #343a40;
+            margin-bottom: 10px;
+        }
+
+        .alert-message {
+            font-size: 1rem;
+            margin-bottom: 30px;
+            color: #6c757d;
+        }
+
+        .duplicate-identifier {
+            font-weight: 600;
+            color: #007bff; /* Highlight color for the identifier */
+            background-color: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin: 0 5px;
+            display: inline-block;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .action-buttons a {
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background-color 0.3s, opacity 0.3s;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+            border: 1px solid #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            border: 1px solid #ced4da;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e9ecef;
+        }
+    </style>
+
+    <div class="alert-card">
+        <div class="icon-container">
+            &#x274C;
+        </div> 
+
+        <h1 class="alert-title">
+            Account Already Exists
+        </h1>
+
+        <p class="alert-message">
+            The **email address** (or phone number) you submitted is already linked to an active customer account.
+        </p>
+        
+        <p class="alert-message">
+            Identifier in question: <span class="duplicate-identifier">%Customer Email%/%Customer Phone%</span>
+        </p>
+
+        <hr style="margin: 25px 0;">
+        
+        <p class="alert-message" style="margin-bottom: 25px;">
+            To proceed, please log in. If you've forgotten your details, use the recovery link.
+        </p>
+
+        <div class="action-buttons">
+            <a href="/custsignup1.html" class="btn-primary">
+                Go to Store Search Page
+            </a>
+            <a href="/index.html" class="btn-secondary">
+              Home Page
+            </a>
+        </div>
+    </div>
+
