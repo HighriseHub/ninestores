@@ -2,10 +2,12 @@
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
-(defun search-invoice-header-by-invnum (invnum-like company)
-  (let* ((tenant-id (slot-value company 'row-id)))
+(defun search-invoice-header-by-invnum (invnum-like vendor company)
+  (let* ((tenant-id (slot-value company 'row-id))
+	 (vendor-id (slot-value vendor 'row-id)))
     (clsql:select 'dod-invoice-header :where 
 		  [and
+		  [= [:vendor-id] vendor-id]
 		  [= [:tenant-id] tenant-id]
 		  [like [:invnum] (format NIL "%~a%"  invnum-like)]]
 	       :caching *dod-database-caching* :flatp t)))
@@ -26,11 +28,14 @@
 		       [= [:tenant-id] tenant-id]]
 					  :caching *dod-database-caching* :flatp t))))
 
-(defun select-all-invoice-headers (company)
+(defun select-all-invoice-headers (vendor company)
   :documentation "This function stores all the currencies in a hashtable. The Key = country, Value = list of currency, code and symbol."
   (let* ((tenant-id (slot-value company 'row-id))
+	 (vendor-id (slot-value vendor 'row-id))
 	 (invheaders (clsql:select 'dod-invoice-header :where
-				 [= [:tenant-id] tenant-id]
+				   [and
+				   [= [:vendor-id] vendor-id]
+				   [= [:tenant-id] tenant-id]]
 				 :limit 200
 				 :caching *dod-database-caching* :flatp t )))
     invheaders))
@@ -187,12 +192,10 @@
   (setf (slot-value adapter 'businessservice) (find-class 'InvoiceHeaderService))
   (call-next-method))
 
-
-
-
 (defmethod doreadall ((service InvoiceHeaderService) (requestmodel InvoiceHeaderRequestModel))
   (let* ((comp (company requestmodel))
-	 (domainobjlst (select-all-invoice-headers comp)))
+	 (vendor (vendor requestmodel))
+	 (domainobjlst (select-all-invoice-headers vendor comp)))
     ;; return back a list of domain objects 
     (mapcar (lambda (object)
 	      (let ((domainobject (make-instance 'InvoiceHeader)))
@@ -200,8 +203,9 @@
 
 (defmethod doreadall ((service InvoiceHeaderService) (requestmodel InvoiceHeaderSearchRequestModel))
   (let* ((comp (company requestmodel))
+	 (vendor (vendor requestmodel))
 	 (invnum (invnum requestmodel))
-	 (domainobjlst (search-invoice-header-by-invnum invnum comp)))
+	 (domainobjlst (search-invoice-header-by-invnum invnum vendor comp)))
     ;; return back a list of domain objects 
     (mapcar (lambda (object)
 	      (let ((domainobject (make-instance 'InvoiceHeader)))

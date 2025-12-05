@@ -180,6 +180,15 @@
 		       :caching *dod-database-caching* :flatp t)))
 
 
+(defun select-customers-for-vendor (vendor company)
+  (let* ((wallets (get-cust-wallets-for-vendor vendor company))
+       (mycustomers (remove nil (mapcar (lambda (wallet)
+                                          (let* ((customer (slot-value wallet 'customer))
+                                                 (cust-type (slot-value customer 'cust-type)))
+                                            (when (equal cust-type "STANDARD") customer))) wallets))))
+    mycustomers))
+
+
 (defun select-guest-customer (company)
 (let ((tenant-id (slot-value company 'row-id)))
   (car (clsql:select 'dod-cust-profile :where [and
