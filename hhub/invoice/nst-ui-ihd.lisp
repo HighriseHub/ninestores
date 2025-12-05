@@ -1280,10 +1280,10 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 (defun create-model-for-addcusttoinvoice()
   (let* ((company (get-login-vendor-company))
+	 (vendor (get-login-vendor))
 	 (guestcustomer (select-guest-customer company))
 	 (guestcustid (slot-value guestcustomer 'row-id))
-	 (mycustomers (select-customers-for-company company)))
-    (logiamhere (format nil "Guest customer id is ~A" guestcustid))
+	 (mycustomers (select-customers-for-vendor vendor company)))
     (function (lambda ()
       (values mycustomers guestcustid)))))
 
@@ -1354,8 +1354,10 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 (defun create-model-for-showInvoiceHeader ()
   :description "This is a model function which will create a model to show InvoiceHeader entities"
   (let* ((company (get-login-vendor-company))
+	 (vendor (get-login-vendor))
 	 (presenterobj (make-instance 'InvoiceHeaderPresenter))
 	 (requestmodelobj (make-instance 'InvoiceHeaderRequestModel
+					 :vendor vendor 
 					 :company company))
 	 (adapterobj (make-instance 'InvoiceHeaderAdapter))
 	 (objlst (processreadallrequest adapterobj requestmodelobj))
@@ -1408,10 +1410,12 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 (defun create-model-for-searchInvoiceHeader ()
   :description "This is a model function for search InvoiceHeader entities/entity" 
   (let* ((search-clause (hunchentoot:parameter "InvoiceHeaderlivesearch"))
+	 (vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (presenterobj (make-instance 'InvoiceHeaderPresenter))
 	 (requestmodelobj (make-instance 'InvoiceHeaderSearchRequestModel
 						 :invnum search-clause
+						 :vendor vendor 
 						 :company company))
 	 (adapterobj (make-instance 'InvoiceHeaderAdapter))
 	 (domainobjlst (processreadallrequest adapterobj requestmodelobj))
