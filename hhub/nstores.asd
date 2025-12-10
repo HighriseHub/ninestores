@@ -74,6 +74,11 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "core/nst-sch-mig")
    (:file "core/dod-ini-sys")
    (:file "core/dod-ui-site")
+   (:file "core/nst-mult-logic")
+   (:file "core/nst-bl-beltrusys")
+   (:file "core/nst-bl-conflodis")
+   (:file "core/nst-ui-prosymloo.lisp")
+   (:file "core/func-lookup-data.lisp")
  ;; Account
    (:file "account/dod-dal-cmp")
    (:file "account/dod-bl-cmp")
@@ -85,7 +90,9 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "customer/dod-ui-cus")
    (:file "customer/nst-ui-cuswall")
    (:file "customer/nst-ui-prodetpag")
-   
+   (:file "customer/nst-dal-Customer")
+   (:file "customer/nst-bl-Customer")
+   (:file "customer/nst-ui-Customer")
    ;; Email
    (:file "email/templates/registration")
 
