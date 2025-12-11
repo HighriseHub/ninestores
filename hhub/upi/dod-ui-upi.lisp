@@ -43,8 +43,6 @@
 	 (ordnum "000")
 	 (order-fulfilled " ")
 	 (status "DRAFT")
-	 
-	 ;;(redirectlocation "/hhub/dodcustordsuccess")
 	 (order-source (gethash "order-source" orderparams-ht))
 	 (total-discount (gethash "total-discount" orderparams-ht))
 	 (total-tax (gethash "total-tax" orderparams-ht))
@@ -100,8 +98,7 @@
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Authorised Signatory%" ordertemplate name))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Vendor Address%" ordertemplate address))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Vendor GST Number%" ordertemplate gstnumber))
-      (setf ordertemplate (cl-ppcre:regex-replace-all "%Place of Supply%" ordertemplate (string-upcase state))))
-
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Place of Supply%" ordertemplate (string-upcase (gethash state *NSTGSTSTATECODES-HT*)))))
 
     (with-slots (values  ord-date req-date shipped-date expected-delivery-date ordnum shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-fulfilled order-amt shipping-cost total-discount total-tax payment-mode comments context-id  status is-converted-to-invoice is-cancelled cancel-reason order-type external-url order-source custname customer company) order
       ;;(setf ordertemplate (cl-ppcre:regex-replace-all "%Invoice Number%" ordertemplate ordnum))
@@ -113,6 +110,8 @@
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipped To%" ordertemplate custname))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Billed to Address%" ordertemplate billaddr))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipped to Address%" ordertemplate shipaddr))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Billed to City%" ordertemplate billcity))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipped to City%" ordertemplate shipcity))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Billed to GSTIN%" ordertemplate ""))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipped to GSTIN%" ordertemplate ""))
       (setf ordertemplate (cl-ppcre:regex-replace-all "%Billed to State%" ordertemplate billstate))
@@ -142,24 +141,6 @@
 	(let ((incr (let ((count 0)) (lambda () (incf count)))))
 	  (mapcar (lambda (item product) (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (display-order-item-row item product))))  orderitems products))))))
 
-(defun display-order-item-table-row (orderitem product)
-  (cl-who:with-html-output (*standard-output* nil)
-    (with-slots (prd-qty unit-price disc-rate taxablevalue sgst cgst igst sgstamt cgstamt igstamt totalitemval) orderitem
-      (cl-who:htm
-       (:td :height "10px" (cl-who:str (slot-value product 'prd-name)))
-       (:td :height "10px" (cl-who:str (slot-value product 'hsn-code)))
-       (:td :height "10px" (cl-who:str (slot-value product 'unit-of-measure)))
-       (:td :height "10px" (cl-who:str prd-qty))
-       (:td :height "10px" (cl-who:str unit-price))
-       (:td :height "10px" (cl-who:str disc-rate))
-       (:td :height "10px" (cl-who:str taxablevalue))
-       (:td :height "10px" (cl-who:str cgstamt))
-       (:td :height "10px" (cl-who:str sgstamt))
-       (:td :height "10px" (cl-who:str igstamt))
-       (:td :height "10px" (cl-who:str totalitemval))))))
-
-
-
 (defun display-order-item-row (orderitem product)
   "Generates a single item row using Bootstrap 5.3 grid divs."
   (cl-who:with-html-output (*standard-output* nil)
@@ -169,7 +150,7 @@
          (:div :class "col-1 col-cell" )
          (:div :class "col-1 col-cell" (cl-who:str (slot-value product 'prd-name)))
          (:div :class "col-1 col-cell" (cl-who:str (slot-value product 'hsn-code)))
-         (:div :class "col-1 col-cell" (cl-who:str (slot-value product 'unit-of-measure)))
+         (:div :class "col-1 col-cell" (cl-who:str (format nil "~A/~A" (slot-value product 'qty-per-unit) (slot-value product 'unit-of-measure))))
          (:div :class "col-1 col-cell" (cl-who:str prd-qty))
          (:div :class "col-1 col-cell" (cl-who:str unit-price))
          (:div :class "col-1 col-cell" (cl-who:str disc-rate))
