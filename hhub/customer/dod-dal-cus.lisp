@@ -43,40 +43,7 @@
 (defclass Address-Presenter (PresenterService)
   ())
 
-(defclass CustomerService (BusinessService)
-  ())
-
-(defclass customerDBService (DBAdapterService)
-  ())
-
-(defclass customerRepository (BusinessObjectRepository)
-  ())
-
-(defclass Customer (BusinessObject)
-  ((row-id)
-   (name)
-   (address)
-   (phone) 
-   (email)
-   (firstname)
-   (lastname)
-   (salutation)
-   (title)
-   (birthdate)
-   (city)
-   (state)
-   (country)
-   (zipcode)
-   (picture-path)
-   (password)
-   (salt)
-   (cust-type) 
-   (email-add-verified)
-   (tenantobj
-    :accessor customer-company
-    :initarg :tenantobj)))
-
-
+  
 
 (clsql:def-view-class dod-cust-profile ()
   ((row-id
