@@ -72,9 +72,11 @@
 (defmethod doRead ((service VendorWebPushNotifyService) requestmodel)
   (let* ((vendor (slot-value requestmodel 'vendor))
 	 (webpushdbservice (make-instance 'WebPushNotifyDBService))
-	 (subscription (db-fetch-Vendor-WebPushNotifySubscriptions webpushdbservice vendor)))
-    subscription))
-
+	 (dbsubscription-knowledge (with-db-call (db-fetch-Vendor-WebPushNotifySubscriptions webpushdbservice vendor))))
+    (setf (bo-knowledge service) dbsubscription-knowledge)
+    (when (eq (bo-knowledge-truth dbsubscription-knowledge) :T)
+      (let ((dbsubscription (bo-knowledge-payload dbsubscription-knowledge)))
+	dbsubscription))))
 
 (defmethod ProcessReadRequest ((adapter VendorWebPushNotifyAdapter)  (requestmodel RequestGetWebPushNofityVendor))
   :description "This function is responsible for initializaing the BusinessService and calling its doService method. It then creates an instance of outboundwebservice"
