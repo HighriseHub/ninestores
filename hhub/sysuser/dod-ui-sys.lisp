@@ -889,6 +889,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/searchhsncodesaction" 'com-hhub-transaction-search-gst-hsn-codes-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/createhsncodeaction" 'com-hhub-transaction-create-gst-hsn-code-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/updatehsncodeaction" 'com-hhub-transaction-update-gst-hsn-code-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/projsymlookup" 'com-hhub-controller-project-symbols-lookup-page)
 	
 	
 	;***************** COMPADMIN/COMPANYHELPDESK/COMPANYOPERATOR  RELATED ********************
@@ -986,7 +987,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustloginv2"  'dod-controller-customer-otploginpage)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorstore"  'dod-controller-customer-products-by-vendor)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorsearch"  'dod-controller-customer-search-vendor)
-	
+	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustomeraddress/([0-9]{10})$" 'dod-controller-customer-address)
 
 
 ;;***************************************************************************************************************************
