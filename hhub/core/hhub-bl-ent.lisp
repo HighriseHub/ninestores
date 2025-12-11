@@ -106,7 +106,12 @@
     :initform "127.0.0.1"
     :initarg :ipaddress)))
 
-
+(defclass BusinessObjectNIL (BusinessObject)
+  ((reason :initform "Not Found")))
+(defclass BusinessObjectUnknown (BusinessObject)
+  ((reason :initform "Unknown Error")))
+(defclass BusinessObjectContradiction (BusinessObject)
+  ((reason :initform "Conflicting Data")))
 
 (defclass RequestModel (BusinessObject)
   ((params
@@ -118,7 +123,21 @@
     :accessor params
     :initarg :params)))
 
+(defclass ResponseModelNIL (ResponseModel)
+  ((reason :initform "Not Found")))
+(defclass ResponseModelUnknown (ResponseModel)
+  ((reason  :initarg :reason :accessor rm-unknown-reason)))
+(defclass ResponseModelContradiction (ResponseModel)
+  ((conflicts :initarg :conflicts :accessor rm-conflicts)))
+
 (defclass ViewModel (BusinessObject)
+  ((reason :initarg :reason :accessor vm-reason)))
+
+(defclass ViewModelNIL (ViewModel)
+  ())
+(defclass ViewModelUnknown (ViewModel)
+  ())
+(defclass ViewModelContradiction (ViewModel)
   ())
 
 (defclass BusinessService ()
@@ -132,7 +151,12 @@
     :initarg :company
     :allocation :class)
    (code :accessor code
-	 :initarg :code)))
+	 :initarg :code)
+   (bo-knowledge
+     :initarg :bo-knowledge
+     :accessor bo-knowledge
+     :initform (make-instance 'bo-knowledge)
+     :documentation "Belnap knowledge for this adapter instance")))
 
 
 (defclass AdapterService ()
@@ -145,13 +169,18 @@
    (businessservicemethod
     :initarg :businessservicemethod
     :reader getbusinessservicemethod)
-  (requestmodel
-   :initarg :requestmodel
-   :reader getrequestmodel)
-  (responsemodel
-   :initarg :responsemodel
-   :accessor responsemodel)
-  (exception
+   (requestmodel
+    :initarg :requestmodel
+    :reader getrequestmodel)
+   (responsemodel
+    :initarg :responsemodel
+    :accessor responsemodel)
+   (bo-knowledge
+     :initarg :bo-knowledge
+     :accessor bo-knowledge
+     :initform (make-instance 'bo-knowledge)
+     :documentation "Belnap knowledge for this adapter instance")
+   (exception
    :accessor exception)))
 
 
@@ -163,11 +192,17 @@
     :initarg :viewmodel
     :reader getviewmodel)))
 
-
 (defclass View ()
   ((viewmodel
     :initarg :viewmodel
     :accessor viewmodel)))
+
+(defclass ViewNIL (View) ())
+
+(defclass ViewUnknown (View) ())
+
+(defclass ViewContradiction (View) ())
+
 
 (defclass JSONView (View)
    ((jsondata 
@@ -193,7 +228,6 @@
     :initarg :company)
    (exception
     :accessor exception)))
-
 
 ;;; Generic functions for DBAdapterService
 (defgeneric init (DBAdapterService BusinessObject)
@@ -248,7 +282,8 @@
   (:documentation "Adapter Service method to call the BusinessService Update method"))
 (defgeneric ProcessDeleteRequest (AdapterService RequestModel) 
   (:documentation "Adapter Service method to call the BusinessService Delete method"))
-
+(defgeneric TransferKnowledge (source target)
+  (:documentation "Transfer BO knowledge from one adapter-layer object to another."))
 
 
 
@@ -336,6 +371,8 @@
   (:documentation "DoCreate service implementation for a Business Service"))
 
 
+
+  
 ;;; Method implementation for Business Server 
 
 
@@ -535,29 +572,41 @@
 
 
 (defmethod ProcessReadRequest ((service AdapterService) (requestmodel RequestModel))
-  :description "This method acts as a gateway for all incoming READ requests to Nine Stores Business layer"
   (let* ((bservicename (getbusinessservice service))
-	 (bserviceinstance (make-instance bservicename))
-	 (method "doread")) 
-    ;; Call the doread method on the BusinessService.
-    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
+         (bserviceinstance (make-instance bservicename))
+         (method "doread")
+	 (knowledge nil)
+	 (domain-object (funcall (intern (string-upcase method) :nstores)
+                                 bserviceinstance requestmodel)))
+    ;; Transfer the bo-knowledge from business service to adapter. 
+    (transferknowledge bserviceinstance service)
+    (setf knowledge (bo-knowledge service))
+    (when (eq (bo-knowledge-truth knowledge) :F)
+      (setf domain-object (make-instance 'BusinessObjectNIL)))
+    (when (eq (bo-knowledge-truth knowledge) :U)
+      (setf domain-object (make-instance 'BusinessObjectUnknown)))
+    (when (eq (bo-knowledge-truth knowledge) :C)
+      (setf domain-object (make-instance 'BusinessObjectContradiction)))
+    domain-object))
 
 (defmethod ProcessReadAllRequest ((service AdapterService) (requestmodel RequestModel))
   :description "This method acts as a gateway for all incoming READ requests to Nine Stores Business layer"
   (let* ((bservicename (getbusinessservice service))
 	 (bserviceinstance (make-instance bservicename))
-	 (method "doreadall")) 
-    ;; Call the doread method on the BusinessService.
-    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
+	 (method "doreadall")
+	 (domain-objects (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
+    (transferknowledge bserviceinstance service)
+    domain-objects))
 
 
 (defmethod ProcessCreateRequest ((service AdapterService) (requestmodel RequestModel)) 
   :description "This method acts as a gateway for all incoming CREATE requests to Nine Stores Business layer"
   (let*  ((bservicename (getbusinessservice service))
 	  (bserviceinstance (make-instance bservicename))
-	  (method "docreate"))
-    ;; Call the docreate method on the BusinessService.
-    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
+	  (method "docreate")
+	  (domain-object (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
+    (transferknowledge bserviceinstance service)
+    domain-object))
   
 
 (defmethod ProcessDeleteRequest ((service AdapterService) (requestmodel RequestModel)) 
@@ -573,12 +622,11 @@
   :description "This method acts as a gateway for all the incoming UPDATE requests to Nine Stores Business Layer."
   (let* ((bservicename (getbusinessservice service))
 	 (bserviceinstance (make-instance bservicename))
-	 (method "doupdate"))
-    ;; Call the doupdate method on the BusinessService.
-    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
-  
+	 (method "doupdate")
+	 (domain-object (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
 
-
+    (transferknowledge bserviceinstance service)
+    domain-object))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-entity-create (adaptername requestmodel &body body)
@@ -609,3 +657,82 @@
        ;; Read the entity from the database adn return back a single business object.
        ,@body)))
 
+(defmethod TransferKnowledge ((source t) (target t))
+  ;; Only proceed if BOTH objects have a :knowledge slot
+  (when (and (slot-exists-p source 'bo-knowledge)
+             (slot-exists-p target  'bo-knowledge))
+    (setf (bo-knowledge target) (bo-knowledge source)))
+  target)
+
+(defmethod ProcessResponse ((adapter AdapterService) (busobj BusinessObjectNIL))
+  (let ((responsemodel (make-instance 'ResponseModelNIL)))
+    (setf responsemodel (createresponsemodel adapter busobj responsemodel))
+    responsemodel))
+
+(defmethod CreateResponseModel ((adapter AdapterService) (source BusinessObjectNIL) (destination ResponseModelNIL))
+  (with-slots (reason) destination  
+    (setf reason (slot-value source 'reason))
+    destination))
+
+(defmethod CreateViewModel ((presenter PresenterService) (responsemodel ResponseModelNIL))
+  (let ((viewmodel (make-instance 'ViewModelNIL)))
+    (with-slots (reason) viewmodel
+      (setf reason (slot-value responsemodel 'reason))
+    viewmodel)))
+
+(defmethod render ((view ViewNIL) (vm ViewModelNIL))
+  (let* ((payload (list (cons "data" "NIL")))
+         (jsondata (json:encode-json-to-string
+                    `(("success" . 0)
+                      ("failure" . 1)
+                      ("truth"   . "NIL")
+                      ("payload" . ,payload)))))
+    jsondata))
+
+
+(defmethod ProcessResponse ((adapter AdapterService) (busobj BusinessObjectUnknown))
+  (let ((responsemodel (make-instance 'ResponseModelUnknown)))
+    (setf responsemodel (createresponsemodel adapter busobj responsemodel))
+    responsemodel))
+
+(defmethod CreateResponseModel ((adapter AdapterService) (source BusinessObjectUnknown) (destination ResponseModelUnknown))
+  (with-slots (reason) destination  
+    (setf reason (slot-value source 'reason))
+    destination))
+
+(defmethod CreateViewModel ((presenter PresenterService) (responsemodel ResponseModelUnknown))
+  (let ((viewmodel (make-instance 'ViewModelUnknown)))
+    viewmodel))
+
+(defmethod render ((view ViewUnknown) (vm ViewModelUnknown))
+  (let* ((payload (list (cons "data" "Unknown Error")))
+         (jsondata (json:encode-json-to-string
+                    `(("success" . 0)
+                      ("failure" . 1)
+                      ("truth"   . "Unknown Error")
+                      ("payload" . ,payload)))))
+    jsondata))
+
+
+(defmethod ProcessResponse ((adapter AdapterService) (busobj BusinessObjectContradiction))
+  (let ((responsemodel (make-instance 'ResponseModelContradiction)))
+    (setf responsemodel (createresponsemodel adapter busobj responsemodel))
+    responsemodel))
+
+(defmethod CreateResponseModel ((adapter AdapterService) (source BusinessObjectContradiction) (destination ResponseModelContradiction))
+  (with-slots (reason) destination  
+    (setf reason (slot-value source 'reason))
+    destination))
+
+(defmethod CreateViewModel ((presenter PresenterService) (responsemodel ResponseModelContradiction))
+  (let ((viewmodel (make-instance 'ViewModelContradiction)))
+    viewmodel))
+
+(defmethod render ((view ViewContradiction) (vm ViewModelContradiction))
+  (let* ((payload (list (cons "data" "Contradiction in data")))
+         (jsondata (json:encode-json-to-string
+                    `(("success" . 0)
+                      ("failure" . 1)
+                      ("truth"   . "Contradiction in data")
+                      ("payload" . ,payload)))))
+    jsondata))
