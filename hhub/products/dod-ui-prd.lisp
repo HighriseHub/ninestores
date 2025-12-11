@@ -204,7 +204,7 @@
 	     (:div  :class "form-group"
 		    (:label :for "description" "Description")
 		    (text-editor-control idtextarea  description))
-	     (:textarea :style "display: block;" :id idtextarea :class "form-control" :name "description"  :placeholder "Enter Product Description ( max 2000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 2000)" charcountid1) (cl-who:str (format nil "~A" description)))
+	     (:textarea :style "display: block;" :id idtextarea :class "form-control" :name "description"  :placeholder "Enter Product Description (max 5000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 5000)" charcountid1) (cl-who:str (format nil "~A" description)))
 	     (:div :class "form-group" :id charcountid1 )
 	     (:div :class "form-group"
 		   (with-html-input-text "hsn-code" "HSN/SAC Code" "HSN/SAC Code" hsncode T "Enter HSN/SAC Code" 4))
@@ -602,7 +602,7 @@
             ;; product title
             (:p :class "product-title"
                 (:a :href (format nil "prddetailsforcust?id=~A" prd-id)
-                    (cl-who:str prd-name)))
+		    (cl-who:str (if (> (length prd-name) 20)  (subseq prd-name  0 20) prd-name))))
             ;; subscription button (if eligible)
             (when (and
                    (com-hhub-attribute-company-prdsubs-enabled subscription-plan cmp-type)
@@ -648,45 +648,6 @@
                (cl-who:htm
                 (:div :class "text-danger small fw-bold mt-2"
                       "Out of Stock"))))))))
-
-
-
-(defun product-card-old (product-instance prdincart-p)
-  (let* ((prd-name (slot-value product-instance 'prd-name))
-	 (images-str (slot-value product-instance 'prd-image-path))
-	 (imageslst (safe-read-from-string images-str))
-	 (units-in-stock (slot-value product-instance 'units-in-stock))
-	 (prd-id (slot-value product-instance 'row-id))
-	 (subscribe-flag (slot-value product-instance 'subscribe-flag))
-	 (customer-type (get-login-customer-type))
-	 (company (product-company product-instance))
-	 (subscription-plan (slot-value company 'subscription-plan))
-	 (cmp-type (slot-value company 'cmp-type))
-	 (product-pricing (select-product-pricing-by-product-id prd-id company)))
-      (cl-who:with-html-output (*standard-output* nil)
-	(:a :href (format nil "prddetailsforcust?id=~A" prd-id) (render-single-product-image prd-name imageslst images-str "100" "83"))
-	(:div :class "product-details"
-	      (product-price-with-discount-widget product-instance product-pricing)
-	      (:p :class "product-title" (:a :href (format nil "prddetailsforcust?id=~A" prd-id) (cl-who:str prd-name)))
-	      ;; Display the subscribe button only for standard customers.
-	      ;; Customers of APARTMENT/COMMUNITY do not have this feature. 
-	      (when (and
-		     (com-hhub-attribute-company-prdsubs-enabled subscription-plan cmp-type) 
-		     (equal subscribe-flag "Y") 
-		     (equal customer-type "STANDARD"))
-		(cl-who:htm
-		 (:button :data-bs-toggle "modal" :data-bs-target (format nil "#productsubscribe-modal~A" prd-id)  :href "#"   :class "btn btn-sm btn-primary" :id (format nil "btnsubscribe~A" prd-id) :name (format nil "btnsubscribe~A" prd-id)  (:i :class "fa-solid fa-hand-point-up") "&nbsp;Subscribe")
-		 (modal-dialog-v2 (format nil "productsubscribe-modal~A" prd-id) "Subscribe Product/Service" (product-subscribe-html prd-id))))
-	      (if  prdincart-p 
-		   (cl-who:htm (:a :class "btn btn-sm btn-success" :role "button"  :onclick "return false;" :href (format nil "javascript:void(0);")(:i :class "fa-solid fa-check")))
-		   ;; else 
-		   (if (and units-in-stock (> units-in-stock 0))
-		       (cl-who:htm (:button  :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id)  :href "#"   :class "add-to-cart-btn" :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id)  "Add&nbsp; " (:i :class "fa-solid fa-plus"))
-				   (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (product-qty-add-html product-instance product-pricing)))
-		       ;; else
-		       (cl-who:htm
-			(:div :class "col-6" 
-			      (:h5 (:span :class "label label-danger" "Out Of Stock"))))))))))
   
 (defun product-card-with-details-for-customer (product-instance customer  prdincart-p)
   (let* ((prd-name (slot-value product-instance 'prd-name))
@@ -750,9 +711,6 @@
 				(:a :id "idshareexturl" :href "#" (:i :class  "fa-solid fa-arrow-up-from-bracket")))
 			 (sharetextorurlonclick "#idshareexturl" (parenscript:lisp external-url)))))))))))
 
-(defun product-card-with-details-for-customer2 (proddetailpagetempl)
-  (cl-who:with-html-output (*standard-output* nil)
-    (cl-who:str proddetailpagetempl)))
     
 (defun render-multiple-product-images (prd-name imageslst images-str)
   :description "Sometimes we store the product image as a list of strings when we want multiple images. other times we store them as a string for backward compatibility reasons"
