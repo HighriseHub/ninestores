@@ -293,12 +293,16 @@
   (let* ((comp (company requestmodel))
 	 (invoiceheader (invoiceheader requestmodel))
 	 (prd-id (prd-id requestmodel))
-	 (dbInvoiceItem (select-invoice-item-by-product-id  prd-id invoiceheader comp))
+	 (dbInvoiceItem-knowledge (with-db-call (select-invoice-item-by-product-id  prd-id invoiceheader comp)))
 	 (InvoiceItemobj (make-instance 'InvoiceItem)))
     ;; return back a Vpaymentmethod  response model
     (setf (slot-value InvoiceItemobj 'company) comp)
     (setf (slot-value InvoiceItemobj 'InvoiceHeader) invoiceheader)
-    (copyInvoiceItem-dbtodomain dbInvoiceItem InvoiceItemobj)))
+    (setf (bo-knowledge service) dbInvoiceItem-knowledge)
+    (when (eq (bo-knowledge-truth dbInvoiceItem-knowledge) :T)
+      (let ((dbInvoiceItem (bo-knowledge-payload dbInvoiceItem-knowledge)))
+	(copyInvoiceItem-dbtodomain dbInvoiceItem InvoiceItemobj)))
+    InvoiceItemobj))
 
 
 (defun copyInvoiceItem-dbtodomain (source destination)
