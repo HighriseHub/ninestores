@@ -3,6 +3,27 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
+(defparameter *uri-boundary-chars* '(#\/ #\? #\# #\;))
+
+(defun uri-prefix-boundary-p (prefix uri)
+  (and (uri-prefix-p prefix uri)
+       (let ((plen (length prefix))
+             (ulen (length uri)))
+         (or (= plen ulen)
+             (member (aref uri plen)
+                     *uri-boundary-chars*)))))
+
+(defun uri-prefix-p (prefix uri)
+  (let ((plen (length prefix)))
+    (and (<= plen (length uri))
+         (string= prefix uri :end2 plen))))
+
+(defun return-json (data &optional (status 200))
+  (setf (hunchentoot:content-type*) "application/json; charset=utf-8")
+  (setf (hunchentoot:return-code*) status)
+  (hunchentoot:abort-request-handler
+   (json:encode-json-to-string data)))
+
 
 (defun generate-entity-tla (entity-name)
   "Generate a unique 3-letter acronym (TLA) from an entity name like 'order header'."
