@@ -206,6 +206,7 @@
 		(copy%entity-name%-dbtodomain object domainobject))) domainobjlst)))
 
 
+
 (defmethod CreateViewModel ((presenter %entity-name%Presenter) (responsemodel %entity-name%ResponseModel))
   (let ((viewmodel (make-instance '%entity-name%ViewModel)))
     (with-slots (%0% %1% %2% %3% %4% %5% %6% %7% %8% %9% %10% %11% %12% %13% %14% %15% %16% %17% %18% %19% %20% %21% %22% %23% %24% %25% %26% %27% %28% %29% %30% %31% %32% %33% %34% %35% %36% %37% vendor customer company created) responsemodel
@@ -420,17 +421,20 @@
   :description "Adapter service method to read a single %entity-name%"
   (setf (slot-value adapter 'businessservice) (find-class '%entity-name%Service))
   (call-next-method))
-
+  
 (defmethod doread ((service %entity-name%Service) (requestmodel %entity-name%RequestModel))
   (let* ((comp (company requestmodel))
 	 (cust (customer requestmodel))
 	 (vend (vendor requestmodel))
-	 (db%entity-name% (select-%entity-name% vend cust comp))
+	 (db%entity-name%-knowledge (with-db-call (select-%entity-name% vend cust comp)))
 	 (%entity-name%obj (make-instance '%entity-name%)))
     ;; return back a Vpaymentmethod  response model
     (setf (slot-value %entity-name%obj 'company) comp)
-    (copy%entity-name%-dbtodomain db%entity-name% %entity-name%obj)))
-
+    (setf (bo-knowledge service) db%entity-name%-knowledge)
+    (when (eq (bo-knowledge-truth db%entity-name%-knowledge) :T)
+      (let ((db%entity-name%obj (bo-knowledge-payload db%entity-name%-knowledge)))
+	(copy%entity-name%-dbtodomain db%entity-name%obj %entity-name%obj)))
+    %entity-name%obj))
 
 (defun copy%entity-name%-dbtodomain (source destination)
   (let* ((comp (select-company-by-id (slot-value source 'tenant-id)))
