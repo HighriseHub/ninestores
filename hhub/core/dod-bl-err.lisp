@@ -1,6 +1,51 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition hhub-database-error (error)
+    ((errstring
+      :initarg :errstring
+      :reader getExceptionStr))
+    (:documentation "Base condition for logical database results (non-fatal).")))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition hhub-unknown (error)
+    ((errstring
+      :initarg :errstring
+      :reader getExceptionStr))
+    (:documentation "Base condition for logical database results (non-fatal).")))
+
+
+;; --- No Result ---
+(define-condition hhub-no-result (hhub-database-error)
+  ()
+  (:report (lambda (c s)
+             (format s "No result found: ~A" (getExceptionStr c))))
+  (:documentation "Raised when a DB query returns zero rows."))
+
+;; --- Contradiction (multiple results when only one expected) ---
+(define-condition hhub-contradiction (hhub-database-error)
+  ()
+  (:report (lambda (c s)
+             (format s "Contradictory results: ~A" (getExceptionStr c))))
+  (:documentation "Raised when multiple inconsistent results were found."))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition nst-api-timeout-error (error) 
+    ((errstring
+      :initarg :errstring
+      :reader getExceptionStr))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition nst-api-internal-error (error)
+    ((errstring
+      :initarg :errstring
+      :reader getExceptionStr))))
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-condition hhub-business-function-error (error)
     ((errstring
@@ -25,12 +70,6 @@
       :initarg :errstring
       :reader getExceptionStr))))
 
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (define-condition hhub-database-error (error)
-    ((errstring
-      :initarg :errstring
-      :reader getExceptionStr))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-condition nst-shipping-error (error)
@@ -88,3 +127,38 @@
 ;; Helper macro for more concise null checking
 (defmacro ensure-not-null (value &optional message)
   `(check-null ,value ,message))
+
+(defun find-caller-name-from-backtrace ()
+  "Uses string parsing on SBCL's LIST-BACKTRACE to find the 
+   symbol name of the function that called the DB adapter."
+  (handler-case 
+      ;; We need to know which frame holds the caller:
+      ;; Frame 0: find-caller-name-from-backtrace
+      ;; Frame 1: log-critical-error 
+      ;; Frame 2: The adapter function (e.g., select-mock-data)
+      ;; Frame 3: The function that called the adapter (THE CALLER WE WANT)
+      (let* ((frame-to-inspect 3)
+             (backtrace-list (sb-debug:list-backtrace))
+             (frame-string (nth frame-to-inspect backtrace-list))) ; Get the 4th element (index 3)
+        
+        (if frame-string
+            ;; Parse the string: Find the opening '(' and read the list head.
+            ;; Example string: "  3: (CL-USER::MAIN-APP-FUNCTION 1)"
+            (let* ((start-pos (position #\( frame-string :test #'char=)) 
+                   (call-list (read-from-string (subseq frame-string start-pos))))
+              (if (listp call-list)
+                  (car call-list) ; Extract the first element (the function name)
+                  :unknown-fun-object))
+            :stack-too-shallow))
+    (error (c)
+      (format nil "Stack inspection error: ~A" c))))
+
+(defun log-critical-error (status message &optional payload)
+  "Logs a critical error, automatically including the function that initiated the DB call."
+  (let ((caller (find-caller-name-from-backtrace)))
+    (format t "~&[CRITICAL LOG ~A] Called by: ~A | ~A~%[Payload/Error]: ~A" 
+            status 
+            caller 
+            message 
+            payload)))
+
