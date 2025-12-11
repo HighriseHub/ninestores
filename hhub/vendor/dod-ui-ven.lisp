@@ -553,6 +553,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (zipcode (zipcode vendor))
 	 (email (email vendor))
 	 (gstnumber (gstnumber vendor))
+	 (state (state vendor))
 	 (picture-path (picture-path vendor)))
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "row" :style "align: center"
@@ -570,6 +571,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			    (:label :for "address")
 			    (:textarea :class "form-control" :name "address"  :placeholder "Enter Address ( max 200 characters) "  :rows "2" :onkeyup "countChar(this, 200)" (cl-who:str (format nil "~A" address))))
 		      (:div :class "form-group" :id "charcount")
+		      (:div :class "form-group"
+			    (:label :for "state" "Select State")
+			    (with-html-dropdown "state" *NSTGSTSTATECODES-HT* state))
 		      (:div :class "form-group"
 			    (:input :class "form-control" :name "zipcode"  :value zipcode :placeholder "Pincode"  :type "text" ))
 		      (:div :class "form-group"
@@ -594,6 +598,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (address (hunchentoot:parameter "address"))
 	 (phone (hunchentoot:parameter "phone"))
 	 (zipcode (hunchentoot:parameter "zipcode"))
+	 (state (hunchentoot:parameter "state"))
 	 (gstnumber (hunchentoot:parameter "gstnumber"))
 	 (email (hunchentoot:parameter "email"))
 	 (vendor (get-login-vendor))
@@ -606,6 +611,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (setf (slot-value vendor 'name) name)
     (setf (slot-value vendor 'address) address)
     (setf (slot-value vendor 'phone) phone)
+    (setf (slot-value vendor 'state) state)
     (setf (slot-value vendor 'zipcode) zipcode)
     (setf (slot-value vendor 'gstnumber) gstnumber)
     (setf (slot-value vendor 'email) email)
@@ -682,11 +688,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save Settings")))))))
   ;; If Vendor payment methods are not found then create one
   (unless vpaymentmethods
-    (cl-who:with-html-output (*standard-output* nil)                                                                                                                                                              
+    (cl-who:with-html-output (*standard-output* nil)
       (:div :class "row"
-            (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"                                                                                                                                                
-                  (with-html-form "form-vendpaymentmethodscreate" "hhubvpmupdateaction"                                                                                                                           
-     		    (:div :class "form-group"
+            (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+                  (with-html-form-having-submit-event "form-vendpaymentmethodscreate" "hhubvpmupdateaction"
+                    (:div :class "form-group"
 			  (with-html-input-text-hidden "createvpaymentmethods" "Y")
 			  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Create Vendor Payment Methods"))))))))
 
@@ -955,42 +961,42 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(with-html-div-row
 	  (with-html-div-col-3 "")
 	  (with-html-div-col-6
-	    (:form :class "form-vendorprodadd" :role "form" :method "POST" :action "dodvenaddproductaction" :data-bs-toggle "validator" :enctype "multipart/form-data" 
-		   (:div :class "account-wall" 
-			 (:img :class "profile-img" :src "/img/logo.png" :alt "")
-			 (:h1 :class "text-center login-title"  "Add new product")
-			 (with-html-custom-checkbox "isserviceproduct" "N" "This is a Service" nil)
-			 (:div :class "form-group"
-			       (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
-			 (:div :class "form-group"
-			       (:label :for "description")
-			       (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 1000)" charcountid1)))
-			 (:div :class "form-group" :id charcountid1)
-			 (with-html-input-text-hidden "prd-id" "0") ;; we are adding a new product hence prd-id is 0
-			 (:div :class "form-group"
-			       (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
-			 (:div :class "form-group"
-			       (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :type "number" :min "1" :max "10000" :step "1" ))
-			 (:div :class "form-group"
-			       (:input :class "form-control" :name "qtyperunit" :placeholder "Qty Per Unit"  :type "number" :min "1" :max "10000" :step "1" ))
-			 (:div :class "form-group"
-			       (:label :for "unitofmeasure" "Unit Of Measure")
-			       (with-html-dropdown "unitofmeasure" (get-system-UOM-map) "KG"))
-			 (:a :data-bs-toggle "modal" :data-bs-target (format nil "#generatesku-modal")  :href "#"  (:i :class "fa-solid fa-wand-magic-sparkles"))
-			 (modal-dialog-v2 (format nil "generatesku-modal") "SKU Generator" (modal.generate-sku-dialog))
-			 (:div :class "form-group"
-			       (:input :class "form-control" :name "sku" :placeholder "SKU" :value "000000" :type "text" ))
-			 (:div :class "form-group"
+	    (with-html-form-having-submit-event "form-vendorprodadd" "dodvenaddproductaction"
+	      (:div :class "account-wall" 
+		    (:img :class "profile-img" :src "/img/logo.png" :alt "")
+		    (:h1 :class "text-center login-title"  "Add new product")
+		    (with-html-custom-checkbox "isserviceproduct" "N" "This is a Service" nil)
+		    (:div :class "form-group"
+			  (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
+		    (:div :class "form-group"
+			  (:label :for "description")
+			  (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 1000)" charcountid1)))
+		    (:div :class "form-group" :id charcountid1)
+		    (with-html-input-text-hidden "prd-id" "0") ;; we are adding a new product hence prd-id is 0
+		    (:div :class "form-group"
+			  (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
+		    (:div :class "form-group"
+			  (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :type "number" :min "1" :max "10000" :step "1" ))
+		    (:div :class "form-group"
+			  (:input :class "form-control" :name "qtyperunit" :placeholder "Qty Per Unit"  :type "number" :min "1" :max "10000" :step "1" ))
+		    (:div :class "form-group"
+			  (:label :for "unitofmeasure" "Unit Of Measure")
+			  (with-html-dropdown "unitofmeasure" (get-system-UOM-map) "KG"))
+		    (:a :data-bs-toggle "modal" :data-bs-target (format nil "#generatesku-modal")  :href "#"  (:i :class "fa-solid fa-wand-magic-sparkles"))
+		    (modal-dialog-v2 (format nil "generatesku-modal") "SKU Generator" (modal.generate-sku-dialog))
+		    (:div :class "form-group"
+			  (:input :class "form-control" :name "sku" :placeholder "SKU" :value "000000" :type "text" ))
+		    (:div :class "form-group"
 			       (:input :class "form-control" :name "hsncode" :placeholder "HSN Code" :type "text" ))
-			 (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
-				(ui-list-prod-catg-dropdown catglist nil))
-			 (:br) 
-			 (:div :class "form-group" (:label :for "yesno" "Enable Subscription")
-			       (ui-list-yes-no-dropdown "N"))
-			 (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
-			       (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
-			 (:div :class "form-group"
-			       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))))
+		    (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
+			   (ui-list-prod-catg-dropdown catglist nil))
+		    (:br) 
+		    (:div :class "form-group" (:label :for "yesno" "Enable Subscription")
+			  (ui-list-yes-no-dropdown "N"))
+		    (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
+			  (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
+		    (:div :class "form-group"
+			  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))))
 
 
 (defun modal.generate-sku-dialog ()
