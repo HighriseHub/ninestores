@@ -2,6 +2,20 @@
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
+(defun dod-controller-customer-address  ()
+  (with-cust-session-check
+    (let* ((path (hunchentoot:script-name hunchentoot:*request*))
+           ;; extract last 10 digits
+           (phone (cl-ppcre:register-groups-bind (num)
+                      ("([0-9]{10})$" path)
+                    num))
+	   (jsondata
+	     (dispatch-route :customer/read (list :phone phone :company (get-login-customer-company)) :trans-func-name "com-hhub-transaction-customer-address" :output-type 'json)))
+    (logiamhere (format nil "~A" jsondata))
+      (setf (hunchentoot:content-type*) "application/json; charset=utf-8")
+      (setf (hunchentoot:return-code*) 200)
+      jsondata)))
+    
 (defun display-products-carousel (numitems products)
  (let ((prdcount (length products)))
   (cl-who:with-html-output (*standard-output* nil)      
@@ -545,9 +559,8 @@ Only shows sections based on availability flags and customer type."
 	   (addressadapter (make-instance 'Address-Adapter))
 	   (presenter (make-instance 'Address-Presenter))
 	   (jsonview (make-instance 'JSONView)))
-      
-      (setf params (acons "pincode" pincode params))
-      (render jsonview (createviewmodel presenter (processrequest addressadapter params)))))
+    (setf params (acons "pincode" pincode params))
+    (render jsonview (createviewmodel presenter (processrequest addressadapter params)))))
   
   
 (defmethod Render ((view JSONView) (viewmodel AddressViewModel))
@@ -568,18 +581,13 @@ Only shows sections based on availability flags and customer type."
 	(setf templist (acons "state" (format nil "~A" state) templist))
 	(setf appendlist (append appendlist (list templist)))
 	(setf mylist (acons "result" appendlist mylist))
-	(setf mylist (acons "success" 1 mylist))
-	(let ((jsondata (json:encode-json-to-string mylist)))
-	  (setf (slot-value view 'jsondata) jsondata)
-	  ;; return jsondata
-	  jsondata))
-					;else 
-      (progn
-	(setf mylist (acons "success" 0 mylist))
- 	(let ((jsondata (json:encode-json-to-string mylist)))
-	  (setf (slot-value view 'jsondata) jsondata)
-	  jsondata)))))
-
+	(setf mylist (acons "success" 1 mylist)))
+      ;;else 
+    (setf mylist (acons "success" 0 mylist)))
+    (let ((jsondata (json:encode-json-to-string mylist)))
+      (setf (slot-value view 'jsondata) jsondata)
+      ;; return jsondata
+      jsondata)))
 
 ;; This is a pure function
 (defun modal.customer-update-details (customer)
@@ -1214,7 +1222,7 @@ Only shows sections based on availability flags and customer type."
 			      (:li :class "dropdown"
 				   (:a :href "#" :class "dropdown-toggle" :data-toggle "dropdown" :role "button" :aria-haspopup "true" :aria-expanded "false" "My Account" (:span :class "caret" ))
 				   (:ul :class "dropdown-menu"
-					(:li (:a :href "customer-login.html"))
+					(:li (:a :href "hhubcustloginv2"))
 					(:li 
 					(:form :method "POST" :action "custsignup1action" :id "custsignup1form" 
 				     (:div :class "form-group"
@@ -1484,7 +1492,6 @@ Only shows sections based on availability flags and customer type."
       (cond
       	((equal reg-type "VEN")
 	 (progn
-	   (logiamhere (format nil "I will be creating a vendor now ~A" vendor))
 	   ;; 1 
 	   (clsql:update-records-from-instance vendor)
 	   (sleep 1) ; Sleep for 1 second after creating the vendor record.  
@@ -1510,7 +1517,7 @@ Only shows sections based on availability flags and customer type."
 	   ;; 3
 	   (with-no-navbar-page "Welcome to Nine Stores platform"
 	     (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
-	     (:a :href "/hhub/hhubcustloginv2" "Customer Login"))))))))
+	     (:a :href "/hhub/customer-login.html" "Customer Login"))))))))
 
 
 
@@ -1723,7 +1730,7 @@ Only shows sections based on availability flags and customer type."
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
 							       (stop-das) 
 							       (start-das)
-							       (hunchentoot:redirect "/hhub/customer-login.html"))))))
+							       (hunchentoot:redirect "/hhub/hhubcustloginv2"))))))
 
 
 (defun dod-controller-customer-otploginpage ()
@@ -1860,23 +1867,59 @@ Only shows sections based on availability flags and customer type."
 	  (:div :class "form-group"  (:label :for "reqdate" "Preferred Delivery Date - Click To Change" )
 		(:input :class "form-control" :name "reqdate" :id "required-on" :placeholder  (cl-who:str (format nil "~A. Click to change" (get-date-string (clsql::date+ (clsql::get-date) (clsql::make-duration :day 1))))) :type "text" :value (get-date-string (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day 1)))))))))
 
+
+
 (defun display-phone-text-widget (phone tabindex)
   (cl-who:with-html-output-to-string (*standard-output* nil)
     (with-html-div-row
       (with-html-div-col-8
-	(:div :class "form-group" (:label :for "phone" "Phone" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "phone" :value phone :placeholder "Mobile Phone (9999999999) " :tabindex tabindex :maxlength "13"  :required T ))))))
+        (:div :class "form-group"
+              (:label :for "phone" "Phone")
+              (:input :class "form-control"
+                      :type "tel"
+                      :id "cust-phone"
+                      :name "phone"
+                      :value phone
+                      :placeholder "Mobile Phone (10 digits)"
+                      :maxlength "10"
+                      :pattern "[0-9]{10}"
+                      :tabindex tabindex
+                      :required t
+                      :oninput "checkExistingAddress(this.value);"))))))
+
+(defun display-saved-addresses-widget ()
+  (cl-who:with-html-output-to-string (*standard-output* nil)
+    (with-html-div-row
+      (with-html-div-col-12
+        (:div :id "saved-addresses-section" :style "display:none;"
+              (:h5 "Use a saved address:")
+              (:div :id "saved-address-tiles"
+                    :class "d-flex flex-wrap gap-2"))))))
+
+(defun display-address-consent-widget ()
+  (cl-who:with-html-output-to-string (*standard-output* nil)
+    (with-html-div-row
+      (with-html-div-col-12
+        (:div :class "form-check mt-3"
+              (:input :type "checkbox"
+                      :class "form-check-input"
+                      :id "saveaddressconsent"
+                      :name "saveaddressconsent"
+                      :value "Y")
+              (:label :class "form-check-label"
+                      :for "saveaddressconsent"
+                      "Save this address for future orders?"))))))
 
 (defun display-name&email-widget (name email tabindex)
   (cl-who:with-html-output-to-string (*standard-output* nil)
     (with-html-div-row
       (with-html-div-col-8
 	(:div :class "form-group" (:label :for "custname" "Name" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "custname" :value name :placeholder "Name" :tabindex tabindex :required T))))
+	      (:input :id "custname" :class "form-control" :type "text" :class "form-control" :name "custname" :value name :placeholder "Name" :tabindex tabindex :required T))))
     (with-html-div-row
       (with-html-div-col-8
 	(:div :class "form-group" (:label :for "email" "Email" )
-	      (:input :class "form-control" :type "email" :class "form-control" :name "email" :value email :placeholder "Email" :data-error "That email address is invalid" :tabindex (+ tabindex 1)))))))
+	      (:input :id "email" :class "form-control" :type "email" :class "form-control" :name "email" :value email :placeholder "Email" :data-error "That email address is invalid" :tabindex (+ tabindex 1)))))))
 
 (defun display-shipping&billing-widget (address zipcode city state )
   (let ((charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
@@ -1888,7 +1931,7 @@ Only shows sections based on availability flags and customer type."
 	(with-html-div-col-6
 	  (:p "Billing")
 	  (:div :class "form-check"
-		(:input :type "checkbox" :id "billsameasshipchecked" :name "billsameasshipchecked" :value  "billsameasshipchecked" :onclick "displaybillingaddress();" :tabindex "9"  :checked "true")
+		(:input :type "checkbox" :id "billsameasshipchecked" :name "billsameasshipchecked" :value  "Y" :onclick "displaybillingaddress();" :tabindex "9"  :checked "true")
 		(:label :class "form-check-label" :style "font-size: 0.7rem;" :for "billsameasshipchecked" "&nbsp;&nbsp;Same as Shipping Address"))))
       
       (with-html-div-row
@@ -1960,36 +2003,50 @@ Only shows sections based on availability flags and customer type."
 
 (defun standard-cust-information-page (customer)
   (let* ((cust-name (if customer (slot-value customer 'name)))
-         (cust-address (if customer (slot-value customer 'address) ""))
-	 (cust-city (if customer (slot-value customer 'city)))
-	 (cust-state (if customer (slot-value customer 'state)))
+         (cust-phone (if customer (slot-value customer 'phone)))
+	 (cust-email (if customer (slot-value customer 'email)))
+	 (cust-address (if customer (slot-value customer 'address)))
 	 (cust-zipcode (if customer (slot-value customer 'zipcode)))
-	 (cust-phone (if customer (slot-value customer 'phone)))
-         (cust-email (if customer  (slot-value customer 'email))))
-    
+	 (cust-state (if customer (slot-value customer 'state)))
+	 (cust-city (if customer (slot-value customer 'city))))
     (cl-who:with-html-output-to-string (*standard-output* nil)
-      
-      (:form :class "form-standardcustorder" :role "form" :id "hhubordcustdetails"  :method "POST" :action "hhubcustshippingmethodspage" :data-toggle "validator"
+      (:form :class "form-collectshippingaddress"
+             :role "form"
+             :id "hhubordcustdetails"
+             :method "POST"
+             :action "hhubcustshippingmethodspage"
+             :data-toggle "validator"
 	     (with-html-div-row
-	       (with-html-div-col-6
-		 (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" "Previous"))
-	       (with-html-div-col-6
-		 (:input :type "submit"  :class "btn btn-lg btn-primary btn-block" :tabindex "13" :value "Next")))
+               (with-html-div-col-6
+                 (:a :role "button"
+                     :class "btn btn-lg btn-secondary btn-block"
+                     :href "dodcustshopcart" "Previous"))
+               (with-html-div-col-6
+                 (:input :type "submit"
+                         :class "btn btn-lg btn-primary btn-block"
+                         :value "Next")))
+	     
 	     (cl-who:str (display-orddatereqdate-text-widget))
-	     (cl-who:str (display-phone-text-widget cust-phone 1))
-	     (cl-who:str (display-name&email-widget cust-name cust-email 2))
+	     (cl-who:str (display-saved-addresses-widget))
+             (cl-who:str (display-phone-text-widget cust-phone 1))
+             (cl-who:str (display-name&email-widget cust-name cust-email  2))
+             (cl-who:str (display-shipping&billing-widget cust-address cust-zipcode cust-city cust-state))
+             (cl-who:str (display-address-consent-widget))
+             ;;(cl-who:str (display-captcha-widget))
+             ;;(cl-who:str (display-terms-widget))
 	     (with-html-div-row
 	       (:hr))
-	     (cl-who:str (display-shipping&billing-widget cust-address cust-zipcode cust-city cust-state))
-	     (with-html-div-row
-	       (:hr))
-	     (with-html-div-row
-	       (with-html-div-col-6
-		 (:a :role "button" :class "btn btn-lg btn-primary btn-block" :href "dodcustshopcart" "Previous"))
-	       (with-html-div-col-6
-		 (:input :type "submit"  :class "btn btn-lg btn-primary btn-block" :tabindex "13" :value "Next"))))
-      (:div :class "row"
-	    (:hr)))))
+             (with-html-div-row
+               (with-html-div-col-6
+                 (:a :role "button"
+                     :class "btn btn-lg btn-secondary btn-block"
+                     :href "dodcustshopcart" "Previous"))
+               (with-html-div-col-6
+                 (:input :type "submit"
+                         :class "btn btn-lg btn-primary btn-block"
+                         :value "Next")))))))
+
+
 
 (defun dod-controller-cust-order-shipping-address-page ()
   (let ((cust-type (get-login-customer-type)))
@@ -2178,7 +2235,7 @@ Only shows sections based on availability flags and customer type."
 	  (progn
 	    (when hunchentoot:*session*
 	      (hunchentoot:remove-session hunchentoot:*session*))
-	    (hunchentoot:redirect "/hhub/hhubcustloginv2"))
+	    (hunchentoot:redirect "/hhub/customer-login.html"))
 	  ;;else
 	  (hunchentoot:redirect  "/hhub/dodcustindex")))))
 
@@ -2373,6 +2430,56 @@ Only shows sections based on availability flags and customer type."
   (with-cust-session-check
     (with-mvc-redirect-ui #'create-model-for-custaddorderotpstep #'create-widgets-for-genericredirect)))
     
+(defun maybe-save-guest-customer (save-address? phone name email fulladdress company)
+  "Create a new STANDARD customer only if:
+   - Checkbox Save Address? is checked
+   - Customer does not already exist
+   - Customer not already saved during this checkout session."
+  ;; If user did NOT check the checkbox, do nothing.
+  (if (not save-address?)
+      nil
+      ;; ELSE: user wants to save
+      (let* ((tenant-id (slot-value company 'row-id))
+	     (already-saved (hunchentoot:session-value :customer-saved))
+             (saved-instance (hunchentoot:session-value :saved-customer-instance))
+             (existing (select-customer-by-phone phone company)))
+        (cond
+          ;; --- Case 1: Already saved this session ---
+          (already-saved
+           saved-instance)
+          ;; --- Case 2: Customer already exists ---
+          (existing
+           existing)
+
+          ;; --- Case 3: Create a new customer record ---
+          (t
+           (let ((customer
+                   (make-instance 'dod-cust-profile
+                     :name name
+                     :address fulladdress
+                     :email email
+                     :birthdate nil
+                     :phone phone
+                     :city nil
+                     :state nil
+                     :zipcode nil
+                     :approved-flag "N"
+                     :active-flag "Y"
+                     :approval-status "PENDING"
+                     :tenant-id tenant-id
+                     :cust-type "STANDARD"
+                     :deleted-state "N")))
+
+             ;; Store into DB
+             (clsql:update-records-from-instance customer)
+	     ;; Send OTP email or welcome email
+             (send-registration-email name email)
+             ;; Save in session so we don’t create again in this checkout
+             (setf (hunchentoot:session-value :customer-saved) t)
+             (setf (hunchentoot:session-value :saved-customer-instance) customer)
+             ;; return the instance
+             customer))))))
+
 
 (defun create-model-for-custshipmethodspage ()
   (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
@@ -2391,6 +2498,8 @@ Only shows sections based on availability flags and customer type."
 	 (billstate (hunchentoot:parameter "billstate"))
 	 (billsameasshipchecked (hunchentoot:parameter "billsameasshipchecked"))
 	 (claimitcchecked (hunchentoot:parameter "claimitcchecked"))
+	 (saveaddressconsent (hunchentoot:parameter "saveaddressconsent"))
+	 (save-address? (if (equal saveaddressconsent "Y") T NIL))
 	 (gstnumber (hunchentoot:parameter "gstnumber"))
 	 (gstorgname (hunchentoot:parameter "gstorgname"))
 	 (phone  (hunchentoot:parameter "phone"))
@@ -2418,7 +2527,15 @@ Only shows sections based on availability flags and customer type."
 	 (shiplst (calculate-shipping-cost-for-order vshipping-method shipzipcode shopcart-total lstshopcart shopcart-products singlevendor custcomp))
 	 (shipping-cost (nth 0 shiplst))
 	 (shipping-options (nth 1 shiplst)))
-
+    
+    ;; if billsameasshipchecked then copy the shipping address into billing address fields
+    (multiple-value-bind (billaddress billcity billstate billzipcode)
+	(normalize-billing-address (list shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked))
+      (setf (gethash "billaddress" orderparams-ht) billaddress)
+      (setf (gethash "billzipcode" orderparams-ht) billzipcode)
+      (setf (gethash "billcity" orderparams-ht) billcity)
+      (setf (gethash "billstate" orderparams-ht) billstate))
+    
     (when (equal cust-type "GUEST") (setf (hunchentoot:session-value :guest-email-address) email))
     (setf (gethash "shoppingcart" orderparams-ht) lstshopcart)
     (setf (gethash "shopcartproducts" orderparams-ht) shopcart-products)
@@ -2426,10 +2543,6 @@ Only shows sections based on availability flags and customer type."
     (setf (gethash "shipzipcode" orderparams-ht) shipzipcode)
     (setf (gethash "shipcity" orderparams-ht) shipcity)
     (setf (gethash "shipstate" orderparams-ht) shipstate)
-    (setf (gethash "billaddress" orderparams-ht) billaddress)
-    (setf (gethash "billzipcode" orderparams-ht) billzipcode)
-    (setf (gethash "billcity" orderparams-ht) billcity)
-    (setf (gethash "billstate" orderparams-ht) billstate)
     (setf (gethash "billsameasshipchecked" orderparams-ht) billsameasshipchecked)
     (setf (gethash "gstnumber" orderparams-ht) gstnumber)
     (setf (gethash "gstorgname" orderparams-ht) gstorgname)
@@ -2455,7 +2568,8 @@ Only shows sections based on availability flags and customer type."
     (setf (hunchentoot:session-value :login-shopping-cart) gstupdatedshopcart)
     ;; Save the Guest customer details so that we can use them within the session if required. 
     (when (equal cust-type "GUEST")
-      (save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email custcomp))
+      (save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email custcomp)
+      (maybe-save-guest-customer save-address? phone custname email shipaddress custcomp))
     (function (lambda ()
       (values shopcart-total shiplst storepickupenabled singlevendor freeshipenabled custcomp)))))
 
@@ -2485,6 +2599,24 @@ Only shows sections based on availability flags and customer type."
 (defun dod-controller-cust-shipping-methods-page ()
   (with-cust-session-check
     (with-mvc-ui-page "Customer Shipping Methods" #'create-model-for-custshipmethodspage #'create-widgets-for-custshipmethodspage :role :customer)))
+
+
+(defun normalize-billing-address (formdata)
+  (destructuring-bind (shipaddr shipcity shipstate shipzip billaddr billcity billstate billzip samep)
+      formdata
+    ;; If same-as-ship checkbox true OR billing missing, override
+    (when (or (string= samep "Y")
+              (or (null billaddr) (string= billaddr "")
+                  (null billcity) (string= billcity "")
+                  (null billstate) (string= billstate "")
+                  (null billzip) (string= billzip "")))
+      (setf billaddr shipaddr
+            billcity shipcity
+            billstate shipstate
+            billzip shipzip))
+    ;; Return normalized values
+    (values billaddr billcity billstate billzip)))
+
 
 ;; This is a pure function. 
 (defun calculate-shipping-cost-for-order (vshipping-method shipzipcode shopcart-total shopping-cart products vendor company)
@@ -2862,6 +2994,8 @@ Only shows sections based on availability flags and customer type."
     (let ((uri (with-mvc-redirect-ui #'create-model-for-custaddtocart #'create-widgets-for-custaddtocart)))
       (format nil "~A" uri))))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;; PRODUCT DETAIL PAGE FOR SHARED PUBLIC VIEW ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun create-model-for-prddetailsforguestcustomer ()
   (let* ((parambase64 (hunchentoot:parameter "key"))
 	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
@@ -2889,59 +3023,9 @@ Only shows sections based on availability flags and customer type."
 
 
 (defun dod-controller-prd-details-for-guest-customer ()
-  (with-mvc-ui-page "Product Details" #'create-model-for-prddetailsforguestcustomer #'create-widgets-for-prddetailsforguestcustomer :role :customer))
+  (with-mvc-ui-page "Product Details Public" #'create-model-for-prddetailsforguestcustomer #'create-widgets-for-prddetailsforguestcustomer :role :customer))
 
-
-(defun create-model-for-prddetailsforcustomer ()
-  (let* ((prd-id (parse-integer (hunchentoot:parameter "id")))
-	 (productlist (if (> prd-id 0) (hunchentoot:session-value :login-prd-cache)))
-	 (lstshopcart (hunchentoot:session-value :login-shopping-cart))
-	 (numitemsincart (Length lstshopcart))
-	 (product (if (> prd-id 0) (search-item-in-list 'row-id prd-id productlist)))
-	 (prdincart-p (prdinlist-p (slot-value product 'row-id)  lstshopcart))
-	 (customer (get-login-customer))
-	 (company (product-company product))
-	 (description (slot-value product 'description))   
-	 (product-sku (slot-value product 'sku))
-	 (images-str (slot-value product 'prd-image-path))
-	 (imageslst (safe-read-from-string images-str))
-	 (product-pricing (select-product-pricing-by-product-id prd-id company))
-	 (product-pricing-widget (cl-who:with-html-output-to-string  (*standard-output* nil)
-				   (product-price-with-discount-widget product product-pricing)))
-	 (prd-name (slot-value product 'prd-name))
-	 (product-images-carousel (cl-who:with-html-output-to-string  (*standard-output* nil)
-				    (render-multiple-product-images prd-name imageslst images-str)))
-	 (product-images-thumbnails (cl-who:with-html-output-to-string  (*standard-output* nil)
-				  (render-multiple-product-thumbnails prd-name imageslst images-str)))
-	 (proddetailpagetempl (funcall (nst-get-cached-product-template-func :templatenum 1)))	 
-	 (qtyperunit-str  (format nil "~A" (slot-value product 'qty-per-unit)))
-	 (unit-of-measure (slot-value product 'unit-of-measure))
-	 (unitsinstock-str (format nil "~A" (slot-value product 'units-in-stock)))
-	 (units-in-stock (slot-value product 'units-in-stock))
-	 (addtocart-widget (cl-who:with-html-output-to-string  (*standard-output* nil)
-			     (customer-add-to-cart-widget units-in-stock product product-pricing prd-id prdincart-p numitemsincart)))
-	 (external-url (slot-value product 'external-url))
-	 (subscribe-flag (slot-value product 'subscribe-flag))
-	 (cust-type (slot-value customer 'cust-type))
-	 (prd-vendor (product-vendor product))
-	 (subscription-plan (slot-value company 'subscription-plan))
-	 (cmp-type (slot-value company 'cmp-type))
-	 (vendor-id (slot-value prd-vendor 'row-id)))
-    
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product Name%" proddetailpagetempl prd-name))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Qty-Per-Unit%" proddetailpagetempl qtyperunit-str))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Unit-Of-Measure%" proddetailpagetempl unit-of-measure))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-SKU%" proddetailpagetempl product-sku))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Description%" proddetailpagetempl description))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Units-In-Stock%" proddetailpagetempl unitsinstock-str))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Add-to-Cart-Button%" proddetailpagetempl addtocart-widget))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Pricing-Control%" proddetailpagetempl product-pricing-widget))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Images-Carousel%" proddetailpagetempl product-images-carousel))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Images-Thumbnails%" proddetailpagetempl product-images-thumbnails))
-    
-    (function (lambda ()
-      (values proddetailpagetempl  prd-id  cmp-type subscribe-flag cust-type subscription-plan external-url  vendor-id)))))
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;; END PRODUCT DETAIL PAGE FOR SHARED PUBLIC VIEW ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun customer-add-to-cart-widget (units-in-stock product product-pricing prd-id prdincart-p numitemsincart)
   :description "Create the HTML required for Add to Cart button"
@@ -3391,7 +3475,7 @@ Only shows sections based on availability flags and customer type."
       (when (equal (clsql:sql-error-error-id condition) 2006 )
 	(stop-das) 
 	(start-das)
-	(hunchentoot:redirect "/hhub/hhubcustloginv2")))))
+	(hunchentoot:redirect "/hhub/customer-login.html")))))
 
 
 

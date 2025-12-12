@@ -50,10 +50,13 @@
 	 (requestmodel (make-instance 'GSTHSNCodesRequestModel
 				      :hsncode hsncode
 				      :company (product-company product)))
-	 (gsthsncodeobj (processreadrequest adapter requestmodel)))
-    (when gsthsncodeobj
-      (with-slots (cgst sgst igst compcess) gsthsncodeobj
-	(list cgst sgst igst compcess)))))
+	 (gsthsncodeobj (processreadrequest adapter requestmodel))
+	 (gstknowledge (bo-knowledge adapter)))
+    (with-bo-knowledge-check gstknowledge
+      (:T (list cgst sgst igst compcess))
+      (:F (list 0.0 0.0 0.0 0.0))
+      (:U (error 'hhub-unknown :errstring (format nil "Unknown error while fetching GST values for HSN code ~A." hsncode)))
+      (:C (error 'hhub-contradiction :errstring (format nil "Contradiction while fetching GST values for HSN code ~A." hsncode))))))
 
 ;; METHODS FOR ENTITY CREATE 
 ;; This file contains template code which will be used to generate for class methods.
@@ -254,12 +257,16 @@
 (defmethod doread ((service GSTHSNCodesService) (requestmodel GSTHSNCodesRequestModel))
   (let* ((comp (company requestmodel))
 	 (code (hsncode requestmodel))
-	 (dbGSTHSNCode (select-hsn-code-by-code code))
+	 (dbGSTHSNCode-knowledge (with-db-call (select-hsn-code-by-code code)))
 	 (GSTHSNCodesobj (make-instance 'GSTHSNCodes)))
+
+    (setf (bo-knowledge service) dbGSTHSNCode-knowledge)
     ;; return back a Vpaymentmethod  response model
     (setf (slot-value GSTHSNCodesobj 'company) comp)
-    (when dbGSTHSNCode
-      (copyGSTHSNCodes-dbtodomain dbGSTHSNCode GSTHSNCodesobj))))
+    (when (eq (bo-knowledge-truth dbGSTHSNCode-knowledge) :T)
+      (let ((dbGSTHSNCode (bo-knowledge-payload dbGSTHSNCode-knowledge)))
+	(copyGSTHSNCodes-dbtodomain dbGSTHSNCode GSTHSNCodesobj)))
+    GSTHSNCodesobj))
 
 (defun copyGSTHSNCodes-dbtodomain (source destination)
   (with-slots (row-id hsncode hsncode4digit description sgst cgst igst compcess company) destination

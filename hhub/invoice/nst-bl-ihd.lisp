@@ -389,20 +389,31 @@
 (defmethod doread ((service InvoiceHeaderService) (requestmodel InvoiceHeaderRequestModel))
   (let* ((comp (company requestmodel))
 	 (invnum (invnum requestmodel))
-	 (dbInvoiceHeader (select-invoice-header-by-invnum invnum comp))
+	 (dbInvoiceHeader-knowledge (with-db-call (select-invoice-header-by-invnum invnum comp)))
 	 (InvoiceHeaderobj (make-instance 'InvoiceHeader)))
     ;; return back a Invoice Header  object
     (setf (slot-value InvoiceHeaderobj 'company) comp)
-    (copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)))
+    (setf (bo-knowledge service) dbInvoiceHeader-knowledge)
+    (when (eq (bo-knowledge-truth dbInvoiceHeader-knowledge) :T)
+      (let ((dbInvoiceHeader (bo-knowledge-payload dbInvoiceHeader-knowledge)))
+	(copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)))
+    InvoiceHeaderobj))
+
+    
 
 (defmethod doread ((service InvoiceHeaderService) (requestmodel InvoiceHeaderContextIDRequestModel))
   (let* ((comp (company requestmodel))
 	 (context-id (context-id requestmodel))
-	 (dbInvoiceHeader (select-invoice-header-by-context-id context-id comp))
+	 (dbInvoiceHeader-knowledge (with-db-call (select-invoice-header-by-context-id context-id comp)))
 	 (InvoiceHeaderobj (make-instance 'InvoiceHeader)))
     ;; return back a Invoice Header  object
     (setf (slot-value InvoiceHeaderobj 'company) comp)
-    (copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)))
+    (setf (bo-knowledge service) dbInvoiceHeader-knowledge)
+    (when (eq (bo-knowledge-truth dbInvoiceHeader-knowledge) :T)
+      (let ((dbInvoiceHeader (bo-knowledge-payload dbInvoiceHeader-knowledge)))
+	(copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)))
+    InvoiceHeaderobj))
+
 
 
 (defun copyInvoiceHeader-dbtodomain (dbsrc domaindest)

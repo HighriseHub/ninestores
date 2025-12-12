@@ -2,7 +2,6 @@
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
-
 ;; A simple UI framework within MVC which have these 3 things
 ;; 1) Page - a page is html page containing one or more components
 ;; 2) Component - a component is a logical UI entity containing more than one widgets.
@@ -796,7 +795,9 @@ Returns a list of widget outputs."
   (defmacro with-hhub-transaction (name &optional params  &body body)
     :documentation "This is the Policy Enforcement Point for Nine Stores" 
     `(let* ((transaction (get-ht-val ,name (hhub-get-cached-transactions-ht)))
+	    (transaction-uri (slot-value transaction 'uri))
 	    (uri (cdr (assoc "uri" params :test 'equal)))
+	    (urimatch-p (uri-prefix-boundary-p transaction-uri uri))
 	    (returnlist (has-permission transaction ,params))
 	    (returnvalue (nth 0 returnlist))
 	    (exceptionstr (nth 1 returnlist))
@@ -806,9 +807,9 @@ Returns a list of widget outputs."
        
        (logiamhere (format nil "In the transaction ~A" (slot-value transaction 'name)))
        (logiamhere (format nil "URI -  ~A" uri))
-       (logiamhere (format nil "URI in DB  -  ~A" (slot-value transaction 'uri)))
+       (logiamhere (format nil "URI in DB  -  ~A. URI Match is ~A" transaction-uri urimatch-p))
        ;; check for returnvalue to be T and the uri to match 
-       (if (and returnvalue (>= (search (slot-value transaction 'uri) uri) 0))
+       (if (and returnvalue urimatch-p)
 	   ,@body
 	   ;;else
 	   (progn 
@@ -1224,35 +1225,18 @@ individual tiles. It also supports search functionality by including the searchr
 			   (:div :class "modal-footer"
 				 (:button :type "button" :class "btn btn-secondary" :data-bs-dismiss "modal" "Close")))))))))
 
-(defmacro defdb-adapter (name lambda-list &body body)
-  "Defines a Read Database Adapter function that executes a single CLSQL query 
-   and automatically maps the result to one of the four TCUF states, logging 
-   critical failures (:U and :C)."
-  (let ((results-sym (gensym "RESULTS"))
-        (db-error-sym (gensym "DB-ERROR"))
-        (caller-sym (gensym "CALLER")))
-    `(defun ,name ,lambda-list
-       "TCUF Boundary Adapter for database reads. Returns (PAYLOAD/NIL TCUF-STATUS)."
-       (handler-case
-           (let ((,results-sym ,@body)) 
-             (cond
-               ;; T: Exactly one result found.
-               ((= (length ,results-sym) 1)
-                (values (car ,results-sym) +true+))
-               ;; F: Zero results found. (Handled gracefully by caller)
-               ((= (length ,results-sym) 0)
-                (values nil +false+))
-               ;; C: More than one result found. (Critical Log required here)
-               (t
-                (log-critical-error +contradiction+
-                                    (format nil "Data Contradiction in ~A: Expected 1, found ~A results." 
-                                            ',name (length ,results-sym))
-                                    ,results-sym)
-                (values ,results-sym +contradiction+))))
-         ;; U: Catch any Lisp/database error. (Critical Log required here)
-         (error (,db-error-sym)
-           (log-critical-error +unknown+
-                               (format nil "DB UNKNOWN Error in ~A: ~A" ',name ,db-error-sym)
-                               ,db-error-sym)
-           (values nil +unknown+))))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -201,7 +201,7 @@
     :type (string 256)
     :initarg :city)
    (state
-    :accessor city
+    :accessor state
     :type (string 256)
     :initarg :state)
    (country

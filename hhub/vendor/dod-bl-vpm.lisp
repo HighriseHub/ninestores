@@ -136,12 +136,16 @@
 (defmethod doread ((service VPaymentMethodsService) (requestmodel VPaymentMethodsRequestModel))
   (let* ((comp (company requestmodel))
 	 (vend (vendor requestmodel))
-	 (dbvpaymentmethods (select-vpayment-methods vend comp))
+	 (dbvpayments-knowledge  (with-db-call (select-vpayment-methods vend comp)))
 	 (vpaymentmethodsobj (make-instance 'VPaymentMethods)))
+    
+    (setf (bo-knowledge service) dbvpayments-knowledge)
     ;; return back a Vpaymentmethod  response model
     (setf (slot-value vpaymentmethodsobj 'company) comp)
-    (when dbvpaymentmethods
-      (copyvpaymentmethods-dbtodomain dbvpaymentmethods vpaymentmethodsobj))))
+    (when (eq (bo-knowledge-truth dbvpayments-knowledge) :T)
+      (let ((dbvpayments (bo-knowledge-payload dbvpayments-knowledge)))
+	(copyvpaymentmethods-dbtodomain dbvpayments vpaymentmethodsobj)))
+     vpaymentmethodsobj))
 
 (defun copyvpaymentmethods-dbtodomain (source destination)
   (let* ((comp (select-company-by-id (slot-value source 'tenant-id)))

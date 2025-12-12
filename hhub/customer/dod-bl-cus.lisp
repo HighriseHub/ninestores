@@ -57,9 +57,6 @@
       (setf (slot-value service 'viewmodel) viewmodel)
       viewmodel)))
 
-
-
-
 ;; Service layer implementation for the pincode check.
 ;; We would need to have a BusinessService which takes requestmodel as parameter    
 (defmethod doService ((service AddressService) requestmodel)
@@ -74,12 +71,104 @@
       (setf (slot-value service 'businessservicemethod) "doservice")
       (setf (slot-value requestmodel 'pincode) pincode)
       (setf (slot-value service 'requestmodel) requestmodel)
-      
-      (let ((addressobj (call-next-method))
+    (let ((addressobj (call-next-method))
 	    (params nil)) 
 	(setf params (acons "address" addressobj params))
 	(processresponse service params))))
-  
+
+
+(defun get-pincode-details-adapter (pincode)
+  "TCUF Boundary Adapter for Pincode lookup. 
+   Contract: Returns (ADDRESS-INSTANCE/NIL TCUF-STATUS)."
+  (let* ((address (make-instance 'address))
+         (param-name (list "api-key" "format" "offset" "limit" "filters[pincode]"))
+         (param-values (list *hhubapi.gov.in.key* "json" "0" "1" (format nil "~A" pincode)))
+         (param-alist (pairlis param-name param-values)))
+
+    (handler-case
+        (multiple-value-bind (body status)
+            ;; Drakma call. We capture the body (1st value) and status code (2nd value).
+            (drakma:http-request *hhubgetpincodeurlexternal*
+                                 :method :GET
+                                 :parameters param-alist)
+
+          ;; --- INTERPRETATION LOGIC (MAPPING STATUS CODE) ---
+
+          (cond
+            ;; 1. SUCCESS: HTTP 200 (Proceed to Data Quality Check)
+            ((= status 200)
+             (handler-case
+                 (let* ((json-response (json:decode-json-from-string (map 'string 'code-char body)))
+			(locality (cdr (assoc :OFFICENAME (nth 1 (nth 24 json-response)) :test 'equal)))
+			(city (cdr (assoc :DISTRICTNAME (nth 1 (nth 24 json-response)) :test 'equal)))
+			(division (cdr (assoc :DIVISIONNAME (nth 1 (nth 24 json-response)) :test 'equal)))
+			(state (cdr (assoc :STATENAME (nth 1 (nth 24 json-response)) :test 'equal))))
+		   (format t "locality=~A, city=~A, division =~A, state=~A" locality city division state)
+                   ;; --- DATA QUALITY CHECK (MAPPING JSON CONTENT) ---
+                   (if (and locality city state)
+		       (progn
+			 (setf (slot-value address 'pincode) pincode)
+			 ;; Remove the S.O from the locality string.
+			 (setf (slot-value address 'house-no) "")
+			 (setf (slot-value address 'street) "")
+			 (setf (slot-value address 'country) "")
+			 (setf (slot-value address 'longitude) "")
+			 (setf (slot-value address 'latitude) "")
+			 (setf (slot-value address 'locality) (string-trim "S.O" locality))
+			 (setf (slot-value address 'city) (format nil "~A, ~A" division city))
+			 (setf (slot-value address 'state) state)
+			 (values address :T))
+                       ;;else
+		       (progn
+			 (setf (slot-value address 'pincode) pincode)
+			 (setf (slot-value address 'house-no) "")
+			 (setf (slot-value address 'street) "")
+			 (setf (slot-value address 'country) "")
+			 (setf (slot-value address 'longitude) "")
+			 (setf (slot-value address 'latitude) "")
+			 (setf (slot-value address 'locality) "Not Found")
+			 (setf (slot-value address 'city) "Not Found")
+			 (setf (slot-value address 'state) "Not Found")
+			 ;; Data is partially missing (e.g., locality is nil, but city/state exist)
+                         (format t "~&[ADAPTER F] Pincode ~A data incomplete. Mapping to :F." pincode)
+                         (values nil :F)))) ; Treat incomplete data as a Definitive Failure (F)
+               ;; Catch JSON parsing errors (Malformed response)
+               (error (e)
+                 (format t "~&[ADAPTER C] JSON Parsing Error: ~A. Mapping to CONTRADICTION (:C)." e)
+                 (values nil :C))))
+             
+            
+            ;; 2. DEFINITIVE FAILURE: HTTP 4xx (Client/Not Found Errors)
+            ((<= 400 status 499)
+             (format t "~&[ADAPTER F] HTTP ~A Pincode lookup error. Mapping to :F." status)
+             (values nil :F))
+            
+            ;; 3. UNKNOWN: HTTP 5xx (Server Errors, potentially transient)
+            ((<= 500 status 599)
+             (format t "~&[ADAPTER U] HTTP ~A Pincode service error. Mapping to :U." status)
+             (values nil :U))
+            
+            ;; 4. CONTRADICTION: Other unexpected codes (3xx redirects, etc.)
+            (t
+             (format t "~&[ADAPTER C] Unexpected HTTP status ~A. Mapping to :C." status)
+             (values nil :C))))
+
+      ;; --- EXCEPTION HANDLING (MAPPING CHAOS) ---
+      
+      ;; Maps network/timeout Lisp condition to :U
+      (nst-api-timeout-error ()
+        (format t "~&[ADAPTER U] Network Timeout. Mapping to UNKNOWN (:U).")
+        (values nil :U))
+        
+      ;; Catch-all for any other Lisp error (Network issues not caught above, etc.)
+      (error (e)
+        (format t "~&[ADAPTER C] Unhandled Lisp Error in Adapter: ~A. Mapping to CONTRADICTION (:C)." e)
+        (values nil :C)))))
+
+
+
+
+
 (defun getpincodedetails (pincode)
   (let* ((address (make-instance 'Address))
 	 (param-name (list "api-key" "format" "offset" "limit" "filters[pincode]"))
@@ -92,7 +181,6 @@
 	 (city (cdr (assoc :DISTRICTNAME (nth 1 (nth 24 json-response)) :test 'equal)))
 	 (division (cdr (assoc :DIVISIONNAME (nth 1 (nth 24 json-response)) :test 'equal)))
 	 (state (cdr (assoc :STATENAME (nth 1 (nth 24 json-response)) :test 'equal))))
-    (format t "locality = ~A, city= ~A, state = ~A" locality city state)
     ;; Send the Area, City and State values back.
     (if (and 
 	     (not (null locality))
@@ -159,14 +247,14 @@
 					 :caching *dod-database-caching* :flatp t)))
 
 (defun select-customer-by-phone (phone company)
-(let ((tenant-id (slot-value company 'row-id)))
-  (car (clsql:select 'dod-cust-profile :where [and
-		[= [:deleted-state] "N"]
-		[= [:tenant-id] tenant-id]
-		[= [:cust_type] "STANDARD"]
-		[= [:active-flag] "Y"]
-		[like  [:phone] phone]]
-		:caching *dod-database-caching* :flatp t))))
+  (let ((tenant-id (slot-value company 'row-id)))
+    (car (clsql:select 'dod-cust-profile :where [and
+		       [= [:deleted-state] "N"]
+		       [= [:tenant-id] tenant-id]
+		       [= [:cust_type] "STANDARD"]
+		       [= [:active-flag] "Y"]
+		       [like  [:phone] phone]]
+					 :caching *dod-database-caching* :flatp t))))
 
 
 
@@ -187,6 +275,16 @@
                                                  (cust-type (slot-value customer 'cust-type)))
                                             (when (equal cust-type "STANDARD") customer))) wallets))))
     mycustomers))
+
+(defun select-customer-for-vendor-by-phone (phone vendor company)
+  (let* ((wallets (get-cust-wallets-for-vendor vendor company))
+	 (mycustomer (car (remove nil (mapcar (lambda (wallet)
+                                            (let* ((customer (slot-value wallet 'customer))
+                                                   (cust-type (slot-value customer 'cust-type))
+						   (cust-phone (slot-value customer 'phone)))
+                                              (when (and (equal cust-type "STANDARD")
+							 (equal cust-phone phone)) customer))) wallets)))))
+    mycustomer))
 
 
 (defun select-guest-customer (company)
