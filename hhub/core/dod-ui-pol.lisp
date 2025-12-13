@@ -6,6 +6,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+(defun com-hhub-policy-customer-address (&optional (params nil))
+  :documentation "This policy governs updating the invoice item by the vendor"
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 ;;(tokenverified-p (assoc "tokenverified" params :test 'equal))
+	 ;;(guestcheckout-phone (cdr (assoc "guestcheckout-phone" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag)))
+    ;;(unless tokenverified-p
+     ;; (error 'hhub-abac-transaction-error :errstring (format nil "Token not verified for guest customer phone number ~A." guestcheckout-phone)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
+
+
 ;; INVOICE ITEM RELATED POLICIES START
 
 (defun com-hhub-policy-show-invoice-payment-page (&optional (params nil))

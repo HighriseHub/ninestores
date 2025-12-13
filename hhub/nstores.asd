@@ -77,8 +77,8 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "core/nst-mult-logic")
    (:file "core/nst-bl-beltrusys")
    (:file "core/nst-bl-conflodis")
-   (:file "core/nst-ui-prosymloo.lisp")
-   (:file "core/func-lookup-data.lisp")
+   (:file "core/nst-ui-prosymloo")
+   (:file "core/func-lookup-data")
  ;; Account
    (:file "account/dod-dal-cmp")
    (:file "account/dod-bl-cmp")
