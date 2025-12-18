@@ -328,7 +328,7 @@
 				       (:h6 (cl-who:str (format nil "Vendor - ~A" vendorname))))
 				     (with-html-div-col
 				       (:span  :style "color:blue" (cl-who:str (format nil "~d" wallet-balance)))))))) vendor-list)
-		      (with-html-form "form-standardcustpaymentmode" "dodmyorderaddaction"
+		      (with-html-form "form-standardcustpaymentmode" "dodcustshopcartro"
 			(with-html-input-text-hidden "paymentmode" "PRE")
 			(:input :type "submit"  :class "btn btn-primary btn-lg" :value "Prepaid Checkout"))))))))
       (values itembodyhtml))))
@@ -336,17 +336,17 @@
 (defun create-cash-on-delivery-widget (phone codenabled)
   (lambda ()
     (let* ((idcodpaymentevent (format nil "idcodpaymentevent~A" (gensym)))
-	  (itembodyhtml 
-	    (cl-who:with-html-output (*standard-output* nil)
-	      (:li :class "list-group-item"  
-		   (when (equal codenabled "Y")
-		     (cl-who:htm
-		      (with-catch-submit-event idcodpaymentevent
-			(:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-			      (with-html-form "form-custpaymentmode" "dodcustshopcartotpstep"
-				(with-html-input-text-hidden "paymentmode" "COD")
-				(with-html-input-text-hidden "phone" phone)
-				(:input :type "submit" :class "btn btn-primary btn-lg" :value "Cash On Delivery"))))))))))
+	   (itembodyhtml 
+	     (cl-who:with-html-output (*standard-output* nil)
+	       (:li :class "list-group-item"  
+		    (when (equal codenabled "Y")
+		      (cl-who:htm
+		       (with-catch-submit-event idcodpaymentevent
+			 (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+			       (with-html-form "form-custpaymentmode" "dodcustshopcartotpstep"
+				 (with-html-input-text-hidden "paymentmode" "COD")
+				 (with-html-input-text-hidden "phone" phone)
+				 (:input :type "submit" :class "btn btn-primary btn-lg" :value "Cash On Delivery"))))))))))
       (values itembodyhtml))))
   
 
@@ -384,9 +384,7 @@
   "Render the available payment method widgets dynamically using Bootstrap 5.3 accordion.
 Only shows sections based on availability flags and customer type."
   (multiple-value-bind (cust-type vendor-list customer custcomp phone singlevendor-p
-                                  vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled)
-      (funcall vpmsettingsfunc)
-
+                                  vpayapikey-p vupiid-p codenabled upienabled payprovidersenabled walletenabled) (funcall vpmsettingsfunc)
     ;; Create available widgets based on feature flags
     (let* ((accordion-items '())
            (show-wallet (and (equal cust-type "STANDARD") walletenabled))
@@ -2295,6 +2293,77 @@ Only shows sections based on availability flags and customer type."
 		     ;;(logiamhere (format nil "Shopcart total is  ~A. Wallet balance is ~A" total (slot-value wallet 'balance)))
 		     (check-wallet-balance total wallet))) vendor-list wallet-list)))
 
+(defun ordertemplatefill (ordertemplate order orderitems orderitemshtmlfunc qrcodepath  currency vendor)
+  (function (lambda ()
+    (with-slots (name address gstnumber state) vendor
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Vendor Name%" ordertemplate name))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Authorised Signatory%" ordertemplate name))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Vendor Address%" ordertemplate address))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Vendor GST Number%" ordertemplate gstnumber))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Place of Supply%" ordertemplate (string-upcase (gethash state *NSTGSTSTATECODES-HT*)))))
+
+    (with-slots (values  ord-date req-date shipped-date expected-delivery-date ordnum shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-fulfilled order-amt shipping-cost total-discount total-tax payment-mode comments context-id  status is-converted-to-invoice is-cancelled cancel-reason order-type external-url order-source custname customer company) order
+      ;;(setf ordertemplate (cl-ppcre:regex-replace-all "%Invoice Number%" ordertemplate ordnum))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Order Number%" ordertemplate ordnum))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Order Date%" ordertemplate (get-date-string ord-date)))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Date of Supply%" ordertemplate (get-date-string expected-delivery-date)))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%State Code%" ordertemplate shipstate))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Billed To%" ordertemplate custname))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipped To%" ordertemplate custname))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Billed to Address%" ordertemplate billaddr))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipped to Address%" ordertemplate shipaddr))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Billed to City%" ordertemplate billcity))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipped to City%" ordertemplate shipcity))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Billed to GSTIN%" ordertemplate ""))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipped to GSTIN%" ordertemplate ""))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Billed to State%" ordertemplate billstate))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipped to State%" ordertemplate shipstate))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%UPI_IMAGE_URL%" ordertemplate qrcodepath))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Shipping Charges%" ordertemplate (format nil "~A" shipping-cost)))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Total in Words%" ordertemplate (convert-number-to-words-INR order-amt)))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Add Total With GST%" ordertemplate (format nil "~A" (calculate-order-totalaftertax orderitems))))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Total Value before GST/TAX%" ordertemplate (format nil "~A" (calculate-order-totalbeforetax orderitems))))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Total After Tax & Shipping%" ordertemplate (format nil "~A ~A" (get-currency-html-symbol currency) order-amt)))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Total Tax Amount%" ordertemplate (format nil "~A" (calculate-order-totalgst order orderitems vendor))))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Add CGST%" ordertemplate (format nil "~A" (calculate-order-totalcgst orderitems))))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Add SGST%" ordertemplate (format nil "~A" (calculate-order-totalsgst orderitems))))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Add IGST%" ordertemplate (format nil "~A" (calculate-order-totaligst orderitems))))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Terms and Conditions%" ordertemplate "Terms and Conditions"))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Financial Year%" ordertemplate "NA"))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Company Name%" ordertemplate (slot-value company 'name)))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Bank IFSC Code%" ordertemplate "NA"))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%Bank Account Number%" ordertemplate "NA"))
+      (setf ordertemplate (cl-ppcre:regex-replace-all "%GST on Reverse Charge%" ordertemplate "0.00")))
+    (setf ordertemplate (cl-ppcre:regex-replace-all "%Order Items Rows%" ordertemplate (funcall orderitemshtmlfunc)))
+    ordertemplate)))
+
+
+
+
+(defun ordertemplatefillitemrows (orderitems products)
+  (function (lambda ()
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+	(let ((incr (let ((count 0)) (lambda () (incf count)))))
+	  (mapcar (lambda (item product) (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (display-order-item-row item product))))  orderitems products))))))
+
+(defun display-order-item-row (orderitem product)
+  "Generates a single item row using Bootstrap 5.3 grid divs."
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-slots (prd-qty unit-price disc-rate taxablevalue sgst cgst igst sgstamt cgstamt igstamt totalitemval) orderitem
+      (cl-who:htm
+       (:div :class "row g-0"
+         (:div :class "col-1 col-cell" )
+         (:div :class "col-1 col-cell" (cl-who:str (slot-value product 'prd-name)))
+         (:div :class "col-1 col-cell" (cl-who:str (slot-value product 'hsn-code)))
+         (:div :class "col-1 col-cell" (cl-who:str (format nil "~A/~A" (slot-value product 'qty-per-unit) (slot-value product 'unit-of-measure))))
+         (:div :class "col-1 col-cell" (cl-who:str prd-qty))
+         (:div :class "col-1 col-cell" (cl-who:str unit-price))
+         (:div :class "col-1 col-cell" (cl-who:str disc-rate))
+         (:div :class "col-1 col-cell" (cl-who:str taxablevalue))
+         (:div :class "col-1 col-cell" (cl-who:str cgstamt))
+         (:div :class "col-1 col-cell" (cl-who:str sgstamt))
+         (:div :class "col-1 col-cell" (cl-who:str igstamt))
+         (:div :class "col-1 col-cell" (cl-who:str totalitemval)))))))
 
 
 (defun create-model-for-custordercreate ()
@@ -2382,18 +2451,10 @@ Only shows sections based on availability flags and customer type."
 	 (lambda ()
 	  (values redirectlocation))))))
 	
-  
-
-(defun create-widgets-for-custordercreate (modelfunc)
-  (multiple-value-bind
-   (redirectlocation) (funcall modelfunc)
-   (let ((widget1 (function (lambda () redirectlocation))))
-     (list widget1))))
-
 (defun com-hhub-transaction-create-order ()
   (with-cust-session-check
-    (let ((uri (with-mvc-redirect-ui #'create-model-for-custordercreate #'create-widgets-for-custordercreate)))
-      (format nil "~A" uri))))
+    (with-mvc-redirect-ui #'create-model-for-custordercreate #'create-widgets-for-genericredirect)))
+    
 
 (defun save-cust-order-params (list) 
   (setf (hunchentoot:session-value :customer-clipboard) list))
@@ -2753,9 +2814,14 @@ Only shows sections based on availability flags and customer type."
 
 (defun create-model-for-custshowshopcartreadonly ()
   (let* ((orderparams-ht (get-cust-order-params)) 
+	 (customer (get-login-customer))
+	 (company (get-login-customer-company))
+	 (context-id "")
 	 (odts (gethash "shoppingcart" orderparams-ht))
 	 (odate (gethash "orddate" orderparams-ht))
 	 (reqdate (gethash "reqdate" orderparams-ht))
+	 (shipped-date (gethash "shipdate" orderparams-ht))
+	 (expected-delivery-date (gethash "expected-delivery-date" orderparams-ht))
 	 (shopcart-products (gethash "shopcartproducts" orderparams-ht))
 	 (shipaddress (gethash "shipaddress" orderparams-ht))
 	 (shipcity (gethash "shipcity" orderparams-ht))
@@ -2774,19 +2840,37 @@ Only shows sections based on availability flags and customer type."
 	 (orderpickupinstore (gethash "orderpickupinstore" orderparams-ht))
 	 (vendoraddress (gethash "vendoraddress" orderparams-ht))
 	 (payment-mode (hunchentoot:parameter "paymentmode"))
+	 (comments (gethash "comments" orderparams-ht))
 	 (utrnum (hunchentoot:parameter "utrnum"))
 	 (phone  (gethash "phone" orderparams-ht))
 	 (email (gethash "email" orderparams-ht))
-	 (customer (get-login-customer))
-	 (custcomp (get-login-customer-company))
+	 (custname (slot-value customer 'name))
+	 (is-cancelled nil)
+	 (cancel-reason nil)
+	 (external-url "NIL")
+	 (is-converted-to-invoice "NO")
+	 (ordnum "000")
+	 (order-type (gethash "order-type" orderparams-ht))
+	 (order-fulfilled " ")
+	 (status "DRAFT")
+	 (order-source (gethash "order-source" orderparams-ht))
+	 (order-amt (+ shipping-cost (gethash "shopcart-total" orderparams-ht)))
+	 (total-discount (gethash "total-discount" orderparams-ht))
+	 (total-tax (gethash "total-tax" orderparams-ht))
 	 (order-cxt (format nil "hhubcustopy~A" (get-universal-time)))
-	 (company-type (slot-value custcomp 'cmp-type))
+	 (company-type (slot-value company 'cmp-type))
 	 (vendor-list (get-shopcart-vendorlist odts))
 	 (singlevendor (first vendor-list))
 	 (vshipping-enabled (slot-value singlevendor 'shipping-enabled))
-	 (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) custcomp) 'row-id))
-	 (currsymbol (get-currency-html-symbol (get-account-currency custcomp))))
+	 (currency (get-account-currency company))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company)))
+	 (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) company) 'row-id))
+	 (orderheader (createorderobject (function (lambda () (values odate reqdate shipped-date expected-delivery-date ordnum shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked orderpickupinstore gstnumber gstorgname order-fulfilled order-amt shipping-cost total-discount total-tax payment-mode comments context-id  status is-converted-to-invoice is-cancelled cancel-reason order-type external-url order-source custname customer company)))))
+	 (ordertemplate (funcall (nst-get-cached-order-template-func :templatenum 2)))  
+	 (orderitemshtmlfunc (ordertemplatefillitemrows odts shopcart-products)))
 
+    ;; Order template for the Shopcart Readonly page. 
+    (setf ordertemplate (funcall (ordertemplatefill ordertemplate orderheader odts orderitemshtmlfunc NIL currency singlevendor)))
 
     ;; calculate shopcart total + GST
     (setf shopcart-total (calculate-invoice-totalaftertax odts))
@@ -2808,11 +2892,11 @@ Only shows sections based on availability flags and customer type."
     (save-cust-order-params orderparams-ht)
     ;; return the variables in a function. 
     (function (lambda ()
-      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts orderpickupinstore vendoraddress vshipping-enabled currsymbol)))))
+      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate )))))
 
 (defun create-widgets-for-custshowshopcartreadonly (modelfunc)
   (multiple-value-bind
-	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts orderpickupinstore vendoraddress vshipping-enabled currsymbol)
+	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate)
       (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -2863,11 +2947,14 @@ Only shows sections based on availability flags and customer type."
 					(:span :class "input-group-btn" (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Place Order" ))))))))))))
 			  
 	  (widget3 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(cl-who:str ordertemplate)))))
+	  (widget4 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
 		       (cl-who:str (ui-list-shopcart-readonly shopcart-products odts))))))
-	  (widget4 (function (lambda ()
+	  (widget5 (function (lambda ()
 		     (if (or (equal orderpickupinstore "Y")  (equal vshipping-enabled "N")) (displaystorepickupwidget vendoraddress))))))
-      (list widget1 widget2 widget3 widget4))))
+      (list widget1 widget2 widget3 widget4 widget5))))
 
 
 
