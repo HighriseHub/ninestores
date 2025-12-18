@@ -1,3 +1,7 @@
+;; -*- mode: common-lisp; coding: utf-8 -*-
+;; nst-bl-funloodat.lisp came from Function Lookup Data
+(in-package :nstores)
+
 (defun function-lookup-table ()
   (function (lambda ()
   '(("COPYORDERITEM-DBTODOMAIN" "FUNCTION"

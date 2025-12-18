@@ -7,11 +7,11 @@
 
 (defun uri-prefix-boundary-p (prefix uri)
   (and (uri-prefix-p prefix uri)
-       (let ((plen (length prefix))
-             (ulen (length uri)))
-         (or (= plen ulen)
-             (member (aref uri plen)
-                     *uri-boundary-chars*)))))
+       (let ((plen (length prefix)))
+         (or (= plen (length uri))
+             (not (null
+                   (find (aref uri plen)
+                         *uri-boundary-chars*)))))))
 
 (defun uri-prefix-p (prefix uri)
   (let ((plen (length prefix)))

@@ -1,4 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
+;; nst-ui-prosymloo.lisp came from Project Symbol Lookup
 (in-package :nstores)
 
 (defun get-project-symbols (system-name)
