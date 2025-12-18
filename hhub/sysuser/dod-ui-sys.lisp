@@ -126,10 +126,12 @@
     (with-standard-admin-page (:title "welcome to Nine Stores")
        (:h3 "Welcome " (cl-who:str (format nil "~a" (get-login-user-name))))
        (:hr)
-       (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	     (:a :class "list-group-item" :href "#" "Reset Password")
-	     (:a :class "list-group-item" :href *HHUBFEATURESWISHLISTURL* "Feature Wishlist")
-	     (:a :class "list-group-item" :href *HHUBBUGSURL* "Report Issues")))))
+      (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
+	    (:a :class "list-group-item" :href "/hhub/gsthsncodes" "GST HSN & SAC Codes")
+	    (:a :class "list-group-item" :href "/hhub/projsymlookup" "Project Symbol Lookup")
+	    (:a :class "list-group-item" :href "#" "Reset Password")
+	    (:a :class "list-group-item" :href *HHUBFEATURESWISHLISTURL* "Feature Wishlist")
+	    (:a :class "list-group-item" :href *HHUBBUGSURL* "Report Issues")))))
 
 (defun dod-controller-run-daily-orders-batch ()
  :documentation "This controller function is responsible to run the daily orders batch against all the subscriptions customers have made for a particular group/apartment/tenant" 
