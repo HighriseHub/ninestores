@@ -2892,12 +2892,12 @@ Only shows sections based on availability flags and customer type."
     (save-cust-order-params orderparams-ht)
     ;; return the variables in a function. 
     (function (lambda ()
-      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate )))))
+      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id  orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate )))))
 
 (defun create-widgets-for-custshowshopcartreadonly (modelfunc)
   (multiple-value-bind
-	(odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id shopcart-products odts orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate)
-      (funcall modelfunc)
+   (odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id  orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate )
+         (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
 		       (:li :class "breadcrumb-item" (:a :href "dodcustshopcart" "Cart"))
@@ -2950,11 +2950,8 @@ Only shows sections based on availability flags and customer type."
 		      (cl-who:with-html-output (*standard-output* nil)
 			(cl-who:str ordertemplate)))))
 	  (widget4 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil)
-		       (cl-who:str (ui-list-shopcart-readonly shopcart-products odts))))))
-	  (widget5 (function (lambda ()
 		     (if (or (equal orderpickupinstore "Y")  (equal vshipping-enabled "N")) (displaystorepickupwidget vendoraddress))))))
-      (list widget1 widget2 widget3 widget4 widget5))))
+      (list widget1 widget2 widget3 widget4))))
 
 
 
