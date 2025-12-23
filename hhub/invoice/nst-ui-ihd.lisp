@@ -1728,7 +1728,8 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (with-mvc-redirect-ui #'create-model-for-vendorcreatecustomer #'create-widgets-for-vendorcreatecustomer)))
 
 (defun create-model-for-vendorcreatecustomer ()
-  (let* ((fname (hunchentoot:parameter "firstname"))
+  (let* ((vendor (get-login-vendor))
+	 (fname (hunchentoot:parameter "firstname"))
 	 (lname (hunchentoot:parameter "lastname"))
 	 (cphone (hunchentoot:parameter "phone"))
 	 (cemail (hunchentoot:parameter "email"))
@@ -1742,7 +1743,12 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (redirectlocation "/hhub/addcusttoinvoice"))
 
     ;; Create customer scenario
-    (unless customer (create-customer cname caddress cphone cemail nil encryptedpass salt nil nil nil company))
+    (unless customer
+      ;; Step 1 - Create a new customer 
+      (create-customer cname caddress cphone cemail nil encryptedpass salt nil nil nil company)
+      ;; Step 2 - create wallet for this new customer. 
+      (let ((newcustomer (select-customer-by-phone cphone company)))
+	(create-wallet newcustomer vendor company)))
     
     (when customer 
       (with-slots (firstname lastname name email phone address) customer

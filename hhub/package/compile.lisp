@@ -28,6 +28,11 @@
 		     "core/extkeys.lisp"
 		     "core/nst-bl-act.lisp" ;; Actor Model Implementation
 		     "core/nst-bl-otp.lisp"
+		     "core/nst-bl-beltrusys.lisp" ;; Belnap 4 valued truth system; Syatvad in Jainism. 
+		     "core/nst-bl-conflodis.lisp" ;; Context Flow Dispatcher.
+		     "core/nst-bl-funloodat.lisp" ;; Function lookup data. 
+		     "core/nst-bl-prosymloo.lisp" ;; Project symbol lookup. 
+
 		     ;;"core/xref.lisp"
 		     
 		     ;; Core UI Layer
