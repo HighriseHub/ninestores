@@ -651,7 +651,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
       
 (defun modal.vendor-payment-methods-page (vpaymentmethods)
-  (when vpaymentmethods
+  (when (typep vpaymentmethods 'VPaymentMethods)
     (let* ((codenabled (slot-value vpaymentmethods 'codenabled))
 	   (upienabled (slot-value vpaymentmethods 'upienabled))
 	   (walletenabled (slot-value vpaymentmethods 'walletenabled))
@@ -687,11 +687,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			  (with-html-custom-checkbox "paylaterenabled" "N" "Pay Later" nil))
 		      (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save Settings")))))))
   ;; If Vendor payment methods are not found then create one
-  (unless vpaymentmethods
+  (when (typep vpaymentmethods 'BusinessObjectNIL)
     (cl-who:with-html-output (*standard-output* nil)
       (:div :class "row"
             (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-                  (with-html-form-having-submit-event "form-vendpaymentmethodscreate" "hhubvpmupdateaction"
+                  (with-html-form  "form-vendpaymentmethodscreate" "hhubvpmupdateaction"
                     (:div :class "form-group"
 			  (with-html-input-text-hidden "createvpaymentmethods" "Y")
 			  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Create Vendor Payment Methods"))))))))
@@ -722,8 +722,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     
     (when (equal createvpaymentmethods "Y")
       (with-entity-create 'VPaymentMethodsAdapter requestmodel
-	(if entity (hunchentoot:redirect "/hhub/dodvendprofile"))))
-    (unless createvpaymentmethods
+	(if entity (setf redirecturl "/hhub/dodvendprofile"))))
+    (unless (equal createvpaymentmethods "Y")
       ;; we are in update case now.
       (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) requestmodel
 	(if codenbld (setf codenabled codenbld) (setf codenabled "N"))
@@ -734,8 +734,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(if paylaterenbld (setf paylaterenabled paylaterenbld) (setf paylaterenabled "N"))
 	(with-entity-update 'VPaymentMethodsAdapter requestmodel
 	  (if entity
-	      (function (lambda ()
-		(values redirecturl)))))))))
+	      (setf redirecturl "/hhub/dodvendprofile")))))
+    (function (lambda ()
+      (values redirecturl)))))
 
 (defun modal.vendor-update-payment-gateway-settings-page ()
   (let* ((vendor (get-login-vendor))
@@ -2151,7 +2152,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				      :company company
 				      :vendor vendor))
 	(vpaymentmethods (processreadrequest adapter requestmodel)))
-    (when vpaymentmethods 
+    (when (typep vpaymentmethods 'VPaymentMethods) 
       (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) vpaymentmethods
 	(addloginvendorsetting "codenabled" codenabled)
 	(addloginvendorsetting "upienabled" upienabled)
