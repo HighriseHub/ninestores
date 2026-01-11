@@ -935,18 +935,19 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
   ; (standard-customer-page (:title "Welcome to DAS Platform")
     (if company-list 
-	(cl-who:htm (:div :class "row-fluid"	  (mapcar (lambda (cmp)
-						      (cl-who:htm 
-						       (:form :method "POST" :action "dodvendaddtenantaction" :id "dodvendaddtenantform" 
-							      (:div :class "col-sm-4 col-lg-3 col-md-4"
-								    (:div :class "form-group"
-									  (:input :class "form-control" :name "cname" :type "hidden" :value (cl-who:str (format nil "~A" (slot-value cmp 'name)))))
-								    
-								    (:div :class "form-group"
-									  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A" (slot-value cmp 'name)))))))))  company-list)))
-	;else
+	(cl-who:htm (:div :class "row-fluid"
+			  (mapcar (lambda (cmp)
+				    (cl-who:htm 
+				     (:form :method "POST" :action "dodvendaddtenantaction" :id "dodvendaddtenantform" 
+					    (:div :class "col-sm-4 col-lg-3 col-md-4"
+						  (:div :class "form-group"
+							(:input :class "form-control" :name "cname" :type "hidden" :value (cl-who:str (format nil "~A" (slot-value cmp 'name)))))
+						  
+						  (:div :class "form-group"
+							(:button :class "btn btn-lg btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A" (slot-value cmp 'name)))))))))  company-list)))
+					;else
 	(cl-who:htm (:div :class "col-sm-12 col-md-12 col-lg-12"
-	      (:h3 "No records found"))))))
+			  (:h3 "No records found"))))))
 
 (defun dod-controller-vend-add-tenant-action ()
   (with-vend-session-check
@@ -954,69 +955,82 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (company (select-company-by-name cname)))
       (create-vendor-tenant (get-login-vendor) "N"  company))))
 
+
 (defun dod-controller-vendor-add-product-page ()
-  (with-vend-session-check 
-    (let ((catglist (hhub-get-cached-product-categories))
-	  (charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
-      (with-standard-vendor-page "Welcome to DAS Platform- Your Demand And Supply destination."
-	(with-html-div-row
-	  (with-html-div-col-3 "")
-	  (with-html-div-col-6
-	    (with-html-form-having-submit-event "form-vendorprodadd" "dodvenaddproductaction"
-	      (:div :class "account-wall" 
-		    (:img :class "profile-img" :src "/img/logo.png" :alt "")
-		    (:h1 :class "text-center login-title"  "Add new product")
-		    (with-html-custom-checkbox "isserviceproduct" "N" "This is a Service" nil)
-		    (:div :class "form-group"
-			  (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :type "text" ))
-		    (:div :class "form-group"
-			  (:label :for "description")
-			  (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :rows "5" :onkeyup (format nil "countChar(~A.id, this, 1000)" charcountid1)))
-		    (:div :class "form-group" :id charcountid1)
-		    (with-html-input-text-hidden "prd-id" "0") ;; we are adding a new product hence prd-id is 0
-		    (:div :class "form-group"
-			  (:input :class "form-control" :name "prdprice" :placeholder "Price"  :type "text" :min "0.00" :max "10000.00" :step "0.01" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :name "unitsinstock" :placeholder "Units In Stock"  :type "number" :min "1" :max "10000" :step "1" ))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :name "qtyperunit" :placeholder "Qty Per Unit"  :type "number" :min "1" :max "10000" :step "1" ))
-		    (:div :class "form-group"
-			  (:label :for "unitofmeasure" "Unit Of Measure")
-			  (with-html-dropdown "unitofmeasure" (get-system-UOM-map) "KG"))
-		    (:a :data-bs-toggle "modal" :data-bs-target (format nil "#generatesku-modal")  :href "#"  (:i :class "fa-solid fa-wand-magic-sparkles"))
-		    (modal-dialog-v2 (format nil "generatesku-modal") "SKU Generator" (modal.generate-sku-dialog))
-		    (:div :class "form-group"
-			  (:input :class "form-control" :name "sku" :placeholder "SKU" :value "000000" :type "text" ))
-		    (:div :class "form-group"
-			       (:input :class "form-control" :name "hsncode" :placeholder "HSN Code" :type "text" ))
-		    (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
-			   (ui-list-prod-catg-dropdown catglist nil))
-		    (:br) 
-		    (:div :class "form-group" (:label :for "yesno" "Enable Subscription")
-			  (ui-list-yes-no-dropdown "N"))
-		    (:div :class "form-group" (:label :for "prodimage" "Select Product Image:")
-			  (:input :class "form-control" :name "prodimage" :placeholder "Product Image" :type "file" ))
-		    (:div :class "form-group"
-			  (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))))
+  (with-vend-session-check
+    (with-mvc-ui-page "Add New Product/Service" #'createmodelforvendoraddnewproduct #'createwidgetsforvendoraddnewproduct :role :vendor)))
+
+(defun createmodelforvendoraddnewproduct ()
+  (let ((catglist (hhub-get-cached-product-categories))
+	(charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
+    (function (lambda ()
+      (values catglist charcountid1)))))
+
+(defun createwidgetsforvendoraddnewproduct (modelfunc)
+  (multiple-value-bind (catglist charcountid1) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (with-html-div-row
+			 (with-html-div-col-12
+			   (:img :class "profile-img" :src "/img/logo.png" :alt "")
+			   (:h1 :class "text-center login-title"  "Add new product")
+			   (with-html-form-having-submit-event "form-vendorprodadd" "dodvenaddproductaction"
+			     (:div :class "form-group"
+				   (:input :class "form-control" :name "prdname" :placeholder "Enter Product Name ( max 30 characters) " :required t :type "text" ))
+			     (:div :class "form-group"
+				   (:label :for "description")
+				   (:textarea :class "form-control" :name "description" :placeholder "Enter Product Description ( max 1000 characters) "  :required t :rows "5" :onkeyup (format nil "countChar(~A.id, this, 1000)" charcountid1)))
+			     (:div :class "form-group" :id charcountid1)
+			     (with-html-input-text-hidden "prd-id" "0") ;; we are adding a new product hence prd-id is 0
+			     (:div :class "form-group"
+				   (:label :for "prdprice" "Product Price")
+				   (:input :class "form-control" :id "prdprice" :name "prdprice" :placeholder "Price" :required t :value 1.00 :type "number" :min "0.00" :max "10000.00" :step "0.01" ))
+			     (:div :class "form-group"
+				   (:label :for "unitsinstock" "Units In Stock")
+				   (:input :class "form-control" :id "unitsinstock" :name "unitsinstock" :placeholder "Units In Stock"  :value "100" :type "number" :min "1" :max "10000" :step "1" ))
+			     (:div :class "form-group"
+				   (:label :for "qtyperunit" "Quantity Per Unit")
+				   (:input :class "form-control" :id "qtyperunit" :name "qtyperunit" :placeholder "Qty Per Unit"  :value 1 :type "number" :min "1" :max "10000" :step "1" ))
+			     (:div :class "form-group"
+				   (:label :for "unitofmeasure" "Unit Of Measure")
+				   (with-html-dropdown "unitofmeasure" (get-system-UOM-map) "KG"))
+			     (:a :data-bs-toggle "modal" :data-bs-target (format nil "#generatesku-modal")  :href "#"  (:i :class "fa-solid fa-wand-magic-sparkles"))
+			     
+			     (:div :class "form-group"
+				   (:label :for "sku" "SKU")
+				   (:input :class "form-control" :id "sku" :name "sku" :placeholder "SKU" :value "000000" :type "text" ))
+			     (:div :class "form-group"
+				      (:label :for "hsncode" "HSN/SAC Code")
+				   (:input :class "form-control" :id "hsncode" :name "hsncode" :placeholder "HSN Code" :value "000000" :type "text" ))
+			     (:div  :class "form-group" (:label :for "prodcatg" "Select Produt Category:" )
+				    (ui-list-prod-catg-dropdown catglist nil))
+			     (:div :class "form-group" (:label :for "yesno" "Enable Subscription")
+				   (ui-list-yes-no-dropdown "N"))
+			     (:div :class "form-group"
+				   (with-html-custom-checkbox "isserviceproduct" "N" "Mark as Service Product" nil))
+			     (:div :class "form-group"
+				   (:input :class "btn btn-lg btn-primary btn-block" :name "submit" :type "submit" :value "Save")))
+			   (modal-dialog-v2 (format nil "generatesku-modal") "SKU Generator" (modal.generate-sku-dialog)))))))))
+      (list widget1))))
+
 
 
 (defun modal.generate-sku-dialog ()
   (cl-who:with-html-output (*standard-output* nil)
-    (with-html-form "skuGeneratorForm" nil
-      (:div :class "input-group"
-	    (with-html-input-text "productName" "Product Name" "Enter Product Name" "" T "Enter Product Name" 1))
-      (:div :class "input-group"
-	    (with-html-input-text "productDescription" "Product Description" "Enter Product Description" "" T "Enter Product Description" 2))
-      (:div :class "input-group"
-	    (with-html-input-number "qtyperunit" "Qty Per Unit" "Quantity Per Unit" "" 1 10000 t "Enter a number" 3)) 
-      (:div :class "form-group"
-	    (:label :for "unitofmeasure" "Unit Of Measure")
-	    (with-html-dropdown "unitOfMeasure" (get-system-UOM-map) "KG"))
-      (:div :class "input-group"
-	    (with-html-input-text-readonly "generatedSku" "Generated SKU" "Generated SKU" "" T "Generated SKU" 3))
-      (:button :class "btn btn-outline-secondary mr-1" :type "button" :id "copySkuBtn" (:i :class "fa fa-clipboard") "&nbsp;Copy&nbsp;")
-      (:button :class "btn btn-primary" :type "button" :id "generateSkuBtn" "Generate SKU")
-      (:script :src (format nil "~A/js/gensku.js" *siteurl*)))))
+    (:div :class "input-group"
+	  (with-html-input-text "productName" "Product Name" "Enter Product Name" "" T "Enter Product Name" 1))
+    (:div :class "input-group"
+	  (with-html-input-text "productDescription" "Product Description" "Enter Product Description" "" T "Enter Product Description" 2))
+    (:div :class "input-group"
+	  (with-html-input-number "qtyperunit" "Qty Per Unit" "Quantity Per Unit" "" 1 10000 t "Enter a number" 3)) 
+    (:div :class "form-group"
+	  (:label :for "unitofmeasure" "Unit Of Measure")
+	  (with-html-dropdown "unitOfMeasure" (get-system-UOM-map) "KG"))
+    (:div :class "input-group"
+	  (with-html-input-text-readonly "generatedSku" "Generated SKU" "Generated SKU" "" T "Generated SKU" 4))
+  (:button :class "btn btn-outline-secondary mr-1" :type "button" :id "copySkuBtn" (:i :class "fa fa-clipboard") "&nbsp;Copy&nbsp;")
+  (:button :class "btn btn-primary" :type "button" :id "generateSkuBtn" "Generate SKU")
+  (:script :src (format nil "~A/js/gensku.js" *siteurl*))))
 
 
 (defun vendor-upload-file-s3bucket (filename objectname object-id vendor-id tenant-id)
@@ -1118,6 +1132,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(setf params (acons "mode" "edit" params))
 	;;else
 	(setf params (acons "mode" "add" params)))
+
     (setf params (acons "company" company params))
     (setf params (acons "vendor" vendor params))
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
