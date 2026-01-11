@@ -265,6 +265,7 @@
 				    :approved-flag "N"
 				    :approval-status "PENDING"
 				    :prd-type prd-type
+				    :product-code (format nil "PRD-~A" (hhub-random-password 10))
 				    :deleted-state "N")))
 
 (defun create-bulk-products (modelfunc)
