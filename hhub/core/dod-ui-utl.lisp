@@ -56,7 +56,7 @@ Returns a list of widget outputs."
 		   :image-src "/img/logo.png"
 		   :image-alt (format nil "~A Login" persona)
 		   :image-style "width: 200px; height: 200px;")
-		(:form :class "form-custsignin" :role "form" :method "POST" :action formaction :data-toggle "validator"
+		(:form :class "form-custsignin" :role "form" :method "POST" :action formaction 
 		       (:div :class "form-group"
 			     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true"))
 		       (:div :class "form-group"
@@ -125,13 +125,19 @@ Returns a list of widget outputs."
       (:a :data-bs-toggle "modal" :data-bs-target (format nil "#~A-modal" name)  :href "#" (funcall linkhtmlfunc))
       (modal-dialog-v2 (format nil "~A-modal" name) dialogheadertext (funcall modalfunc)))))
 
-
 (eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-form-having-submit-event ( form-name form-action  &body body) 
-    :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js. Use this macro when you have individual form which needs submit event."  
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:form :class ,form-name :id (format nil "id~A" ,form-name) :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
-	      ,@body)
+  (defmacro with-html-form-having-submit-event (form-name form-action &body body)
+    :documentation "Updated to support Vanilla JS checkValidity validation"
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:form :class ,form-name 
+              :id (format nil "id~A" ,form-name) 
+              :name ,form-name 
+              :method "POST" 
+              :action ,form-action 
+              :novalidate "novalidate" ;; Prevents default browser bubbles
+              :role "form" 
+              :enctype "multipart/form-data"
+              ,@body)
        (submitformevent-js (format nil "#id~A" ,form-name)))))
 
 
@@ -492,8 +498,7 @@ Returns a list of widget outputs."
 		(:script :src "https://ajax.googleapis.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" :integrity "sha256-lSjKY0/srUM9BE3dPm+c4fBo1dky2v27Gdjm2uoZaL0=" :crossorigin "anonymous")
 		;;(:script :src "/js/spin.min.js")
 		(:script :src "/js/nine-spinner.js")
-		(:script :src "https://www.google.com/recaptcha/api.js")
-		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.9/validator.min.js"))
+		(:script :src "https://www.google.com/recaptcha/api.js"))
 		;; header completes here.
 	        (:body
 		 (:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-lumn-295771.jpg) no-repeat center center; background-size: cover;" 
@@ -542,9 +547,8 @@ Returns a list of widget outputs."
 		(:script :src "/js/nine-spinner.js")
 		;;(:script :src "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js")
 		(:script :src "/js/bs5.3/js/bootstrap.bundle.min.js")
-		(:script :src "https://www.google.com/recaptcha/api.js")
-		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js"))
-	       ;; header completes here.
+		(:script :src "https://www.google.com/recaptcha/api.js"))
+		;; header completes here.
 	       (:body 
 		(:div :id "dod-main-container"
 		      :class "min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#3b82f6] d-flex flex-column"
@@ -638,9 +642,7 @@ Returns a list of widget outputs."
 		(:script :src "/js/nine-spinner.js")
 		(:script :src "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js")
 		;;(:script :src "/js/bs5.3/js/bootstrap.bundle.min.js")
-		(:script :src "https://www.google.com/recaptcha/api.js")
-		(:script :src "https://cdnjs.cloudflare.com/ajax/libs/1000hz-bootstrap-validator/0.11.8/validator.min.js")
-		) ;; header completes here.
+		(:script :src "https://www.google.com/recaptcha/api.js")) ;; header completes here.
 	       (:body
 		(:div :class "container-fluid" :id "dod-main-container" :style "background: url(../img/pexels-lumn-295771.jpg) no-repeat center center; background-size: cover;" 
 		       (:a :id "scrollup" "" )
@@ -976,10 +978,10 @@ individual tiles. It also supports search functionality by including the searchr
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form (form-name form-action  &body body) 
-    :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements. This macro supports validator.js. To have submit form event for this form create it outside the macro."  
+    :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements."
     `(let ((formid (format nil "id~A~A" ,form-name (hhub-random-password 3))))
        (cl-who:with-html-output (*standard-output* nil) 
-	 (:form :class ,form-name :id formid :name ,form-name  :method "POST" :action ,form-action :data-toggle "validator" :role "form" :enctype "multipart/form-data" 
+	 (:form :class ,form-name :id formid :name ,form-name  :method "POST" :action ,form-action :novalidate "novalidate" :role "form" :enctype "multipart/form-data" 
 		,@body)))))
 
 

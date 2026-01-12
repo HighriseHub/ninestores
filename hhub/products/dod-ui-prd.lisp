@@ -393,6 +393,8 @@
   (let* ((prd-id (slot-value product-instance 'row-id))
 	 (active-flag (slot-value product-instance 'active-flag))
 	 (external-url (slot-value product-instance 'external-url))
+	 (prd-type (slot-value product-instance 'prd-type))
+	 (prdisservice-p (if (equal prd-type "SERV") T NIL))
 	 (shipping-weight-kg (slot-value product-instance 'shipping-weight-kg))
 	 (company (product-company product-instance))
 	 (currency (get-account-currency company))
@@ -428,15 +430,16 @@
 	  (cl-who:htm
 	   (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Copy External URL" 
 	     (:a :href "#" :OnClick (parenscript:ps (copy-to-clipboard (parenscript:lisp external-url))) (:i :class  "fa-solid fa-share-nodes")))))
-	
-	    (with-html-div-col-1  :data-bs-toggle "tooltip" :title "Shipping" 
-	      (if (and shipping-weight-kg (> shipping-weight-kg 0)) 
-		  (cl-who:htm
-		   (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck")))
-		  ;;else
-		  (cl-who:htm
-		   (:a :style "color:red;" :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck"))))
-	      (modal-dialog-v2 (format nil "dodprodshipping-modal~A" prd-id) "Shipping" (modal.vendor-product-shipping-html product-instance "EDIT")))
+	(with-html-div-col-1  :data-bs-toggle "tooltip" :title "Shipping" 
+	  (unless prdisservice-p ;; Display the shipping truck for SALE product type only. 
+	    (if (and shipping-weight-kg (> shipping-weight-kg 0)) 
+		(cl-who:htm
+		 (:a :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck")))
+		;;else
+		(cl-who:htm
+		 (:a :style "color:red;" :data-bs-toggle "modal" :data-bs-target (format nil "#dodprodshipping-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-truck"))))
+	    (modal-dialog-v2 (format nil "dodprodshipping-modal~A" prd-id) "Shipping" (modal.vendor-product-shipping-html product-instance "EDIT"))))
+	    
 	(with-html-div-col-1  :data-bs-toggle "tooltip" :title "Discounts" 
 		(if product-pricing 
 		    (cl-who:htm

@@ -144,6 +144,11 @@
     :type (string 4)
     :void-value "SALE"
     :initarg :prd-type)
+
+   (product-code
+    :type (string 50) 
+    :void-value (format nil "NST-~A" (hhub-random-password 10))
+    :initarg :product-code)
    
    (tenant-id
     :type integer

@@ -823,20 +823,28 @@ const registerforsubmitformevent = (component) => {
 };
 
 
-function submitformandredirect (theForm){
+function submitformandredirect(theForm) {
+    // 1. Get the raw HTML form element if 'theForm' is a jQuery object
+    const formElement = $(theForm)[0];
+    // 2. Perform Vanilla JS validation check
+    if (!formElement.checkValidity()) {
+        // This triggers the browser's built-in error bubbles
+        formElement.reportValidity();
+        return; // Stop execution if form is invalid
+    }
+    // 3. If valid, proceed with your existing logic
     $(theForm).find("button[type='submit']").hide();
     ajaxCallParams.Type = "POST";
     ajaxCallParams.Url = $(theForm).attr("action");
-    ajaxCallParams.DataType = "HTML"; // Return data type e-g Html, Json etc                                                                                                                                    
-    ajaxDataParams  = $(theForm).serialize();
-    //  ajaxDataParams  = new FormData(theForm);
-    ajaxCall(ajaxCallParams, ajaxDataParams, function (data) { 
-	console.log("Form submitted");
-	if (data.includes("pdf"))
-	    window.open(data); 
-	else
-	    location.replace(data);
-	
+    ajaxCallParams.DataType = "HTML"; 
+    ajaxDataParams = $(theForm).serialize();
+    ajaxCall(ajaxCallParams, ajaxDataParams, function (data) {
+        console.log("Form submitted");
+        if (data.includes("pdf")) {
+            window.open(data);
+        } else {
+            location.replace(data);
+        }
     });
 }
 
@@ -852,8 +860,6 @@ function searchformsubmit (theForm, resultdiv){
 	$(resultdiv).html(data);
     });
 }
-
-
 
 $(".form-shopcart").on('submit', function (e){
     e.preventDefault();
