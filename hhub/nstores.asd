@@ -2,7 +2,7 @@
 ;; -*- Mode: LISP; Syntax: COMMON-LISP; Package: CL-USER; Base: 10 -*-
 ;;; $Header: hhub.asd,v 1.6 2016/06/26 18:31:03 
 
-;;; Copyright (c) 2016-2025, Nine Technologies.  All rights reserved.
+;;; Copyright (c) 2016-2026, Nine Technologies.  All rights reserved.
 
 ;;; Redistribution and use in source and binary forms, with or without
 ;;; modification, are permitted provided that the following conditions
