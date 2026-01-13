@@ -31,7 +31,7 @@
 		     "core/nst-bl-beltrusys.lisp" ;; Belnap 4 valued truth system; Syatvad in Jainism. 
 		     "core/nst-bl-conflodis.lisp" ;; Context Flow Dispatcher.
 		     "core/nst-bl-funloodat.lisp" ;; Function lookup data. 
-		     "core/nst-bl-prosymloo.lisp" ;; Project symbol lookup. 
+		     "core/nst-ui-prosymloo.lisp" ;; Project symbol lookup. 
 
 		     ;;"core/xref.lisp"
 		     
