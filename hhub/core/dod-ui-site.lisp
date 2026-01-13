@@ -18,7 +18,7 @@
 		    (:hr))
 	      (:div :class "row"
 		    (:div :class "col-lg-12" 
-			  (:p :class "copyright text-muted small" "Copyright &copy; Nine Stores 2025. All Rights Reserved.")))))))
+			  (:p :class "copyright text-muted small" "Copyright &copy; Nine Stores 2026. All Rights Reserved.")))))))
 ;;  (modal-dialog (format nil "hhubcookiepolicy-modal") "Accept Cookies" (modal.hhub-cookie-policy))))
 
 

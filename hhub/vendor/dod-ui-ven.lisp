@@ -1361,7 +1361,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			  ;;<!-- Alternative login -->
 			  
 			  ;;<!-- Footer -->
-		     (:footer :class "mt-8 text-xs text-gray-400" "&copy 2025 Nine Stores. All rights reserved.")))))
+		     (:footer :class "mt-8 text-xs text-gray-400" "&copy 2026 Nine Stores. All rights reserved.")))))
     (clsql:sql-database-data-error (condition)
       (when (equal (clsql:sql-error-error-id condition) 2013)
         (progn
