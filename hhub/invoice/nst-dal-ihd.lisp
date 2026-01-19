@@ -27,6 +27,10 @@
     :initarg :inivoiceitems
     :accessor invoiceitems
     :initform '())
+   (invoicetaxbreakdown
+    :initarg :invoicetaxbreakdown
+    :accessor invoicetaxbreakdown
+    :initform nil)
    (invoiceproducts
     :initarg :invoiceproducts
     :accessor invoiceproducts

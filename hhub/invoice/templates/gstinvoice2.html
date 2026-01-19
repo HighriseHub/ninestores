@@ -1,9 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GST Invoice</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -65,13 +59,12 @@
             color: #888;
         }
     </style>
-</head>
-<body>
-    <div class="invoice-container">
-        <div class="header">
-            <img src="amazon-logo-placeholder.png" alt="Amazon Logo">
-            <h1>Tax Invoice / Bill of Supply / Cash Memo</h1>
-        </div>
+
+<div class="invoice-container">
+  <div class="header">
+    <img src="amazon-logo-placeholder.png" alt="Amazon Logo">
+    <h1>Tax Invoice / Bill of Supply / Cash Memo</h1>
+  </div>
 
         <div class="section">
           <table>
@@ -83,7 +76,7 @@
 		<th colspan="3">Triplicate for Supplier</th>
               </tr>
 	    </thead>
-     
+	    <tbody>
                 <tr>
                   <td colspan="5"><strong>Sold By:</strong>%Vendor Name%<br>
                     %Vendor Address%<br>
@@ -102,6 +95,7 @@
                     <strong>State/UT Code:</strong>%Shipped to State%
                   </td>
                 </tr>
+	    </tbody>
           </table>
         </div>
 	
@@ -124,25 +118,46 @@
 
         <div class="items">
             <h2>Items</h2>
-            <table>
-	      <tr>
-		<th>Sr. No</th>
-		<th>Name of Product/Service</th>
-		<th>HSN/SAC</th>
-		<th>Qty Per Unit</th>
-		<th>Qty</th>
-		<th>Rate</th>
-		<th>Less: Discount%</th>
-		<th>Taxable Value</th>
-		<th>CGST</th>
-		<th>SGST</th>
-		<th>IGST</th>
-		<th>Total</th>
-              </tr>
-              <!-- Insert row data here-->
-	      %Invoice Items Rows%
-	    </table>
-        </div>
+	    <table>
+	      <thead>
+		<tr>
+		  <th>Sr. No</th>
+		  <th>Name of Product/Service</th>
+		  <th>HSN/SAC</th>
+		  <th>Qty Per Unit</th>
+		  <th>Qty</th>
+		  <th>Rate</th>
+		  <th>Less: Discount%</th>
+		  <th>Taxable Value</th>
+		  <th>CGST</th>
+		  <th>SGST</th>
+		  <th>IGST</th>
+		  <th>Total</th>
+		  <th>Actions</th>
+		</tr>
+	      </thead>
+	      <tbody>
+		%Invoice Items Rows%
+		<!--ROW_SNIPPET_BEGIN-->
+		<tr>
+		  <td>%srno%</td>
+		  <td>%row prddesc%</td>
+		  <td>%row hsncode%</td>
+		  <td>%row uom%</td>
+		  <td>%row qty%</td>
+		  <td>%row price%</td>
+		  <td>%row discount%</td>
+		  <td>%row taxable%</td>
+		  <td>%row cgst%</td>
+		  <td>%row sgst%</td>
+		  <td>%row igst%</td>
+		  <td>%row totalitemval%</td>
+		  <td>%row actions%</td>
+		</tr>
+		<!--ROW_SNIPPET_END-->
+	      </tbody>
+	      </table>
+	</div>
 
         <div class="summary">
             <table>
@@ -161,5 +176,3 @@
 	    <p>Terms and Conditions :%Terms and Conditions% </p>
         </div>
     </div>
-</body>
-</html>

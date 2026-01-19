@@ -1,0 +1,166 @@
+<style>
+        :root {
+            --border-grey: #bbbbbb;
+            --brand-red: #cc0000;
+        }
+
+        /* A5 Page Configuration */
+        @page {
+            size: A5;
+            margin: 0;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #e0e0e0;
+            margin: 0;
+            padding: 10px;
+            font-size: 11px;
+            color: #222;
+        }
+
+	.invoice-box {
+	    width: 148mm;
+	    min-height: 210mm; /* Fixed A5 height */
+	    margin: auto;
+	    background: #fff;
+	    padding: 8mm;
+	    box-sizing: border-box;
+	    border: 1px dotted var(--border-grey);
+	    /* Flexbox logic */
+	    display: flex;
+	    flex-direction: column;
+	}
+
+	/* 2. New Footer class that pushes itself to the bottom */
+	.invoice-footer {
+	    margin-top: auto; /* This is the magic line */
+	    text-align: center;
+	    border-top: 2px solid var(--brand-red);
+	    padding-top: 10px;
+	}
+	
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        td, th {
+            padding: 4px;
+            vertical-align: top;
+            border: 1px dotted var(--border-grey);
+        }
+
+        .no-border td { border: none; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .bold { font-weight: bold; }
+
+        /* Brand Styling */
+        .brand-header {
+            color: var(--brand-red);
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        /* GST Breakdown Table specific styling */
+        .gst-table th {
+            background-color: #f9f9f9;
+            font-size: 10px;
+        }
+
+        /* Mobile Responsiveness */
+        @media screen and (max-width: 150mm) {
+            .invoice-box {
+                width: 100%;
+                padding: 5mm;
+            }
+            .responsive-scroll {
+                overflow-x: auto;
+                display: block;
+            }
+        }
+
+        @media print {
+            body { background: none; padding: 0; }
+            .invoice-box { border: 1px dotted var(--border-grey); box-shadow: none; }
+        }
+    </style>
+
+
+<div class="invoice-box">
+    <div class="text-center bold" style="margin-bottom: 5px;">TAX INVOICE</div>
+    
+    <table class="no-border">
+        <tr>
+            <td style="width: 55%;">
+                <span class="brand-header">%Vendor Name%</span><br>
+                %Vendor Address%,<br>
+		%Vendor Phone%,<br>
+		%Vendor Email%,<br>
+		<span class="bold">GSTIN: %Vendor GST%</span>
+            </td>
+            <td style="width: 45%;" class="text-right">
+                INV No: <span class="bold">%Invoice Number%</span><br>
+                Date: %Invoice Date%<br>
+                
+            </td>
+        </tr>
+    </table>
+
+    <div class="responsive-scroll">
+      <table>
+	<thead>
+	  <tr>
+	    <th>Sr. No</th>
+	    <th>Description</th>
+	    <th>HSN/SAC</th>
+	    <th>Qty Per Unit</th>
+	    <th>Qty</th>
+	    <th>Rate</th>
+	    <th>Total</th>
+	    <th>Actions</th>
+	  </tr>
+	</thead>
+	<tbody>
+	  %Invoice Items Rows%
+	  <!--ROW_SNIPPET_BEGIN-->
+	  <tr>
+	    <td>%srno%</td>
+	    <td>%row prddesc%</td>
+	    <td>%row hsncode%</td>
+	    <td>%row uom%</td>
+	    <td>%row qty%</td>
+	    <td>%row price%</td>
+	    <td>%row totalitemval%</td>
+	    <td>%row actions%</td>
+	  </tr>
+	  <!--ROW_SNIPPET_END-->
+	</tbody>
+      </table>
+    </div>
+    <div class="bold" style="margin-top: 15px; margin-bottom: 5px;">GST Tax Breakdown:</div>
+    %GST Tax Breakdown%
+    
+    
+    <table class="no-border" style="margin-top: 10px;">
+        <tr>
+            <td style="width: 70%;" class="text-right bold">GRAND TOTAL:</td>
+            <td style="width: 30%; font-size: 16px;" class="text-right bold"> %Total After Tax%</td>
+        </tr>
+    </table>
+
+    <div style="margin-top: 10px;">
+        <span class="bold">Amount in Words:</span><br>
+        %Total in Words%  
+    </div>
+
+    <div class="invoice-footer">
+        <span class="bold" style="color: var(--brand-red);">Thank you, Visit Again</span><br>
+        Mob: %Vendor Phone% | <span class="bold">%Vendor Email%</span><br>
+        <p style="font-size: 9px; margin-top: 10px; color: #555;">
+           %Terms and Conditions%
+        </p>
+    </div>
+</div>

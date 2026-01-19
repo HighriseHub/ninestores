@@ -93,10 +93,11 @@
 
 
 (defun search-item-in-list (key value list)
-  (if (equal value (slot-value (car list) key))
-      (car list)
-      ;;else
-      (search-item-in-list key value (cdr list))))
+  (find value list 
+        :test #'equal 
+        :key (lambda (item) (slot-value item key))))
+
+
 
 (defun filter-products-by-category (category-id list)
   (remove nil (mapcar (lambda (item)
