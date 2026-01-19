@@ -1,0 +1,159 @@
+<style>
+  /* Base Printer Settings */
+  @media print {
+      @page {
+          size: 80mm auto;
+          margin: 0;
+      }
+      body {
+          margin: 0;
+          padding: 0;
+      }
+      .no-print {
+          display: none;
+            }
+  }
+  
+  /* Styling for 80mm width */
+  body {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 10pt;
+      background-color: #eee;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+  }
+  
+  .invoice-box {
+      width: 80mm;
+      background: #fff;
+      padding: 3mm;
+      box-sizing: border-box;
+      min-height: 100vh;
+  }
+  
+  /* Typography & Helpers */
+  .text-center { text-align: center; }
+  .text-right { text-align: right; }
+  .bold { font-weight: bold; }
+  .brand-header { font-size: 14pt; font-weight: bold; display: block; }
+  
+  /* Table Formatting */
+  table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 5px;
+  }
+  
+  /* Make the multi-column table readable on narrow paper */
+  th, td {
+      text-align: left;
+      padding: 2px 0;
+      font-size: 9pt; /* Smaller font for dense data */
+  }
+  
+  thead th {
+      border-bottom: 1px dashed #000;
+      border-top: 1px dashed #000;
+  }
+  
+  .no-border td { border: none; }
+  
+  /* Footer & Extra Info */
+  .invoice-footer {
+      margin-top: 15px;
+      text-align: center;
+      border-top: 1px dashed #000;
+      padding-top: 10px;
+  }
+  
+        /* Screen-only Print Button */
+  .print-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background: #d32f2f;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+  }
+</style>
+
+<button class="print-btn no-print" onclick="window.print()">Print Invoice</button>
+
+<div class="invoice-box">
+    <div class="text-center bold" style="margin-bottom: 5px;">TAX INVOICE</div>
+    
+    <table class="no-border">
+        <tr>
+            <td style="width: 100%;">
+                <span class="brand-header">%Vendor Name%</span>
+                %Vendor Address%,<br>
+                %Vendor Phone%,<br>
+                %Vendor Email%,<br>
+                <span class="bold">GSTIN: %Vendor GST%</span>
+            </td>
+        </tr>
+        <tr>
+            <td style="width: 100%; border-top: 1px dashed #000; padding-top: 5px;">
+                INV No: <span class="bold">%Invoice Number%</span><br>
+                Date: %Invoice Date%
+            </td>
+        </tr>
+    </table>
+
+    <div class="responsive-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Desc</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                %Invoice Items Rows%
+		 <!--ROW_SNIPPET_BEGIN-->    
+		<tr>
+                    <td colspan="4" style="padding-top: 5px;">%srno%. %row prddesc%</td>
+                </tr>
+                <tr>
+                    <td><small>%row hsncode%</small></td>
+                    <td>%row qty% %row uom%</td>
+                    <td>%row price%</td>
+                    <td class="text-right">%row totalitemval%</td>
+                </tr>
+		 <!--ROW_SNIPPET_END-->  
+                </tbody>
+        </table>
+    </div>
+
+    <div class="bold" style="margin-top: 10px; border-top: 1px solid #000;">GST Tax Breakdown:</div>
+    <div style="font-size: 9pt;">%GST Tax Breakdown%</div>
+
+    <table class="no-border" style="margin-top: 10px; border-top: 1px double #000;">
+        <tr>
+            <td class="text-right bold" style="font-size: 12pt;">GRAND TOTAL:</td>
+            <td class="text-right bold" style="font-size: 14pt;"> %Total After Tax%</td>
+        </tr>
+    </table>
+
+    <div style="margin-top: 10px; font-size: 9pt;">
+        <span class="bold">Amount in Words:</span><br>
+        %Total in Words%
+    </div>
+
+    <div class="invoice-footer">
+        <span class="bold">Thank you, Visit Again</span><br>
+        Mob: %Vendor Phone%<br>
+        <span class="bold">%Vendor Email%</span>
+        <p style="font-size: 8pt; margin-top: 10px; color: #555;">
+            %Terms and Conditions%
+        </p>
+    </div>
+</div>
+

@@ -6,6 +6,59 @@
 ;; DO NOT COMPILE THIS FILE USING CTRL + C CTRL + K (OR CTRL + CK)
 ;; DO NOT ADD THIS FILE TO COMPILE.LISP FOR MASS COMPILATION. 
 
+;; 1. The Key Helper (to ensure consistency across methods)
+(defun %get-breakdown-key (item)
+  (format nil "~A-~A-~A-~A" 
+          (hsncode item) (cgstrate item) (sgstrate item) (igstrate item)))
+
+;; 2. Remove Method
+(defmethod remove-item-from-tax-breakdown ((breakdown gst-breakdown) (item InvoiceItem))
+  "Reduces totals for the specific HSN/Rate. If totals hit zero, removes the entry."
+  (let* ((key (%get-breakdown-key item))
+         (entry (gethash key (entries breakdown))))
+    (when entry
+      ;; Subtract values
+      (decf (taxable-value entry) (taxablevalue item))
+      (decf (cgst-amount entry)   (cgstamt item))
+      (decf (sgst-amount entry)   (sgstamt item))
+      (decf (igst-amount entry)   (igstamt item))
+      
+      ;; Clean up: If taxable value is 0 (or near zero due to float precision), 
+      ;; remove the row from the summary
+      (when (<= (taxable-value entry) 0.01)
+        (remhash key (entries breakdown))))))
+
+;; 3. Update Method
+(defmethod update-item-in-tax-breakdown ((breakdown gst-breakdown) (old-item InvoiceItem) (new-item InvoiceItem))
+  "Updates the breakdown by removing the old item data and adding the new item data.
+   This handles cases where the HSN or Tax Rate might have changed."
+  (remove-item-from-tax-breakdown breakdown old-item)
+  (add-item-to-tax-breakdown breakdown new-item))
+
+;; 4. Modified Add Method (using the new key helper)
+(defmethod add-item-to-tax-breakdown ((breakdown gst-breakdown) (item InvoiceItem))
+  (let* ((key (%get-breakdown-key item))
+         (entry (gethash key (entries breakdown)
+                         (make-instance 'tax-entry 
+                                        :hsn-code (hsncode item)
+                                        :cgst-rate (cgstrate item)
+                                        :sgst-rate (sgstrate item)
+                                        :igst-rate (igstrate item)))))
+    (incf (taxable-value entry) (taxablevalue item))
+    (incf (cgst-amount entry)   (cgstamt item))
+    (incf (sgst-amount entry)   (sgstamt item))
+    (incf (igst-amount entry)   (igstamt item))
+    (setf (gethash key (entries breakdown)) entry)))
+
+
+
+
+(defmethod get-sorted-summary ((breakdown gst-breakdown))
+  "Converts hash table to a list sorted by HSN for consistent printing."
+  (let ((result nil))
+    (maphash (lambda (k v) (declare (ignore k)) (push v result)) 
+             (entries breakdown))
+    (sort result #'string< :key #'hsn-code)))
 
 
 (defun select-all-invoice-items (invoiceheader company)
@@ -19,6 +72,10 @@
 		  [= [:tenant-id] tenant-id]]
 		    :limit 100
 		    :caching *dod-database-caching* :flatp t )))
+
+;; If you specifically want to search by prd-id
+(defun find-invoice-item (prd-id items)
+  (find prd-id items :key #'prd-id :test #'equal))
 
 (defun select-invoice-item-by-product-id (product-id invoiceheader company)
   :documentation "This function stores all the currencies in a hashtable. The Key = country, Value = list of currency, code and symbol."

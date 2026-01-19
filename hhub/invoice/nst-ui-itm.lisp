@@ -62,9 +62,6 @@
       (list widget1 widget2 widget3))))
 
 
-(defun create-widgets-for-updateInvoiceItem (modelfunc)
-:description "This is a widgets function for update InvoiceItem entity"      
-  (funcall #'create-widgets-for-genericredirect modelfunc))
 
 (defmethod RenderListViewHTML ((htmlview InvoiceItemHTMLView) viewmodellist)
   :description "This is a HTML View rendering function for InvoiceItem entities, which will display each InvoiceItem entity in a row"
@@ -114,6 +111,9 @@
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
+	 (sessioninvitems (slot-value sessioninvoice 'InvoiceItems))
+	 (old-invoiceitem (find-invoice-item prd-id sessioninvitems))
+	 (sessioninvtaxbreakdown (slot-value sessioninvoice 'invoicetaxbreakdown))
 	 (price (float (with-input-from-string (in (hunchentoot:parameter "price"))
 		   (read in))))
 	 (discount (float (with-input-from-string (in (hunchentoot:parameter "discount"))
@@ -153,9 +153,10 @@
     (setf params (acons "uri" (hunchentoot:request-uri*)  params))
     (with-hhub-transaction "com-hhub-transaction-update-invoiceitem-action" params 
      ;; (handler-case 
-	  (let ((domainobj (if (> prdqty 0 ) (ProcessUpdateRequest adapterobj requestmodel))))
-	    (function (lambda ()
-	      (values redirectlocation domainobj)))))))
+      (let ((domainobj (if (> prdqty 0 ) (ProcessUpdateRequest adapterobj requestmodel))))
+	(update-item-in-tax-breakdown sessioninvtaxbreakdown old-invoiceitem domainobj)
+	(function (lambda ()
+	  (values redirectlocation domainobj)))))))
 	;;(error (c)
 	 ;;(error 'hhub-business-function-error :errstring (format t "got an exception ~A" c)))))))
 
@@ -241,6 +242,7 @@
     (display-as-table (list "Product" "HSN Code" "UOM" "Qty" "Rate" "Amount" "Less:Discount" "Taxable Value" "CGST" "SGST" "IGST" "Total") viewmodellist 'display-InvoiceItem-row)))
 
 
+
 (defun display-invoice-item-row (invitem invoicepaid-p sessioninvkey)
   (cl-who:with-html-output (*standard-output* nil)
     (with-slots (prd-id prddesc hsncode qty uom price discount  taxablevalue  cgstamt  sgstamt  igstamt totalitemval) invitem
@@ -281,10 +283,47 @@
        (:td :height "10px" (cl-who:str totalitemval))))))
 
 
+
+(defun generate-invoice-items-rows (items-list invoicepaid-p sessioninvkey raw-template)
+  "Extracts the row sub-template and repeats it for every item."
+  (let* ((row-regex "(?s)<!--ROW_SNIPPET_BEGIN-->(.*?)<!--ROW_SNIPPET_END-->")
+         (row-sub-template (cl-ppcre:register-groups-bind (snippet) (row-regex raw-template) snippet)))
+    (if (not row-sub-template)
+        (error "Could not find <!--ROW_SNIPPET_BEGIN--> markers in the template.")
+	(function (lambda ()
+	  (cl-who:with-html-output-to-string (*standard-output* nil)
+            (loop for invitem in items-list 
+                  for count from 1 do
+		    (let ((processed-row row-sub-template))
+		      (with-slots (prd-id prddesc hsncode qty uom price discount  taxablevalue  cgstamt  sgstamt  igstamt totalitemval) invitem
+			;; Serial number
+			(setf processed-row (cl-ppcre:regex-replace-all "%srno%" processed-row (format nil "~A" count)))
+			;; Use your specific %row ...% format
+			(setf processed-row (cl-ppcre:regex-replace-all "%row prddesc%" processed-row (or prddesc "")))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row hsncode%" processed-row (or hsncode "")))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row uom%" processed-row (or uom "")))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row qty%" processed-row (format nil "~A" qty)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row price%" processed-row (format nil "~,2F" price)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row discount%" processed-row (format nil "~,2F" (or discount 0))))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row taxable%" processed-row (format nil "~,2F" taxablevalue)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row cgst%" processed-row (format nil "~,2F" cgstamt)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row sgst%" processed-row (format nil "~,2F" sgstamt)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row igst%" processed-row (format nil "~,2F" igstamt)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row totalitemval%" processed-row (format nil "~,2F" totalitemval)))
+			(unless invoicepaid-p
+			  (setf processed-row (cl-ppcre:regex-replace-all "%row actions%" processed-row 
+									  (cl-who:with-html-output-to-string (*standard-output* nil)
+									    (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#editInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-pencil") "&nbsp;&nbsp;")
+									    (modal-dialog-v2 (format nil "editInvoiceItem-modal~A" prd-id) "Add/Edit InvoiceItem" (edit-invoiceitem-dialog invitem sessioninvkey))
+									    (:a :class "no-print" :data-bs-toggle "modal" :data-bs-target (format nil "#deleteInvoiceItem-modal~A" prd-id) (:i :class "fa-solid fa-trash-can") "&nbsp;&nbsp;")
+									    (modal-dialog-v2 (format nil "deleteInvoiceItem-modal~A" prd-id) "Delete InvoiceItem" (delete-invoiceitem-dialog invitem sessioninvkey))))))
+			(cl-who:str processed-row))))))))))
+
+
 (defun invoicetemplatefillitemrows (sessioninvitems invoicepaid-p sessioninvkey)
   (function (lambda ()
     (cl-who:with-html-output-to-string (*standard-output* nil)
-	(let ((incr (let ((count 0)) (lambda () (incf count)))))
+      (let ((incr (let ((count 0)) (lambda () (incf count)))))
 	  (mapcar (lambda (item) (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (display-invoice-item-row item invoicepaid-p sessioninvkey))))  sessioninvitems))))))
 
 (defun invoicetemplatefillitemrowspublic (sessioninvitems)
@@ -296,9 +335,9 @@
 
 (defun com-hhub-transaction-update-invoiceitem-action ()
   :description "This is the MVC function to update action for InvoiceItem entity"
-  (with-vend-session-check ;; delete if not needed. 
-    (let ((url (with-mvc-redirect-ui  #'create-model-for-updateInvoiceItem #'create-widgets-for-updateInvoiceItem)))
-      (format nil "~A" url))))
+  (with-vend-session-check 
+    (with-mvc-redirect-ui  #'create-model-for-updateInvoiceItem #'create-widgets-for-genericredirect)))
+    
 
 
 (defun com-hhub-transaction-create-InvoiceItem-action ()
@@ -313,8 +352,8 @@
 (defun com-hhub-transaction-delete-invoiceitem-action ()
   :description "This is a MVC function for delete InvoiceItem entity"
   (with-vend-session-check ;; delete if not needed. 
-    (let ((url (with-mvc-redirect-ui  #'create-model-for-deleteinvoiceitem #'create-widgets-for-deleteinvoiceitem)))
-      (format nil "~A" url))))
+    (with-mvc-redirect-ui  #'create-model-for-deleteinvoiceitem #'create-widgets-for-genericredirect)))
+    
 
 (defun create-model-for-deleteinvoiceitem ()
   (let* ((company (get-login-vendor-company))
@@ -326,6 +365,8 @@
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
 	 (sessioninvitems (slot-value sessioninvoice 'InvoiceItems))
+	 (sessioninvtaxbreakdown (slot-value sessioninvoice 'invoicetaxbreakdown))
+	 (itemtodelete (find-invoice-item prd-id sessioninvitems))
 	 (sessioninvproducts (slot-value sessioninvoice 'InvoiceProducts))
 	 (requestmodel (make-instance 'InvoiceItemRequestModel
 					 :InvoiceHeader sessioninvheader
@@ -342,14 +383,12 @@
 	  (let ((domainobj (ProcessDeleteRequest adapterobj requestmodel)))
 	    (setf (slot-value sessioninvoice 'InvoiceItems) (delete domainobj sessioninvitems))
 	    (setf (slot-value sessioninvoice 'invoiceproducts) (delete product sessioninvproducts))
+	    (remove-item-from-tax-breakdown sessioninvtaxbreakdown itemtodelete)
 	    (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
      	    (function (lambda ()
-	      (values redirectlocation domainobj)))))))
+	      (values redirectlocation)))))))
 	;;(error (c)
 	;; (error 'hhub-business-function-error :errstring (format t "~A:got an exception ~A" (mysql-now)  c)))))))
   
 
-(defun create-widgets-for-deleteinvoiceitem (modelfunc)
-  (funcall #'create-widgets-for-genericredirect modelfunc))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

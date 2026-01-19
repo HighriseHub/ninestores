@@ -125,6 +125,8 @@
 (defvar *NST-INVOICESETTINGS-YAMLFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicesettings.yaml")
 (defvar *NST-GSTINVOICE-TEMPLATEFILE-1* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice1.html")
 (defvar *NST-GSTINVOICE-TEMPLATEFILE-2* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice2.html")
+(defvar *NST-GSTINVOICE-TEMPLATEFILE-3* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice3A5.html")
+(defvar *NST-GSTINVOICE-TEMPLATEFILE-4* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice480mm.html")
 (defvar *NST-INVOICE-TEMPLATES* nil)
 ;; Product templates
 (defvar *NST-PRDDETAILSFORCUST-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/products/templates/prddetailsforcust.html")
@@ -410,7 +412,9 @@ Database type: Supported type is ':odbc'"
 	 (invoicesettingshtml (hhub-read-file *NST-INVOICESETTINGS-HTMLFILE*))
 	 (invoicesettingsyaml (hhub-read-file *NST-INVOICESETTINGS-YAMLFILE*))
 	 (gstinvoice1html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-1*))
-	 (gstinvoice2html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-2*)))
+	 (gstinvoice2html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-2*))
+	 (gstinvoice3html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-3*))
+	 (gstinvoice4html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-4*)))
     (function (lambda ()
       (values (function (lambda () draftemailhtml))
 	      (function (lambda () invoicepaymenthtml))
@@ -422,13 +426,15 @@ Database type: Supported type is ':odbc'"
 	      (function (lambda () invoicerefundedhtml))
 	      (function (lambda () gstinvoice1html))
 	      (function (lambda () gstinvoice2html))
+	      (function (lambda () gstinvoice3html))
+	      (function (lambda () gstinvoice4html))
 	      (function (lambda () invoicesettingshtml))
 	      (function (lambda () invoicesettingsyaml)))))))
 
 
 (defun nst-get-cached-invoice-template-func (&key templatenum)
   :documentation "returns the function responsible for invoice email HTML template. Call the returning function to get the HTML."
-  (multiple-value-bind (draftemailhtmlfunc invoicepaymenthtmlfunc paymentreminderhtmlfunc overduepaymentreminderhtmlfunc invoicepaidhtmlfunc invoiceshippedhtmlfunc invoicecancelledhtmlfunc invoicerefundedhtmlfunc gstinvoice1htmlfunc gstinvoice2htmlfunc invoicesettingshtmlfunc invoicesettingsyamlfunc) (funcall *NST-INVOICE-TEMPLATES*)
+  (multiple-value-bind (draftemailhtmlfunc invoicepaymenthtmlfunc paymentreminderhtmlfunc overduepaymentreminderhtmlfunc invoicepaidhtmlfunc invoiceshippedhtmlfunc invoicecancelledhtmlfunc invoicerefundedhtmlfunc gstinvoice1htmlfunc gstinvoice2htmlfunc gstinvoice3htmlfunc gstinvoice4htmlfunc invoicesettingshtmlfunc invoicesettingsyamlfunc) (funcall *NST-INVOICE-TEMPLATES*)
     (case templatenum
       (1 draftemailhtmlfunc)
       (2 paymentreminderhtmlfunc)
@@ -440,8 +446,10 @@ Database type: Supported type is ':odbc'"
       (8 invoicepaymenthtmlfunc)
       (9 gstinvoice1htmlfunc)
       (10 gstinvoice2htmlfunc)
-      (11 invoicesettingshtmlfunc)
-      (12 invoicesettingsyamlfunc))))
+      (11 gstinvoice3htmlfunc)
+      (12 gstinvoice4htmlfunc)
+      (13 invoicesettingshtmlfunc)
+      (14 invoicesettingsyamlfunc))))
 
 ;;;;;;;;;;;;;; PRODUCT TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;
 

@@ -1,6 +1,69 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 
+(defun render-tax-summary-html (breakdown)
+  "Generates the HTML table for the GST breakdown with a Grand Total row."
+  (let ((sorted-entries (get-sorted-summary breakdown))
+        (interstate (interstate-p breakdown))
+        ;; Initialize accumulators for the footer
+        (total-taxable 0)
+        (total-cgst 0)
+        (total-sgst 0)
+        (total-igst 0))
+    (function (lambda ()
+      (cl-who:with-html-output-to-string (s nil :prologue nil :indent t)
+	(:div :class "gst-breakdown-container" :style "margin-top: 20px;"
+              (:table :class "gst-table" :style "width:100%; border-collapse: collapse; font-size: 12px;" :border "1"
+		      (:thead
+		       (:tr :style "background-color: #f2f2f2;"
+			    (:th "HSN/SAC")
+			    (:th "Taxable Value")
+			    (if interstate
+				(cl-who:htm (:th "IGST Rate") (:th "IGST Amount"))
+				(cl-who:htm (:th "CGST Rate") (:th "CGST Amount")
+					    (:th "SGST Rate") (:th "SGST Amount")))
+			    (:th "Total Tax")))
+		      (:tbody
+		       (dolist (entry sorted-entries)
+              (let ((row-tax (+ (cgst-amount entry) (sgst-amount entry) (igst-amount entry))))
+                ;; Increment totals
+                (incf total-taxable (taxable-value entry))
+                (incf total-cgst    (cgst-amount entry))
+                (incf total-sgst    (sgst-amount entry))
+                (incf total-igst    (igst-amount entry))
+                
+                (cl-who:htm
+                 (:tr
+                  (:td (cl-who:str (hsn-code entry)))
+                  (:td :align "right" (cl-who:fmt "~,2F" (taxable-value entry)))
+                  (if interstate
+                      (cl-who:htm 
+                       (:td :align "center" (cl-who:fmt "~A%" (igst-rate entry)))
+                       (:td :align "right" (cl-who:fmt "~,2F" (igst-amount entry))))
+                      (cl-who:htm
+                       (:td :align "center" (cl-who:fmt "~A%" (cgst-rate entry)))
+                       (:td :align "right" (cl-who:fmt "~,2F" (cgst-amount entry)))
+                       (:td :align "center" (cl-who:fmt "~A%" (sgst-rate entry)))
+                       (:td :align "right" (cl-who:fmt "~,2F" (sgst-amount entry)))))
+                  (:td :align "right" (cl-who:fmt "~,2F" row-tax)))))))
+          
+          ;; Grand Total Footer
+          (:tfoot
+            (:tr :style "font-weight: bold; background-color: #eee;"
+              (:td "Total")
+              (:td :align "right" (cl-who:fmt "~,2F" total-taxable))
+              (if interstate
+                  (cl-who:htm 
+                   (:td "") ; Empty Rate cell
+                   (:td :align "right" (cl-who:fmt "~,2F" total-igst)))
+                  (cl-who:htm
+                   (:td "") (:td :align "right" (cl-who:fmt "~,2F" total-cgst))
+                   (:td "") (:td :align "right" (cl-who:fmt "~,2F" total-sgst))))
+              (:td :align "right" 
+                   (cl-who:fmt "~,2F" (+ total-cgst total-sgst total-igst))))))))))))
+
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (defun render-invoice-settings-menu ()
     (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
@@ -379,11 +442,13 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 			(cl-who:str invoicetemplate))))))
       (list widget1))))
 
-(defun invoicetemplatefill (invoicetemplate invheader invoiceitems invoiceitemshtmlfunc  qrcodepath currency vendor) 
+(defun invoicetemplatefill (invoicetemplate invheader invoiceitems invoiceitemshtmlfunc  invoicetaxbreakdownfunc qrcodepath currency vendor) 
   (function (lambda ()
-    (with-slots (name address gstnumber) vendor
+    (with-slots (name address gstnumber phone email) vendor
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Name%" invoicetemplate name))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Address%" invoicetemplate address))
+      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Phone%" invoicetemplate phone))
+      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Email%" invoicetemplate email))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor GST%" invoicetemplate gstnumber)))
 
     (with-slots (row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor company) invheader
@@ -422,7 +487,8 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Bank IFSC Code%" invoicetemplate bankifsccode))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Bank Account Number%" invoicetemplate bankaccnum))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%GST on Reverse Charge%" invoicetemplate revcharge)))
-      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Invoice Items Rows%" invoicetemplate (funcall invoiceitemshtmlfunc)))
+    (setf invoicetemplate (cl-ppcre:regex-replace-all "%Invoice Items Rows%" invoicetemplate (funcall invoiceitemshtmlfunc)))
+    (setf invoicetemplate (cl-ppcre:regex-replace-all "%GST Tax Breakdown%" invoicetemplate (funcall invoicetaxbreakdownfunc)))
       invoicetemplate)))
       
 
@@ -706,6 +772,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
 	 (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
+	 (sessioninvtaxbreakdown (slot-value sessioninvoice 'invoicetaxbreakdown))
 	 (context-id (slot-value sessioninvheader 'context-id)) 
 	 (hrequestmodel (make-instance 'InvoiceHeaderContextIDRequestModel
 				      :context-id context-id
@@ -721,12 +788,19 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (sessioninvitems (processreadallrequest itemsadapter irequestmodel))
 	 (totalvalue (calculate-invoice-totalaftertax sessioninvitems))
 	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" invnum totalvalue)))
-	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum 9)))  
-	 (invoiceitemshtmlfunc (invoicetemplatefillitemrows sessioninvitems (if (equal status "PAID") T NIL) sessioninvkey))
+	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum 9)))
+	 (invoiceitemshtmlfunc (generate-invoice-items-rows  sessioninvitems (if (equal status "PAID") T NIL) sessioninvkey invoicetemplate))
+	 (invoicetaxbreakdownfunc (render-tax-summary-html sessioninvtaxbreakdown))
+	 ;;(invoiceitemshtmlfunc (invoicetemplatefillitemrows sessioninvitems (if (equal status "PAID") T NIL) sessioninvkey))
 	 (currency (get-account-currency company))
 	 (params nil))
+ 
+    ;; Clean the markers from original template
+    (let* ((row-regex "(?s)<!--ROW_SNIPPET_BEGIN-->(.*?)<!--ROW_SNIPPET_END-->")
+           (row-sub-template (cl-ppcre:register-groups-bind (snippet) (row-regex invoicetemplate) snippet)))
+      (setf invoicetemplate (cl-ppcre:regex-replace-all row-sub-template invoicetemplate "")))
 
-    (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader sessioninvitems invoiceitemshtmlfunc qrcodepath currency vendor)))
+    (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader sessioninvitems invoiceitemshtmlfunc invoicetaxbreakdownfunc qrcodepath currency vendor)))
     (setf (slot-value sessioninvoice 'InvoiceItems) sessioninvitems)
     (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
     (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)	   
@@ -761,6 +835,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	   (widget3 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-catch-submit-event "idinvoiceconfirmpage2"
+			  (logiamhere (format nil "invoice template is ~A" invoicetemplate))
 			  (cl-who:str invoicetemplate)))))))
 	   (list widget1 widget2 widget3))))
 	
@@ -1097,6 +1172,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
 	 (sessioninvitems (slot-value sessioninvoice 'InvoiceItems))
 	 (sessioninvproducts (slot-value sessioninvoice 'invoiceproducts))
+	 (sessioninvtaxbreakdown (slot-value sessioninvoice 'invoicetaxbreakdown))
 	 (context-id (slot-value sessioninvheader 'context-id))
 	 (customer (slot-value sessioninvoice 'customer))
 	 (productlist (hhub-get-cached-vendor-products))
@@ -1149,29 +1225,25 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 					 :totalitemval totalitemval))
 	 (invitmadapter (make-instance 'InvoiceItemAdapter))
 	 (InvoiceItem (ProcessCreateRequest invitmadapter invitmrequestmodel)))
-
-
+    
+    (add-item-to-tax-breakdown sessioninvtaxbreakdown invoiceitem)
     (unless wallet (create-wallet customer vendor company))
     (when (and wallet (> prdqty 0) sessioninvoice)
       (setf (slot-value sessioninvoice 'InvoiceItems) (append sessioninvitems (list invoiceitem)))
       (setf (slot-value sessioninvoice 'invoiceproducts) (append sessioninvproducts (list product)))
+      (setf (slot-value sessioninvoice 'invoicetaxbreakdown) sessioninvtaxbreakdown)
       ;;(setf (hhub-get-cached-vendor-products) (remove product productlist))
       (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
       (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)
       (function (lambda ()
 	(values redirectlocation))))))
 
-(defun create-widgets-for-vendaddtocartforinvoice (modelfunc)
-  (multiple-value-bind (redirectlocation) (funcall modelfunc)
-    (let ((widget1 (function (lambda ()
-		     redirectlocation))))
-      (list widget1)))) 
 
 (defun com-hhub-transaction-vendor-addtocart-for-invoice-action ()
   :documentation "This function is responsible for adding the product and product quantity to the shopping cart."
   (with-vend-session-check
-    (let ((uri (with-mvc-redirect-ui #'create-model-for-vendaddtocartforinvoice #'create-widgets-for-vendaddtocartforinvoice)))
-      (format nil "~A" uri))))
+    (with-mvc-redirect-ui #'create-model-for-vendaddtocartforinvoice #'create-widgets-for-genericredirect)))
+    
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1741,7 +1813,6 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (salt (createciphersalt))
 	 (encryptedpass (check&encrypt password password salt))
 	 (redirectlocation "/hhub/addcusttoinvoice"))
-
     ;; Create customer scenario
     (unless customer
       ;; Step 1 - Create a new customer 
@@ -1838,6 +1909,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	   ;; set the customer context for the invoice being created and add to the session invoice. 
     (setf (slot-value newsessioninvoice 'customer) (customer invoiceobj))
     (setf (slot-value newsessioninvoice 'InvoiceItems) invitems)
+    (setf (slot-value newsessioninvoice 'invoicetaxbreakdown) (make-instance 'gst-breakdown :is-interstate nil))
     (setf (slot-value newsessioninvoice 'invoiceproducts) '())
     (setf (slot-value newsessioninvoice 'InvoiceHeader) invoiceobj)
     (setf (gethash sessioninvkey sessioninvoices-ht) newsessioninvoice)
