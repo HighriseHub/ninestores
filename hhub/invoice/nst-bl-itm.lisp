@@ -50,7 +50,17 @@
     (incf (igst-amount entry)   (igstamt item))
     (setf (gethash key (entries breakdown)) entry)))
 
-
+(defmethod  generate-gst-tax-breakdown ((invoice-header InvoiceHeader) (invoice-items list))
+  "Creates a live GST breakdown from raw database records."
+  (let* ((placeofsupply (slot-value invoice-header 'placeofsupply))
+	 (statecode (slot-value invoice-header 'statecode))
+	 (is-interstate (if (equal statecode placeofsupply) NIL T)) 
+	 (breakdown (make-instance 'gst-breakdown :is-interstate is-interstate)))
+    ;; Iterate through the items extracted from the DB
+    (dolist (item invoice-items)
+      (add-item-to-tax-breakdown breakdown item))
+    ;; Return the populated breakdown object
+    breakdown))
 
 
 (defmethod get-sorted-summary ((breakdown gst-breakdown))
