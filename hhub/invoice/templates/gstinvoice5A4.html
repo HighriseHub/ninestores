@@ -1,0 +1,322 @@
+    <style>
+        /* --- Base & Print Setup --- */
+        :root {
+            --primary-bg: linear-gradient(180deg, rgba(249,251,224,1) 0%, rgba(178,203,255,1) 100%);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        /* --- Orientation Containers --- */
+        .invoice-container {
+            background-color: white;
+            margin: 20px auto;
+            padding: 10mm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        /* Portrait: A4 Dimensions */
+        .page-portrait {
+            width: 210mm;
+            min-height: 297mm;
+        }
+
+        /* Landscape: A4 Dimensions */
+        .page-landscape {
+            width: 297mm;
+            min-height: 210mm;
+        }
+
+        /* --- Table Styles --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 2px;
+        }
+
+        table, th, td {
+            border: 0.5px dashed grey;
+        }
+
+        th, td {
+            padding: 4px;
+            text-align: left;
+            font-size: 9pt;
+            word-wrap: break-word;
+        }
+
+        th {
+            background-color: #f8f8f8;
+            font-weight: bold;
+        }
+
+        td img {
+            display: block;
+            margin: 5px auto;
+        }
+
+        .inv-amount {
+            font-size: 1.2rem;
+            font-weight: bold;
+            line-height: 1.1;
+            padding: 5px;
+            background: var(--primary-bg) !important;
+            display: inline-block;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .bold { font-weight: bold; }
+
+        /* --- Interactive Toggle UI --- */
+        .controls {
+            position: sticky;
+            top: 0;
+            background: #333;
+            padding: 10px;
+            text-align: center;
+            z-index: 1000;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .btn {
+            padding: 8px 15px;
+            cursor: pointer;
+            background: #555;
+            color: white;
+            border: 1px solid #777;
+            border-radius: 4px;
+            margin: 0 5px;
+        }
+
+        .btn:hover { background: #777; }
+
+        /* --- Print Specific Rules --- */
+        @media print {
+            .controls { display: none; } /* Hide buttons on print */
+            body { background: none; }
+            .invoice-container {
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                width: 100% !important;
+            }
+
+            /* Dynamically set page orientation based on active class */
+            .portrait-mode { @page { size: A4 portrait; margin: 10mm; } }
+            .landscape-mode { @page { size: A4 landscape; margin: 10mm; } }
+        }
+    </style>
+
+    <div class="portrait-mode">
+
+    <div class="controls">
+        <span class="bold">4-Eye Review Mode: </span>
+        <button class="btn" onclick="setOrientation('portrait')">Portrait (Standard)</button>
+        <button class="btn" onclick="setOrientation('landscape')">Landscape (Wide)</button>
+        <button class="btn" onclick="window.print()" style="background: #28a745;">Print / Save PDF</button>
+    </div>
+
+    <div id="invoice" class="invoice-container page-portrait">
+        <table>
+            <thead>
+                <tr>
+                    <th colspan="3">TAX INVOICE</th>
+                    <th colspan="4">Original For Recipient</th>
+                    <th colspan="3">Duplicate for Supplier</th>
+                    <th colspan="3">Triplicate for Supplier</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="2">Invoice No.</td>
+                    <td colspan="3">%Invoice Number%</td>
+                    <td colspan="2">Invoice Date : </td>
+                    <td colspan="2">%Invoice Date%</td>
+                    <td colspan="2">Status: </td>
+                    <td colspan="2">%Invoice Status%</td>
+                </tr>
+                <tr>
+                    <td colspan="2">Date of Supply : </td>
+                    <td colspan="3">%Date of Supply%</td>
+                    <td colspan="2">State Code :</td>
+                    <td colspan="2">%State Code%</td>
+                    <td colspan="2">Place of Supply :</td>
+                    <td colspan="2">%Place of Supply%</td>
+                </tr>
+                <tr>
+                    <td colspan="2">GST Payable on Reverse Charge : </td>
+                    <td colspan="3">%Reverse Charge%</td>
+                    <td colspan="2">Vehicle Number : </td>
+                    <td colspan="2">%Vehicle Number%</td>
+                    <td colspan="2">Transportation Mode :</td>
+                    <td colspan="2">%Transportation Mode%</td>
+                </tr>
+                <tr>
+                    <th colspan="7">Details of Receiver / Billed to:</th>
+                    <th colspan="6">Details of Consignee / Shipped to:</th>
+                </tr>
+                <tr>
+                    <td colspan="2">Name :</td>
+                    <td colspan="5">%Billed To%</td>
+                    <td colspan="2">Name :</td>
+                    <td colspan="4">%Shipped To%</td>
+                </tr>
+                <tr>
+                    <td colspan="2">Address :</td>
+                    <td colspan="5">%Billed to Address%</td>
+                    <td colspan="2">Address :</td>
+                    <td colspan="4">%Shipped to Address%</td>
+                </tr>
+                <tr>
+                    <td colspan="2">GSTIN :</td>
+                    <td colspan="5">%Billed to GSTIN%</td>
+                    <td colspan="2">GSTIN :</td>
+                    <td colspan="4">%Shipped to GSTIN%</td>
+                </tr>
+                <tr>
+                    <td colspan="2">State :</td>
+                    <td colspan="5">%Billed to State%</td>
+                    <td colspan="2">State :</td>
+                    <td colspan="4">%Shipped to State%</td>
+                </tr>
+                <tr class="bold">
+                    <th>Sr. No</th>
+                    <th>Name of Product/Service</th>
+                    <th>HSN/SAC</th>
+                    <th>UOM</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Disc%</th>
+                    <th>Taxable Value</th>
+                    <th>CGST</th>
+                    <th>SGST</th>
+                    <th>IGST</th>
+                    <th>Total</th>
+                    <th>Actions</th>
+                </tr>
+                %Invoice Items Rows%
+		<!--ROW_SNIPPET_BEGIN-->
+		<tr>
+		  <td>%srno%</td>
+		  <td>%row prddesc%</td>
+		  <td>%row hsncode%</td>
+		  <td>%row uom%</td>
+		  <td>%row qty%</td>
+		  <td>%row price%</td>
+		  <td>%row discount%</td>
+		  <td>%row taxable%</td>
+		  <td>%row cgst%</td>
+		  <td>%row sgst%</td>
+		  <td>%row igst%</td>
+		  <td>%row totalitemval%</td>
+		  <td>%row actions%</td>
+		</tr>
+		<!--ROW_SNIPPET_END-->
+            </tbody>
+        </table>
+
+        <div class="bold" style="margin-top: 15px; margin-bottom: 5px;">GST Tax Breakdown Summary:</div>
+        %GST Tax Breakdown%
+
+        <table style="margin-top: 10px;">
+            <tbody>
+                <tr>
+                    <td colspan="3" class="bold">Total :</td>
+                    <td colspan="4">%Total Value%</td>
+                    <td colspan="6"></td>
+                </tr>
+                <tr>
+                    <td colspan="3" class="bold">Invoice Amount in Words:</td>
+                    <td colspan="10" style="text-transform: capitalize;">%Total in Words% Only.</td>
+                </tr>
+                <tr>
+                    <td colspan="7" class="bold">Bank Details :</td>
+                    <td colspan="3">Total Amount Before Tax :</td>
+                    <td colspan="3">%Total Value before GST/TAX%</td>
+                </tr>
+                <tr>
+                    <td colspan="2">Account No :</td>
+                    <td colspan="5">%Bank Account Number%</td>
+                    <td colspan="3">Add : CGST :</td>
+                    <td colspan="3">%Add CGST%</td>
+                </tr>
+                <tr>
+                    <td colspan="2">IFSC :</td>
+                    <td colspan="5">%Bank IFSC Code%</td>
+                    <td colspan="3">Add : SGST :</td>
+                    <td colspan="3">%Add SGST%</td>
+                </tr>
+                <tr>
+                    <td rowspan="6" colspan="7" style="text-align: center;">
+                        <img style="width: 120px; height: 120px;" src="%UPI_IMAGE_URL%" alt="UPI QR">
+                        <br><span class="bold">Scan to Pay via UPI</span>
+                    </td>
+                    <td colspan="3">Add : IGST :</td>
+                    <td colspan="3">%Add IGST%</td>
+                </tr>
+                <tr>
+                    <td colspan="3">Total Tax Amount :</td>
+                    <td colspan="3">%Tax Amount%</td>
+                </tr>
+                <tr>
+                    <td colspan="3" class="bold">Grand Total After Tax :</td>
+                    <td colspan="3">
+                        <span class="inv-amount">%Total After Tax%</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="6" style="height: 40px;"></td>
+                </tr>
+                <tr>
+                    <td colspan="4" style="vertical-align: bottom;">
+                        Certified that the particulars given above are true and correct.
+                    </td>
+                    <td colspan="2" style="text-align: center; vertical-align: bottom;">
+                        <br><br>
+                        (Authorized Signatory)
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="6" class="bold">For, %Company Name%</td>
+                </tr>
+                <tr>
+                    <td colspan="13" class="bold">Terms and Conditions :</td>
+                </tr>
+                <tr>
+                    <td colspan="13" style="font-size: 8pt; color: #555;">%Terms and Conditions%</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function setOrientation(mode) {
+            const invoice = document.getElementById('invoice');
+            const body = document.body;
+            
+            if (mode === 'landscape') {
+                invoice.classList.remove('page-portrait');
+                invoice.classList.add('page-landscape');
+                body.classList.remove('portrait-mode');
+                body.classList.add('landscape-mode');
+            } else {
+                invoice.classList.remove('page-landscape');
+                invoice.classList.add('page-portrait');
+                body.classList.remove('landscape-mode');
+                body.classList.add('portrait-mode');
+            }
+        }
+    </script>
+</div>
