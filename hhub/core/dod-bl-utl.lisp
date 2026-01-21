@@ -3,7 +3,15 @@
 (clsql:file-enable-sql-reader-syntax)
 
 
+(defun paise-to-rupees-string (paise)
+  (format nil "~,2F" (/ paise 100.0)))
+
+(defun round-to-2-decimal (n)
+  "Standard rounding to 2 decimal places."
+  (/ (round (* n 100)) 100.0))
+
 (defparameter *uri-boundary-chars* '(#\/ #\? #\# #\;))
+
 
 (defun uri-prefix-boundary-p (prefix uri)
   (and (uri-prefix-p prefix uri)
