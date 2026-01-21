@@ -18,6 +18,9 @@
    (is-interstate :initarg :is-interstate :initform nil   :accessor interstate-p))
   (:documentation "A container that groups taxes by HSN and Rate."))
 
+(defgeneric  generate-gst-tax-breakdown (invoice-header invoice-items)
+  (:documentation "Generate the invoice tax breakdown object based on the invoice header and invoice items"))
+  
 (defgeneric add-item-to-tax-breakdown (breakdown item)
   (:documentation "Processes an InvoiceItem and aggregates it into the breakdown summary."))
 

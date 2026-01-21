@@ -326,6 +326,35 @@
       (let ((incr (let ((count 0)) (lambda () (incf count)))))
 	  (mapcar (lambda (item) (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (display-invoice-item-row item invoicepaid-p sessioninvkey))))  sessioninvitems))))))
 
+(defun generate-invoice-items-rows-public (items-list raw-template)
+  "Extracts the row sub-template and repeats it for every item."
+  (let* ((row-regex "(?s)<!--ROW_SNIPPET_BEGIN-->(.*?)<!--ROW_SNIPPET_END-->")
+         (row-sub-template (cl-ppcre:register-groups-bind (snippet) (row-regex raw-template) snippet)))
+    (if (not row-sub-template)
+        (error "Could not find <!--ROW_SNIPPET_BEGIN--> markers in the template.")
+	(function (lambda ()
+	  (cl-who:with-html-output-to-string (*standard-output* nil)
+            (loop for invitem in items-list 
+                  for count from 1 do
+		    (let ((processed-row row-sub-template))
+		      (with-slots (prd-id prddesc hsncode qty uom price discount  taxablevalue  cgstamt  sgstamt  igstamt totalitemval) invitem
+			;; Serial number
+			(setf processed-row (cl-ppcre:regex-replace-all "%srno%" processed-row (format nil "~A" count)))
+			;; Use your specific %row ...% format
+			(setf processed-row (cl-ppcre:regex-replace-all "%row prddesc%" processed-row (or prddesc "")))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row hsncode%" processed-row (or hsncode "")))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row uom%" processed-row (or uom "")))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row qty%" processed-row (format nil "~A" qty)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row price%" processed-row (format nil "~,2F" price)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row discount%" processed-row (format nil "~,2F" (or discount 0))))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row taxable%" processed-row (format nil "~,2F" taxablevalue)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row cgst%" processed-row (format nil "~,2F" cgstamt)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row sgst%" processed-row (format nil "~,2F" sgstamt)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row igst%" processed-row (format nil "~,2F" igstamt)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row totalitemval%" processed-row (format nil "~,2F" totalitemval)))
+			(setf processed-row (cl-ppcre:regex-replace-all "%row actions%" processed-row (format nil "N/A")))
+			(cl-who:str processed-row))))))))))
+
 (defun invoicetemplatefillitemrowspublic (sessioninvitems)
   (function (lambda ()
     (cl-who:with-html-output-to-string (*standard-output* nil)
