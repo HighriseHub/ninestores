@@ -1,6 +1,75 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*
 (in-package :nstores)
 
+;; Route registration for %entity-name% with TCUF view support
+(register-outbound-route
+  :%entity-name%/read
+  :crud-op :read
+  :description "Read %entity-name% profile"
+  :requestmodel-class '%entity-name%RequestModel
+  :businessobject-class '%entity-name%
+  :adapter-class '%entity-name%Adapter
+  :presenter-class '%entity-name%Presenter
+  :view-classes '((html . ((T . %entity-name%HTMLView)
+                           (F . %entity-name%-NotFound-View)
+                           (U . %entity-name%-Unavailable-View)
+                           (C . %entity-name%-Conflict-View)))
+                  (json . ((T . %entity-name%JSONView)
+                           (F . NotFoundJSONView)
+                           (U . UnavailableJSONView)
+                           (C . ConflictJSONView))))
+  :tags '(%entity-name% api v1)
+  :audit-level :full)
+
+(register-outbound-route
+  :%entity-name%/create
+  :crud-op :create
+  :description "Create new %entity-name%"
+  :requestmodel-class '%entity-name%RequestModel
+  :businessobject-class '%entity-name%
+  :adapter-class '%entity-name%Adapter
+  :presenter-class '%entity-name%Presenter
+  :view-classes '((html . ((T . %entity-name%HTMLView)
+                           (F . %entity-name%-NotFound-View)
+                           (U . %entity-name%-Unavailable-View)
+                           (C . %entity-name%-Conflict-View))))
+  :tags '(%entity-name% api v1)
+  :audit-level :full)
+
+(register-outbound-route
+  :%entity-name%/update
+  :crud-op :update
+  :description "Update existing %entity-name%"
+  :requestmodel-class '%entity-name%RequestModel
+  :businessobject-class '%entity-name%
+  :adapter-class '%entity-name%Adapter
+  :presenter-class '%entity-name%Presenter
+  :view-classes '((html . ((T . %entity-name%HTMLView)
+                           (F . %entity-name%-NotFound-View)
+                           (U . %entity-name%-Unavailable-View)
+                           (C . %entity-name%-Conflict-View))))
+  :tags '(%entity-name% api v1)
+  :audit-level :full)
+
+(register-outbound-route
+  :%entity-name%/list
+  :crud-op :list
+  :description "List all %entity-name% records"
+  :requestmodel-class '%entity-name%RequestModel
+  :businessobject-class '%entity-name%
+  :adapter-class '%entity-name%Adapter
+  :presenter-class '%entity-name%Presenter
+  :view-classes '((html . ((T . %entity-name%HTMLView)
+                           (F . %entity-name%-NotFound-View)
+                           (U . %entity-name%-Unavailable-View)
+                           (C . %entity-name%-Conflict-View))))
+  :tags '(%entity-name% api v1)
+  :audit-level :full)
+
+
+
+
+
 (defun %entity-name%-search-html ()
   :description "This will create a html search box widget"
   (cl-who:with-html-output (*standard-output* nil)
