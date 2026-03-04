@@ -1,0 +1,26 @@
+TABLE DOD_INVOICE_ITEMS(
+  row_id,                -- primary key
+  invheadid,             -- references DOD_INVOICE_HEADER.row_id
+  prd_id,                -- product id
+  prddesc,               -- product description
+  hsncode,               -- HSN code
+
+  qty,                   -- quantity
+  uom,                   -- unit of measure
+  price,                 -- unit price
+  discount,              -- discount
+
+  taxable_value,         -- taxable value
+
+  cgstrate, cgstamt,     -- CGST
+  sgstrate, sgstamt,     -- SGST
+  igstrate, igstamt,     -- IGST
+
+  totalitemval,          -- total item value
+
+  status,                -- PENDING, FINAL
+  tenant_id,
+  deleted_state,
+  created,
+  updated
+)

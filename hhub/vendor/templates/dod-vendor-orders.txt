@@ -1,0 +1,41 @@
+TABLE DOD_VENDOR_ORDERS(
+  row_id,                -- primary key
+  order_id,              -- external / logical order id
+  cust_id,               -- customer id
+  vendor_id,             -- vendor id
+
+  ord_date,              -- order date
+  req_date,              -- requested delivery date
+  shipped_date,          -- shipped date
+
+  ship_address,          -- shipping address
+  shipcity,              -- shipping city
+  shipstate,             -- shipping state
+  shipzipcode,           -- shipping zipcode
+
+  billaddress,           -- billing address
+  billcity,              -- billing city
+  billstate,             -- billing state
+  billzipcode,           -- billing zipcode
+  billsameasship,        -- Y/N billing same as shipping
+
+  payment_mode,          -- COD, UPI, CARD
+  order_amt,             -- order amount
+  total_discount,        -- total discount
+  total_tax,             -- total tax
+  shipping_cost,         -- shipping charges
+
+  gstnumber,             -- customer GSTIN
+  gstorgname,            -- GST organization name
+
+  fulfilled,             -- Y/N fulfilled
+  status,                -- order status
+  comments,              -- order comments
+
+  storepickupenabled,    -- Y/N store pickup
+
+  tenant_id,             -- tenant id
+  deleted_state,         -- soft delete
+  created,
+  updated
+)

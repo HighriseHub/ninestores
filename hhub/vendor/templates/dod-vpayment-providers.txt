@@ -1,0 +1,18 @@
+TABLE DOD_VPAYMENT_PROVIDERS(
+  row_id,                -- primary key
+  name,                  -- payment provider name
+  provider_url,          -- gateway url
+  return_url,            -- success redirect url
+  cancel_url,            -- cancel redirect url
+  failure_url,           -- failure redirect url
+
+  payment_api_key,       -- gateway api key
+  payment_api_salt,      -- gateway api salt
+  payment_gateway_mode,  -- TEST / LIVE
+
+  vendor_id,             -- references DOD_VEND_PROFILE.row_id
+  active_flag,           -- Y/N enabled
+  deleted_state,         -- soft delete flag
+  tenant_id,             -- tenant id
+  created                -- created timestamp
+)

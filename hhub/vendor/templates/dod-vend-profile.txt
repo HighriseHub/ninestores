@@ -1,0 +1,43 @@
+TABLE DOD_VEND_PROFILE(
+  row_id,                -- primary key, vendor internal id
+  name,                  -- vendor display name / shop name
+  legal_name,            -- registered legal entity name
+  trade_name,            -- trade / brand name
+  address,               -- primary address
+  city,                  -- vendor city
+  state,                 -- vendor state
+  country,               -- vendor country
+  zipcode,               -- postal code
+
+  phone,                 -- primary phone number
+  email,                 -- email address
+  email_verified,        -- email verification flag
+  username,              -- login username
+
+  gstnumber,             -- GSTIN
+  gst_state_code,        -- GST state code
+  gst_registration_type, -- REGULAR, COMPOSITION, etc
+  gst_filing_frequency,  -- MONTHLY, QUARTERLY
+
+  pan_number,            -- PAN
+  fy_start_month,        -- financial year start month
+
+  approved_flag,         -- Y/N approval flag
+  approval_status,       -- PENDING, APPROVED, REJECTED
+  approved_by,           -- approver username
+
+  active_flag,           -- Y/N active status
+  suspend_flag,          -- Y/N suspended
+  deleted_state,         -- soft delete flag
+
+  payment_gateway_mode,  -- TEST / LIVE
+  upi_id,                -- vendor UPI id
+
+  shipping_enabled,      -- Y/N shipping enabled
+
+  invoice_settings,      -- JSON/text invoice configuration
+
+  tenant_id,             -- tenant identifier
+  created,               -- created timestamp
+  updated                -- last updated timestamp
+)
