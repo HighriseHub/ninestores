@@ -186,7 +186,7 @@
 	(multiple-value-bind (returnvalues)
 	    (funcall (intern  (string-upcase policy-func) :nstores) params)
 	  ;; Return a list of return values and exception as nil. 
-	  (logiamhere (format nil "Executing Policy - ~A" policy-func))
+	  ;;(logiamhere (format nil "Executing Policy - ~A" policy-func))
 	  (list returnvalues nil))
 
       ;; If we get an ABAC Transaction exception
