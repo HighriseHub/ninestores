@@ -110,7 +110,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 (defun create-model-for-invoicesettingspage ()
   (let* ((vinvsettings (hunchentoot:session-value :login-vendor-invoice-settings))
 	 (printsettings (cdr (assoc 'invoice-print-settings vinvsettings :test 'equal)))
-	 (vinvsettingshtml (funcall (nst-get-cached-invoice-template-func :templatenum 11)))
+	 (vinvsettingshtml (funcall (nst-get-cached-invoice-template-func :templatenum 14)))
 	 (idinvsettings (format nil "idvinvsettings~A" (gensym))))
 
     (setf vinvsettingshtml (format nil vinvsettingshtml (invoiceprintsettingswidgethtml printsettings )))
@@ -638,11 +638,13 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
 	 (invoiceitems (slot-value sessioninvoice 'InvoiceItems))
 	 (totalvalue (calculate-invoice-totalaftertax invoiceitems))
+	 (totalinwords (convert-number-to-words-INR totalvalue))
 	 (invnum (slot-value sessioninvheader 'invnum))
 	 (requestmodel (make-instance 'InvoiceHeaderStatusRequestModel
 					 :invnum invnum
 					 :status status
 					 :totalvalue totalvalue
+					 :totalinwords totalinwords
 					 :company company))
 	 (adapterobj (make-instance 'InvoiceHeaderAdapter))
 	 (redirectlocation  (format nil "/hhub/displayinvoices"))
@@ -838,7 +840,6 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	   (widget3 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-catch-submit-event "idinvoiceconfirmpage2"
-			  (logiamhere (format nil "invoice template is ~A" invoicetemplate))
 			  (cl-who:str invoicetemplate)))))))
 	   (list widget1 widget2 widget3))))
 	
@@ -1072,7 +1073,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 		 ;; else 
 		 (if (and units-in-stock (> units-in-stock 0))
 		     (cl-who:htm
-		      (:div :class "form-group"
+		      (:div :class "form-group product-details"
 			    (:button :onclick "addtocartclick(this.id);" :id (format nil "btnaddproduct_~A" prd-id) :name (format nil "btnaddproduct~A" prd-id) :type "button" :class "add-to-cart-btn" :data-bs-toggle "modal" :data-bs-target (format nil "#producteditqty-modal~A" prd-id) (:i :class "fa-solid fa-cart-shopping") "&nbsp;Add To Cart")
 			    (modal-dialog-v2 (format nil "producteditqty-modal~A" prd-id) (cl-who:str (format nil "Edit Product Quantity - Available: ~A" units-in-stock)) (vproduct-qty-add-for-invoice-html product ppricing sessioninvkey))))			
 		     ;; else
