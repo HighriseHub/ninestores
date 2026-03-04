@@ -276,8 +276,10 @@
     (setf (slot-value Customerobj 'company) comp)
     (when (eq (bo-knowledge-truth dbCustomerKnowledge) :T)
       (let ((dbCustomer (bo-knowledge-payload dbCustomerKnowledge)))
-	(copyCustomer-dbtodomain dbCustomer Customerobj)))
-     Customerobj))
+	(copyCustomer-dbtodomain dbCustomer Customerobj)
+	;; set the bo knowledget payload as the domain object
+	(setf (bo-knowledge-payload dbCustomerKnowledge) Customerobj)
+	Customerobj))))
 
 
 (defun copyCustomer-dbtodomain (source destination)
