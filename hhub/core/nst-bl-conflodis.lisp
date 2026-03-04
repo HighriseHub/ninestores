@@ -9,6 +9,7 @@
   ((route-key    :initarg :route-key    :reader ctx-route-key)
    (http-request :initarg :ctx-http-request)
    (requestmodel-params  :initarg :requestmodel-params  :reader ctx-requestmodel-params)
+   (request-uri :initarg :request-uri :accessor ctx-request-uri)
    (trans-func-name :initarg :trans-func-name :reader ctx-trans-func-name)
    (requestmodel :accessor ctx-requestmodel :initform nil)
    (adapter      :accessor ctx-adapter      :initform nil)
@@ -21,6 +22,21 @@
    (bo-knowledge  :accessor ctx-bo-knowledge  :initform nil)
    (company :accessor ctx-company :initform nil)
    (context       :accessor ctx-context       :initform nil)))
+
+
+(defclass call-context-create (call-context)
+  ())
+
+(defclass call-context-read (call-context)
+  ())
+
+(defclass call-context-readall (call-context)
+  ())
+
+(defclass call-context-update (call-context)
+  ())
+(defclass call-context-delete (call-context)
+  ())
 
 
 ;;; ---------------------------------------------------------------------------
@@ -183,7 +199,7 @@
 
 
 
-(defparameter *outbound-route-registry* (make-hash-table :test 'equal))
+
 
 
 
@@ -252,16 +268,16 @@ Returns:
                                 :version version
                                 :metadata metadata)))
       ;; store in registry
-      (setf (gethash route-key *outbound-route-registry*) route)
+      (setf (gethash route-key *NST-OUTBOUND-ROUTE-REGISTRY*) route)
       route)))
 
 (defun find-outbound-route (route-key)
-  (gethash route-key *outbound-route-registry*))
+  (gethash route-key *NST-OUTBOUND-ROUTE-REGISTRY*))
 
 (defmethod collect-abac-attributes ((route outbound-adapter-route) (ctx call-context))
   (let ((params nil))
     ;; Always include URI
-    (setf params (acons "uri" (hunchentoot:request-uri*) params))
+    (setf params (acons "uri" (ctx-request-uri ctx) params))
     ;; Include company if available
     (let ((company (ctx-company ctx)))
       (when company
@@ -274,7 +290,12 @@ Returns:
     ;; Action inferred from CRUD
     (setf params (acons "action" (symbol-name (crud-op route)) params))
     ;; Environment IP
-    (setf params (acons "client-ip" (hunchentoot:remote-addr*) params))
+    (setf params (acons "client-ip" 
+                        (handler-case 
+                            (hunchentoot:remote-addr*)
+                          (error () "127.0.0.1"))
+                        params))
+    (format t "I am in collect-abac-attributes")
     params))
 
 (defgeneric make-adapter (route ctx)
@@ -343,6 +364,26 @@ Returns:
          (method-name (format nil "process~arequest" op)))
     (intern (string-upcase method-name) :nstores)))
 
+
+(defgeneric create-response-from-domain (adapter domain-result)
+  (:documentation "Polymorphic response creation"))
+
+(defmethod create-response-from-domain ((adapter AdapterService) (domain-obj BusinessObject))
+  (ProcessResponse adapter domain-obj))
+
+(defmethod create-response-from-domain ((adapter AdapterService) (domain-list list))
+  (format t "I am in create-response-from-domain for a list ~C~C" #\return #\linefeed)
+  (ProcessResponseList adapter domain-list))
+
+(defgeneric create-viewmodel-from-response (presenter response-data)
+  (:documentation "Polymorphic viewmodel creation - only for READ operations"))
+
+(defmethod create-viewmodel-from-response ((presenter PresenterService) (response ResponseModel))
+  (CreateViewModel presenter response))
+
+(defmethod create-viewmodel-from-response ((presenter PresenterService) (response-list list))
+  (CreateAllViewModel presenter response-list))
+
 ;;; ---------------------------------------------------------------------------
 ;;; Core dispatch pipeline (CLOS generic with method combinators)
 ;;; - :before: prepare requestmodel, adapter, service
@@ -356,12 +397,13 @@ Returns:
 (defmethod dispatch :before ((ctx call-context) (route outbound-adapter-route) output-type)
   (let ((route (find-outbound-route (ctx-route-key ctx))))
     (unless route (error "No outbound route registered for ~a" (ctx-route-key ctx)))
-    (format t "dispatch :before called")
+    (format t "dispatch :before called ~C~C" #\return #\linefeed) 
     ;; create requestmodel and attach
     (setf (ctx-requestmodel ctx) (make-requestmodel route ctx))
     (setf (ctx-company ctx) (slot-value (ctx-requestmodel ctx) 'company))
     ;; create adapter/service if desired
     (setf (ctx-adapter ctx) (make-adapter route ctx))))
+
 
 (defmethod dispatch ((ctx call-context) (route outbound-adapter-route) output-type)
   (let ((adapter         (ctx-adapter ctx))
@@ -369,13 +411,16 @@ Returns:
         (route-key       (ctx-route-key ctx))
         (trans-func-name (ctx-trans-func-name ctx))
 	(params (collect-abac-attributes route ctx)))
+    (format t "main dispatch function called ~C~C" #\return #\linefeed) 
+    (format t "request uri is ~A  ~C~C" (cdr (assoc "uri" params :test 'equal)) #\return #\linefeed)
     (when (and adapter rm route-key trans-func-name)
       (let* ((method-symbol (route-op->method-name route-key))
              (processxxxxrequestfunc (symbol-function method-symbol)))
 	;; ABAC Enforcement Layer (PEP)
         (with-hhub-transaction trans-func-name params
-          ;; Business Domain Call
+	  ;; Business Domain Call
 	  (let ((domain (funcall processxxxxrequestfunc adapter rm)))
+	    (format t "i am inside with-hhub-transaction in the context flow dispatcher... Domain object is ~A ~C~C" domain #\return #\linefeed)
 	    (setf (ctx-domain-object ctx) domain))))
       ;; set the adapter bo-knowledge to the ctx bo-knowledge
       (setf (ctx-bo-knowledge ctx) (bo-knowledge adapter))
@@ -383,14 +428,28 @@ Returns:
       ctx)))
 
 (defmethod dispatch :after ((ctx call-context) (route outbound-adapter-route) output-type)
-  ;; Default after: create responsemodel via adapter if a function exists
+  "Response creation - polymorphic on domain type"
   (let ((adapter (ctx-adapter ctx))
         (domain (ctx-domain-object ctx)))
     (when (and adapter domain)
-      (let ((resp (processresponse adapter domain)))
-        (setf (ctx-responsemodel ctx) resp)))))
- 
+      ;; Polymorphic - dispatches on domain type
+      (let ((response (create-response-from-domain adapter domain)))
+        (setf (ctx-responsemodel ctx) response)))))
+
+;; if we have a call context for create scenario,
+;; then we just call the layer upto process response and there will be no presenter here.
+(defmethod dispatch :around ((ctx call-context-create) (route outbound-adapter-route) output-type)
+  (format t "dispatch :around called for specializer call-context-create ~C~C" #\return #\linefeed) 
+  (call-next-method))
+
 (defmethod dispatch :around ((ctx call-context) (route outbound-adapter-route) output-type)
+  (format t "dispatch :around called ~C~C" #\return #\linefeed) 
+  ;; Run the primary + before/after methods first.
+  (call-next-method))  ;; result = ctx after primary pipeline
+  
+
+(defmethod dispatch :around ((ctx call-context-read) (route outbound-adapter-route) output-type)
+  (format t "dispatch :around called for specializer call-context-read ~C~C" #\return #\linefeed) 
   ;; Run the primary + before/after methods first.
   (call-next-method)  ;; result = ctx after primary pipeline
   ;; Now perform OUTBOUND work
@@ -405,6 +464,45 @@ Returns:
      ;; Now select proper rendering
     (render view viewmodel)))
 
+;;; ---------------------------------------------------------------------------
+;;; Specialized dispatch :around for READALL operations (list handling)
+;;; ---------------------------------------------------------------------------
+(defmethod dispatch :around ((ctx call-context-readall) (route outbound-adapter-route) output-type)
+  (format t "dispatch :around called for specializer call-context-readall ~C~C" #\return #\linefeed)
+    ;; Run the primary + before/after methods first
+  (call-next-method)  ;; result = ctx after primary pipeline
+  ;; Now perform OUTBOUND work for LIST operations
+  (let* ((presenter   (ctx-presenter ctx))
+         (view        (make-view route ctx output-type))
+         (response-list (ctx-responsemodel ctx))  ; This is a LIST of response models
+         (viewmodel-list nil))
+    ;; Build viewmodel LIST using presenter (domain-agnostic)
+    (when (and presenter response-list)
+      ;; Use CreateAllViewModel for list transformation
+      (setf viewmodel-list (CreateAllViewModel presenter response-list))
+      (setf (ctx-viewmodel ctx) viewmodel-list))
+    ;; Now select proper LIST rendering
+    (cond
+      ;; If we have a list-specific render method, use it
+      ((and viewmodel-list (fboundp 'RenderList))
+       (RenderList view viewmodel-list))
+      ;; Fallback: Some views might implement RenderJSONAll or similar
+      ((and viewmodel-list 
+            (typep view 'JSONView)
+            (fboundp 'RenderJSONAll))
+       (RenderJSONAll view viewmodel-list))
+      ;; Default: iterate and render each item (less efficient but works)
+      (viewmodel-list
+       (let ((results '()))
+         (dolist (vm viewmodel-list)
+           (push (render view vm) results))
+         ;; Return aggregated results (reverse to maintain order)
+         (reverse results)))
+      ;; No viewmodels - return empty result
+      (t
+       (render view nil)))))
+
+
 
 ;; View resolver from the route
 (defun resolve-view-for (route output-type)
@@ -415,23 +513,68 @@ Returns:
 ;;; ---------------------------------------------------------------------------
 ;;; Convenience entry: build ctx and dispatch
 ;;; ---------------------------------------------------------------------------
-(defun make-call-context (route-key requestmodel-params trans-func-name)
+(defun make-call-context (route-key requestmodel-params trans-func-name 
+                          &key 
+                            (request-uri nil))
+
+
+  "Create a call context with optional request metadata.
+   If request metadata is not provided, attempts to get from Hunchentoot or uses defaults."
   (let* ((route  (find-outbound-route route-key))
-         (ctx    (make-instance 'call-context
+         ;; Try to get from Hunchentoot if not provided, otherwise use defaults
+         (final-uri (or request-uri
+                        (handler-case (hunchentoot:request-uri*)
+                          (error () "/default/context"))))
+	 (crud-op (crud-op route))
+	 (ctx-class (case crud-op
+                      (:read 'call-context-read)
+                      (:create 'call-context-create)
+                      (:update 'call-context-update)
+                      (:delete 'call-context-delete)
+                      (otherwise 'call-context)))
+	 ;; Special handling for :read with list semantics
+         (ctx-class (if (and (eq crud-op :readall)
+                            (or (search "readall" (string-downcase (symbol-name route-key)))
+                                (search "list" (string-downcase (symbol-name route-key)))
+                                (search "filter" (string-downcase (symbol-name route-key)))))
+                       'call-context-readall
+                       ctx-class))
+	 (ctx    (make-instance ctx-class
                                 :route-key route-key
                                 :requestmodel-params requestmodel-params
-                                :trans-func-name trans-func-name)))
-    ;; Build RequestModel, Adapter, Service, Presenter, View immediately
+                                :trans-func-name trans-func-name
+                                :request-uri final-uri)))
+
+    (format t "I have created a call context of type ~A ~C~C" ctx-class #\return #\linefeed)
+    ;; Build RequestModel, Adapter, Service, Presenter immediately
     (setf (ctx-requestmodel ctx) (make-requestmodel route ctx))
     (setf (ctx-adapter ctx)      (make-adapter route ctx))
     (setf (ctx-presenter ctx)    (make-presenter route ctx))
     ctx))
 
-(defun dispatch-route (route-key raw-params &key trans-func-name output-type)
-  (let* ((ctx (make-call-context route-key raw-params trans-func-name))
-	 (route (find-outbound-route route-key))
-	 (otype  (or output-type (caar (view-classes route)))))
+
+(defun dispatch-route (route-key raw-params 
+                       &key 
+                       trans-func-name 
+                       output-type
+                       request-uri)
+  "Dispatch a route with optional request metadata for ABAC/auditing.
+   
+   Parameters:
+     route-key       - Route identifier (e.g., :warehouse/create)
+     raw-params      - Request model parameters
+     trans-func-name - Transaction function name for auditing
+     output-type     - Output format (json, html, etc.)
+     request-uri     - Optional request URI (auto-detected from Hunchentoot if nil)"
+
+  (let* ((ctx (make-call-context route-key raw-params trans-func-name
+                                 :request-uri request-uri))
+         (route (find-outbound-route route-key))
+         (otype (or output-type (caar (view-classes route)))))
+    (format t "I am in dispatch-route function")
     (dispatch ctx route otype)))
+
+
     
 ;;; End of nst-bl-conflodis.lisp
 
