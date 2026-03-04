@@ -57,7 +57,7 @@
        (let ((cgst (slot-value gsthsncodeobj 'cgst))
              (sgst (slot-value gsthsncodeobj 'sgst))
              (igst (slot-value gsthsncodeobj 'igst))
-             (compcess (slot-value gsthsncodeobj 'compcess)))
+             (compcess (slot-value gsthsncodeobj 'comp-cess)))
          (list cgst sgst igst compcess)))
       (:F (list 0.0 0.0 0.0 0.0))
       (:U (error 'hhub-unknown :errstring (format nil "Unknown error while fetching GST values for HSN code ~A." hsncode)))

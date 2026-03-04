@@ -2,6 +2,25 @@
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
+
+(defun com-hhub-transaction-vendor-display-webrepl-page ()
+  (with-vend-session-check
+    (with-mvc-ui-page "Vendor Web REPL" #'create-model-for-vdisplay-webrepl  #'create-widgets-for-vdisplay-webrepl :role :vendor)))
+
+
+(defun create-model-for-vdisplay-webrepl ()
+  (let ((webrepltemplatehtml (funcall (nst-get-cached-core-template-func :templatenum 1))))
+    (function (lambda ()
+      (values webrepltemplatehtml)))))
+
+
+(defun create-widgets-for-vdisplay-webrepl (modelfunc)
+  (multiple-value-bind (webrepltemplatehtml) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
+		       (cl-who:str webrepltemplatehtml))))))
+      (list widget1))))
+
 (defun com-hhub-transaction-vendor-upload-product-images-action ()
   (with-vend-session-check
     (with-mvc-redirect-ui #'create-model-for-vuploadprdimages  #'create-widgets-for-genericredirect)))
@@ -2750,7 +2769,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				   (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
 			  (:tbody
 			   (mapcar (lambda (odt)
-				     (let* ((odt-product  (get-odt-product odt))
+				     (let* ((odt-product  (get-item-product odt))
 					    (prd-qty (slot-value odt 'prd-qty))
 					    (sgst (slot-value odt 'sgst))
 					    (sgstamt (slot-value odt 'sgstamt))
@@ -2760,7 +2779,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					    (igstamt (slot-value odt 'igstamt))
 					    (taxablevalue (slot-value odt 'taxablevalue))
 					    (totalitemval (slot-value odt 'totalitemval)))
-				       (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value odt-product 'prd-name)))
+				       (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value odt-product 'item-description)))
 							(:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
 							(:td  :height "12px" (cl-who:str (format nil  "~A ~$" currsymbol taxablevalue)))
 							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol sgstamt sgst)))
