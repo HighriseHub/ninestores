@@ -1,0 +1,11 @@
+TABLE DOD_PRD_CATG(
+  row_id,                -- primary key
+  catg_name,             -- category name
+  lft,                   -- nested set left
+  rgt,                   -- nested set right
+
+  active_flag,           -- Y/N active
+  deleted_state,         -- soft delete
+  tenant_id,
+  created
+)

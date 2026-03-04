@@ -1,0 +1,42 @@
+TABLE DOD_PRD_MASTER(
+  row_id,                -- primary key
+  product_code,          -- unique product code
+  prd_name,              -- product name
+  description,           -- product description
+
+  vendor_id,             -- vendor id
+  catg_id,               -- category id
+
+  prd_type,              -- SALE, SERVICE
+  unit_of_measure,       -- kg, pcs, litre
+  qty_per_unit,          -- quantity per unit
+
+  units_in_stock,        -- stock count
+  current_price,         -- current selling price
+  current_discount,      -- discount amount
+
+  hsn_code,              -- HSN code
+  sku,                   -- SKU
+  upc, ean, jan, isbn,   -- barcodes
+  serial_no,             -- serial number
+
+  shipping_length_cms,   -- dimensions
+  shipping_width_cms,
+  shipping_height_cms,
+  shipping_weight_kg,
+
+  external_url,          -- product external url
+  prd_image_path,        -- image path
+
+  active_flag,           -- Y/N active
+  approved_flag,         -- Y/N approved
+  approval_status,       -- approval status
+  approved_by,           -- approver
+
+  subscribe_flag,        -- subscription enabled
+
+  tenant_id,
+  deleted_state,
+  created,
+  updated
+)

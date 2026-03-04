@@ -1,0 +1,38 @@
+TABLE DOD_CUST_WALLET(
+  row_id,                -- primary key
+  cust_id,               -- customer id
+  vendor_id,             -- vendor id
+
+  balance,               -- current wallet balance
+  lifetime_loaded,       -- total loaded
+  lifetime_spent,        -- total spent
+
+  wallet_status,         -- ACTIVE, INACTIVE, SUSPENDED, CLOSED
+
+  auto_reload_enabled,   -- Y/N
+  auto_reload_threshold, -- minimum balance
+  auto_reload_amount,    -- reload amount
+
+  monthly_budget_limit,  -- monthly limit
+  current_month_spent,   -- spent this month
+
+  low_balance_alert_enabled,
+  low_balance_threshold,
+
+  last_loaded_at,
+  last_transaction_at,
+  first_transaction_at,
+
+  suspended_at,
+  suspended_by,
+  suspension_reason,
+
+  closed_at,
+  closed_by,
+  closure_reason,
+
+  tenant_id,
+  deleted_state,
+  created,
+  updated
+)

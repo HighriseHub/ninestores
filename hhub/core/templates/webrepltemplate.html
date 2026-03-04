@@ -1,0 +1,481 @@
+<style type="text/css">
+.repl-container {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.repl-header {
+  background: rgba(30, 30, 46, 0.95);
+  border: 1px solid #374151;
+  border-radius: 0.5rem 0.5rem 0 0;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.repl-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.repl-title h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #10b981;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.repl-subtitle {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 0.25rem 0 0 0;
+  font-family: 'Courier New', monospace;
+}
+
+.security-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-left: none;
+  border-right: none;
+  padding: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.security-warning i {
+  color: #f59e0b;
+  margin-top: 0.15rem;
+}
+
+.security-warning p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #fcd34d;
+  font-family: 'Courier New', monospace;
+}
+
+.terminal-output {
+  background: #000;
+  border-left: 1px solid #374151;
+  border-right: 1px solid #374151;
+  padding: 1rem;
+  height: 400px;
+  overflow-y: auto;
+  font-size: 0.875rem;
+  font-family: 'Courier New', monospace;
+}
+
+.terminal-line {
+  margin-bottom: 0.75rem;
+}
+
+.terminal-input {
+  color: #10b981;
+}
+
+.terminal-prompt {
+  color: #6b7280;
+}
+
+.terminal-output-text {
+  color: #d1d5db;
+  white-space: pre-wrap;
+  padding-left: 1.5rem;
+}
+
+.terminal-error {
+  color: #ef4444;
+  white-space: pre-wrap;
+  padding-left: 1.5rem;
+}
+
+.terminal-system {
+  color: #06b6d4;
+  white-space: pre-wrap;
+}
+
+.input-area {
+  background: rgba(30, 30, 46, 0.95);
+  border: 1px solid #374151;
+  border-radius: 0 0 0.5rem 0.5rem;
+  padding: 1rem;
+}
+
+.input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.input-prompt {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.65rem;
+  color: #6b7280;
+  pointer-events: none;
+  font-family: 'Courier New', monospace;
+}
+
+#replInput {
+  flex: 1;
+  background: #1a1a2e;
+  color: #10b981;
+  border: 1px solid #374151;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem 0.5rem 4rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+#replInput:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.btn-eval {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.2s;
+}
+
+.btn-eval:hover:not(:disabled) {
+  background: #059669;
+}
+
+.btn-eval:disabled {
+  background: #374151;
+  cursor: not-allowed;
+}
+
+.quick-commands {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.quick-label {
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-family: 'Courier New', monospace;
+}
+
+.btn-quick {
+  background: #374151;
+  color: #d1d5db;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-quick:hover {
+  background: #4b5563;
+}
+
+.examples-section {
+  margin-top: 1rem;
+  background: rgba(30, 30, 46, 0.5);
+  border: 1px solid #374151;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.examples-section h3 {
+  color: white;
+  font-size: 0.875rem;
+  margin: 0 0 0.5rem 0;
+  font-family: 'Courier New', monospace;
+}
+
+.example-line {
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
+  font-family: 'Courier New', monospace;
+}
+
+.example-code {
+  color: #10b981;
+}
+
+.example-comment {
+  color: #6b7280;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-icon:hover {
+  background: rgba(75, 85, 99, 0.5);
+}
+
+.processing {
+  color: #6b7280;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+</style>
+
+<div class="repl-container">
+  <!-- Header -->
+  <div class="repl-header">
+    <div class="repl-title">
+      <i class="fas fa-terminal" style="color: #10b981; font-size: 1.5rem;"></i>
+      <div>
+        <h1>NSTORES REPL</h1>
+        <p class="repl-subtitle">Common Lisp • Safe Mode • Seller #123</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" onclick="copyHistory()" title="Copy history">
+        <i class="far fa-copy"></i>
+      </button>
+      <button class="btn-icon" onclick="clearHistory()" title="Clear history">
+        <i class="fas fa-trash-alt"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Security Warning -->
+  <div class="security-warning">
+    <i class="fas fa-exclamation-triangle"></i>
+    <p>Safe mode enabled. Restricted operations: defun, eval, compile, file I/O, system calls.</p>
+  </div>
+
+  <!-- Terminal Output -->
+  <div class="terminal-output" id="terminalOutput">
+    <div class="terminal-line">
+      <div class="terminal-system">NSTORES Common Lisp REPL v1.0.0<br>Seller ID: 123 | Session: safe-mode<br>Type (help) for available commands.<br></div>
+    </div>
+  </div>
+
+  <!-- Input Area -->
+  <div class="input-area">
+    <div class="input-wrapper">
+      <span class="input-prompt">REPL></span>
+      <input type="text" id="replInput" placeholder="(help)" onkeypress="handleKeyPress(event)">
+      <button class="btn-eval" id="btnEval" onclick="evaluateExpression()">
+        <i class="fas fa-paper-plane"></i>
+        Eval
+      </button>
+    </div>
+
+    <!-- Quick Commands -->
+    <div class="quick-commands">
+      <span class="quick-label">Quick:</span>
+      <button class="btn-quick" onclick="setInput('(help)')">(help)</button>
+      <button class="btn-quick" onclick="setInput('(list-settings &quot;invoice&quot;)')">(list-settings "invoice")</button>
+      <button class="btn-quick" onclick="setInput('(get-setting &quot;invoice.print.paper-size&quot;)')">(get-setting "invoice.print.paper-size")</button>
+    </div>
+  </div>
+
+  <!-- Examples -->
+  <div class="examples-section">
+    <h3>Examples:</h3>
+    <div class="example-line">
+      <span class="example-code">(set-setting "invoice.print.paper-size" "A4")</span>
+      <span class="example-comment"> ; Set paper size to A4</span>
+    </div>
+    <div class="example-line">
+      <span class="example-code">(get-setting "invoice.print.font-size")</span>
+      <span class="example-comment"> ; Get font size value</span>
+    </div>
+    <div class="example-line">
+      <span class="example-code">(describe-setting "invoice.print.paper-size")</span>
+      <span class="example-comment"> ; Get metadata</span>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+const FORBIDDEN_PATTERNS = [
+  /\bdefun\b/i,
+  /\bdefmacro\b/i,
+  /\bsetf\s+\(\s*symbol-function/i,
+  /\beval\b/i,
+  /\bcompile\b/i,
+  /\bdefpackage\b/i,
+  /\bin-package\b/i,
+  /\bsb-ext:run-program\b/i,
+  /\buiop:run-program\b/i,
+  /\bopen\b/i,
+  /\bdelete-file\b/i,
+  /\bmake-thread\b/i,
+  /\bload\b/i,
+  /\brequire\b/i,
+  /\bfuncall\b/i,
+  /\bapply\b/i
+];
+
+function validateInput(code) {
+  for (const pattern of FORBIDDEN_PATTERNS) {
+    if (pattern.test(code)) {
+      return { 
+        valid: false, 
+        error: 'Security Error: Operation not allowed in safe mode.\nForbidden: ' + pattern.source 
+      };
+    }
+  }
+  
+  let depth = 0;
+  for (const char of code) {
+    if (char === '(') depth++;
+    if (char === ')') depth--;
+    if (depth < 0) return { valid: false, error: 'Syntax Error: Unmatched closing parenthesis' };
+  }
+  if (depth !== 0) return { valid: false, error: 'Syntax Error: Unmatched opening parenthesis' };
+  
+  return { valid: true };
+}
+
+function addToTerminal(type, content) {
+  const output = document.getElementById('terminalOutput');
+  const line = document.createElement('div');
+  line.className = 'terminal-line';
+  
+  if (type === 'input') {
+    line.innerHTML = '<div class="terminal-input"><span class="terminal-prompt">REPL> </span>' + 
+                     escapeHtml(content) + '</div>';
+  } else if (type === 'output') {
+    line.innerHTML = '<div class="terminal-output-text">' + escapeHtml(content) + '</div>';
+  } else if (type === 'error') {
+    line.innerHTML = '<div class="terminal-error">' + escapeHtml(content) + '</div>';
+  } else if (type === 'processing') {
+    line.innerHTML = '<div class="processing">Processing...</div>';
+    line.id = 'processingLine';
+  }
+  
+  output.appendChild(line);
+  output.scrollTop = output.scrollHeight;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function evaluateExpression() {
+  const input = document.getElementById('replInput');
+  const code = input.value.trim();
+  
+  if (!code) return;
+  
+  // Validate
+  const validation = validateInput(code);
+  if (!validation.valid) {
+    addToTerminal('input', code);
+    addToTerminal('error', validation.error);
+    input.value = '';
+    return;
+  }
+  
+  // Add to terminal
+  addToTerminal('input', code);
+  addToTerminal('processing', '');
+  input.value = '';
+  input.disabled = true;
+  document.getElementById('btnEval').disabled = true;
+  
+  try {
+    // Call backend API
+    const response = await fetch('/api/repl/eval', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code })
+    });
+    
+    const result = await response.json();
+    
+    // Remove processing line
+    const processingLine = document.getElementById('processingLine');
+    if (processingLine) processingLine.remove();
+    
+    // Add result
+    if (result.success) {
+      addToTerminal('output', result.result);
+    } else {
+      addToTerminal('error', result.error);
+    }
+  } catch (error) {
+    const processingLine = document.getElementById('processingLine');
+    if (processingLine) processingLine.remove();
+    addToTerminal('error', 'Network Error: ' + error.message);
+  } finally {
+    input.disabled = false;
+    document.getElementById('btnEval').disabled = false;
+    input.focus();
+  }
+}
+
+function handleKeyPress(event) {
+  if (event.key === 'Enter') {
+    evaluateExpression();
+  }
+}
+
+function setInput(cmd) {
+  document.getElementById('replInput').value = cmd;
+  document.getElementById('replInput').focus();
+}
+
+function clearHistory() {
+  const output = document.getElementById('terminalOutput');
+  output.innerHTML = '<div class="terminal-line"><div class="terminal-system">NSTORES Common Lisp REPL v1.0.0<br>Seller ID: 123 | Session: safe-mode<br>Type (help) for available commands.<br></div></div>';
+}
+
+function copyHistory() {
+  const output = document.getElementById('terminalOutput');
+  const text = output.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    // Visual feedback
+    const btn = event.target.closest('button');
+    const icon = btn.querySelector('i');
+    icon.className = 'fas fa-check';
+    setTimeout(() => {
+      icon.className = 'far fa-copy';
+    }, 2000);
+  });
+}
+
+// Focus input on load
+document.addEventListener('DOMContentLoaded', function() {
+  const input = document.getElementById('replInput');
+  if (input) input.focus();
+});
+</script>
