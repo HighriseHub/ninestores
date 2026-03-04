@@ -5,6 +5,24 @@
 ;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR Nine Stores ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun com-hhub-policy-create-warehouse (&optional (params nil))
+  :documentation "Policy for warehouse create"
+  T)
+
+(defun com-hhub-policy-read-warehouse (&optional (params nil))
+  :documentation "Policy for warehouse create"
+  T)
+(defun com-hhub-policy-readall-warehouse (&optional (params nil))
+  :documentation "Policy for read all warehouses for a given vendor"
+  T)
+
+(defun com-hhub-policy-update-warehouse (&optional (params nil))
+  :documentation "Policy for update a given warehouse for a given vendor"
+  T)
+
+(defun com-hhub-policy-delete-warehouse (&optional (params nil))
+  :documentation "Policy for update a given warehouse for a given vendor"
+  T)
 
 (defun com-hhub-policy-customer-address (&optional (params nil))
   :documentation "This policy governs updating the invoice item by the vendor"
@@ -352,7 +370,7 @@ T)
 	  (setf (slot-value transaction 'trans-func) (concatenate 'string *ABAC-TRANSACTION-FUNC-PREFIX* transfunc))
 	  (setf (slot-value transaction 'trans-type) transtype)
 	  (update-bus-transaction transaction))
-					;else
+	;;else
 	(create-bus-transaction (concatenate 'string *ABAC-TRANSACTION-NAME-PREFIX* transname)  transuri  transtype (concatenate 'string *ABAC-TRANSACTION-FUNC-PREFIX* transfunc) company))
     (hunchentoot:redirect "/hhub/listbustrans"))))
 
@@ -360,27 +378,27 @@ T)
 (defun com-hhub-transaction-policy-create ()
   (with-opr-session-check
     (let ((params nil))
-      (setf params (acons "username" (get-login-user-name) params))
+      (setf params (acons "username" (get-login-username) params))
       (setf params (acons "uri" (hunchentoot:request-uri*) params))
       (with-hhub-transaction "com-hhub-transaction-policy-create" params 
-    (let* ((company (get-login-company))
-	   (id (hunchentoot:parameter "id"))
-	   (policy (select-auth-policy-by-id id)) 
-	   (policyname (hunchentoot:parameter "policyname"))
-	   (policydesc (hunchentoot:parameter "policydesc"))
-	   (policyfunc (hunchentoot:parameter "policyfunc")))
-      (if policy 
-	  (progn 
-	    (setf (slot-value policy 'name) (concatenate 'string *ABAC-POLICY-NAME-PREFIX*  policyname))
-	    (setf (slot-value policy 'description) policydesc)
-	    (setf (slot-value policy 'policy-func) (concatenate 'string *ABAC-POLICY-FUNC-PREFIX*  policyfunc))
-	    (update-auth-policy policy))
-	  ;else
-					; This place is good for calling a higher order function or even a macro will do.
-	  ; (with-hhub-bus-layer 'create-auth-policy (concatenate 'string *ABAC-POLICY-NAME-PREFIX*  policyname)  policydesc (concatenate 'string *ABAC-POLICY-FUNC-PREFIX*  policyfunc) company)
-	   ; (hhub-bus-layer 'create-auth-policy (concatenate 'string *ABAC-POLICY-NAME-PREFIX*  policyname)  policydesc (concatenate 'string *ABAC-POLICY-FUNC-PREFIX*  policyfunc) company)
-	  (create-auth-policy (concatenate 'string *ABAC-POLICY-NAME-PREFIX*  policyname)  policydesc (concatenate 'string *ABAC-POLICY-FUNC-PREFIX*  policyfunc) company))
-      (hunchentoot:redirect "/hhub/dasabacsecurity"))))))
+	(let* ((company (get-login-company))
+	       (id (hunchentoot:parameter "id"))
+	       (policy (select-auth-policy-by-id id)) 
+	       (policyname (hunchentoot:parameter "policyname"))
+	       (policydesc (hunchentoot:parameter "policydesc"))
+	       (policyfunc (hunchentoot:parameter "policyfunc")))
+	  (if policy 
+	      (progn 
+		(setf (slot-value policy 'name) (concatenate 'string *ABAC-POLICY-NAME-PREFIX*  policyname))
+		(setf (slot-value policy 'description) policydesc)
+		(setf (slot-value policy 'policy-func) (concatenate 'string *ABAC-POLICY-FUNC-PREFIX*  policyfunc))
+		(update-auth-policy policy))
+	      ;;else
+	      ;; This place is good for calling a higher order function or even a macro will do.
+	      ;; (with-hhub-bus-layer 'create-auth-policy (concatenate 'string *ABAC-POLICY-NAME-PREFIX*  policyname)  policydesc (concatenate 'string *ABAC-POLICY-FUNC-PREFIX*  policyfunc) company)
+	      ;; (hhub-bus-layer 'create-auth-policy (concatenate 'string *ABAC-POLICY-NAME-PREFIX*  policyname)  policydesc (concatenate 'string *ABAC-POLICY-FUNC-PREFIX*  policyfunc) company)
+	      (create-auth-policy (concatenate 'string *ABAC-POLICY-NAME-PREFIX*  policyname)  policydesc (concatenate 'string *ABAC-POLICY-FUNC-PREFIX*  policyfunc) company))
+	  (hunchentoot:redirect "/hhub/dasabacsecurity"))))))
 
 
 
@@ -527,23 +545,35 @@ T)
       (:a :class "btn btn-primary" :role "button" :href (format nil "/hhub/transtopolicylinkpage?trans-id=~A" (slot-value transaction 'row-id)) " Link Policy/Change "))))
 
 	
-
 (defun dod-controller-trans-to-policy-link-page ()
+  (with-opr-session-check
+    (with-mvc-ui-page "Link Transaction To Policy" #'createmodelfortransactiontopolicylinkpage #'createwidgetsfortransactiontopolicylinkpage :role :superadmin)))
+
+(defun createmodelfortransactiontopolicylinkpage ()
   (let* ((trans-id (hunchentoot:parameter "trans-id"))
 	 (transaction (get-bus-transaction trans-id))
 	 (policy (get-bus-tran-policy transaction)))
-  (with-standard-admin-page (:title "Link Transaction To Policy")  
-    (:div :class "row" 
-	  (:div :class "col-xs-12" 
-		(:h4 (cl-who:str (format nil "Transaction:   ~A" (slot-value transaction 'name))))))
-    (:div :class "row" 
-	  (:div :class "col-xs-12" 
-		(:h4 (cl-who:str (format nil "Currently linked policy:   ~A" (slot-value policy 'name))))))
+    (function (lambda ()
+      (values trans-id transaction policy)))))
 
-    (with-html-search-form "idsearchpolicies" "searchpolicies" "idtxtsearchpolicies" "txtsearchpolicies" "dassearchpolicies" "onkeyupsearchform1event();" "Enter Policy Name..." 
-      (:input :class "form-control" :name "trans-id" :type "hidden" :value trans-id))
-    (submitsearchform1event-js "#idtxtsearchpolicies" "#txtsearchpoliciesresult")
-    (:div :id "txtsearchpoliciesresult"))))
+(defun createwidgetsfortransactiontopolicylinkpage (modelfunc)
+  (multiple-value-bind (trans-id transaction policy) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)      
+		       (:div :class "row" 
+			     (:div :class "col-xs-12" 
+				   (:h4 (cl-who:str (format nil "Transaction: ~A" (slot-value transaction 'name))))))
+		       (:div :class "row" 
+			     (:div :class "col-xs-12" 
+				   (:h4 (cl-who:str (format nil "Currently linked policy: ~A" (slot-value policy 'name))))))))))
+	  (widget2 (function (lambda ()
+		     (with-html-search-form "idsearchpolicies" "searchpolicies" "idtxtsearchpolicies" "txtsearchpolicies" "dassearchpolicies" "onkeyupsearchform1event();" "Enter Policy Name..." 
+		       (:input :class "form-control" :name "trans-id" :type "hidden" :value trans-id)))))
+	  (widget3 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)      
+		       (submitsearchform1event-js "#idtxtsearchpolicies" "#txtsearchpoliciesresult")
+		       (:div :id "txtsearchpoliciesresult"))))))
+	  (list widget1 widget2 widget3))))
 
     
 
@@ -552,31 +582,37 @@ T)
 	 (trans-id (hunchentoot:parameter "trans-id"))
 	 (transaction (get-bus-transaction trans-id))
 	 (policies (select-auth-policy-by-name (format nil "%~A%" policysearch) (get-login-company))))
-    (logiamhere (format nil "transaction id is ~d" (slot-value transaction 'row-id)))
     (ui-list-policies-for-linking policies transaction)))
    
-
-
 (defun ui-list-policies-for-linking (policy-list transaction)
-  (let ((trans-id (slot-value transaction 'row-id)))
+  (let ((trans-id (slot-value transaction 'row-id))
+        (prefix "com.hhub.policy."))
     (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-      (if policy-list 
-	  (cl-who:htm
-	   (:div :class "row-fluid"	  
-		 (mapcar (lambda (pol)
-			   (cl-who:htm
-			    (:form :method "POST" :action "transtopolicylinkaction" :id "transtopolicylinkform"  
-				   (:div :class "col-sm-4 col-lg-3 col-md-4"
-					 (:div :class "form-group"
-					       (:input :class "form-control" :name "trans-id" :type "hidden" :value trans-id ))
-					 (:div :class "form-group"
-					       (:input :class "form-control" :name "policy-id" :type "hidden" :value (slot-value pol 'row-id) ))
-					 
-					 (:div :class "form-group"
-					       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" (cl-who:str (format nil "~A" (string-left-trim "com.hhub.policy" (slot-value pol 'name))))))))))  policy-list)))
-					;else
-	  (cl-who:htm (:div :class "col-sm-12 col-md-12 col-lg-12"
-			    (:h3 "No records found")))))))
+      (:div :class "row-fluid"
+        (if (null policy-list)
+            ;; Empty State
+            (cl-who:htm 
+             (:div :class "col-12"
+               (:h3 "No records found")))
+            ;; else
+            ;; List State
+            (loop for pol in policy-list
+                  do (let* ((full-name (slot-value pol 'name))
+                            (pol-id    (slot-value pol 'row-id))
+                            ;; Safely strip the prefix
+                            (display-name (if (and (>= (length full-name) (length prefix))
+                                                   (string= full-name prefix :end1 (length prefix)))
+                                              (subseq full-name (length prefix))
+                                              full-name)))
+                       (cl-who:htm
+                        (:div :class "col-sm-4 col-lg-3 col-md-4"
+                          (:form :method "POST" :action "transtopolicylinkaction"
+                            (:div :class "form-group"
+                              (:input :type "hidden" :name "trans-id" :value trans-id)
+                              (:input :type "hidden" :name "policy-id" :value pol-id)
+                              (:button :class "btn btn-lg btn-primary btn-block" 
+                                       :type "submit" 
+                                       (cl-who:esc display-name)))))))))))))
 
 (defun dod-controller-trans-to-policy-link-action ()
   (let* ((trans-id (hunchentoot:parameter "trans-id"))
