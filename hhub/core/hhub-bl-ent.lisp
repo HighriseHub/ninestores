@@ -245,7 +245,7 @@
   (:documentation "Savte the domianobject to the database"))
 (defgeneric db-fetch (DBAdapterService row-id)
   (:documentation "Fetch the DBObject by row-id"))
-(defgeneric db-fetch-all (DBAdapterService)
+(defgeneric db-fetch-all (DBAdapterService RequestModel)
   (:documentation "Fetch records by company"))
 (defgeneric db-delete (DBAdapterService)
   (:documentation "Delete the dbobject in the database"))
@@ -529,7 +529,7 @@
   :description  "Fetch the DBObject based on row-id"
    (format nil "Will be implemented by the derivied class objects"))
 
-(defmethod db-fetch-all (DBAdapterService)
+(defmethod db-fetch-all (DBAdapterService RequestModel)
   :description "Fetch records by COMPANY"
   (format nil "Will be implemented by the derivied class objects"))
 
@@ -581,12 +581,11 @@
     ;; Transfer the bo-knowledge from business service to adapter. 
     (transferknowledge bserviceinstance service)
     (setf knowledge (bo-knowledge service))
-    (when (eq (bo-knowledge-truth knowledge) :F)
-      (setf domain-object (make-instance 'BusinessObjectNIL)))
-    (when (eq (bo-knowledge-truth knowledge) :U)
-      (setf domain-object (make-instance 'BusinessObjectUnknown)))
-    (when (eq (bo-knowledge-truth knowledge) :C)
-      (setf domain-object (make-instance 'BusinessObjectContradiction)))
+    (with-bo-knowledge-check knowledge
+      (:T (setf domain-object payload))                         ; return the new BusinessObject
+      (:F (setf domain-object (make-instance 'BusinessObjectNIL)))
+      (:U (setf domain-object (make-instance 'BusinessObjectUnknown)))
+      (:C (setf domain-object (make-instance 'BusinessObjectContradiction))))
     domain-object))
 
 (defmethod ProcessReadAllRequest ((service AdapterService) (requestmodel RequestModel))
@@ -599,33 +598,70 @@
     domain-objects))
 
 
-(defmethod ProcessCreateRequest ((service AdapterService) (requestmodel RequestModel)) 
+(defmethod ProcessCreateRequest ((adapter AdapterService) (requestmodel RequestModel)) 
   :description "This method acts as a gateway for all incoming CREATE requests to Nine Stores Business layer"
-  (let*  ((bservicename (getbusinessservice service))
+  (let*  ((bservicename (getbusinessservice adapter))
 	  (bserviceinstance (make-instance bservicename))
 	  (method "docreate")
+	  (knowledge nil)
 	  (domain-object (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
-    (transferknowledge bserviceinstance service)
+    (transferknowledge bserviceinstance adapter)
+    (setf knowledge (bo-knowledge adapter))
+    (with-bo-knowledge-check knowledge
+      (:T (setf domain-object payload))                         ; return the new BusinessObject
+      (:F (setf domain-object (make-instance 'BusinessObjectNIL)))
+      (:U (setf domain-object (make-instance 'BusinessObjectUnknown)))
+      (:C (setf domain-object (make-instance 'BusinessObjectContradiction))))
     domain-object))
-  
 
-(defmethod ProcessDeleteRequest ((service AdapterService) (requestmodel RequestModel)) 
+
+;;; ---------------------------------------------------------------------------
+;;; UPDATED: ProcessUpdateRequest with Belnap 4-valued logic
+;;; ---------------------------------------------------------------------------
+(defmethod ProcessUpdateRequest ((adapter AdapterService) (requestmodel RequestModel))
+  :description "This method acts as a gateway for all incoming UPDATE requests to Nine Stores Business Layer."
+  (let* ((bservicename (getbusinessservice adapter))
+         (bserviceinstance (make-instance bservicename))
+         (method "doupdate")
+         (knowledge nil)
+         (domain-object (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
+    
+    ;; Transfer knowledge from business service to adapter
+    (transferknowledge bserviceinstance adapter)
+    (setf knowledge (bo-knowledge adapter))
+    
+    ;; Apply Belnap 4-valued logic checking
+    (with-bo-knowledge-check knowledge
+      (:T (setf domain-object payload))                          ; return the updated BusinessObject
+      (:F (setf domain-object (make-instance 'BusinessObjectNIL)))
+      (:U (setf domain-object (make-instance 'BusinessObjectUnknown)))
+      (:C (setf domain-object (make-instance 'BusinessObjectContradiction))))
+    
+    domain-object))
+
+
+;;; ---------------------------------------------------------------------------
+;;; UPDATED: ProcessDeleteRequest with Belnap 4-valued logic
+;;; ---------------------------------------------------------------------------
+(defmethod ProcessDeleteRequest ((adapter AdapterService) (requestmodel RequestModel))
   :description "This method acts as a gateway for all incoming DELETE requests to Nine Stores Business layer"
-  (let* ((bservicename (getbusinessservice service))
-	 (bserviceinstance (make-instance bservicename))
-	 (method "dodelete"))
-    ;; Call the docreate method on the BusinessService.
-    (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
-  
-
-(defmethod ProcessUpdateRequest ((service AdapterService) (requestmodel RequestModel))
-  :description "This method acts as a gateway for all the incoming UPDATE requests to Nine Stores Business Layer."
-  (let* ((bservicename (getbusinessservice service))
-	 (bserviceinstance (make-instance bservicename))
-	 (method "doupdate")
-	 (domain-object (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
-
-    (transferknowledge bserviceinstance service)
+  (let* ((bservicename (getbusinessservice adapter))
+         (bserviceinstance (make-instance bservicename))
+         (method "dodelete")
+         (knowledge nil)
+         (domain-object (funcall (intern (string-upcase method) :nstores) bserviceinstance requestmodel)))
+    
+    ;; Transfer knowledge from business service to adapter
+    (transferknowledge bserviceinstance adapter)
+    (setf knowledge (bo-knowledge adapter))
+   
+    ;; Apply Belnap 4-valued logic checking
+    (with-bo-knowledge-check knowledge
+      (:T (setf domain-object payload))                          ; return success indicator or deleted object
+      (:F (setf domain-object (make-instance 'BusinessObjectNIL)))
+      (:U (setf domain-object (make-instance 'BusinessObjectUnknown)))
+      (:C (setf domain-object (make-instance 'BusinessObjectContradiction))))
+    
     domain-object))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
