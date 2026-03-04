@@ -1,0 +1,11 @@
+TABLE DOD_VENDOR_SHIP_ZONES(
+  row_id,                -- primary key
+  zonename,              -- shipping zone name
+  zipcoderangecsv,       -- comma separated zipcode ranges
+
+  vendor_id,             -- vendor id
+  active_flag,           -- Y/N active
+  deleted_state,         -- soft delete
+  tenant_id,
+  created
+)

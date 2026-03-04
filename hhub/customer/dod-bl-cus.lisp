@@ -17,7 +17,216 @@
 ;    (getpincodedetails pincode)))
 
 
- 
+;;; Customer Profile Queries
+
+(defun find-customer-by-gstin (gstin)
+  "Find customer by GSTIN"
+  (car (clsql:select 'dod-cust-profile
+                     :where [and [= [gstin] gstin]
+                                 [= [active-flag] "Y"]
+                                 [= [deleted-state] "N"]]
+                     :flatp t)))
+
+(defun find-customer-by-company-name (company-name)
+  "Find customer by company name"
+  (clsql:select 'dod-cust-profile
+                :where [and [like [company-name] (concatenate 'string "%" company-name "%")]
+                            [= [active-flag] "Y"]
+                            [= [deleted-state] "N"]]
+                :flatp t))
+
+(defun find-customer-by-pan (pan-number)
+  "Find customer by PAN"
+  (car (clsql:select 'dod-cust-profile
+                     :where [and [= [pan-number] pan-number]
+                                 [= [deleted-state] "N"]]
+                     :flatp t)))
+
+(defun get-b2b-customers (&optional (tenant-id nil))
+  "Get all B2B customers (with GSTIN)"
+  (clsql:select 'dod-cust-profile
+                :where (if tenant-id
+                          [and [= [gst-customer-type] "B2B"]
+                               [is-not-null [gstin]]
+                               [= [active-flag] "Y"]
+                               [= [tenant-id] tenant-id]
+                               [= [deleted-state] "N"]]
+                          [and [= [gst-customer-type] "B2B"]
+                               [is-not-null [gstin]]
+                               [= [active-flag] "Y"]
+                               [= [deleted-state] "N"]])
+                :order-by '([company-name])
+                :flatp t))
+
+(defun get-b2c-customers (&optional (tenant-id nil))
+  "Get all B2C customers (no GSTIN or INDIVIDUAL type)"
+  (clsql:select 'dod-cust-profile
+                :where (if tenant-id
+                          [and [or [= [gst-customer-type] "B2C"]
+                                   [is-null [gstin]]
+                                   [= [business-type] "INDIVIDUAL"]]
+                               [= [active-flag] "Y"]
+                               [= [tenant-id] tenant-id]
+                               [= [deleted-state] "N"]]
+                          [and [or [= [gst-customer-type] "B2C"]
+                                   [is-null [gstin]]
+                                   [= [business-type] "INDIVIDUAL"]]
+                               [= [active-flag] "Y"]
+                               [= [deleted-state] "N"]])
+                :order-by '([name])
+                :flatp t))
+
+;;; Customer Type Detection
+
+(defun is-b2b-customer-p (customer)
+  "Check if customer is B2B (has GSTIN)"
+  (and (slot-value customer 'gstin)
+       (= 15 (length (string-trim " " (slot-value customer 'gstin))))))
+
+(defun is-b2c-customer-p (customer)
+  "Check if customer is B2C (no GSTIN)"
+  (not (is-b2b-customer-p customer)))
+
+(defun get-customer-display-name (customer)
+  "Get appropriate display name based on customer type"
+  (if (is-b2b-customer-p customer)
+      (or (slot-value customer 'company-name)
+          (slot-value customer 'legal-name)
+          (slot-value customer 'name))
+      (or (slot-value customer 'fullname)
+          (slot-value customer 'name)
+          (format nil "~A ~A" 
+                  (slot-value customer 'firstname)
+                  (slot-value customer 'lastname)))))
+
+;;; KYC Management
+
+(defun update-kyc-status (customer-id status verified-by)
+  "Update KYC status for a customer"
+  (let ((customer (car (clsql:select 'dod-cust-profile
+                                     :where [= [row-id] customer-id]
+                                     :flatp t))))
+    (when customer
+      (setf (slot-value customer 'kyc-status) status)
+      (when (string= status "VERIFIED")
+        (setf (slot-value customer 'kyc-verified-date) (clsql:get-time))
+        (setf (slot-value customer 'kyc-verified-by) verified-by))
+      (clsql:update-records-from-instance customer)
+      customer)))
+
+;;; Business Metrics
+
+(defun update-customer-metrics (customer-id order-amount)
+  "Update customer's order metrics after a new order"
+  (let ((customer (car (clsql:select 'dod-cust-profile
+                                     :where [= [row-id] customer-id]
+                                     :flatp t))))
+    (when customer
+      (incf (slot-value customer 'total-orders))
+      (incf (slot-value customer 'total-spent) order-amount)
+      (setf (slot-value customer 'last-order-date) (clsql:get-time))
+      (clsql:update-records-from-instance customer)
+      customer)))
+
+(defun get-top-customers (limit &key (by-amount t))
+  "Get top customers by spend or order count"
+  (clsql:select 'dod-cust-profile
+                :where [and [= [active-flag] "Y"]
+                            [= [deleted-state] "N"]]
+                :order-by (if by-amount
+                             '(([total-spent] :desc))
+                             '(([total-orders] :desc)))
+                :limit limit
+                :flatp t))
+
+;;; GST Validation
+
+(defun validate-gstin-format (gstin)
+  "Validate GSTIN format (15 chars, specific pattern)"
+  (and gstin
+       (= 15 (length gstin))
+       (cl-ppcre:scan "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$" 
+                      gstin)))
+
+(defun extract-pan-from-gstin (gstin)
+  "Extract PAN number from GSTIN (characters 3-12)"
+  (when (validate-gstin-format gstin)
+    (subseq gstin 2 12)))
+
+(defun extract-state-code-from-gstin (gstin)
+  "Extract state code from GSTIN (first 2 characters)"
+  (when (validate-gstin-format gstin)
+    (subseq gstin 0 2)))
+
+(defun auto-populate-from-gstin (customer)
+  "Auto-populate PAN and state from GSTIN if not set"
+  (when (and (slot-value customer 'gstin)
+             (validate-gstin-format (slot-value customer 'gstin)))
+    (unless (slot-value customer 'pan-number)
+      (setf (slot-value customer 'pan-number)
+            (extract-pan-from-gstin (slot-value customer 'gstin))))
+    (unless (slot-value customer 'registered-state)
+      (let ((state-code (extract-state-code-from-gstin (slot-value customer 'gstin))))
+        (setf (slot-value customer 'registered-state)
+              (get-state-name-from-code state-code))))
+    (clsql:update-records-from-instance customer)))
+
+
+(defun get-state-name-from-code (state-code)
+ (gethash state-code *NSTGSTSTATECODES-HT*))
+
+
+
+;;; Customer Creation
+
+(defun create-b2b-customer (company-name gstin &key legal-name email phone 
+                                          business-type organization-type
+                                          primary-contact-name tenant-id)
+  "Create a new B2B customer"
+  (let ((customer (make-instance 'dod-cust-profile
+                                 :company-name company-name
+                                 :legal-name (or legal-name company-name)
+                                 :name company-name
+                                 :gstin gstin
+                                 :gst-customer-type "B2B"
+                                 :business-type (or business-type "OTHER")
+                                 :organization-type (or organization-type "COMPANY")
+                                 :email email
+                                 :phone phone
+                                 :primary-contact-name primary-contact-name
+                                 :username email  ; Temporary - will use DOD_CUSTOMER_USERS
+                                 :password "PLACEHOLDER"  ; Will be set via DOD_CUSTOMER_USERS
+                                 :active-flag "Y"
+                                 :created (clsql:get-time)
+                                 :updated (clsql:get-time)
+                                 :tenant-id tenant-id
+                                 :deleted-state "N")))
+    
+    ;; Auto-populate from GSTIN
+    (auto-populate-from-gstin customer)
+    
+    (clsql:update-records-from-instance customer)
+    customer))
+
+(defun create-b2c-customer (name email phone &key firstname lastname tenant-id)
+  "Create a new B2C customer"
+  (make-instance 'dod-cust-profile
+                 :name name
+                 :firstname firstname
+                 :lastname lastname
+                 :fullname name
+                 :email email
+                 :phone phone
+                 :gst-customer-type "B2C"
+                 :business-type "INDIVIDUAL"
+                 :organization-type "INDIVIDUAL"
+                 :username email
+                 :password "PLACEHOLDER"
+                 :active-flag "Y"
+                 :created (clsql:get-time)
+                 :updated (clsql:get-time)
+                 :tenant-id tenant-id
+                 :deleted-state "N")) 
 
 
 (defun update-cust-wallet-balance (amount wallet-id)
@@ -165,11 +374,46 @@
         (format t "~&[ADAPTER C] Unhandled Lisp Error in Adapter: ~A. Mapping to CONTRADICTION (:C)." e)
         (values nil :C)))))
 
-
-
-
-
 (defun getpincodedetails (pincode)
+  (let* ((pcodedata (gethash pincode *NST-ALL-INDIA-PINCODES*))
+	 (address (make-instance 'Address))
+	 (locality (if pcodedata (slot-value pcodedata 'office-name)))
+	 (city (if pcodedata (slot-value pcodedata 'district)))
+	 (division (if pcodedata (slot-value pcodedata 'division-name)))
+	 (state (if pcodedata (slot-value pcodedata 'state-name))))
+    ;; Send the Area, City and State values back.
+    (if (and 
+	     (not (null locality))
+	     (not (null city))
+	     (not (null state)))
+	(progn
+	  (setf (slot-value address 'pincode) pincode)
+	  ;; Remove the S.O from the locality string.
+	  (setf (slot-value address 'house-no) "")
+	  (setf (slot-value address 'street) "")
+	  (setf (slot-value address 'country) "")
+	  (setf (slot-value address 'longitude) "")
+	  (setf (slot-value address 'latitude) "")
+	  (setf (slot-value address 'locality) (string-trim "S.O" locality))
+	  (setf (slot-value address 'city) (format nil "~A, ~A" division city))
+	  (setf (slot-value address 'state) state))
+	
+	;;else
+	(progn
+	  (setf (slot-value address 'pincode) pincode)
+	  (setf (slot-value address 'house-no) "")
+	  (setf (slot-value address 'street) "")
+	  (setf (slot-value address 'country) "")
+	  (setf (slot-value address 'longitude) "")
+	  (setf (slot-value address 'latitude) "")
+	  (setf (slot-value address 'locality) "Not Found")
+	  (setf (slot-value address 'city) "Not Found")
+	  (setf (slot-value address 'state) "Not Found")))
+    ;; return the address object
+    address))
+	 
+
+(defun getpincodedetails-old (pincode)
   (let* ((address (make-instance 'Address))
 	 (param-name (list "api-key" "format" "offset" "limit" "filters[pincode]"))
 	 (param-values (list *HHUBAPI.GOV.IN.KEY*  "json" "0" "1" (format nil "~A" pincode)))

@@ -341,6 +341,7 @@
       (setf (slot-value InvoiceHeaderdbobj 'tenant-id) tenant-id)
       (setf (slot-value InvoiceHeaderdbobj 'finyear) finyear)
       (setf (slot-value InvoiceHeaderdbobj 'external-url) external-url)
+      (setf (slot-value InvoiceHeaderdbobj 'updated) (clsql:get-time))
       (setf (slot-value InvoiceHeaderdbobj 'status) status))
     ;;  FIELD UPDATE CODE ENDS HERE. 
     (setf (slot-value InvoiceHeaderdbservice 'dbobject) InvoiceHeaderdbobj)

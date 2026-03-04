@@ -1,0 +1,17 @@
+TABLE DOD_VENDOR_SETTINGS(
+  row_id,                -- primary key
+  vendor_id,             -- vendor id
+  tenant_id,             -- tenant id
+
+  setting_def_id,        -- references setting definition
+  setting_key,           -- unique setting key
+  setting_value,         -- setting value (text / json)
+
+  context_id,            -- optional context
+  trace,                 -- json trace/debug info
+
+  status,                -- ACTIVE, INACTIVE
+  deleted_state,         -- soft delete
+  created,
+  updated
+)

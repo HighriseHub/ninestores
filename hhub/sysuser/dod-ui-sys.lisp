@@ -729,7 +729,7 @@
 	(cmpcity (hunchentoot:parameter "cmpcity"))
 	(cmpstate (hunchentoot:parameter "cmpstate"))
 	(cmpcountry (hunchentoot:parameter "cmpcountry"))
-	(cmpzipcode (hunchentoot:parameter "cmpzipcode"))
+	(cmpzipcode (parse-integer (hunchentoot:parameter "cmpzipcode")))
 	(tnccheck (hunchentoot:parameter "tnccheck"))
 	(captcha-resp (hunchentoot:parameter "g-recaptcha-response"))
 	(paramname (list "secret" "response" ) ) 
@@ -753,7 +753,7 @@
 				:updated-by nil)))
   (unless(and  ( or (null cmpname) (zerop (length cmpname)))
 	       ( or (null cmpaddress) (zerop (length cmpaddress)))
-	       ( or (null cmpzipcode) (zerop (length cmpzipcode))))
+	       (null cmpzipcode))
     (cond 
       ((null (cdr (car json-response))) (dod-response-captcha-error))
       ((and company
@@ -1088,6 +1088,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicesettingspage"   'com-hhub-transaction-invoice-settings-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vsaveinvprintsettings"   'com-hhub-transaction-save-invoice-print-settings-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vuploadprdimagesaction"   'com-hhub-transaction-vendor-upload-product-images-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vwebrepl"   'com-hhub-transaction-vendor-display-webrepl-page)
 ))
 
 

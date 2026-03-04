@@ -49,6 +49,252 @@ drop table if exists DOD_COMPANY;  SELECT 'dropping apartment complex/society/gr
 
 select 'tables dropped' as ' ';
 
+select 'creating table DOD_ORGANIZATIONS' as ' ';
+CREATE TABLE DOD_ORGANIZATIONS (
+    -- Primary Key
+    row_id mediumint PRIMARY KEY AUTO_INCREMENT,
+    -- Tenant/Company Reference
+    tenant_id mediumint NOT NULL COMMENT 'Tenant company that owns this data',
+    -- Basic Information
+    org_code VARCHAR(50) COMMENT 'Unique organization code',
+    org_name VARCHAR(255) NOT NULL COMMENT 'Trading/DBA name',
+    display_name VARCHAR(255) COMMENT 'UI display name (e.g., "ABC Corp (Distributor)")',
+    legal_name VARCHAR(255) COMMENT 'Legal registered name',
+    -- Hierarchy (Optional but recommended)
+    parent_org_id mediumint COMMENT 'Parent organization for subsidiaries/franchises',
+    -- Legal/Tax Information
+    tax_id VARCHAR(100) COMMENT 'Tax ID/EIN/VAT number',
+    registration_number VARCHAR(100) COMMENT 'Business registration number',
+    legal_structure ENUM('SOLE_PROPRIETOR', 'PARTNERSHIP', 'LLC', 'CORPORATION', 'NON_PROFIT', 'GOVERNMENT', 'OTHER') 
+        COMMENT 'Legal entity type',
+     -- Contact Information
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    fax VARCHAR(50),
+    website VARCHAR(255),
+    -- Primary Address (denormalized for performance)
+    address_line1 VARCHAR(255),
+    address_line2 VARCHAR(255),
+    city VARCHAR(100),
+    state VARCHAR(100),
+    country VARCHAR(100) DEFAULT 'USA',
+    postal_code VARCHAR(20),
+    -- Financial Information
+    default_currency_code VARCHAR(3) DEFAULT 'USD',
+    fiscal_year_end VARCHAR(5) COMMENT 'MM-DD format, e.g., 12-31',
+    -- Industry Classification
+    industry VARCHAR(100),
+    company_size ENUM('MICRO', 'SMALL', 'MEDIUM', 'LARGE', 'ENTERPRISE'),
+    annual_revenue DECIMAL(15,2),
+    employee_count INT,
+    -- Integration Support
+    external_id VARCHAR(100) COMMENT 'External system reference ID',
+    external_system VARCHAR(50) COMMENT 'Source system (QuickBooks, Shopify, etc.)',
+    -- Status and Metadata
+    status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_APPROVAL') DEFAULT 'ACTIVE',
+    is_verified BOOLEAN DEFAULT FALSE COMMENT 'Whether organization details are verified',
+    notes TEXT COMMENT 'Internal notes about this organization',
+    -- Soft Delete
+    deleted_state char(1) NULL,
+    -- Audit Fields
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by BIGINT,
+    updated_by BIGINT,
+    -- Indexes
+    INDEX idx_tenant_id (tenant_id),
+    INDEX idx_org_code (tenant_id, org_code),
+    INDEX idx_org_name (org_name),
+    INDEX idx_tax_id (tax_id),
+    INDEX idx_status (status),
+    INDEX idx_company_status (tenant_id, status),
+    INDEX idx_external (external_system, external_id),
+    INDEX idx_parent_org (parent_org_id),
+     -- Unique Constraints
+    UNIQUE KEY uk_company_org_code (tenant_id, org_code),
+    -- Foreign Keys
+    CONSTRAINT fk_org_company FOREIGN KEY (tenant_id) 
+        REFERENCES DOD_COMPANY(row_id) ON DELETE CASCADE,
+    CONSTRAINT fk_org_parent FOREIGN KEY (parent_org_id) 
+        REFERENCES DOD_ORGANIZATIONS(row_id) ON DELETE SET NULL,
+    CONSTRAINT fk_org_created_by FOREIGN KEY (created_by) 
+        REFERENCES DOD_USERS(row_id) ON DELETE SET NULL,
+    CONSTRAINT fk_org_updated_by FOREIGN KEY (updated_by) 
+        REFERENCES DOD_USERS(row_id) ON DELETE SET NULL,
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Master organization/party table for all legal entities';
+
+
+CREATE TABLE DOD_ORG_RELATIONS (
+    -- Primary Key
+    row_id mediumint PRIMARY KEY AUTO_INCREMENT,
+    -- Core Relationship
+    tenant_id BIGINT NOT NULL COMMENT 'The tenant company',
+    org_id BIGINT NOT NULL COMMENT 'The organization being related',
+    relation_type ENUM('PRIMARY', 'VENDOR', 'CUSTOMER', 'BOTH') NOT NULL 
+        COMMENT 'PRIMARY=own company, VENDOR=buy from, CUSTOMER=sell to, BOTH=buy and sell',
+    
+    -- Business Classification (for CUSTOMER relationships)
+    business_type ENUM(
+        'B2B_CUSTOMER',
+        'DISTRIBUTOR',
+        'WHOLESALER',
+        'RETAILER',
+        'RESELLER',
+        'DROPSHIPPER',
+        'MANUFACTURER',
+        'SUPPLIER',
+        'SERVICE_PROVIDER',
+        'CONTRACTOR',
+        'PARTNER',
+        'GOVERNMENT',
+        'NON_PROFIT'
+    ) COMMENT 'Type of business relationship',
+    
+    -- Backward Compatibility Links
+    vendor_profile_id BIGINT COMMENT 'Link to legacy DOD_VEND_PROFILE',
+    customer_profile_id BIGINT COMMENT 'Link to DOD_CUST_PROFILE (for B2C migrated customers)',
+    
+    -- Relationship Codes
+    customer_code VARCHAR(50) COMMENT 'Customer account number',
+    vendor_code VARCHAR(50) COMMENT 'Vendor account number',
+    
+    -- === CUSTOMER-SPECIFIC FIELDS ===
+    
+    -- Pricing & Discounts
+    price_tier VARCHAR(50) COMMENT 'Pricing tier',
+    discount_percentage DECIMAL(5,2) COMMENT 'Default discount percentage',
+    commission_percentage DECIMAL(5,2) COMMENT 'Commission for distributors/resellers',
+    
+    -- Credit & Payment Terms
+    customer_credit_limit DECIMAL(15,2) COMMENT 'Credit limit for this customer',
+    customer_payment_terms VARCHAR(100) COMMENT 'e.g., NET30, NET60, COD',
+    customer_payment_method ENUM('CREDIT_CARD', 'ACH', 'WIRE', 'CHECK', 'COD', 'NET_TERMS'),
+    
+    -- Distribution-specific
+    distributor_level ENUM('TIER1', 'TIER2', 'TIER3', 'EXCLUSIVE', 'NON_EXCLUSIVE'),
+    territory TEXT COMMENT 'Geographic territory (JSON array or comma-separated)',
+    can_dropship BOOLEAN DEFAULT FALSE,
+    min_order_quantity INT,
+    min_order_value DECIMAL(15,2),
+    
+    -- Legal/Compliance
+    resale_certificate VARCHAR(100) COMMENT 'Resale certificate number',
+    resale_cert_expiry DATE,
+    is_tax_exempt BOOLEAN DEFAULT FALSE,
+    tax_exempt_reason VARCHAR(255),
+    
+    -- === VENDOR-SPECIFIC FIELDS ===
+    
+    -- Payment Terms
+    vendor_payment_terms VARCHAR(100) COMMENT 'e.g., NET30, 2/10 NET30',
+    vendor_payment_method ENUM('ACH', 'WIRE', 'CHECK', 'CREDIT_CARD'),
+    vendor_credit_limit DECIMAL(15,2) COMMENT 'Credit limit vendor extends to us',
+    
+    -- Delivery & Lead Times
+    default_lead_time_days INT,
+    shipping_method VARCHAR(100),
+    incoterms VARCHAR(20) COMMENT 'FOB, CIF, EXW, etc.',
+    
+    -- Vendor Classification
+    vendor_category VARCHAR(100) COMMENT 'Raw materials, finished goods, services',
+    is_preferred_vendor BOOLEAN DEFAULT FALSE,
+    vendor_rating DECIMAL(3,2) COMMENT 'Rating 0.00-5.00',
+    
+    -- === COMMON FIELDS ===
+    
+    -- Currency
+    default_currency_code VARCHAR(3) DEFAULT 'USD',
+    
+    -- Communication Preferences
+    primary_contact_id BIGINT COMMENT 'FK to DOD_CONTACTS',
+    billing_contact_id BIGINT COMMENT 'FK to DOD_CONTACTS',
+    shipping_contact_id BIGINT COMMENT 'FK to DOD_CONTACTS',
+    
+    -- Address Overrides
+    billing_address_id BIGINT COMMENT 'FK to DOD_ADDRESSES',
+    shipping_address_id BIGINT COMMENT 'FK to DOD_ADDRESSES',
+    
+    -- Integration Support
+    external_id VARCHAR(100) COMMENT 'External system reference',
+    external_system VARCHAR(50) COMMENT 'Source system name',
+    
+    -- Status & Lifecycle
+    status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_APPROVAL', 'BLACKLISTED') DEFAULT 'ACTIVE',
+    relationship_start_date DATE COMMENT 'When relationship began',
+    relationship_end_date DATE COMMENT 'When relationship ended',
+    
+    -- Internal Management
+    account_manager_id BIGINT COMMENT 'Sales rep or procurement officer',
+    tags JSON COMMENT 'Additional tags for filtering',
+    internal_notes TEXT,
+    
+    -- Soft Delete
+    deleted_state char(1)  NULL,
+        
+    -- Audit Fields
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by BIGINT,
+    updated_by BIGINT,
+    
+    -- Indexes
+    INDEX idx_tenant_id (tenant_id),
+    INDEX idx_org_id (org_id),
+    INDEX idx_relation_type (relation_type),
+    INDEX idx_business_type (business_type),
+    INDEX idx_status (status, deleted_at),
+    INDEX idx_company_relation (tenant_id, relation_type, status),
+    INDEX idx_company_org (tenant_id, org_id),
+    INDEX idx_customer_code (tenant_id, customer_code),
+    INDEX idx_vendor_code (tenant_id, vendor_code),
+    INDEX idx_external (external_system, external_id),
+    
+    -- Unique Constraints
+    UNIQUE KEY uk_company_org_relation (tenant_id, org_id, relation_type),
+    UNIQUE KEY uk_company_customer_code (tenant_id, customer_code),
+    UNIQUE KEY uk_company_vendor_code (tenant_id, vendor_code),
+    
+    -- Foreign Keys
+    CONSTRAINT fk_rel_company FOREIGN KEY (tenant_id) 
+        REFERENCES DOD_COMPANY(row_id) ON DELETE CASCADE,
+    CONSTRAINT fk_rel_org FOREIGN KEY (org_id) 
+        REFERENCES DOD_ORGANIZATIONS(row_id) ON DELETE CASCADE,
+    CONSTRAINT fk_rel_vendor_profile FOREIGN KEY (vendor_profile_id) 
+        REFERENCES DOD_VEND_PROFILE(row_id) ON DELETE SET NULL,
+    CONSTRAINT fk_rel_customer_profile FOREIGN KEY (customer_profile_id) 
+        REFERENCES DOD_CUST_PROFILE(row_id) ON DELETE SET NULL,
+    CONSTRAINT fk_rel_created_by FOREIGN KEY (created_by) 
+        REFERENCES DOD_USERS(user_id) ON DELETE SET NULL,
+    CONSTRAINT fk_rel_updated_by FOREIGN KEY (updated_by) 
+        REFERENCES DOD_USERS(user_id) ON DELETE SET NULL,
+    CONSTRAINT fk_rel_account_manager FOREIGN KEY (account_manager_id) 
+        REFERENCES DOD_USERS(user_id) ON DELETE SET NULL
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Relationship context defining how organizations relate to each company';
+
+select 'creating table DOD_VENDOR_SETTINGS' as ' ';
+CREATE TABLE `DOD_VENDOR_SETTINGS` (
+  `ROW_ID` mediumint NOT NULL AUTO_INCREMENT,
+  `VENDOR_ID` mediumint NOT NULL,
+  `SETTING_KEY` varchar(255) NOT NULL,
+  `SETTING_VALUE` text,
+  `DATA_TYPE` enum('string','number','boolean','json') DEFAULT 'string',
+  `CONTEXT_ID` varchar(100) DEFAULT NULL,
+  `USER_ID` mediumint DEFAULT NULL,
+  `CREATED` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `UPDATED` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `STATUS` varchar(20) DEFAULT 'ACTIVE',
+  `DELETED_STATE` char(1) DEFAULT NULL,
+  `TENANT_ID` mediumint DEFAULT NULL,
+  PRIMARY KEY (`ROW_ID`),
+  UNIQUE KEY `VENDOR_SETTING` (`VENDOR_ID`, `SETTING_KEY`, `TENANT_ID`),
+  KEY `VENDOR_ID` (`VENDOR_ID`),
+  KEY `SETTING_KEY` (`SETTING_KEY`),
+  KEY `TENANT_ID` (`TENANT_ID`),
+  KEY `USER_ID` (`USER_ID`),
+  CONSTRAINT `DOD_SELLER_SETTINGS_ibfk_1` FOREIGN KEY (`TENANT_ID`) REFERENCES `DOD_COMPANY` (`ROW_ID`),
+  CONSTRAINT `DOD_SELLER_SETTINGS_ibfk_2` FOREIGN KEY (`VENDOR_ID`) REFERENCES `DOD_VEND_PROFILE` (`ROW_ID`),
+  CONSTRAINT `DOD_SELLER_SETTINGS_ibfk_3` FOREIGN KEY (`USER_ID`) REFERENCES `DOD_USERS` (`ROW_ID`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 select 'creating table DOD_SCHEMA_MIGRATIONS' as ' ';
 CREATE TABLE `DOD_SCHEMA_MIGRATIONS` (

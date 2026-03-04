@@ -1,0 +1,15 @@
+TABLE DOD_VPAYMENT_METHODS(
+  row_id,                -- primary key
+
+  codenabled,            -- COD enabled Y/N
+  upienabled,            -- UPI enabled Y/N
+  walletenabled,         -- wallet enabled Y/N
+  paylaterenabled,       -- pay later enabled Y/N
+  payprovidersenabled,  -- gateway payments enabled
+
+  vendor_id,             -- vendor id
+  active_flag,           -- Y/N active
+  deleted_state,         -- soft delete
+  tenant_id,
+  created
+)

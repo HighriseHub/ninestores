@@ -1,0 +1,40 @@
+TABLE DOD_INVOICE_HEADER(
+  row_id,                -- primary key
+  invnum,                -- invoice number
+  invdate,               -- invoice date
+  finyear,               -- financial year
+
+  vendor_id,             -- vendor id
+  custid,                -- customer id
+  custname,              -- customer name
+  custaddr,              -- customer address
+  custgstin,             -- customer GSTIN
+
+  billaddr,              -- billing address
+  shipaddr,              -- shipping address
+  placeofsupply,         -- GST place of supply
+  statecode,             -- GST state code
+
+  revcharge,             -- reverse charge Yes/No
+  transmode,             -- transport mode
+  vnum,                  -- vehicle number
+
+  totalvalue,            -- invoice total
+  totalinwords,          -- amount in words
+
+  bankaccnum,            -- bank account
+  bankifsccode,          -- IFSC
+  tnc,                   -- terms & conditions
+  authsign,              -- authorized signatory
+
+  status,                -- DRAFT, FINAL, PAID
+  external_url,          -- public invoice link
+
+  context_id,            -- context reference
+  user_id,               -- created by user
+
+  tenant_id,
+  deleted_state,
+  created,
+  updated
+)

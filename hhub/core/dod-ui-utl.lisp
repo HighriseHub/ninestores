@@ -2,6 +2,8 @@
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
+
+
 ;; A simple UI framework within MVC which have these 3 things
 ;; 1) Page - a page is html page containing one or more components
 ;; 2) Component - a component is a logical UI entity containing more than one widgets.
@@ -807,9 +809,9 @@ Returns a list of widget outputs."
        (unless transaction
 	 (error 'hhub-abac-transaction-error :errstring (format nil "Did not find the transaction by name ~A. Create a new transaction and a related policy." ,name)))
        
-       (logiamhere (format nil "In the transaction ~A" (slot-value transaction 'name)))
-       (logiamhere (format nil "URI -  ~A" uri))
-       (logiamhere (format nil "URI in DB  -  ~A. URI Match is ~A" transaction-uri urimatch-p))
+       ;;(logiamhere (format nil "In the transaction ~A" (slot-value transaction 'name)))
+       ;;(logiamhere (format nil "URI -  ~A" uri))
+      ;; (logiamhere (format nil "URI in DB  -  ~A. URI Match is ~A" transaction-uri urimatch-p))
        ;; check for returnvalue to be T and the uri to match 
        (if (and returnvalue urimatch-p)
 	   ,@body

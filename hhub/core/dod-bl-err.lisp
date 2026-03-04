@@ -93,6 +93,94 @@
 	   ;; return the exception.
 	   (error ,condition :errstring (format nil "Caught error: ~A" e)))))))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter *nst-environment* :development) 
+  ;; :development | :staging | :production
+  (defmacro with-nst-debugger (&body body)
+    "Debugger-centric NST execution boundary.
+     - Development  : drop into debugger (full SLIME stack)
+     - Staging      : log full stacktrace + re-signal
+     - Production   : log sanitized + signal business condition"
+    `(handler-bind
+         ((error
+            (lambda (e)
+	      (case *nst-environment*
+                ;; ------------------------------------------------------------
+                ;; DEVELOPMENT MODE
+                ;; ------------------------------------------------------------
+                (:development
+                 ;; Let SBCL debugger take full control
+                 (invoke-debugger e))
+		;; ------------------------------------------------------------
+                ;; STAGING MODE
+                ;; ------------------------------------------------------------
+                (:staging
+                 (when (boundp '*HHUBBUSINESSFUNCTIONSLOGFILE*)
+                   (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                           :direction :output
+                                           :if-exists :append
+                                           :if-does-not-exist :create)
+                     (format stream "~&[~A] STAGING ERROR: ~A~%"
+                             (mysql-now) e)
+                     (when (find-package :sb-debug)
+                       (funcall (intern "PRINT-BACKTRACE" :sb-debug)
+                                :stream stream))))
+                 (signal e))
+		;; ------------------------------------------------------------
+                ;; PRODUCTION MODE
+                ;; ------------------------------------------------------------
+                (:production
+                 (when (boundp '*HHUBBUSINESSFUNCTIONSLOGFILE*)
+                   (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                           :direction :output
+                                           :if-exists :append
+                                           :if-does-not-exist :create)
+                     (format stream "~&[~A] PROD ERROR: ~A~%"
+                             (mysql-now) (type-of e))))
+                 (error 'hhub-database-error
+                        :errstring "Unexpected system error occurred."))
+		;; ------------------------------------------------------------
+                ;; DEFAULT FALLBACK
+                ;; ------------------------------------------------------------
+                (otherwise
+                 (invoke-debugger e))))))
+
+       ,@body)))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-nst-error-boundary ((condition &key (log-level :error) (rethrow t)) &body body)
+    :description "Enterprise-grade NST error boundary. Separates logging, signaling and rethrow strategy."
+    `(handler-bind
+         ((error
+            (lambda (e)
+	      ;; Structured log entry
+              (let ((exceptionstr
+                      (format nil "~&[~A] [~A] ~A: ~A~%"
+                              (mysql-now)
+                              ,log-level
+                              (type-of e)
+                              e)))
+		;; Centralized logging (no deep-layer hard dependency)
+                (when (boundp '*HHUBBUSINESSFUNCTIONSLOGFILE*)
+                  (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                          :direction :output
+                                          :if-exists :append
+                                          :if-does-not-exist :create)
+                    (format stream "~A" exceptionstr)))
+		;; Optional rethrow strategy
+                (when ,rethrow
+                  (invoke-restart 'abort))
+		;; Signal domain-specific condition (Belnap compatible)
+                (signal ,condition :errstring exceptionstr)))))
+       (restart-case
+           (progn ,@body)
+	 (abort ()
+           :report "Abort NST operation and propagate failure."
+           (error ,condition :errstring "Operation aborted at NST boundary."))
+	 (continue ()
+           :report "Continue execution ignoring error."
+           nil)))))
+
 
 (defun check-null (value &optional (error-message "Null value encountered") (error-type 'null-value-error))
   "Safely checks if VALUE is null and signals an error if it is.

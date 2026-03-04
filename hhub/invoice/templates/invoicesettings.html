@@ -45,45 +45,6 @@
         <div id="collapseGeneralSettings" class="accordion-collapse collapse" aria-labelledby="headingGeneralSettings" data-bs-parent="#settingsAccordion">
           <div class="accordion-body">
             <form id="generalSettingsForm">
-
-	      <!-- Invoice Number Format -->
-	      <div class="mb-3">
-		<label for="invoice-number-format" class="form-label">Invoice Number Format</label>
-		<input type="text" class="form-control" id="invoice-number-format" value="INV-YYYY-MM-{counter}">
-	      </div>
-	      
-	      <!-- Default Currency -->
-	      <div class="mb-3">
-		<label for="default-currency" class="form-label">Default Currency</label>
-		<select class="form-select" id="default-currency">
-		  <option value="USD" selected>USD</option>
-		  <option value="EUR">EUR</option>
-		  <option value="GBP">GBP</option>
-		  <option value="INR">INR</option>
-		</select>
-	      </div>
-	      
-	      <!-- Date Format -->
-	      <div class="mb-3">
-		<label for="date-format" class="form-label">Date Format</label>
-		<select class="form-select" id="date-format">
-		  <option value="MM/DD/YYYY" selected>MM/DD/YYYY</option>
-		  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-		  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-		</select>
-	      </div>
-	      
-	      <!-- Time Zone -->
-	      <div class="mb-3">
-		<label for="time-zone" class="form-label">Time Zone</label>
-		<select class="form-select" id="time-zone">
-		  <option value="America/New-York" selected>America/New-York</option>
-		  <option value="Europe/London">Europe/London</option>
-		  <option value="Asia/Kolkata">Asia/Kolkata</option>
-		  <option value="Australia/Sydney">Australia/Sydney</option>
-		</select>
-	      </div>
-	      
 	      <!-- Enable Terms and Conditions -->
 	      <div class="mb-3">
 		<label class="form-label">Terms and Conditions</label>
@@ -96,35 +57,6 @@
 		  <textarea class="form-control" id="default-terms-and-conditions" rows="3">All sales are final. No refunds.</textarea>
 		</div>
 	      </div>
-	      
-	      <!-- Enable Discounts -->
-	      <div class="mb-3">
-		<label class="form-label">Discounts</label>
-		<div class="form-check form-switch">
-		  <input class="form-check-input" type="checkbox" id="enable-discounts" checked>
-		  <label class="form-check-label" for="enable-discounts">Enable Discounts</label>
-		</div>
-		<div class="mt-2">
-		  <label for="default-discount-rate" class="form-label">Default Discount Rate (%)</label>
-		  <input type="number" class="form-control" id="default-discount-rate" value="5">
-		</div>
-	      </div>
-	      
-	      <!-- Default Currency -->
-              <div class="mb-3">
-                <label for="defaultCurrency" class="form-label">Default Currency</label>
-                <input type="text" class="form-control" id="defaultCurrency" placeholder="Enter default currency">
-              </div>
-	      
-              <!-- Date Format -->
-              <div class="mb-3">
-                <label for="dateFormat" class="form-label">Date Format</label>
-                <select class="form-select" id="dateFormat">
-                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                </select>
-              </div>
 	      <!-- Save Button -->
 	      <div class="text-center">
 		<button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>

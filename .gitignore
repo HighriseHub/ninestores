@@ -1,5 +1,8 @@
 *.fasl
 *.log
+*.sql
+.dumbjump
+TAGS
 *.*~
 *#*#
 *.#*.lisp

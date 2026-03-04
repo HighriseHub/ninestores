@@ -490,6 +490,17 @@
     :type (string 1)
     :void-value "N"
     :initarg :deleted-state) 
+   (last-viewed-by-user-id
+    :type integer
+    :initarg :last-viewed-by-user-id)
+   (last-viewed-at
+    :type clsql:wall-time
+    :initarg :last-viewed-at)
+   (updated
+    :type clsql:wall-time
+    :initarg :updated
+    :void-value (clsql:get-time))
+   
    (tenant-id
     :type integer
     :initarg :tenant-id)

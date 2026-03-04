@@ -16,6 +16,23 @@
 (defclass %entity-name%HTMLView (HTMLView)
   ())
 
+;; ============================================================================
+;; NEW: TCUF-AWARE VIEW CLASSES
+;; ============================================================================
+
+(defclass %entity-name%-NotFound-View (HTMLView)
+  ()
+  (:documentation "Renders when bo-knowledge truth = :F (not found)"))
+
+(defclass %entity-name%-Unavailable-View (HTMLView)
+  ()
+  (:documentation "Renders when bo-knowledge truth = :U (service unavailable)"))
+
+(defclass %entity-name%-Conflict-View (HTMLView)
+  ()
+  (:documentation "Renders when bo-knowledge truth = :C (data conflict)"))
+
+
 (defclass %entity-name%ViewModel (ViewModel)
   ((%0%
     :initarg :%0%
@@ -131,7 +148,10 @@
    (%37%
     :initarg :%37%
     :accessor %37%)
-
+   (bo-knowledge
+    :initarg :bo-knowledge
+    :accessor bo-knowledge
+    :initform nil)
    (company
     :initarg :company
     :accessor company)))
@@ -251,7 +271,7 @@
    (%37%
     :initarg :%37%
     :accessor %37%)
-  
+  (bo-knowledge :initarg :bo-knowledge :accessor bo-knowledge :initform nil)
    (company
     :initarg :company
     :accessor company)))
@@ -372,7 +392,7 @@
    (%37%
     :initarg :%37%
     :accessor %37%)
-
+   (bo-knowledge :initarg :bo-knowledge :accessor bo-knowledge :initform nil)
    (company
     :initarg :company
     :accessor company)))

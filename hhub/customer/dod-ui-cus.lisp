@@ -10,7 +10,7 @@
                       ("([0-9]{10})$" path)
                     num))
 	   (jsondata
-	     (dispatch-route :customer/read (list :phone phone :company (get-login-customer-company)) :trans-func-name "com-hhub-transaction-customer-address" :output-type 'json)))
+	     (dispatch-route :customer/read (list :phone phone :company (get-login-customer-company)) :trans-func-name "com-hhub-transaction-customer-address" :request-uri (hunchentoot:request-uri*) :output-type 'json)))
     (logiamhere (format nil "~A" jsondata))
       (setf (hunchentoot:content-type*) "application/json; charset=utf-8")
       (setf (hunchentoot:return-code*) 200)
@@ -552,11 +552,11 @@ Only shows sections based on availability flags and customer type."
 
 
 (defun hhub-controller-pincode-check ()
-  (let* ((pincode (hunchentoot:parameter "pincode"))
-	   (params nil)
-	   (addressadapter (make-instance 'Address-Adapter))
-	   (presenter (make-instance 'Address-Presenter))
-	   (jsonview (make-instance 'JSONView)))
+  (let* ((pincode (parse-integer (hunchentoot:parameter "pincode")))
+	 (params nil)
+	 (addressadapter (make-instance 'Address-Adapter))
+	 (presenter (make-instance 'Address-Presenter))
+	 (jsonview (make-instance 'JSONView)))
     (setf params (acons "pincode" pincode params))
     (render jsonview (createviewmodel presenter (processrequest addressadapter params)))))
   
@@ -1115,7 +1115,7 @@ Only shows sections based on availability flags and customer type."
 			      (if (equal customer-type "STANDARD")
 				  (cl-who:htm (:li :align "center" (:a :href "custsubscriptions" "Subscriptions"))
 					      (:li :align "center" (:a :href "dodcustorderscal" "Orders"))
-					      (:li :align "center" (:a :href "dodcustwallet" (:i :class "fa-solid fa-wallet") "&nbsp;Wallets" ))))
+					      (:li :align "center" (:a :href "dodcustwallet" (:i :class "fa-solid fa-people-line") "&nbsp;Vendor Management" ))))
 					;(:li :align "center" (:a :href "#" (print-web-session-timeout)))
 			      (:li :align "center" (:a :href "#" (cl-who:str (format nil "~a" (get-login-customer-company-name))))))
 			      
@@ -1164,7 +1164,7 @@ Only shows sections based on availability flags and customer type."
 				(if (equal customer-type "STANDARD")
 				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustorderscal" "Orders"))))
 				(if (and (com-hhub-attribute-company-wallets-enabled subs-plan cmp-type) (equal customer-type "STANDARD"))
-				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustwallet" (:i :class "fa-solid fa-wallet")  "&nbsp;Wallets" ))))
+				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustwallet" (:i :class "fa-solid fa-people-line")  "&nbsp;Vendors" ))))
 				(:li :class "nav-item"  (:a :class "nav-link" :href "#" (cl-who:str (format nil "~a" (get-login-customer-company-name))))))
 
 
@@ -3417,7 +3417,7 @@ Only shows sections based on availability flags and customer type."
 			      :caching nil :flatp t :database *dod-db-instance* )))
 	      (customer-id (if customer (slot-value customer 'row-id)))
 	      (customer-name (if customer (slot-value customer 'name)))
-	      (customer-company (if customer (customer-company customer)))
+	      (customer-company (if customer (slot-value customer 'company)))
 	      (customer-tenant-id (if customer-company (slot-value customer-company 'row-id)))
 	      (customer-company-name (if customer-company (slot-value customer-company 'name)))
 	      (customer-company-website (if customer-company (slot-value customer-company 'website)))

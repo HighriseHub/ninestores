@@ -473,194 +473,275 @@
     :accessor company)))
 
 
-
 (clsql:def-view-class dod-order ()
   ((row-id
     :db-kind :key
     :db-constraints :not-null
+    :column "ROW_ID"
     :type integer
     :initarg :row-id)
-   
-   (ord-date
-    :accessor order-date
-    :DB-CONSTRAINTS :NOT-NULL
-    :TYPE clsql:date
-    :initarg :ord-date)
-   
-   (req-date
-    :accessor get-requested-date
-    :DB-CONSTRAINTS :NOT-NULL
-    :TYPE clsql:date
-    :initarg :req-date)
-   
-   (shipped-date
-    :accessor get-shipped-date
-    :TYPE clsql:date
-    :INITARG :shipped-date)   
 
-   (expected-delivery-date
-    :accessor expected-delivery-date
-    :TYPE clsql:date
-    :initarg :expected-delivery-date)
-   
-   (ordnum
-    :accessor ordnum
-    :type (string 50)
-    :initarg :ordnum)
-   
-   
-   (shipaddr
-    :ACCESSOR shipaddr 
-    :type (string 512)
-    :initarg :shipaddr)
-   
-   (shipzipcode
-    :accessor get-shipzipcode
-    :type (string 10)
-    :initarg :shipzipcode)
-
-   (shipcity
-    :accessor get-shipcity
-    :type (string 50)
-    :initarg :shipcity)
-   (shipstate
-    :accessor get-shipstate
-    :type (string 50)
-    :initarg :shipstate)
-   (billaddr
-    :accessor get-billaddress
-    :type (string 512)
-    :initarg :billaddress)
-   (billzipcode
-    :accessor get-billzipcode
-    :type (string 10)
-    :initarg :billzipcode)
-   (billcity
-    :accessor get-billcity
-    :type (string 50)
-    :initarg :billcity)
-   (billstate
-    :accessor get-billstate
-    :type (string 50)
-    :initarg :billstate)
-   
-   (billsameasship
-    :accessor get-billsameasship
-    :type (string 1)
-    :initarg :billsameasship)
-
-   (storepickupenabled
-     :type (string 1)
-     :accessor storepickupenabled
-     :initarg :storepickupenabled)
-      
-   (gstnumber
-    :accessor get-gstnumber
-    :type (string 20)
-    :initarg :gstnumber)
-   (gstorgname
-    :accessor get-gstorgname
-    :type (string 50)
-    :initarg :gstorgname)
-   
-   (order-fulfilled
-    :type (string 1)
-    :void-value "N"
-    :initarg :order-fulfilled)
-
-   (order-amt
-    :type float
-    :initarg :order-amt)
-
-   (shipping-cost
-    :type float
-    :initarg :shipping-cost)
-
-   (total-discount
-    :type float
-    :initarg :total-discount)
-   
-   (total-tax
-    :type float
-    :initarg :total-tax)
-
-   (payment-mode
-    :type (string 3)
-    :initarg :payment-mode)
-
-   (comments
-    :accessor comments
-    :type (string 250)
-    :initarg :comments)
-
-   (context-id
-    :ACCESSOR get-context-id 
-    :type (string 100)
-    :initarg :context-id)
-   
+   ;; --- Relationships & Joins ---
    (cust-id
     :type integer
+    :column "CUST_ID"
+    :db-constraints :not-null
     :initarg :cust-id)
    (customer
-    :ACCESSOR get-customer
-    :DB-KIND :JOIN
-    :DB-INFO (:JOIN-CLASS dod-cust-profile
-	                  :HOME-KEY cust-id
-                          :FOREIGN-KEY row-id
-                          :SET nil))
+    :accessor get-customer
+    :db-kind :join
+    :db-info (:join-class dod-cust-profile
+              :home-key cust-id
+              :foreign-key row-id
+              :set nil))
+   
+   (created-by-user-id
+    :type integer
+    :column "CREATED_BY_USER_ID"
+    :initarg :created-by-user-id)
+   (approved-by-user-id
+    :type integer
+    :column "APPROVED_BY_USER_ID"
+    :initarg :approved-by-user-id)
 
-
+   ;; --- Order Identity & Status ---
+   (ordnum
+    :type (string 50)
+    :column "ORDNUM"
+    :initarg :ordnum)
+   (context-id
+    :type (string 100)
+    :column "CONTEXT_ID"
+    :initarg :context-id)
    (status
     :type (string 3)
+    :column "STATUS"
     :initarg :status)
-
-   (deleted-state
+   (order-type
+    :type (string 4)
+    :column "ORDER_TYPE"
+    :initarg :order-type)
+   (order-source
+    :type (string 10) ; enum('POS','ONLINE','WHATSAPP','API')
+    :column "ORDER_SOURCE"
+    :initarg :order-source)
+   (order-fulfilled
     :type (string 1)
-    :void-value "N"
-    :initarg :deleted-state)
+    :column "ORDER_FULFILLED"
+    :initarg :order-fulfilled)
 
+   ;; --- Temporal Data ---
+   (ord-date
+    :type clsql:date
+    :column "ORD_DATE"
+    :initarg :ord-date)
+   (req-date
+    :type clsql:date
+    :column "REQ_DATE"
+    :initarg :req-date)
+   (shipped-date
+    :type clsql:date
+    :column "SHIPPED_DATE"
+    :initarg :shipped-date)
+   (expected-delivery-date
+    :type clsql:date
+    :column "EXPECTED_DELIVERY_DATE"
+    :initarg :expected-delivery-date)
+   (invoice-date
+    :type clsql:date
+    :column "INVOICE_DATE"
+    :initarg :invoice-date)
+
+   ;; --- Financial Totals ---
+   (order-amt
+    :type float
+    :column "ORDER_AMT"
+    :initarg :order-amt)
+   (total-taxable-value
+    :type float
+    :column "TOTAL_TAXABLE_VALUE"
+    :initarg :total-taxable-value)
+   (total-tax
+    :type float
+    :column "TOTAL_TAX"
+    :initarg :total-tax)
+   (total-discount
+    :type float
+    :column "TOTAL_DISCOUNT"
+    :initarg :total-discount)
+   (shipping-cost
+    :type float
+    :column "SHIPPING_COST"
+    :initarg :shipping-cost)
+
+   ;; --- GST Breakdown ---
+   (total-cgst
+    :type float
+    :column "TOTAL_CGST"
+    :initarg :total-cgst)
+   (total-sgst
+    :type float
+    :column "TOTAL_SGST"
+    :initarg :total-sgst)
+   (total-igst
+    :type float
+    :column "TOTAL_IGST"
+    :initarg :total-igst)
+   (total-cess
+    :type float
+    :column "TOTAL_CESS"
+    :initarg :total-cess)
+
+   ;; --- Compliance & TDS ---
+   (place-of-supply
+    :type (string 50)
+    :column "PLACE_OF_SUPPLY"
+    :initarg :place-of-supply)
+   (place-of-supply-code
+    :type (string 2)
+    :column "PLACE_OF_SUPPLY_CODE"
+    :initarg :place-of-supply-code)
+   (supply-type
+    :type (string 15) ; enum('INTRA_STATE','INTER_STATE')
+    :column "SUPPLY_TYPE"
+    :initarg :supply-type)
+   (gst-number
+    :type (string 20)
+    :column "GSTNUMBER"
+    :initarg :gst-number)
+   (gst-org-name
+    :type (string 50)
+    :column "GSTORGNAME"
+    :initarg :gst-org-name)
+   (reverse-charge-applicable
+    :type integer ; tinyint(1)
+    :column "REVERSE_CHARGE_APPLICABLE"
+    :initarg :reverse-charge-applicable)
+   (eway-bill-required
+    :type integer
+    :column "EWAY_BILL_REQUIRED"
+    :initarg :eway-bill-required)
+   (tds-applicable
+    :type integer
+    :column "TDS_APPLICABLE"
+    :initarg :tds-applicable)
+   (tds-amount
+    :type float
+    :column "TDS_AMOUNT"
+    :initarg :tds-amount)
+
+   ;; --- Shipping & Billing Addresses ---
+   (cust-name
+    :type (string 255)
+    :column "CUSTNAME"
+    :initarg :cust-name)
+   (ship-address-short
+    :type (string 200)
+    :column "SHIP_ADDRESS"
+    :initarg :ship-address-short)
+   (ship-addr-full
+    :type string ; text
+    :column "SHIPADDR"
+    :initarg :ship-addr-full)
+   (ship-city
+    :type (string 50)
+    :column "SHIPCITY"
+    :initarg :ship-city)
+   (ship-state
+    :type (string 50)
+    :column "SHIPSTATE"
+    :initarg :ship-state)
+   (ship-zipcode
+    :type (string 10)
+    :column "SHIPZIPCODE"
+    :initarg :ship-zipcode)
+   (bill-address-short
+    :type (string 200)
+    :column "BILLADDRESS"
+    :initarg :bill-address-short)
+   (bill-addr-full
+    :type string ; text
+    :column "BILLADDR"
+    :initarg :bill-addr-full)
+   (bill-city
+    :type (string 50)
+    :column "BILLCITY"
+    :initarg :bill-city)
+   (bill-state
+    :type (string 50)
+    :column "BILLSTATE"
+    :initarg :bill-state)
+   (bill-zipcode
+    :type (string 10)
+    :column "BILLZIPCODE"
+    :initarg :bill-zipcode)
+   (country
+    :type (string 50)
+    :column "COUNTRY"
+    :initarg :country)
+   (bill-same-as-ship
+    :type (string 1)
+    :column "BILLSAMEASSHIP"
+    :initarg :bill-same-as-ship)
+
+   ;; --- Workflow Flags & Metadata ---
+   (payment-mode
+    :type (string 3)
+    :column "PAYMENT_MODE"
+    :initarg :payment-mode)
    (is-converted-to-invoice
     :type (string 1)
-    :void-value "N"
+    :column "IS_CONVERTED_TO_INVOICE"
     :initarg :is-converted-to-invoice)
-
+   (invoice-number
+    :type (string 50)
+    :column "INVOICE_NUMBER"
+    :initarg :invoice-number)
    (is-cancelled
     :type (string 1)
-    :void-value "N"
+    :column "IS_CANCELLED"
     :initarg :is-cancelled)
-
    (cancel-reason
-    :type (string 255)
+    :type string
+    :column "CANCEL_REASON"
     :initarg :cancel-reason)
-
-   (external-url
-    :type (string 1024)
-    :initarg :external-url)
-   
-   (order-type 
-    :type (string 4)
-    :initarg :order-type
-    :void-value "SALE")
-
-   (order-source
-    :type (string 20)
-    :initarg :order-source
-    :void-value "ONLINE")
-   
-   (custname
+   (store-pickup-enabled
+    :type (string 1)
+    :column "STOREPICKUPENABLED"
+    :initarg :store-pickup-enabled)
+   (comments
     :type (string 255)
-    :initarg :custname
-    :accessor custname)
-     
-   
+    :column "COMMENTS"
+    :initarg :comments)
+   (external-url
+    :type (string 2048)
+    :column "EXTERNAL_URL"
+    :initarg :external-url)
+
+   ;; --- Audit Trail ---
    (tenant-id
     :type integer
+    :column "TENANT_ID"
     :initarg :tenant-id)
-   (COMPANY
-    :ACCESSOR get-company
-    :DB-KIND :JOIN
-    :DB-INFO (:JOIN-CLASS dod-company
-	      :HOME-KEY tenant-id
-	      :FOREIGN-KEY row-id
-	      :SET nil)))
-  (:BASE-TABLE dod_order)) 
+   (company
+    :accessor get-company
+    :db-kind :join
+    :db-info (:join-class dod-company
+              :home-key tenant-id
+              :foreign-key row-id
+              :set nil))
+   (deleted-state
+    :type (string 1)
+    :column "DELETED_STATE"
+    :initarg :deleted-state)
+   (created
+    :type clsql:wall-time
+    :column "CREATED"
+    :initarg :created)
+   (updated
+    :type clsql:wall-time
+    :column "UPDATED"
+    :initarg :updated))
+  (:base-table "DOD_ORDER"))
+
+ 
