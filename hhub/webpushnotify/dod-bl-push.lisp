@@ -129,7 +129,7 @@
 				      [= [:row-id] row-id]] :caching *dod-database-caching* :flatp t)))
     (setf (slot-value dbas 'dbobject) dbobj)))
 
-(defmethod db-fetch-all ((dbas WebPushNotifyDBService))
+(defmethod db-fetch-all ((dbas WebPushNotifyDBService)(rm RequestGetWebPushNofityVendor))
   :description "Fetch records by COMPANY"
   (let* ((tenant-id (slot-value dbas 'tenant-id))
 	 (dbobjs (clsql:select 'dod-webpush-notify :where
