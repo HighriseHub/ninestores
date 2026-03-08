@@ -100,7 +100,6 @@
       (setf (bo-knowledge service) bk)
       (setf domainobj (bo-knowledge-payload bk))
       ;; Return the newly created warehouse domain object
-      (logiamhere  (format nil "In invoice header docreate. domain object is ~A" domainobj))
       domainobj)))
 
 (defun createInvoiceHeaderobject (context-id invnum invdate customer custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company)
