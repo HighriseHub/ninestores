@@ -520,11 +520,7 @@
     :type double-float ; Maps to decimal(15,2)
     :column "balance"
     :initarg :balance)
-   (lifetime-loaded
-    :type double-float
-    :column "lifetime_loaded"
-    :initarg :lifetime-loaded)
-   (lifetime-spent
+    (lifetime-spent
     :type double-float
     :column "lifetime_spent"
     :initarg :lifetime-spent)
@@ -560,19 +556,7 @@
     :type (string 20) ; Enum mapping
     :column "wallet_status"
     :initarg :wallet-status)
-   (last-loaded-at
-    :type clsql:wall-time
-    :column "last_loaded_at"
-    :initarg :last-loaded-at)
-   (last-transaction-at
-    :type clsql:wall-time
-    :column "last_transaction_at"
-    :initarg :last-transaction-at)
-   (first-transaction-at
-    :type clsql:wall-time
-    :column "first_transaction_at"
-    :initarg :first-transaction-at)
-
+  
    ;; --- Auto Reload & Thresholds ---
    (auto-reload-enabled
     :type integer ; tinyint(1)
