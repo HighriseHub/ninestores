@@ -735,11 +735,11 @@
     :column "DELETED_STATE"
     :initarg :deleted-state)
    (created
-    :type clsql:wall-time
+    :type (string 30)
     :column "CREATED"
     :initarg :created)
    (updated
-    :type clsql:wall-time
+    :type (string 30)
     :column "UPDATED"
     :initarg :updated))
   (:base-table "DOD_ORDER"))

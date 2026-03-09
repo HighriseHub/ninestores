@@ -92,13 +92,15 @@
 	 (authsign (authsign requestmodel))
 	 (finyear (finyear requestmodel))
 	 (domainobj (createInvoiceHeaderobject context-id invnum invdate customer custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company)))
-         ;; Initialize the DB Service
+    ;; Initialize the DB Service
     (init InvoiceHeaderdbservice domainobj)
     (copy-businessobject-to-dbobject InvoiceHeaderdbservice)
-    (db-save InvoiceHeaderdbservice)
-    ;; Return the newly created warehouse domain object
-    domainobj))
-
+    (let ((bk (with-db-create (InvoiceHeaderdbservice :source "Invoice Header  create"))))
+      ;; Transfer knowledge up to the service layer
+      (setf (bo-knowledge service) bk)
+      (setf domainobj (bo-knowledge-payload bk))
+      ;; Return the newly created warehouse domain object
+      domainobj)))
 
 (defun createInvoiceHeaderobject (context-id invnum invdate customer custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company)
   (let* ((domainobj  (make-instance 'InvoiceHeader 
@@ -314,9 +316,6 @@
 	 (status (status requestmodel))
 	 (InvoiceHeaderdbobj (select-invoice-header-by-invnum invnum comp))
 	 (domainobj (make-instance 'InvoiceHeader)))
-	 
-    
-
     ;; FIELD UPDATE CODE STARTS HERE 
     (when InvoiceHeaderdbobj
       (setf (slot-value InvoiceHeaderdbobj 'invnum) invnum)
@@ -346,12 +345,14 @@
     ;;  FIELD UPDATE CODE ENDS HERE. 
     (setf (slot-value InvoiceHeaderdbservice 'dbobject) InvoiceHeaderdbobj)
     (setf (slot-value InvoiceHeaderdbservice 'businessobject) domainobj)
-    
     (setcompany InvoiceHeaderdbservice comp)
-    (db-save InvoiceHeaderdbservice)
     ;; Return the newly created Invoice Header domain object
-    (copyInvoiceHeader-dbtodomain InvoiceHeaderdbobj domainobj)))
-
+    (let ((bk (with-db-update (InvoiceHeaderdbservice :source "Invoice Header Update"))))
+      ;; Transfer knowledge up to the service layer
+      (setf (bo-knowledge service) bk)
+      (setf domainobj (bo-knowledge-payload bk))
+      ;; Return the newly created warehouse domain object
+      domainobj)))
 
 (defmethod doupdate ((service InvoiceHeaderService) (requestmodel InvoiceHeaderStatusRequestModel))
   (let* ((InvoiceHeaderdbservice (make-instance 'InvoiceHeaderDBService))
@@ -369,11 +370,14 @@
     ;;  FIELD UPDATE CODE ENDS HERE. 
     (setf (slot-value InvoiceHeaderdbservice 'dbobject) InvoiceHeaderdbobj)
     (setf (slot-value InvoiceHeaderdbservice 'businessobject) domainobj)
-    
     (setcompany InvoiceHeaderdbservice comp)
-    (db-save InvoiceHeaderdbservice)
     ;; Return the newly created Invoice Header domain object
-    (copyInvoiceHeader-dbtodomain InvoiceHeaderdbobj domainobj)))
+    (let ((bk (with-db-update (InvoiceHeaderdbservice :source "Invoice Header update"))))
+      ;; Transfer knowledge up to the service layer
+      (setf (bo-knowledge service) bk)
+      (setf domainobj (bo-knowledge-payload bk))
+      ;; Return the newly created warehouse domain object
+      domainobj)))
 
 
 ;; PROCESS THE READ REQUEST
@@ -397,10 +401,10 @@
     (setf (bo-knowledge service) dbInvoiceHeader-knowledge)
     (when (eq (bo-knowledge-truth dbInvoiceHeader-knowledge) :T)
       (let ((dbInvoiceHeader (bo-knowledge-payload dbInvoiceHeader-knowledge)))
-	(copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)))
-    InvoiceHeaderobj))
-
-    
+	(copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)
+	;; set the bo knowledget payload as the domain object
+        (setf (bo-knowledge-payload dbInvoiceHeader-knowledge) InvoiceHeaderobj) 
+	InvoiceHeaderobj))))
 
 (defmethod doread ((service InvoiceHeaderService) (requestmodel InvoiceHeaderContextIDRequestModel))
   (let* ((comp (company requestmodel))
@@ -412,10 +416,18 @@
     (setf (bo-knowledge service) dbInvoiceHeader-knowledge)
     (when (eq (bo-knowledge-truth dbInvoiceHeader-knowledge) :T)
       (let ((dbInvoiceHeader (bo-knowledge-payload dbInvoiceHeader-knowledge)))
-	(copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)))
-    InvoiceHeaderobj))
+	(copyInvoiceHeader-dbtodomain dbInvoiceHeader InvoiceHeaderobj)
+	;; set the bo knowledget payload as the domain object
+        (setf (bo-knowledge-payload dbInvoiceHeader-knowledge) InvoiceHeaderobj) 
+	InvoiceHeaderobj))))
 
 
+(defmethod Copy-DbObject-To-BusinessObject ((dbas InvoiceHeaderDBService))
+  :description "Syncs the dbobject and domain object"
+  (let ((dbobj (slot-value dbas 'dbobject))
+        (domainobj (slot-value dbas 'businessobject)))
+    (setf (slot-value domainobj 'company) (company dbas))
+    (setf (slot-value dbas 'businessobject) (copyInvoiceHeader-dbtodomain dbobj domainobj))))
 
 (defun copyInvoiceHeader-dbtodomain (dbsrc domaindest)
   (let* ((comp (select-company-by-id (slot-value dbsrc 'tenant-id)))

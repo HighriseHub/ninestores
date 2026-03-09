@@ -133,15 +133,23 @@
 
 (defmethod doDelete ((service InvoiceItemService) (requestmodel InvoiceItemRequestModel))
   :description "This method is responsible for Deleting a Web push notification subscription for a given vendor"
-  (let* ((company (company requestmodel))
+  (let* ((comp (company requestmodel))
 	 (invoiceheader (invoiceheader requestmodel))
 	 (prd-id (prd-id requestmodel))
-	 (invoiceitem (select-invoice-item-by-product-id prd-id invoiceheader company))
+	 (domainobj (make-instance 'InvoiceItem))
+	 (invoiceitemdbobj (select-invoice-item-by-product-id prd-id invoiceheader comp))
 	 (InvoiceItemdbservice (make-instance 'InvoiceItemDBService)))
-    (setf (slot-value InvoiceItemdbservice 'company) company)
-    (setf (slot-value InvoiceItemdbservice 'dbobject) invoiceitem)
-    ;; Delete the record
-    (db-delete InvoiceItemdbservice)))
+
+    (when invoiceitemdbobj
+      (setf (slot-value InvoiceItemdbservice 'dbobject) invoiceitemdbobj)
+      (setf (slot-value InvoiceItemdbservice 'businessobject) domainobj)
+      (setcompany InvoiceItemdbservice comp)
+      (let ((bk (with-db-delete (InvoiceItemdbservice :allow-idempotent T :source "Invoice item delete"))))
+	;; Transfer knowledge up to the service layer
+	(setf (bo-knowledge service) bk)
+	(setf domainobj (bo-knowledge-payload bk))
+	;; Return the newly created warehouse domain object
+	domainobj))))
 
 (defmethod doCreate ((service InvoiceItemService) (requestmodel InvoiceItemRequestModel))
   (let* ((InvoiceItemdbservice (make-instance 'InvoiceItemDBService))
@@ -163,13 +171,15 @@
 	 (igstamt (igstamt requestmodel))
 	 (totalitemval (totalitemval requestmodel))
 	 (domainobj (createInvoiceItemobject InvoiceHeader prd-id prddesc hsncode qty uom price discount taxablevalue cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval company )))
-         ;; Initialize the DB Service
+    ;; Initialize the DB Service
     (init InvoiceItemdbservice domainobj)
     (copy-businessobject-to-dbobject InvoiceItemdbservice)
-    (db-save InvoiceItemdbservice)
-    ;; Return the newly created warehouse domain object
-    domainobj))
-
+    (let ((bk (with-db-create (InvoiceItemdbservice :source "Invoice Item create"))))
+      ;; Transfer knowledge up to the service layer
+      (setf (bo-knowledge service) bk)
+      (setf domainobj (bo-knowledge-payload bk))
+      ;; Return the newly created warehouse domain object
+      domainobj)))
 
 (defun createInvoiceItemobject (InvoiceHeader prd-id prddesc hsncode qty uom price discount taxablevalue cgstrate cgstamt sgstrate sgstamt igstrate igstamt totalitemval  company)
   (let* ((domainobj  (make-instance 'InvoiceItem 
@@ -192,6 +202,14 @@
 				    :status "PENDING"
 				    :company company)))
     domainobj))
+
+
+(defmethod Copy-DbObject-To-BusinessObject ((dbas InvoiceItemDBService))
+  :description "Syncs the dbobject and domain object"
+  (let ((dbobj (slot-value dbas 'dbobject))
+        (domainobj (slot-value dbas 'businessobject)))
+    (setf (slot-value domainobj 'company) (company dbas))
+    (setf (slot-value dbas 'businessobject) (copyInvoiceItem-dbtodomain dbobj domainobj))))
 
 (defmethod Copy-BusinessObject-To-DBObject ((dbas InvoiceItemDBService))
   :description "Syncs the dbobject and the domainobject"
@@ -340,14 +358,16 @@
       (setf (slot-value InvoiceItemdbobj 'totalitemval) totalitemval)
       (setf (slot-value InvoiceItemdbobj 'status) status))
     ;;  FIELD UPDATE CODE ENDS HERE. 
-    
     (setf (slot-value InvoiceItemdbservice 'dbobject) InvoiceItemdbobj)
     (setf (slot-value InvoiceItemdbservice 'businessobject) domainobj)
-    
     (setcompany InvoiceItemdbservice comp)
-    (db-save InvoiceItemdbservice)
-    ;; Return the newly created UPI domain object
-    (copyInvoiceItem-dbtodomain InvoiceItemdbobj domainobj)))
+    ;; Return the newly created Invoice Header domain object
+    (let ((bk (with-db-update (InvoiceItemdbservice :source "Invoice Item Update"))))
+      ;; Transfer knowledge up to the service layer
+      (setf (bo-knowledge service) bk)
+      (setf domainobj (bo-knowledge-payload bk))
+      ;; Return the newly created warehouse domain object
+      domainobj)))
 
 
 ;; PROCESS THE READ REQUEST
