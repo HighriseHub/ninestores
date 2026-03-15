@@ -2,6 +2,18 @@
 ;; nst-ui-prosymloo.lisp came from Project Symbol Lookup
 (in-package :nstores)
 
+;; *meta-registry* populated at load time by (meta ...) forms
+(defvar *meta-registry* (make-hash-table :test #'equal))
+
+(defmacro meta (name alist)
+  "Alist is passed already quoted by the caller.
+   Stored directly — no transformation needed."
+  `(setf (gethash ,(symbol-name name) *meta-registry*)
+         (list :name ,(symbol-name name)
+               :meta ,alist)))         ; no ' here — caller already quoted it
+
+         ; :meta key + quoted plist = no evaluation
+
 (defun get-project-symbols (system-name)
   "Collects ALL defined symbols (internal and external functions, macros, and classes) 
    from the project's packages."
@@ -32,63 +44,81 @@
 ;; --- Helper 1: Loading Old Keywords ---
 
 (defun load-old-data-and-keywords (output-file)
-  "Loads existing lookup data (if file exists) and returns a hash table
-   mapping symbol names to their preserved keywords (the 5th element)."
+  "Loads existing lookup data and returns a hash table mapping symbol 
+   names to (keywords . meta-plist) — preserving both old slots."
   (let ((old-data-ht (make-hash-table :test 'equal)))
     (when (probe-file output-file)
-      (let ((*function-lookup-table* nil)) ; Define a local variable for load to bind to
-        (handler-case
-            (progn
-              ;; The file contains (defun function-lookup-table () (function (lambda () '(...))))
-              (load output-file :verbose nil)
-              ;; After loading, call the function defined in the file to get the list
-              (let ((old-data (funcall (function-lookup-table)))) 
-                (dolist (entry old-data)
-                  ;; Entry is (NAME TYPE FILE DOC KEYWORDS)
-                  (setf (gethash (first entry) old-data-ht) 
-                        (fifth entry))))) ; <--- KEYWORDS are the fifth element
-          (error (e)
-            (warn "Error loading existing lookup data from ~A: ~A. Keywords not preserved." 
-                  output-file e)))))
+      (handler-case
+          (progn
+            (load output-file :verbose nil)
+            (let ((old-data (funcall (function-lookup-table))))
+              (dolist (entry old-data)
+                ;; Preserve both 5th (keywords) and 6th (meta) slots
+                (setf (gethash (first entry) old-data-ht)
+                      (cons (fifth entry)          ; keywords string — preserved
+                            (sixth entry))))))      ; meta plist — preserved
+        (error (e)
+          (warn "Error loading existing lookup data from ~A: ~A. Slots not preserved."
+                output-file e))))
     old-data-ht))
 
-;; --- Helper 2: Writing the Final File (Uses your exact format) ---
 
+
+;; --- Helper 2: Writing the Final File (Uses your exact format) ---
 (defun write-final-lookup-file (output-file new-data)
-  "Writes the collected and merged symbol data to the file in the specified function format."
-  (with-open-file (s output-file 
-                     :direction :output 
+  "Writes collected and merged symbol data.
+   Entry format: (NAME TYPE FILE DOC KEYWORDS META-PLIST)"
+  (with-open-file (s output-file
+                     :direction :output
                      :if-exists :supersede
                      :if-does-not-exist :create)
-    ;; Start the DEFUN and the lambda closure structure
     (format s "(defun function-lookup-table () (function (lambda () ~%  '(")
-    ;; Write all entries
     (dolist (entry (nreverse new-data))
       (format s "~%    ~S" entry))
-    ;; Close the lambda, the function, and the data list
     (format s "))))~%"))
-  (format t "~&Lookup file ~A successfully generated and keywords preserved, including internal symbols.~%" output-file))
+  (format t "~&Lookup file ~A successfully generated.~%" output-file))
+
+
 
 ;; --- Main Function: Orchestrator ---
-
 (defun generate-lookup-file (system-name output-file)
-  "Generates the symbol lookup data file by collecting all symbols, merging old keywords, 
-   and writing the data in a compiled function format."
-  (let* ((symbols (get-project-symbols system-name))
+  (let* ((symbols     (get-project-symbols system-name))
          (old-data-ht (load-old-data-and-keywords output-file))
-         (new-data '()))
-    ;; --- Step 1: Generate New Data and Merge Keywords ---
+         (new-data    '()))
     (dolist (s symbols)
-      (let* ((name (symbol-name s))
-             (type (get-symbol-type s))
-             (file (get-symbol-file s)) ; Uses your SWANK-based implementation
-             (doc (get-symbol-doc s type))
-             ;; Retrieve the existing keywords or default to empty string
-             (keywords (gethash name old-data-ht ""))) 
-        ;; Pushing data in the order: NAME, TYPE, FILE, DOC, KEYWORDS
-        (push (list name type file doc keywords) new-data)))
-    ;; --- Step 2: Write the New File ---
-    (write-final-lookup-file output-file new-data)))
+      (let* ((name      (symbol-name s))
+             (type      (get-symbol-type s))
+             (file      (get-symbol-file s))        ; SWANK → real file path always
+             (doc       (get-symbol-doc s type))
+             (old-entry (gethash name old-data-ht))
+             (keywords  (or (car old-entry) ""))
+             ;; meta comes from registry — :meta key holds the plist
+             (reg       (gethash name *meta-registry*))
+             (meta-plist (or (when reg (getf reg :meta))
+                             (cdr old-entry)
+                             nil)))
+        (push (list name type file doc keywords meta-plist)
+              new-data)))
+    (write-final-lookup-file output-file new-data)
+    (report-meta-coverage new-data)))
+
+
+
+
+(defun report-meta-coverage (entries)
+  "Prints a simple coverage report after generation."
+  (let* ((total    (length entries))
+         (covered  (count-if #'sixth entries))
+         (missing  (- total covered)))
+    (format t "~&Meta coverage: ~A/~A functions have metadata (~A missing).~%"
+            covered total missing)
+    (when (> missing 0)
+      (format t "~&Functions missing meta declarations:~%")
+      (dolist (e entries)
+        (unless (sixth e)
+          (format t "  ~A~%" (first e)))))))
+
+
 
 (defun get-symbol-type (s)
   "Determines the type of the given symbol S."
@@ -201,24 +231,45 @@
               return text.replace(/[&<>\"']/g, (m) => map[m]);
           }
 
-          function renderRow(entry) {
-            // Entry format: [Name, Type, File, Docstring, Keywords]
-            const name = escapeHtml(entry[0]);
-            const type = escapeHtml(entry[1]);
-            const file = escapeHtml(entry[2]);
-            const keywords = escapeHtml(entry[4]);
-            
-            const fileLink = file ? `<a href=\"#\" title=\"${file}\">${file.split('/').pop()}</a>` : 'N/A';
-            
-            return `
-              <tr>
-                <td><strong>${name}</strong></td>
-                <td><span class=\"badge bg-secondary\">${type}</span></td>
-                <td>${fileLink}</td>
-                <td>${keywords}</td>
-              </tr>`;
-          }
 
+function renderRow(entry) {
+  const name     = escapeHtml(entry[0]);
+  const type     = escapeHtml(entry[1]);
+  const file     = escapeHtml(entry[2]);
+  const keywords = escapeHtml(entry[4]);
+  const meta     = entry[5];            // already a proper JS object
+
+  const fileLink = file
+    ? `<a href=\"#\" title=\"${file}\">${file.split('/').pop()}</a>`
+    : 'N/A';
+
+  const metaHtml = meta ? `
+    <tr class=\"meta-row\">
+      <td colspan=\"4\" style=\"padding:4px 8px; background:#f8f9fa; font-size:0.85em;\">
+        ${meta.domain   ? `<span class=\"badge bg-primary\">${meta.domain}</span> ` : ''}
+        ${meta.category ? `<span class=\"badge bg-secondary\">${meta.category}</span> ` : ''}
+        ${meta.cost     ? `<span class=\"badge bg-info text-dark\">cost: ${meta.cost}</span> ` : ''}
+        <span class=\"badge ${meta.pure === true ? 'bg-success' : 'bg-warning text-dark'}\">
+          ${meta.pure === true ? 'pure' : 'side-effects'}
+        </span>
+        ${meta.tags && Array.isArray(meta.tags)
+          ? meta.tags.map(t => `<span class=\"badge bg-light text-dark border\">${t}</span>`).join(' ')
+          : ''}
+        ${meta.description
+          ? `<div class=\"text-muted mt-1\">${escapeHtml(meta.description)}</div>`
+          : ''}
+      </td>
+    </tr>` : '';
+
+  return `
+    <tr>
+      <td><strong>${name}</strong></td>
+      <td><span class=\"badge bg-secondary\">${type}</span></td>
+      <td>${fileLink}</td>
+      <td>${keywords}</td>
+    </tr>
+    ${metaHtml}`;
+    }
           function filterSymbols() {
               const query = searchInput.value.toUpperCase();
               let resultsHtml = '';
@@ -252,15 +303,12 @@
     (list widget1 widget2))))
 
 ;; You can define these in the same package as your other UI functions (e.g., :com.nstores.app)
-
 (defun create-model-for-project-symbols-lookup-page ()
-  "Model: Prepares the lookup data for the view."
-  ;; Assumes *function-lookup-table* is loaded from lookup-data.lisp
+  "Model: Prepares the lookup data for the view.
+   Now includes the 6th meta-plist slot serialized as JSON."
   (let ((jsondata (json:encode-json-to-string (funcall (function-lookup-table)))))
-     (function (lambda ()
-       (values jsondata)))))
-
-
+    (function (lambda ()
+      (values jsondata)))))
 
 (defun com-hhub-controller-project-symbols-lookup-page ()
   "Controller: Renders the symbol lookup page."
