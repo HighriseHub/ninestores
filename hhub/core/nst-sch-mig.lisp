@@ -20,7 +20,6 @@
     ("02022026-create-customer-users-table"   migrate-2026Feb-create-customer-users-table "Create customer users table for B2B use cases")
     ("02022026-update-customer-users-table"   migrate-2026Feb-update-customer-users-table "Update customer users table for B2B use cases. Copy data from DOD_CUST_PROFILE table.")
     ("08022026-update-customer-users-table"   migrate-2026Feb-create-event-trace-table "Create event trace table which will help taking decisions using AI.")
-
     ("11022026-update-customer-wallet-table"   migrate-2026Feb-update-customer-wallet-table "Update the customer wallet table to support advance receipt payments.")
     ("11022026-create-proforma-invoice-table"   migrate-2026Feb-create-proforma-invoices-table "Create proforma invoice table.")
     ("11022026-create-advance-receipt-vouchers-table"   migrate-2026Feb-create-advance-receipt-vouchers-table "Create advance receipt vouchers table.")
@@ -30,7 +29,6 @@
     ("13022026-create-invoice-gst-reconciliation-table"   migrate-2026Feb-create-invoice-gst-reconciliation-table   "Create invoice gst reconciliation table for the customer.")
     ("13022026-create-vendor-gstr1-status-table"   migrate-2026Feb-create-vendor-gstr1-status-table   "Create vendor gstr1 status check table for a customer.")
     ("13022026-update-invoice-header-table"   migrate-2026Feb-update-invoice-header-table    "Update invoice header to support GST changes.")
-    ("13022026-create-eway-bill-tabl"   migrate-2026Feb-create-eway-bill-table    "Create eway bill table.")
     ("13022026-create-tds-certificates-table"   migrate-2026Feb-create-tds-certificates-table    "Create tds certificates table.")
     ("13022026-modify-payment-transactions-table"   migrate-2026Feb-modify-payment-transaction-table    "Modify the payment transaction table.")
     ("13022026-modify-customer-order-table"   migrate-2026Feb-modify-customer-order-table    "Modify the customer order table.")
@@ -42,6 +40,13 @@
     ("22022026-create-stock-movement-table"   migrate-2026Feb-create-stock-movement-table "Create stock movement table.")
     ("22022026-create-stock-reservation-table"   migrate-2026Feb-create-stock-reservation-table "Create stock reservation table.")
     ("22022026-create-stock-count-table"   migrate-2026Feb-create-stock-count-table "Create stock count table.")
+    ("22022026-update-vendor-orders-table"   migrate-2026March-modify-vendor-order-table "Update vendor orders table to support more GST fields.")
+    ("15032026-create-eway-bill-table"   migrate-2026March-create-eway-bill-table    "Create eway bill table.")
+    ("15032026-create-delivery-order-table"   migrate-2026March-create-delivery-order-table    "Create delivery order table.")
+    ("15032026-create-delivery-items-table"   migrate-2026March-create-delivery-items-table    "Create delivery items table.")
+    ("15032026-create-goods-receipt-note-table"   migrate-2026March-create-goods-receipt-note-table    "Create goods receipt note table.")
+    ("15032026-create-goods-receipt-note-items-table"   migrate-2026March-create-goods-receipt-note-items-table    "Create goods receipt note items table.")
+    ("15032026-add-constraints-to-delivery-items-and-goods-receipt"   migrate-2026March-add-constraints-to-delivery-items-and-goods-receipt    "Add constraints to delivery items and goods receipt.")
     ))
 
 

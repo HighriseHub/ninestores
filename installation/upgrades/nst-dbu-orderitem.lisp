@@ -2,6 +2,71 @@
 (in-package :nstores)
 
 
+(defun migrate-2026March-modify-vendor-order-table ()
+  (when (table-exists-p "DOD_VENDOR_ORDERS")
+    (clsql:execute-command
+     "-- ============================================================
+-- ALTER DOD_VENDOR_ORDERS to align with DOD_ORDER
+-- MySQL script — run in a transaction, test on staging first
+-- Author: migration patch v1
+-- ============================================================
+
+ALTER TABLE DOD_VENDOR_ORDERS
+
+  -- Fix decimal precision (financial safety)
+  MODIFY COLUMN ORDER_AMT       decimal(15,2)  DEFAULT NULL,
+  MODIFY COLUMN TOTAL_DISCOUNT  decimal(15,2)  DEFAULT NULL,
+  MODIFY COLUMN TOTAL_TAX       decimal(15,2)  DEFAULT NULL,
+  MODIFY COLUMN SHIPPING_COST   decimal(15,2)  DEFAULT 0.00,
+
+  -- Order identification
+  ADD COLUMN ORDNUM             varchar(50)    DEFAULT NULL        AFTER COMMENTS,
+  ADD COLUMN CUSTNAME           varchar(255)   DEFAULT NULL        AFTER ORDNUM,
+  ADD COLUMN ORDER_TYPE         char(4)        DEFAULT NULL        AFTER CUSTNAME,
+  ADD COLUMN CONTEXT_ID         varchar(100)   DEFAULT NULL        AFTER ORDER_TYPE,
+  ADD COLUMN ORDER_SOURCE       enum('POS','ONLINE','WHATSAPP','API') DEFAULT 'ONLINE' AFTER CONTEXT_ID,
+
+  -- Lifecycle flags
+  ADD COLUMN IS_CONVERTED_TO_INVOICE char(1)   DEFAULT 'N'        AFTER ORDER_SOURCE,
+  ADD COLUMN IS_CANCELLED            char(1)   DEFAULT 'N'        AFTER IS_CONVERTED_TO_INVOICE,
+  ADD COLUMN CANCEL_REASON           text      DEFAULT NULL        AFTER IS_CANCELLED,
+
+  -- Dates
+  ADD COLUMN EXPECTED_DELIVERY_DATE  date      DEFAULT NULL        AFTER CANCEL_REASON,
+  ADD COLUMN INVOICE_DATE            date      DEFAULT NULL        AFTER EXPECTED_DELIVERY_DATE,
+  ADD COLUMN INVOICE_NUMBER          varchar(50) DEFAULT NULL      AFTER INVOICE_DATE,
+
+  -- Extended address fields (text form)
+  ADD COLUMN SHIPADDR           text           DEFAULT NULL        AFTER INVOICE_NUMBER,
+  ADD COLUMN BILLADDR           text           DEFAULT NULL        AFTER SHIPADDR,
+  ADD COLUMN EXTERNAL_URL       varchar(2048)  DEFAULT NULL        AFTER BILLADDR,
+
+  -- User tracking
+  ADD COLUMN CREATED_BY_USER_ID   mediumint    DEFAULT NULL        AFTER EXTERNAL_URL,
+  ADD COLUMN APPROVED_BY_USER_ID  mediumint    DEFAULT NULL        AFTER CREATED_BY_USER_ID,
+
+  -- GST supply chain fields
+  ADD COLUMN PLACE_OF_SUPPLY        varchar(50) DEFAULT NULL       AFTER APPROVED_BY_USER_ID,
+  ADD COLUMN PLACE_OF_SUPPLY_CODE   varchar(2)  DEFAULT NULL       AFTER PLACE_OF_SUPPLY,
+  ADD COLUMN SUPPLY_TYPE            enum('INTRA_STATE','INTER_STATE') DEFAULT NULL AFTER PLACE_OF_SUPPLY_CODE,
+  ADD COLUMN TOTAL_TAXABLE_VALUE    decimal(15,2) DEFAULT NULL     AFTER SUPPLY_TYPE,
+  ADD COLUMN TOTAL_CGST             decimal(15,2) DEFAULT 0.00     AFTER TOTAL_TAXABLE_VALUE,
+  ADD COLUMN TOTAL_SGST             decimal(15,2) DEFAULT 0.00     AFTER TOTAL_CGST,
+  ADD COLUMN TOTAL_IGST             decimal(15,2) DEFAULT 0.00     AFTER TOTAL_SGST,
+  ADD COLUMN TOTAL_CESS             decimal(15,2) DEFAULT 0.00     AFTER TOTAL_IGST,
+
+  -- Compliance flags
+  ADD COLUMN REVERSE_CHARGE_APPLICABLE tinyint(1) DEFAULT 0       AFTER TOTAL_CESS,
+  ADD COLUMN EWAY_BILL_REQUIRED     tinyint(1)   DEFAULT 0         AFTER REVERSE_CHARGE_APPLICABLE,
+  ADD COLUMN TDS_APPLICABLE         tinyint(1)   DEFAULT 0         AFTER EWAY_BILL_REQUIRED,
+  ADD COLUMN TDS_AMOUNT             decimal(15,2) DEFAULT 0.00     AFTER TDS_APPLICABLE,
+
+  -- Indexes
+  ADD INDEX idx_vo_is_converted (IS_CONVERTED_TO_INVOICE),
+  ADD INDEX idx_vo_place_of_supply_code (PLACE_OF_SUPPLY_CODE),
+  ADD INDEX idx_vo_gstnumber (GSTNUMBER),
+  ADD INDEX idx_vo_created_by (CREATED_BY_USER_ID);")))
+
 (defun migrate-2026Feb-modify-customer-order-table ()
   (when (table-exists-p "DOD_ORDER")
     (clsql:execute-command
