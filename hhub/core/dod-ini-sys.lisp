@@ -237,7 +237,7 @@ Database type: Supported type is ':odbc'"
     (setf *NST-ALL-INDIA-PINCODES* (get-all-india-pincodes-ht))
     (init-gst-invoice-terms)
     (setf *otp-store* (make-otp-store))
-    (define-shipping-zones)
+    (init-shipping-zones)
     (setf *NSTSENDORDEREMAILACTOR* (make-instance 'nst-actor
 						  :name "Send Order Email Actor"
 						  :behavior #'send-order-email-behavior
