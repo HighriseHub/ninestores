@@ -1,5 +1,5 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-;; nst-ui-prosymloo.lisp came from Project Symbol Lookup
+;; nst-bl-prosymloo.lisp came from Project Symbol Lookup
 (in-package :nstores)
 
 ;; *meta-registry* populated at load time by (meta ...) forms
