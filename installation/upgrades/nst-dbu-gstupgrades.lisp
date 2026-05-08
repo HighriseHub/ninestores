@@ -2,6 +2,91 @@
 (in-package :nstores)
 
 
+(defun migrate-2026May-create-customer-inward-invoices-view ()
+  (flet ((create-table-if-not-exists (table-name ddl)
+           (unless (table-exists-p table-name)
+             (clsql:execute-command ddl))))
+    
+    ;; 1. DOD_DELIVERY_ORDER
+    (create-table-if-not-exists
+     "DOD_V_CUSTOMER_INVOICE_REGISTER"
+     "CREATE OR REPLACE VIEW DOD_V_CUSTOMER_INVOICE_REGISTER AS
+SELECT
+    ih.ROW_ID                               AS INVOICE_ID,
+    ih.INVNUM                               AS INVOICE_NUMBER,
+    ih.INVDATE                              AS INVOICE_DATE,
+    ih.FINYEAR                              AS FINANCIAL_YEAR,
+    ih.GSTR1_PERIOD                         AS GST_PERIOD,
+
+    -- VENDOR DETAILS
+    vp.ROW_ID                               AS VENDOR_ID,
+    COALESCE(vp.LEGAL_NAME, vp.NAME)        AS VENDOR_NAME,
+    vp.TRADE_NAME                           AS VENDOR_TRADE_NAME,
+    vp.gstnumber                            AS VENDOR_GSTIN,
+    vp.GST_REGISTRATION_TYPE                AS VENDOR_GST_TYPE,
+    vp.GST_FILING_FREQUENCY                 AS VENDOR_FILING_FREQUENCY,
+
+    -- BUYER DETAILS
+    cp.ROW_ID                               AS BUYER_ID,
+    COALESCE(cp.LEGAL_NAME, cp.NAME)        AS BUYER_NAME,
+    cp.GSTIN                                AS BUYER_GSTIN,
+    cp.GST_REGISTRATION_TYPE                AS BUYER_GST_TYPE,
+
+    -- INVOICE AMOUNTS
+    ih.TOTALVALUE                           AS TOTAL_AMOUNT,
+    ih.BALANCE_DUE                          AS BALANCE_DUE,
+    ih.ADVANCE_ADJUSTED                     AS ADVANCE_ADJUSTED,
+    ih.PAYMENT_ALLOCATED                    AS PAYMENT_ALLOCATED,
+
+    -- ITC FIELDS (YOUR KILLER FEATURE)
+    ih.ITC_ELIGIBLE                         AS ITC_ELIGIBLE,
+    ih.ITC_AMOUNT                           AS ITC_AMOUNT,
+    ih.ITC_CLAIMED                          AS ITC_CLAIMED,
+    ih.ITC_CLAIM_MONTH                      AS ITC_CLAIM_MONTH,
+
+    -- GSTR2B RECONCILIATION FIELDS
+    ih.IN_GSTR2B                            AS IN_GSTR2B,
+    ih.GSTR2B_MATCH_STATUS                  AS GSTR2B_MATCH_STATUS,
+    ih.GSTR2B_VERIFIED_DATE                 AS GSTR2B_VERIFIED_DATE,
+
+    -- E-INVOICE FIELDS
+    ih.E_INVOICE_REQUIRED                   AS E_INVOICE_REQUIRED,
+    ih.IRN                                  AS IRN,
+    ih.IRN_DATE                             AS IRN_DATE,
+    ih.ACK_NUMBER                           AS ACK_NUMBER,
+
+    -- RCM FIELDS
+    ih.REVCHARGE                            AS REVERSE_CHARGE,
+    ih.RCM_PAID                             AS RCM_PAID,
+    ih.RCM_PAID_DATE                        AS RCM_PAID_DATE,
+
+    -- PAYMENT STATUS
+    ih.PAYMENT_STATUS                       AS PAYMENT_STATUS,
+
+    -- GSTN UPLOAD STATUS
+    ih.UPLOADED_TO_GSTN                     AS UPLOADED_TO_GSTN,
+    ih.GSTN_UPLOAD_DATE                     AS GSTN_UPLOAD_DATE,
+
+    -- PLACE OF SUPPLY
+    ih.PLACEOFSUPPLY                        AS PLACE_OF_SUPPLY,
+    ih.STATECODE                            AS STATE_CODE,
+
+    -- METADATA
+    ih.STATUS                               AS INVOICE_STATUS,
+    ih.TENANT_ID                            AS TENANT_ID,
+    ih.CREATED                              AS CREATED_AT,
+    ih.UPDATED                              AS UPDATED_AT
+
+FROM DOD_INVOICE_HEADER ih
+JOIN DOD_VEND_PROFILE   vp ON ih.VENDOR_ID = vp.ROW_ID
+JOIN DOD_CUST_PROFILE   cp ON ih.CUSTID    = cp.ROW_ID
+WHERE ih.DELETED_STATE  IS NULL
+  AND vp.DELETED_STATE  IS NULL
+  AND cp.DELETED_STATE  IS NULL
+  AND cp.GST_CUSTOMER_TYPE = 'B2B';")))
+  
+
+
 
 (defun migrate-2026March-create-delivery-order-table ()
   (flet ((create-table-if-not-exists (table-name ddl)
@@ -298,9 +383,6 @@
   INDEX idx_grni_tenant       (TENANT_ID)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;")))
 
-
-;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :nstores)
 
 (defun migrate-2026March-add-constraints-to-delivery-items-and-goods-receipt ()
   (handler-case
