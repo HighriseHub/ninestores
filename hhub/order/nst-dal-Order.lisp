@@ -705,10 +705,10 @@
     :type string
     :column "CANCEL_REASON"
     :initarg :cancel-reason)
-   (store-pickup-enabled
+   (storepickupenabled
     :type (string 1)
     :column "STOREPICKUPENABLED"
-    :initarg :store-pickup-enabled)
+    :initarg :storepickupenabled)
    (comments
     :type (string 255)
     :column "COMMENTS"
