@@ -6,7 +6,7 @@
   (float (/ (* l b h) 5000)))
 
 
-(defun define-shipping-zones ()
+(defun init-shipping-zones ()
   (setf *HHUBSHIPPINGZONES* (make-hash-table :test 'equal))
   (setf (gethash "A" *HHUBSHIPPINGZONES*) "Zone A (Within City)")
   (setf (gethash "B" *HHUBSHIPPINGZONES*) "Zone B (Within State/region)")

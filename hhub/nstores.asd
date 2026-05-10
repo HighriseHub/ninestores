@@ -80,6 +80,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "core/nst-ui-prosymloo")
    (:file "core/nst-bl-funloodat")
    (:file "core/nst-bl-ollama")
+   (:file "core/nst-dal-pincodes")
    (:file "core/nst-bl-pincodes")
  ;; Account
    (:file "account/dod-dal-cmp")

@@ -331,7 +331,7 @@
    (product
     :ACCESSOR get-item-product
     :DB-KIND :JOIN
-    :DB-INFO (:JOIN-CLASS dod-order-items
+    :DB-INFO (:JOIN-CLASS dod-prd-master
 	                  :HOME-KEY prd-id
                           :FOREIGN-KEY row-id
                           :SET NIL))

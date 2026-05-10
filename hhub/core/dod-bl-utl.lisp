@@ -429,6 +429,13 @@ corresponding universal time."
        (second (parse-integer timestr :start 6 :end 8)))
    (encode-universal-time second minute hour 1 1 0)))
 
+(defun get-time-string-from-dateobj (dateobj)
+"Returns current time  as a string in HH:MM:SS  format"
+  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+      dateobj
+    (declare (ignore day mon yr dow dst-p tz))
+    (format nil "~2,'0d:~2,'0d:~2,'0d" hr min  sec)))
+ 
 (defun current-time-string ()
   "Returns current time  as a string in HH:MM:SS  format"
   (multiple-value-bind (sec min hr day mon yr dow dst-p tz)

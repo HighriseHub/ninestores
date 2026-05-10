@@ -163,7 +163,5 @@
 	                  :HOME-KEY tenant-id
                           :FOREIGN-KEY row-id
                           :SET nil)))
-  
-  
   (:BASE-TABLE dod_vendor_orders))
 

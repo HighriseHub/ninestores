@@ -54,21 +54,25 @@
    
    ;; Legacy Individual Fields (kept for backward compatibility)
    (name 
+    :accessor name
     :type (string 70) 
     :db-constraints :not-null
     :initarg :name)
    
-   (address 
+   (address
+    :accessor address 
     :type (string 256) 
     :initarg :address)
    
-   (phone 
+   (phone
+    :accessor  phone 
     :type (string 30) 
     :db-constraints :not-null
     :initarg :phone)
    
    ;; Legacy Login Credentials (DEPRECATED - moved to DOD_CUSTOMER_USERS)
-   (username 
+   (username
+    :accessor username
     :type (string 30) 
     :db-constraints :not-null
     :initarg :username)
@@ -82,7 +86,8 @@
     :type (string 128) 
     :initarg :salt)
    
-   (email 
+   (email
+    :accessor email
     :type (string 255) 
     :initarg :email)
    
@@ -129,6 +134,7 @@
     :initarg :country)
    
    (zipcode 
+    :accessor zipcode
     :type (string 10) 
     :initarg :zipcode)
    
@@ -147,19 +153,6 @@
     :type (string 1) 
     :initarg :deleted-state)
    
-   ;; Multi-tenancy
-   (tenant-id 
-    :type integer 
-    :db-constraints :not-null
-    :initarg :tenant-id)
-   
-   (company
-    :accessor cust-profile-company
-    :db-kind :join
-    :db-info (:join-class dod-company
-              :home-key tenant-id
-              :foreign-key row-id
-              :set nil))
    
    ;; Approval & Status
    (approved-flag 
@@ -437,21 +430,20 @@
     :db-info (:join-class dod-order
               :home-key row-id
               :foreign-key cust-id
-              :set t)))
+              :set t))
 
      ;; Multi-tenancy
-   (tenant-id
+  (tenant-id
     :type integer
     :initarg :tenant-id)
-   (company
-    :accessor get-company
-    :db-kind :join
-    :db-info (:join-class dod-company
-                          :home-key tenant-id
-                          :foreign-key row-id
-                          :set nil))
-
-  
+  (COMPANY
+    :ACCESSOR get-company
+    :DB-KIND :JOIN
+    :DB-INFO (:JOIN-CLASS dod-company
+	      :HOME-KEY tenant-id
+              :FOREIGN-KEY row-id
+              :SET nil)))
+    
   (:base-table dod_cust_profile))
 
 
@@ -623,7 +615,16 @@
    (deleted-state
     :type (string 1)
     :column "DELETED_STATE"
-    :initarg :deleted-state))
+    :initarg :deleted-state)
+
+    (company
+    :accessor get-company
+    :db-kind :join
+    :db-info (:join-class dod-company
+                          :home-key tenant-id
+                          :foreign-key row-id
+                          :set nil)))
+
   (:base-table "DOD_CUST_WALLET"))
 
 

@@ -856,14 +856,68 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 					      (+ taxablevalue sgstamt cgstamt igstamt))) invoiceitems))))
 
 
+
+(meta calculate-invoice-totalcgst
+  '((:description . "Calculates total CGST amount for an invoice by summing CGST across all line items")
+    (:domain      . :invoice)
+    (:category    . :calculation)
+    (:tags        . (:tax :cgst :invoice :totals))
+    (:inputs      . (((:name . invoiceitems) (:type . list)  (:required . t)   (:source . :parameter))))
+    (:outputs     . (((:name . total-cgst) (:type . decimal) (:binds-as . :cgst-amount))))
+    (:reads       . (:invoice-line-items))
+    (:writes      . nil)
+    (:throws      . nil)
+    (:pure        . nil)
+    (:cost        . :low)))
+
 (defun calculate-invoice-totalcgst (invoiceitems)
  (reduce #'+ (mapcar (lambda (item) (slot-value item 'cgstamt)) invoiceitems)))
+
+(meta calculate-invoice-totalsgst
+  '((:description . "Calculates total SGST amount for an invoice by summing SGST across all line items")
+    (:domain      . :invoice)
+    (:category    . :calculation)
+    (:tags        . (:tax :sgst :invoice :totals))
+    (:inputs      . (((:name . invoiceitems) (:type . list)  (:required . t)   (:source . :parameter))))
+    (:outputs     . (((:name . total-sgst) (:type . decimal) (:binds-as . :sgst-amount))))
+    (:reads       . (:invoiceitems))
+    (:writes      . nil)
+    (:throws      . nil)
+    (:pure        . nil)
+    (:cost        . :low)))
 
 (defun calculate-invoice-totalsgst (invoiceitems)
  (reduce #'+ (mapcar (lambda (item) (slot-value item 'sgstamt)) invoiceitems)))
 
+(meta calculate-invoice-totaligst
+  '((:description . "Calculates total IGST amount for an invoice by summing IGST across all line items")
+    (:domain      . :invoice)
+    (:category    . :calculation)
+    (:tags        . (:tax :igst :invoice :totals))
+    (:inputs      . (((:name . invoiceitems) (:type . list)  (:required . t)   (:source . :parameter))))
+    (:outputs     . (((:name . total-igst) (:type . decimal) (:binds-as . :igst-amount))))
+    (:reads       . (:invoiceitems))
+    (:writes      . nil)
+    (:throws      . nil)
+    (:pure        . nil)
+    (:cost        . :low)))
+
 (defun calculate-invoice-totaligst (invoiceitems)
   (reduce #'+ (mapcar (lambda (item) (slot-value item 'igstamt)) invoiceitems)))
+
+
+(meta calculate-invoice-totalgst
+  '((:description . "Calculates total GST amount for an invoice by summing GST across all line items")
+    (:domain      . :invoice)
+    (:category    . :calculation)
+    (:tags        . (:tax :gst :invoice :totals))
+    (:inputs      . (((:name . invoiceitems) (:type . list)  (:required . t)   (:source . :parameter))))
+    (:outputs     . (((:name . total-gst) (:type . decimal) (:binds-as . :gst-amount))))
+    (:reads       . (:invoiceitems))
+    (:writes      . nil)
+    (:throws      . nil)
+    (:pure        . nil)
+    (:cost        . :low)))
 
 (defun calculate-invoice-totalgst (invoiceheader invoiceitems)
   (let ((placeofsupply (slot-value invoiceheader 'placeofsupply))
