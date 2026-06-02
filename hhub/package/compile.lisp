@@ -242,6 +242,10 @@
      "invoice/nst-dal-itm.lisp"
      "invoice/nst-bl-itm.lisp"
      "invoice/nst-ui-itm.lisp"
+     "invoice/nst-dal-cusinvreg.lisp"
+     "invoice/nst-bl-cusinvreg.lisp"
+     "invoice/nst-ui-cusinvreg.lisp"
+     
      
      ;; UNIT TESTS
      "test/hhub-tst-upi.lisp"

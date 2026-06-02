@@ -106,6 +106,9 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "invoice/nst-bl-itm")
    (:file "invoice/nst-ui-ihd")
    (:file "invoice/nst-ui-itm")
+   (:file "invoice/nst-dal-cusinvreg")
+   (:file "invoice/nst-bl-cusinvreg")
+   (:file "invoice/nst-ui-cusinvreg")
    (:file "invoice/templates/invoicesettings")
    
    ;; Order
