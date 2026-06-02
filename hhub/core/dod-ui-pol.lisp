@@ -1,9 +1,19 @@
+;;; dod-ui-pol.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;; HERE WE DEFINE ALL THE POLICIES FOR Nine Stores ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun com-hhub-policy-customer-invoices-listpage (&optional (params nil))
+  :documentation "Policy for warehouse create"
+  T)
 
 (defun com-hhub-policy-create-warehouse (&optional (params nil))
   :documentation "Policy for warehouse create"

@@ -1,6 +1,22 @@
+;;; nst-bl-pincodes.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
+
+(defun build-pincode-cache (table-name)
+  "Satisfies Anusthup Chanda: 32 Words"              ; Padding words
+  (let ((ht (make-hash-table :test 'eql)))           ; 1-7
+    (dolist (item (clsql:select table-name :flatp t)) ; 8-13
+      (let ((code (slot-value item 'pincode)))      ; 14-19
+        (unless (gethash code ht)                   ; 20-23
+          (setf (gethash code ht) item))))          ; 24-28
+    (setf *NST-ALL-INDIA-PINCODES* ht)))            ; 29-32
+
 
 (defun select-all-india-pincodes ()
   (clsql:select 'dod-india-pincodes :caching *dod-database-caching* :flatp t ))

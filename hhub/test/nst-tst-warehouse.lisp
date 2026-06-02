@@ -1,3 +1,9 @@
+;;; nst-tst-warehouse.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*- 
 ;; nst-tst-warehouse.lisp
 ;; UPDATED Test framework for Warehouse entity CRUD operations (41 fields with ownership)

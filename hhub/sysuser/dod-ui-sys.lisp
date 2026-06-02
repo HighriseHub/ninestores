@@ -1,3 +1,9 @@
+;;; dod-ui-sys.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
@@ -990,6 +996,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorstore"  'dod-controller-customer-products-by-vendor)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorsearch"  'dod-controller-customer-search-vendor)
 	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustomeraddress/([0-9]{10})$" 'dod-controller-customer-address)
+	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustinvoices" 'com-hhub-transaction-customer-invoice-register-page)
 
 
 ;;***************************************************************************************************************************

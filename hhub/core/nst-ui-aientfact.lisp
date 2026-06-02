@@ -1,3 +1,9 @@
+;;; nst-ui-aientfact.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 ;; nst-ui-aientfact.lisp
 ;; UI layer + Context Flow Dispatcher routes for DOD_PROCURE_ENTITY_FACT.
