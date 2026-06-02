@@ -1,3 +1,9 @@
+;;; nst-bl-ihd.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-%
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
@@ -359,6 +365,7 @@
 	 (invnum (invnum requestmodel))
 	 (totalvalue (totalvalue requestmodel))
 	 (status (status requestmodel))
+	 (payment-status (payment-status requestmodel))
 	 (comp (company requestmodel))	 
 	 (InvoiceHeaderdbobj (select-invoice-header-by-invnum invnum comp))
 	 (domainobj (make-instance 'InvoiceHeader)))
@@ -366,7 +373,9 @@
     ;; FIELD UPDATE CODE STARTS HERE 
     (when InvoiceHeaderdbobj
       (setf (slot-value InvoiceHeaderdbobj 'totalvalue) totalvalue)
-      (setf (slot-value InvoiceHeaderdbobj 'status) status))
+      (setf (slot-value InvoiceHeaderdbobj 'status) status)
+      (setf (slot-value InvoiceHeaderdbobj 'payment-status) payment-status)
+      (setf (slot-value InvoiceHeaderdbobj 'updated) (clsql:get-time)))
     ;;  FIELD UPDATE CODE ENDS HERE. 
     (setf (slot-value InvoiceHeaderdbservice 'dbobject) InvoiceHeaderdbobj)
     (setf (slot-value InvoiceHeaderdbservice 'businessobject) domainobj)

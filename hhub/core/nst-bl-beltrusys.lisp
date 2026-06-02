@@ -1,3 +1,9 @@
+;;; nst-bl-beltrusys.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; bo-knowledge.lisp
 (in-package :nstores)
 

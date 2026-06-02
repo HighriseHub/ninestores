@@ -1,3 +1,9 @@
+;;; nst-tst-aientity.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 ;; nst-tst-aientity.lisp
 ;; TDD test stubs for DOD_PROCURE_ENTITY CRUD operations.

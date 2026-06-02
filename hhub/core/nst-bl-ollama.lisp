@@ -1,43 +1,71 @@
+;;; nst-bl-ollama.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
 
 
-(defparameter *ollama-url* "http://192.168.0.101:11434/api/generate")
+(defparameter *ollama-url* "http://192.168.0.117:11434/api/generate")
 (defparameter *ollama-model* "qwen3.5:latest")
 (defvar *dod-vend-profile-table* "/home/ubuntu/ninestores/hhub/vendor/templates/dod-vend-profile.txt")
 (defvar *dod-invoice-header-table* "/home/ubuntu/ninestores/hhub/vendor/templates/dod-invoice-header.txt")
 (defvar *dod-invoice-items-table* "/home/ubuntu/ninestores/hhub/vendor/templates/dod-invoice-items.txt")
 
-(defun call-local-llm (prompt &key
-                               (max-tokens 500)
-                               (temperature 0.1)
-                               (model *ollama-model*))
-  "Calls local Ollama instance.
-   Low temperature for structured extraction tasks.
-   Higher temperature only for narrative generation."
-  (let* ((request-body
-           (json:encode-json-to-string
-             `(("model"  . ,model)
-               ("prompt" . ,prompt)
-               ("stream" . nil)
-               ("options" .
-                 (("temperature"  . ,temperature)
-                  ("num_predict"  . ,max-tokens)
-                  ("num_ctx"      . 8192))))))
-         (response
-           (drakma:http-request
-             *ollama-url*
-             :method :post
-             :content-type "application/json"
-             :content request-body)))
-    (let* ((parsed   (json:decode-json-from-string
-                       (flexi-streams:octets-to-string response)))
-           (text     (cdr (assoc :response parsed))))
-      text)))
+;; (defun call-local-llm (prompt &key
+;;                                (max-tokens 500)
+;;                                (temperature 0.1)
+;;                                (model *ollama-model*))
+;;   "Calls local Ollama instance.
+;;    Low temperature for structured extraction tasks.
+;;    Higher temperature only for narrative generation."
+;;   (let* ((request-body
+;;            (json:encode-json-to-string
+;;              `(("model"  . ,model)
+;;                ("prompt" . ,prompt)
+;;                ("stream" . nil)
+;;                ("options" .
+;;                  (("temperature"  . ,temperature)
+;;                   ("num_predict"  . ,max-tokens)
+;;                   ("num_ctx"      . 8192))))))
+;;          (response
+;;            (drakma:http-request
+;;              *ollama-url*
+;;              :method :post
+;;              :content-type "application/json"
+;;              :content request-body)))
+;;     (let* ((parsed   (json:decode-json-from-string
+;;                        (flexi-streams:octets-to-string response)))
+;;            (text     (cdr (assoc :response parsed))))
+;;       text)))
 
 (defun ollama-generate (prompt &key system)
+  (let* ((payload
+           (json:encode-json-to-string
+            `((:model . ,*ollama-model*)
+              (:prompt . ,prompt)
+              ,@(when system `((:system . ,system))) ; Only add system if provided
+              (:stream . nil))))
+         ;; Drakma returns a string directly if external-format is supplied,
+         ;; or an octet array if not. Let's force it to handle encoding.
+         (raw-response
+           (drakma:http-request
+            *ollama-url*
+            :method :POST
+            :content payload
+            :content-type "application/json"
+            :external-format-out :utf-8
+            :external-format-in :utf-8))
+         ;; Decode the single JSON object returned by Ollama
+         (json-obj (json:decode-json-from-string raw-response)))
+    ;; Extract the final response text
+    (cdr (assoc :response json-obj))))
+
+(defun ollama-generate-old (prompt &key system)
   (let* ((payload
            (json:encode-json-to-string
             `((:model . ,*ollama-model*)
@@ -55,8 +83,16 @@
             (parse-ollama-ndjson (map 'string #'code-char raw-response))))
     json-response))
 
-
 (defun parse-ollama-ndjson (string)
+  (with-output-to-string (out)
+    (dolist (line (split-sequence:split-sequence #\Newline string))
+      (when (plusp (length line))
+        (let* ((obj (json:decode-json-from-string line))
+               (chunk (cdr (assoc :response obj))))
+          (when chunk
+            (write-string chunk out)))))))
+
+(defun parse-ollama-ndjson-old (string)
   (let ((out ""))
     (dolist (line (split-sequence:split-sequence #\Newline string))
       (when (> (length line) 0)
@@ -421,15 +457,6 @@ and functional design. Be precise and concise."))
 ;;; Thin wrappers around cl-dbi keeping SQL visible in the call site.
 ;;; =============================================================================
 
-
-(defun db-last-insert-id ()
-  "Returns the last auto-increment ID from the connection."
-  (let ((row (clsql:execute-command "SELECT LAST_INSERT_ID() AS id")))
-    (cdr (assoc "id" row :test #'string=))))
-
-(defun row-get (row key)
-  "Get value from a DB result row alist by column name string."
-  (cdr (assoc key row :test #'string=)))
 
 
 ;;; =============================================================================

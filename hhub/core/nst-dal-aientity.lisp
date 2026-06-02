@@ -1,3 +1,9 @@
+;;; nst-dal-aientity.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 
 ;; nst-dal-aientity.lisp
 ;; DAL layer for DOD_PROCURE_ENTITY — AI procurement anchor/identity table.

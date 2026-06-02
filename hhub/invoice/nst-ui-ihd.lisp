@@ -1,3 +1,9 @@
+;;; nst-ui-ihd.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 
@@ -643,6 +649,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (requestmodel (make-instance 'InvoiceHeaderStatusRequestModel
 					 :invnum invnum
 					 :status status
+					 :payment-status status
 					 :totalvalue totalvalue
 					 :totalinwords totalinwords
 					 :company company))
@@ -700,6 +707,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (requestmodel (make-instance 'InvoiceHeaderStatusRequestModel
 					 :invnum invnum
 					 :status status
+					 :payment-status "PENDING"
 					 :totalvalue totalvalue
 					 :company company))
 	 (headeradapter (make-instance 'InvoiceHeaderAdapter))

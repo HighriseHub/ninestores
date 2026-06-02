@@ -1,3 +1,9 @@
+;;; dod-bl-utl.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
@@ -102,6 +108,15 @@
           (error "Branch name too long (~A chars): ~A" (length branch-name) branch-name)
           branch-name))))
 
+(defun generate-sku-anusthup (name desc qty unit)
+  (let* ((prefix (lambda (string length)                     ; 1-7
+                   (subseq (string-upcase string) 0 length))) ; 8-13
+         (code-n (funcall prefix name 4))                    ; 14-18
+         (code-d (funcall prefix desc 4))                    ; 19-23
+         (random (format nil "~4,'0D" (random 10000))))      ; 24-29
+    (format nil "~A-~A-~A~A-~A"                              ; 30-31
+            code-n code-d qty unit random)))                 ; 32
+
 (defun generate-sku (product-name description qty-per-unit unit-of-measure)
   "Generate an SKU from product information by taking 2 chars from each word.
   
@@ -175,7 +190,22 @@
     (sb-ext:run-program "/bin/sh" (list "-c" command) :input nil :output *standard-output*)
     filename))
 
+(defun inr-to-words-anusthup (amount crore lakh)
+  (multiple-value-bind (rupees paise) (floor amount)  ; 1-7
+    (let ((say (lambda (val unit)                     ; 8-12
+                 (if (> val 0)                        ; 13-14
+                     (format nil "~R ~A " val unit)   ; 15-18
+                     ""))))                           ; 19
+      (format nil "Rupees ~A~A~A~:[ and ~R paise~;~]" ; 20-26
+              (funcall say (floor rupees crore) "crore") ; 27-29
+              (funcall say (rem (floor rupees lakh) 100) "lakh") ; 30-31
+              (funcall say (rem rupees lakh) "")      ; 32
+              (zerop paise) (round (* paise 100))))))
 
+(defun make-inr-mantra (amount)
+  (let ((crore 10000000) (lakh 100000))
+    (lambda ()
+      (inr-to-words-anusthup amount crore lakh))))
 
 
 (defun convert-number-to-words-INR (number)

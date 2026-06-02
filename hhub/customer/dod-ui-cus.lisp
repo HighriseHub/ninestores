@@ -1,3 +1,9 @@
+;;; dod-ui-cus.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
@@ -1163,6 +1169,8 @@ Only shows sections based on availability flags and customer type."
 				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "custsubscriptions" "Subscriptions"))))
 				(if (equal customer-type "STANDARD")
 				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustorderscal" "Orders"))))
+				(if (equal customer-type "STANDARD")
+				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "nstcustinvoices" "Invoices"))))
 				(if (and (com-hhub-attribute-company-wallets-enabled subs-plan cmp-type) (equal customer-type "STANDARD"))
 				    (cl-who:htm (:li :class "nav-item"  (:a :class "nav-link" :href "dodcustwallet" (:i :class "fa-solid fa-people-line")  "&nbsp;Vendors" ))))
 				(:li :class "nav-item"  (:a :class "nav-link" :href "#" (cl-who:str (format nil "~a" (get-login-customer-company-name))))))

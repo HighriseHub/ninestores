@@ -1,3 +1,9 @@
+;;; xref.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;;; -*- Mode: LISP; Package: XREF; Syntax: Common-lisp;  -*- 
 ;;; Mon Jan 21 16:21:20 1991 by Mark Kantrowitz <mkant@GLINDA.OZ.CS.CMU.EDU>
 ;;; xref.lisp

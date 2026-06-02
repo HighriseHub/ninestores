@@ -1,3 +1,9 @@
+;;; dod-dal-wrh.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 ;; nst-dal-warehouse.lisp
 ;; Data Access Layer for Warehouse entity (UPDATED with ownership fields - 41 fields)

@@ -1,3 +1,9 @@
+;;; dtrace.lisp
+;;;
+;;; Copyright (c) 2026 Nine Stores. All rights reserved.
+;;;
+;;; Distributed under the MIT License. See LICENSE file in the project root.
+
 ;;; -*- Mode: Lisp; Package: DTRACE -*-
 
 ;;; DTRACE is a portable alternative to the Common Lisp TRACE and UNTRACE
