@@ -2779,7 +2779,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					    (igstamt (slot-value odt 'igstamt))
 					    (taxablevalue (slot-value odt 'taxablevalue))
 					    (totalitemval (slot-value odt 'totalitemval)))
-				       (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value odt-product 'item-description)))
+				       (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value odt-product 'prd-name)))
 							(:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
 							(:td  :height "12px" (cl-who:str (format nil  "~A ~$" currsymbol taxablevalue)))
 							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol sgstamt sgst)))
