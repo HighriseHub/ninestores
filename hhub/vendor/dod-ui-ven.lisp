@@ -60,8 +60,126 @@
     (function (lambda ()
       (values redirecturl)))))
 	 
-(eval-when (:compile-toplevel :load-toplevel :execute) 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; Define reusable constants
+  (defparameter *sidebar-style* 
+    "background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 100%);")
+
+  ;; Helper functions for cleaner rendering
+  (defun render-sidebar-nav-item (href label icon-class)
+    "Render a simple nav item."
+    (cl-who:with-html-output (*standard-output* nil)
+      (:li :class "nav-item"
+           (:a :href href :class "nav-link link-body-emphasis"
+               (:i :class icon-class) 
+               (cl-who:str "&nbsp;&nbsp;") 
+               (cl-who:str label)))))
+
+  (defun render-sidebar-dropdown (id toggle-label icon-class items)
+    "Render a collapsible dropdown section."
+    (cl-who:with-html-output (*standard-output* nil)
+      (:li :class "nav-item"
+           (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" 
+               :data-bs-toggle "collapse"
+               :data-bs-target (format nil "#~a" id) 
+               :aria-expanded "true" 
+               :aria-controls id
+               (:i :class icon-class) 
+               (cl-who:str " ") 
+               (cl-who:str toggle-label))
+           (:ul :id id :class "nav-dropdown list-unstyled collapse" 
+                :data-bs-parent "#offcanvasExample"
+                (dolist (item items)
+                  (destructuring-bind (item-label item-href) item
+                    (cl-who:htm
+                     (:li :class "sidebar-item"
+                          (:a :href item-href :class "nav-link" 
+                               (cl-who:str item-label))))))))))
+
+  (defun render-sidebar-header ()
+    "Render the offcanvas header."
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :class "offcanvas-header"
+            (:img :src "/img/logo.png" :alt "Logo" 
+                  :width "32" :height "32" 
+                  :class "rounded-circle me-2")
+            (:h5 :class "offcanvas-title" :id "offcanvasExampleLabel" 
+                 "Nine Stores")
+            (:button :type "button" :class "btn-close" 
+                     :data-bs-dismiss "offcanvas" 
+                     :aria-label "Close"))))
+
+  (defun render-sidebar-body (compbulkupload-p)
+    "Render the offcanvas body content."
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :class "offcanvas-body"
+            (:ul :class "nav nav-tabs flex-column mb-auto"
+                 ;; Home
+                 (render-sidebar-nav-item "dodvendindex?context=home" "Home" "fa-solid fa-house")
+                 
+                 ;; Product Master dropdown
+                 (render-sidebar-dropdown 
+                  "productmaster" "Product Master" "fa-solid fa-rectangle-list"
+                  `(("Product List" "/hhub/dodvenproducts")
+                    ("Product Categories" "/hhub/dodvendprodcategories")
+                    ("Add New Product" "/hhub/dodvenaddprodpage")
+                    ,@(when compbulkupload-p
+                        `(("Bulk Add Products" "/hhub/dodvenbulkaddprodpage")))))
+                 
+                 ;; Orders dropdown
+                 (render-sidebar-dropdown 
+                  "orders" "Orders" "fa-solid fa-rectangle-list"
+                  '(("Pending Orders" "/hhub/dodvendindex?context=pendingorders")
+                    ("Pending Orders By Products" "/hhub/dodvendindex?context=ctxordprd")
+                    ("Completed Orders" "/hhub/dodvendindex?context=completedorders")))
+                 
+                 ;; Simple nav items
+                 (render-sidebar-nav-item "/hhub/displayinvoices" "Sale Invoices" "fa-regular fa-rectangle-list")
+                 (render-sidebar-nav-item "/hhub/hhubvendorupitransactions" "UPI Transactions" "fa-regular fa-rectangle-list")
+                 (render-sidebar-nav-item "/hhub/hhubvendmycustomers" "Customers" "fa-regular fa-user")
+                 (render-sidebar-nav-item "/hhub/vwarehouses" "Warehouses" "fa-regular fa-user")
+                 
+                 ;; Reports dropdown
+                 (render-sidebar-dropdown 
+                  "reports" "Reports" "fa-solid fa-circle-info"
+                  '(("Today's Revenue" "/hhub/dodvendrevenue")))
+                 
+                 ;; Settings dropdown
+                 (render-sidebar-dropdown 
+                  "settings" "Settings" "fa-solid fa-gear"
+                  '(("Browser Push Notification" "hhubvendpushsubscribepage")
+                    ("Vendor Settings" "/hhub/dodvendprofile?context=home")))))))
+
   (defun render-sidebar-offcanvas ()
+    "Render the complete sidebar offcanvas component."
+    (handler-case
+        (let* ((vendor-company (get-login-vendor-company))
+               (cmp-type (slot-value vendor-company 'cmp-type))
+               (subscription-plan (slot-value vendor-company 'subscription-plan))
+               (compbulkupload-p (com-hhub-attribute-company-prdbulkupload-enabled 
+                                  subscription-plan cmp-type)))
+          (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+            (:div :class "offcanvas offcanvas-start" 
+                  :tabindex "-1" :id "offcanvasExample" 
+                  :aria-labelledby "offcanvasExampleLabel" 
+                  :style *sidebar-style*
+                  (render-sidebar-header)
+                  (render-sidebar-body compbulkupload-p))))
+      (error (e) 
+        (cl-who:with-html-output (*standard-output* nil :prologue t :indent t)
+          (:div :class "offcanvas offcanvas-start" 
+                :tabindex "-1" :id "offcanvasExample" 
+                :aria-labelledby "offcanvasExampleLabel"
+                (:div :class "offcanvas-header"
+                      (:h5 :class "offcanvas-title" "Error")
+                      (:button :type "button" :class "btn-close" 
+                               :data-bs-dismiss "offcanvas" 
+                               :aria-label "Close"))
+                (:div :class "offcanvas-body"
+                      (:p (cl-who:str (format nil "Error loading sidebar: ~a" e))))))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun render-sidebar-offcanvas-old ()
     (let* ((vendor-company (get-login-vendor-company))
 	   (cmp-type (slot-value vendor-company 'cmp-type))
 	   (subscription-plan (slot-value vendor-company 'subscription-plan))
@@ -116,6 +234,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 		       (:li :class "nav-item"
 			    (:a :href "/hhub/hhubvendmycustomers" :class "nav-link link-body-emphasis"
 				(:i :class "fa-regular fa-user") " Customers"))
+		       (:li :class "nav-item"
+			    (:a :href "/hhub/vwarehouses" :class "nav-link link-body-emphasis"
+				(:i :class "fa-regular fa-user") " Warehouses"))
 		       (:li :class "nav-item"
 			    (:a :href "#" :class "nav-link collapsed has-dropdown dropdown-toggle" :data-bs-toggle "collapse"
 				:data-bs-target "#reports" :aria-expanded "true" :aria-controls "reports"
@@ -2199,7 +2320,6 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	(addloginvendorsetting "payprovidersenabled" payprovidersenabled)
 	(addloginvendorsetting "walletenabled" walletenabled)
 	(addloginvendorsetting "paylaterenabled" paylaterenabled)))))
-  
 
 
 (defun addloginvendorsetting (key value)
@@ -2496,56 +2616,182 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	;;otherwise, return the retrieved items list from the hash table.
         order-items-from-ht)))
 
+
 (defun dod-controller-vend-index () 
+  "Main controller for vendor dashboard."
   (with-vend-session-check 
-    (let ((dodorders (dod-get-cached-pending-orders ))
-	  (reqdate (hunchentoot:parameter "reqdate"))
-	  (btnexpexl (hunchentoot:parameter "btnexpexl"))
-	  (context (hunchentoot:parameter "context")))
+    (let* ((dodorders (dod-get-cached-pending-orders))
+           (reqdate (hunchentoot:parameter "reqdate"))
+           (btnexpexl (hunchentoot:parameter "btnexpexl"))
+           (context (hunchentoot:parameter "context"))
+           (order-count (length dodorders)))
       (with-standard-vendor-page "Welcome Vendor"
-	(:h3 "Welcome " (cl-who:str (format nil "~A" (get-login-vendor-name))))
-	(:hr)
-	(with-html-form "form-venorders" "dodvendindex"
-	  (with-html-div-row :style "display: none"
-	    (:div :class "btn-group" :role "group" :aria-label "..."
-		  (:button  :name "btnpendord" :type "submit" :class "btn btn-default active" "Orders" )
-		  (:button  :name "btnordcomp" :type "submit" :class "btn btn-default" "Completed Orders")))
-					; (:hr)
-	  (with-html-div-row :style "display: none"
-	    (:div :class "col-sm-12 col-xs-12 col-md-12 col-lg-12" 
-		  (:input :type "text" :name "reqdate" :placeholder "yyyy/mm/dd")
-		  (:button :class "btn btn-primary" :type "submit" :name "btnordprd" "Get Orders by Products")
-		  (:button :class "btn btn-primary" :type "submit" :name "btnordcus" "Get Orders by Customers")
-		  (if (and reqdate dodorders)
-		      (cl-who:htm (:a :href (format nil "/dodvenexpexl?reqdate=~A" (cl-who:escape-string reqdate)) :class "btn btn-primary" "Export To Excel")))
-		  (:button :class "btn btn-primary"  :type "submit" :name "btnprint" :onclick "javascript:window.print();" "Print")))) 
-					; (:hr)
-	(cond ((equal context "ctxordprd") (ui-list-vendor-orders-by-products dodorders))
-	      ((and dodorders btnexpexl) (hunchentoot:redirect (format nil "/hhub/dodvenexpexl?reqdate=~A" reqdate)))
-	      ((equal context "ctxordcus") (ui-list-vendor-orders-by-customers dodorders))
-	      ((equal context "home")	(cl-who:htm (:div :class "list-group col-xs-6 col-sm-6 col-md-6 col-lg-6" 
-							  (:a :class "list-group-item list-group-item-action" :href "dodvendindex?context=pendingorders" " Orders " (:span :class "badge" (cl-who:str (format nil " ~d " (length dodorders)))))
-							  (:a :class "list-group-item list-group-item-action" :href "dodvendindex?context=ctxordprd" "Todays Demand")
-							  (:a :class "list-group-item list-group-item-action" :href (cl-who:str (format nil "dodvendrevenue"))  "Today's Revenue")
-							  (:a :class "list-group-item list-group-item-action" :href (cl-who:str (format nil "displayinvoices"))  "Sale Invoices"))))
-							  
-	      
-	      ((equal context "pendingorders") 
-	       (progn (cl-who:htm (cl-who:str "Pending Orders") (:span :class "badge" (cl-who:str (format nil " ~d " (length dodorders))))
-				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodrefreshpendingorders" (:i :class "fa-solid fa-arrows-rotate"))
-				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvendindex?context=ctxordcus" "Printer Friendly View")
-				  (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvenexpexl?type=pendingorders" "Export To Excel")
-				  (:hr))
-		      (cl-who:str (display-as-tiles dodorders 'vendor-order-card "order-box"))))
-	      ((equal context "completedorders") (let* ((vorders (dod-get-cached-completed-orders))
-							(lenorders (length vorders)))
-						   (progn
-						     (cl-who:htm (cl-who:str (format nil "Completed orders"))
-								 (:span :class "badge" (cl-who:str (format nil " ~d " lenorders))) 
-								 (when (> lenorders 0) (cl-who:htm (:a :class "btn btn-primary btn-xs" :role "button" :href "dodvenexpexl?type=completedorders" "Export To Excel")))
-								 (:hr))
-						     (cl-who:str(display-as-tiles vorders 'vendor-order-card "order-box"))))))))))
-  
+        ;; Header
+        (:h3 "Welcome " (cl-who:str (get-login-vendor-name)))
+        (:hr)
+        
+        ;; Form controls (hidden sections for filtering/search)
+        (render-vendor-filter-form reqdate dodorders)
+        
+        ;; Main content based on context
+        (handler-case
+            (cond 
+              ((equal context "ctxordprd") 
+               (ui-list-vendor-orders-by-products dodorders))
+              
+              ((and dodorders btnexpexl) 
+               (hunchentoot:redirect (format nil "/hhub/dodvenexpexl?reqdate=~A" 
+                                             (cl-who:escape-string reqdate))))
+              
+              ((equal context "ctxordcus") 
+               (ui-list-vendor-orders-by-customers dodorders))
+              
+              ((equal context "home") 
+               (render-vendor-dashboard-home order-count))
+              
+              ((equal context "pendingorders") 
+               (render-pending-orders dodorders order-count))
+              
+              ((equal context "completedorders") 
+               (render-completed-orders))
+              
+              (t
+               ;; Default fallback
+               (render-vendor-dashboard-home order-count)))
+          (error (e)
+            (cl-who:htm
+             (:div :class "alert alert-danger" :role "alert"
+                   (:strong "Error: ") (cl-who:str (princ-to-string e))))))))))
+
+;; Helper functions
+(defun render-vendor-filter-form (reqdate dodorders)
+  "Render the hidden filter/search form."
+  (cl-who:with-html-output (*standard-output* nil)
+    (with-html-form "form-venorders" "dodvendindex"
+      (with-html-div-row :style "display: none"
+        (:div :class "btn-group" :role "group" :aria-label "View options"
+              (:button :name "btnpendord" :type "submit" 
+                       :class "btn btn-default active" "Orders")
+              (:button :name "btnordcomp" :type "submit" 
+                       :class "btn btn-default" "Completed Orders")))
+      (with-html-div-row :style "display: none"
+        (:div :class "col-sm-12 col-xs-12 col-md-12 col-lg-12" 
+              (:input :type "text" :name "reqdate" 
+                      :placeholder "yyyy/mm/dd"
+                      :value (or reqdate ""))
+              (:button :class "btn btn-primary" :type "submit" 
+                       :name "btnordprd" "Get Orders by Products")
+              (:button :class "btn btn-primary" :type "submit" 
+                       :name "btnordcus" "Get Orders by Customers")
+              (when (and reqdate dodorders)
+                (cl-who:htm
+                 (:a :href (format nil "/dodvenexpexl?reqdate=~A" 
+                                   (cl-who:escape-string reqdate))
+                     :class "btn btn-primary" "Export To Excel")))
+              (:button :class "btn btn-primary" :type "submit" 
+                       :name "btnprint" 
+                       :onclick "javascript:window.print();" "Print"))))))
+
+(defun render-pending-orders (dodorders order-count)
+  "Render the pending orders view with a clean action bar."
+  (cl-who:with-html-output (*standard-output* nil)
+    ;; Card-style header with actions
+    (:div :class "card mb-3 shadow-sm"
+          (:div :class "card-body py-2"
+                (:div :class "d-flex flex-wrap align-items-center justify-content-between gap-2"
+                      (:div :class "d-flex align-items-center"
+                            (:h5 :class "card-title mb-0 me-2" "Pending Orders")
+                            (:span :class "badge bg-primary" (cl-who:str order-count)))
+                      (:div :class "d-flex flex-wrap gap-2"
+                            (:a :class "btn btn-outline-primary btn-sm" 
+                                :href "dodrefreshpendingorders" 
+                                :title "Refresh Orders"
+                                (:i :class "fa-solid fa-arrows-rotate")
+                                (cl-who:str " Refresh"))
+                            (:a :class "btn btn-outline-secondary btn-sm" 
+                                :href "dodvendindex?context=ctxordcus" 
+                                :title "Printer Friendly View"
+                                (:i :class "fa-solid fa-print")
+                                (cl-who:str " Print"))
+                            (:a :class "btn btn-outline-success btn-sm" 
+                                :href "dodvenexpexl?type=pendingorders" 
+                                :title "Export to Excel"
+                                (:i :class "fa-solid fa-file-excel")
+                                (cl-who:str " Export"))))))
+    
+    ;; Orders display
+    (cl-who:str (display-as-tiles dodorders 'vendor-order-card "order-box"))))
+
+
+(defun render-completed-orders ()
+  "Render the completed orders view."
+  (let* ((vorders (dod-get-cached-completed-orders))
+         (lenorders (length vorders)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (cl-who:str "Completed orders")
+      (:span :class "badge" (cl-who:str lenorders))
+      (when (> lenorders 0)
+        (cl-who:htm
+         (:a :class "btn btn-primary btn-xs" :role "button" 
+             :href "dodvenexpexl?type=completedorders" 
+             "Export To Excel")))
+      (:hr)
+      (cl-who:str (display-as-tiles vorders 'vendor-order-card "order-box")))))
+
+(defun render-vendor-dashboard-home (order-count)
+  "Render the home dashboard view with cards using Font Awesome icons."
+  (cl-who:with-html-output (*standard-output* nil)
+    (:div :class "row g-4"
+          ;; Orders Card
+          (:div :class "col-12 col-md-6 col-lg-3"
+                (with-html-card 
+                    (:title "Orders" 
+                     :image-src nil
+                     :card-classes '("card" "h-100" "shadow-sm")
+                     :body-classes '("card-body" "text-center"))
+                  (:i :class "fa-solid fa-shopping-bag fa-3x mb-3 text-primary")
+                  (:p :class "mb-2"
+                      (:span :class "badge bg-primary" 
+                             (cl-who:str (format nil "~d Pending" order-count))))
+                  (:a :href "dodvendindex?context=pendingorders" 
+                      :class "btn btn-primary w-100"
+                      "View Orders")))
+          
+          ;; Today's Demand Card
+          (:div :class "col-12 col-md-6 col-lg-3"
+                (with-html-card 
+                    (:title "Today's Demand" 
+                     :image-src nil
+                     :card-classes '("card" "h-100" "shadow-sm")
+                     :body-classes '("card-body" "text-center"))
+                  (:i :class "fa-solid fa-chart-line fa-3x mb-3 text-success")
+                  (:a :href "dodvendindex?context=ctxordprd" 
+                      :class "btn btn-success w-100"
+                      "View Demand")))
+          
+          ;; Today's Revenue Card
+          (:div :class "col-12 col-md-6 col-lg-3"
+                (with-html-card 
+                    (:title "Today's Revenue" 
+                     :image-src nil
+                     :card-classes '("card" "h-100" "shadow-sm")
+                     :body-classes '("card-body" "text-center"))
+                  (:i :class "fa-solid fa-dollar-sign fa-3x mb-3 text-info")
+                  (:a :href "dodvendrevenue" 
+                      :class "btn btn-info w-100"
+                      "View Revenue")))
+          
+          ;; Sale Invoices Card
+          (:div :class "col-12 col-md-6 col-lg-3"
+                (with-html-card 
+                    (:title "Sale Invoices" 
+                     :image-src nil
+                     :card-classes '("card" "h-100" "shadow-sm")
+                     :body-classes '("card-body" "text-center"))
+                  (:i :class "fa-solid fa-file-invoice-dollar fa-3x mb-3 text-warning")
+                  (:a :href "displayinvoices" 
+                      :class "btn btn-warning w-100"
+                      "View Invoices"))))))
 
 
 (defun com-hhub-transaction-vendor-order-setfulfilled ()
