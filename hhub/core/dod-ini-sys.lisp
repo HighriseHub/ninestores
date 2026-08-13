@@ -150,6 +150,12 @@
 ;; customer templates
 (defvar *NST-DUPLICATE-CUSTOMER-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/customer/templates/duplicate-customer.html")
 (defvar *NST-CUSTOMER-TEMPLATES* nil)
+;; warehouse template
+(defvar *NST-WAREHOUSE-DETAILS-PAGE* "/home/ubuntu/ninestores/hhub/warehouse/templates/warehousedetailspage.html")
+(defvar *NST-WAREHOUSE-TEMPLATES* nil)
+
+
+
 ;; NINE STORES ACTOR MODEL
 (defvar  *NSTSENDORDEREMAILACTOR* NIL)
 (defvar *NSTAWSS3FILEUPLOADACTOR* NIL)
@@ -232,6 +238,7 @@ Database type: Supported type is ':odbc'"
     (setf *NST-ORDER-TEMPLATES* (nst-load-order-templates))
     (setf *NST-EMAIL-TEMPLATES* (nst-load-email-templates))
     (setf *NST-CUSTOMER-TEMPLATES* (nst-load-customer-templates))
+    (setq *NST-WAREHOUSE-TEMPLATES* (nst-load-warehouse-templates))
     (setf *NST-VENDOR-TABLES-FOR-AGENTIC-AI* (nst-load-vendor-tables-structure-for-agentic-ai))
     (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
     (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
@@ -564,6 +571,24 @@ Database type: Supported type is ':odbc'"
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;WAREHOUSE TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun nst-load-warehouse-templates ()
+  :documentation "Load the warehouse templates at startup"
+  (let* ((warehousedetailspage (hhub-read-file *NST-WAREHOUSE-DETAILS-PAGE*)))
+    (function (lambda ()
+      (values
+       (function (lambda () warehousedetailspage)))))))
+
+(defun nst-get-cached-warehouse-template-func (&key templatenum)
+  :documentation "returns the function responsible for warehouse HTML template. Call the returning function to get the HTML."
+  (multiple-value-bind (warehousedetailspage) (funcall *NST-WAREHOUSE-TEMPLATES*)
+    (case templatenum
+      (1 warehousedetailspage))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 
 ;;;;;;;;;;;;;;;;;;EMAIL TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;

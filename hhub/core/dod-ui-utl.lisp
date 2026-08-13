@@ -222,25 +222,59 @@ Returns a list of widget outputs."
 													     )))))))))))))))
 
 
-				    
-		
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun submitsearchform1event-js (id-bind-element searchresultid)  
-    (cl-who:with-html-output (*standard-output* nil)
-      (:script :type "text/javascript"
-	       (cl-who:str
-		(parenscript:ps
-		  (defun onkeyupsearchform1event ()
-		    (searchformevent (parenscript:lisp id-bind-element) (parenscript:lisp searchresultid)))))))))
-		  
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun submitsearchform2event-js (id-bind-element searchresultid)  
+  (defun submitsearchform1event-js (id-bind-element searchresultid)
+    "Generate JS for second search with redundancy prevention"
+    ;; Strip leading # if present
+    (let ((clean-id (string-trim "#" id-bind-element)))
+      (cl-who:with-html-output (*standard-output* nil)
+        (:script :type "text/javascript"
+                 (cl-who:str
+                  (parenscript:ps
+                    (defvar *last-search2-value* "")
+                    (defun onkeyupsearchform1event ()
+                      (let ((current-value (parenscript:chain document
+                                             (get-element-by-id (parenscript:lisp clean-id))
+                                             value)))
+                        (unless (= current-value *last-search2-value*)
+                          (searchformevent (parenscript:lisp id-bind-element) 
+                                           (parenscript:lisp searchresultid))
+                          (setf *last-search2-value* current-value)))))))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitsearchform2event-js (id-bind-element searchresultid)
+    "Generate JS for second search with redundancy prevention"
+    ;; Strip leading # if present
+    (let ((clean-id (string-trim "#" id-bind-element)))
+      (cl-who:with-html-output (*standard-output* nil)
+        (:script :type "text/javascript"
+                 (cl-who:str
+                  (parenscript:ps
+                    (defvar *last-search2-value* "")
+                    (defun onkeyupsearchform2event ()
+                      (let ((current-value (parenscript:chain document
+                                             (get-element-by-id (parenscript:lisp clean-id))
+                                             value)))
+                        (unless (= current-value *last-search2-value*)
+                          (searchformevent (parenscript:lisp id-bind-element) 
+                                           (parenscript:lisp searchresultid))
+                          (setf *last-search2-value* current-value)))))))))))
+				    
+
+    
+  
+
+    
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitsearchform3event-js (id-bind-element searchresultid)  
     (cl-who:with-html-output (*standard-output* nil)
       (:script :type "text/javascript"
 	       (cl-who:str
 		(parenscript:ps
-		  (defun onkeyupsearchform2event ()
+		  (defun onkeyupsearchform3event ()
 		    (searchformevent (parenscript:lisp id-bind-element) (parenscript:lisp searchresultid)))))))))
 
 
@@ -802,35 +836,34 @@ Returns a list of widget outputs."
 	 (hunchentoot:redirect *HHUBCADLOGINPAGEURL*))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro with-hhub-transaction (name &optional params  &body body)
-    :documentation "This is the Policy Enforcement Point for Nine Stores" 
-    `(let* ((transaction (get-ht-val ,name (hhub-get-cached-transactions-ht)))
-	    (transaction-uri (slot-value transaction 'uri))
-	    (uri (cdr (assoc "uri" params :test 'equal)))
-	    (urimatch-p (uri-prefix-boundary-p transaction-uri uri))
-	    (returnlist (has-permission transaction ,params))
-	    (returnvalue (nth 0 returnlist))
-	    (exceptionstr (nth 1 returnlist))
-	    (redirecturl (format nil "/hhub/permissiondenied?message=~A" (hunchentoot:url-encode "Permission Denied"))))
-       (unless transaction
-	 (error 'hhub-abac-transaction-error :errstring (format nil "Did not find the transaction by name ~A. Create a new transaction and a related policy." ,name)))
-       
-       ;;(logiamhere (format nil "In the transaction ~A" (slot-value transaction 'name)))
-       ;;(logiamhere (format nil "URI -  ~A" uri))
-      ;; (logiamhere (format nil "URI in DB  -  ~A. URI Match is ~A" transaction-uri urimatch-p))
-       ;; check for returnvalue to be T and the uri to match 
-       (if (and returnvalue urimatch-p)
-	   ,@body
-	   ;;else
-	   (progn 
-	     (logiamhere (format nil "Permission denied for transaction ~A. Error: ~A " (slot-value transaction 'trans-func) exceptionstr))
-	     ;;(setf (hunchentoot:return-code hunchentoot:*reply*) 500)
-	     (unless returnvalue
-	       (function (lambda ()
-		 (values redirecturl)))))))))
-
-
-
+  (defmacro with-hhub-transaction (name &optional params &body body)
+  "Policy Enforcement Point. If permission granted and URI matches, evaluate BODY.
+   Otherwise, redirect and abort the request."
+  `(let* ((transaction (get-ht-val ,name (hhub-get-cached-transactions-ht)))
+          (transaction-uri (when transaction (slot-value transaction 'uri)))
+          (uri (cdr (assoc "uri" ,params :test 'equal)))
+          (urimatch-p (and transaction-uri uri (uri-prefix-boundary-p transaction-uri uri)))
+          (returnlist (has-permission transaction ,params))
+          (returnvalue (nth 0 returnlist))
+          (exceptionstr (nth 1 returnlist))
+          (redirecturl (format nil "/hhub/permissiondenied?message=~A"
+                               (hunchentoot:url-encode (or exceptionstr "Permission Denied")))))
+     (logiamhere (format nil "URI from app is ~A and uri in DB is ~A" uri transaction-uri))
+     
+     (unless transaction
+       (error 'hhub-abac-transaction-error
+              :errstring (format nil "Did not find transaction ~A." ,name)))
+     (when (and transaction (null transaction-uri))
+       (logiamhere (format nil "Transaction ~A has no URI defined." ,name))
+       (setf urimatch-p nil))
+     (if (and returnvalue urimatch-p)
+         (progn ,@body)   ; returns multiple values
+         (progn
+           (logiamhere (format nil "Permission denied for transaction ~A. Error: ~A "
+                               (slot-value transaction 'trans-func) exceptionstr))
+           (hunchentoot:redirect redirecturl)
+           ;; Force abort – this must not return
+           (hunchentoot:abort-request-handler))))))  ; or abort-request
 
 ; Policy Enforcement Point for HHUB
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -855,8 +888,24 @@ Returns a list of widget outputs."
 		     (cl-who:htm (:option :value key (cl-who:str value))))) ,kvhash))))))
   
 
+(defun display-as-table (header listdata rowdisplayfunc &rest arguments)
+  (let ((incr (let ((count 0)) (lambda () (incf count)))))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      (:div :id "searchresult" :class "container-fluid"
+            (:div :class "table-responsive"
+                  (:table :class "table table-sm table-striped table-hover"
+                          (:thead (:tr
+                                   (:th :scope "col" "#")
+                                   (mapc (lambda (item) 
+                                           (cl-who:htm (:th :scope "col" (cl-who:str item)))) 
+                                         header)))
+                          (:tbody :class "table-group-divider"
+                                  (mapc (lambda (item)
+                                          (cl-who:htm (:tr (:td (cl-who:str (funcall incr)))
+                                                           (apply rowdisplayfunc item arguments))))
+                                        listdata))))))))
 
-(defun display-as-table (header listdata rowdisplayfunc &rest arguments) 
+(defun display-as-table-old (header listdata rowdisplayfunc &rest arguments) 
 :documentation "This is a generic function which will display items in list as a html table. You need to pass the html table header and  list data, and a display function which will display data. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizing refer to style.css. " 
   (let ((incr (let ((count 0)) (lambda () (incf count)))))
     (cl-who:with-html-output-to-string (*standard-output* nil)
@@ -1234,19 +1283,4 @@ individual tiles. It also supports search functionality by including the searchr
 			   (:div :class "modal-body" ,@body)
 			   (:div :class "modal-footer"
 				 (:button :type "button" :class "btn btn-secondary" :data-bs-dismiss "modal" "Close")))))))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

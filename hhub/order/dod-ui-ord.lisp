@@ -60,7 +60,7 @@
 			    ;else
 			    (cl-who:str (format nil "Order status - Pending ~C~C" #\return #\linefeed)))
 			(mapcar (lambda (odt)
-				  (let* ((prd (get-odt-product odt))
+				  (let* ((prd (slot-value odt 'product))
 					 (subtotal (calculate-order-item-cost odt))
 					 (prd-name (slot-value prd 'prd-name))
 					 (prd-qty (slot-value odt 'prd-qty))
@@ -71,52 +71,123 @@
 			(cl-who:str (format nil ",,,,Total, Rs. ~$~C~C" total #\return #\linefeed)))))) ordlist)))
 
 
-;; This function takes more time, please make it more efficient in future. 
-(defun ui-list-vendor-orders-by-products (ordlist)
-    (let*  ((vendor (get-login-vendor))
-	    (tenant-id (get-login-vendor-tenant-id))
-	    (company (get-login-vendor-company))
-	    (currsymbol (get-currency-html-symbol (get-account-currency company)))
-	    (products  (hunchentoot:session-value :login-prd-cache))
-	    (odtlst (mapcar (lambda (prd)
-			      (let ((prd-id (slot-value prd 'row-id)))
-				(delete nil (mapcar (lambda (ord)
-						      (let ((order-id (slot-value ord 'order-id)))
-							(get-order-items-by-product-id  prd-id  order-id tenant-id)))  ordlist) :test #'equal)))
-			    products)))
+;; Controller for the vendor "orders by products" (demand today) view.
+(defun ui-list-vendor-orders-by-products ()
+  (with-vend-session-check
+    (with-mvc-ui-component #'create-widgets-for-vendor-demand  #'create-model-for-vendor-demand)))
 
-	 (cl-who:with-html-output (*standard-output* nil)	       
-	   (mapcar (lambda (prd odtlstbyprd)
-		     (let ((quantity (reduce #'+ (mapcar (lambda (odt)
-							   (if odt (slot-value odt 'prd-qty)))   odtlstbyprd)))
-			   (subtotal (reduce #'+ (mapcar (lambda (odt)
-							   (if odt (* (slot-value odt 'unit-price) (slot-value odt 'prd-qty))  )) odtlstbyprd)))
-			   (orders (remove-duplicates (mapcar (lambda (odt)
-								(let* ((order-id (slot-value odt 'order-id)))
-								       (get-vendor-order-instance order-id vendor))) odtlstbyprd))))
-		       (if (>  subtotal 0)  
-			   (cl-who:htm  (:div :class "thumbnail row"
-					      (with-html-div-col-2
-						(cl-who:str (slot-value prd 'prd-name)))
-					      (with-html-div-col-2
-						(cl-who:str (slot-value prd 'qty-per-unit)))
-					      (with-html-div-col-2
-					   	(:h5 (cl-who:str (format nil "~A ~$ " currsymbol ( slot-value prd 'current-price)))))
-					      (with-html-div-col-2
-					  	(:span :class "badge" (cl-who:str quantity)))
-					      (with-html-div-col-2
-						(:h4 (:span :class "label label-default" (cl-who:str (format nil "~A ~$" currsymbol subtotal))))))
-					
-					(:div :class "row"
-					      (mapcar (lambda (order)
-						  (let ((order-id (slot-value order 'row-id)))
-						    (cl-who:htm
-						     (with-html-div-col-2
-						       (:a :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
-						       (modal-dialog-v2 (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details order company)))))) orders))
-					(:hr))))) products odtlst))))
+;; ---------------------------------------------------------------------------
+;; Model: build the aggregated demand (by product) for the pending orders.
+;; ---------------------------------------------------------------------------
+(defun create-model-for-vendor-demand ()
+  "Collects the aggregated demand data for the vendor's pending orders and
+   returns a closure that, when funcalled, yields (values agg-with-demand company
+   currsymbol vendor-name)."
+  (let* ((company (get-login-vendor-company))
+	 (currsymbol (get-currency-html-symbol (get-account-currency company)))
+	 (ordlist (dod-get-cached-pending-orders))
+	 (products (remove nil (hunchentoot:session-value :login-prd-cache)))
+	 ;; Hash of the pending orders currently in view, keyed by order-id.
+	 ;; Used below instead of the per-order `get-vendor-order-instance` DB call.
+	 (order-ht (let ((ht (make-hash-table)))
+		     (dolist (ord ordlist ht)
+		       (when ord
+			 (setf (gethash (slot-value ord 'order-id) ht) ord)))))
+	 ;; Set of order-ids currently in view, for fast membership testing.
+	 (wanted-ids (let ((hs (make-hash-table)))
+		       (dolist (ord ordlist)
+			 (when ord (setf (gethash (slot-value ord 'order-id) hs) t)))
+		       hs))
+	 ;; All pending order-items for the vendor (already cached in the session by
+	 ;; `dod-gen-order-functions`). A single pass groups them by product id.
+	 (all-items (remove nil (funcall (nth 2 (hunchentoot:session-value :order-func-list)))))
+	 (items-by-prd (let ((ht (make-hash-table)))
+			 (dolist (item all-items ht)
+			   (when (and item (gethash (slot-value item 'order-id) wanted-ids))
+			     (push item (gethash (slot-value item 'prd-id) ht))))))
+	 ;; Single pass per product: totals + distinct orders.
+	 (aggregated (mapcar (lambda (prd)
+			       (let* ((prd-id (slot-value prd 'row-id))
+				      (items (reverse (gethash prd-id items-by-prd)))
+				      (quantity (reduce #'+ items :key (lambda (it) (slot-value it 'prd-qty)) :initial-value 0))
+				      (subtotal (reduce #'+ items :key (lambda (it)
+									 (* (slot-value it 'unit-price) (slot-value it 'prd-qty)))
+									:initial-value 0))
+				      (orders (delete-duplicates (mapcar (lambda (it)
+									   (gethash (slot-value it 'order-id) order-ht))
+									 items))))
+				 (list prd quantity subtotal orders)))
+			     products))
+	 ;; Only keep products that actually have demand today.
+	 (agg-with-demand (remove-if (lambda (a) (<= (nth 2 a) 0)) aggregated)))
+    (function (lambda () (values agg-with-demand company currsymbol)))))
 
 
+;; ---------------------------------------------------------------------------
+;; View: build the widgets that get rendered on the page.
+;; ---------------------------------------------------------------------------
+(defun create-widgets-for-vendor-demand (modelfunc)
+  "Takes the model closure, retrieves the aggregated demand data and returns a
+   list of widget functions to be rendered in order."
+  (multiple-value-bind (agg-with-demand company currsymbol) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+                     (cl-who:with-html-output (*standard-output* nil)
+                       (with-html-div-row (:h4 "Product Demand Today"))
+                       (:div :class "d-flex align-items-center justify-content-between mb-3"
+                             (:span :class "badge bg-primary"
+                                    (cl-who:str (format nil "Demanding products: ~A" (length agg-with-demand)))))))))
+          (widget2 (function (lambda ()
+                     (cl-who:with-html-output (*standard-output* nil)
+                       (if agg-with-demand
+			   (cl-who:str
+			    (display-vendor-demand-table agg-with-demand company currsymbol))
+			   (cl-who:htm
+			    (:div :class "text-center py-5 text-muted"
+				  (:i :class "fa-solid fa-chart-line fa-3x mb-3")
+				  (:p :class "mb-0" "No product demand right now.")))))))))
+      (list widget1 widget2))))
+
+
+;; ---------------------------------------------------------------------------
+;; View: table rendering via display-as-table + external row function.
+;; ---------------------------------------------------------------------------
+(defun display-vendor-demand-table (agg-with-demand company currsymbol)
+  "Renders the aggregated demand data as an HTML table."
+  (declare (ignore company))
+  (display-as-table (list "Product" "Qty/Unit" "Unit Price" "Demand Qty" "Demand Value"
+                          "Orders")
+                    agg-with-demand
+                    'display-vendor-demand-row
+                    currsymbol))
+
+
+(defun display-vendor-demand-row (row &rest arguments)
+  "Row renderer for the product demand table. Each ROW is
+   (prd quantity subtotal orders); the currency symbol is passed
+   through ARGUMENTS."
+  (let* ((prd (nth 0 row))
+	 (quantity (nth 1 row))
+	 (subtotal (nth 2 row))
+	 (orders (nth 3 row))
+	 (currsymbol (if arguments (car arguments) "")))
+    (cl-who:with-html-output (*standard-output* nil)
+      (:td :height "10px" (cl-who:str (slot-value prd 'prd-name)))
+      (:td :height "10px" (cl-who:str (slot-value prd 'qty-per-unit)))
+      (:td :height "10px" (cl-who:str (format nil "~A ~$" currsymbol (slot-value prd 'current-price))))
+      (:td :height "10px" (cl-who:str quantity))
+      (:td :height "10px" (cl-who:str (format nil "~A ~$" currsymbol subtotal)))
+      (:td :height "10px"
+	   (mapcar (lambda (order)
+		     (when order
+		       (let ((order-id (slot-value order 'row-id)))
+			 (cl-who:htm
+			  (:span :class "badge"
+				 (:a :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendorderdetails~A-modal" order-id) :href "#"
+				     (:span :class "label label-info" (cl-who:str order-id))))
+			  (modal-dialog-v2 (format nil "hhubvendorderdetails~A-modal" order-id)
+					   "Vendor Order Details"
+					   (modal.vendor-order-details order (get-login-vendor-company)))))))
+		   orders)))))
 
 (defun ui-list-vendor-orders-by-customers (ordlist)
  (cl-who:with-html-output (*standard-output* nil)	       
@@ -152,7 +223,7 @@
 					   (:div :class "col-sm-12"
 						 (:h4 (:span :class "label label-default" (cl-who:str (format nil "THIS IS STORE PICKUP ORDER. NO SHIPPING."))))))))
 		     (mapcar (lambda (odt)
-			       (let* ((prd (get-odt-product odt))
+			       (let* ((prd (slot-value odt 'product))
 				      (prd-name (slot-value prd 'prd-name))
 				      (current-price (slot-value prd 'current-price))
 				      (prd-qty (slot-value odt 'prd-qty))
@@ -197,7 +268,7 @@
 (defun concat-ord-dtl-name (order-instance)
   (let ((odt ( get-order-items order-instance)))
     (mapcar (lambda (odt-ins)
-	      (concatenate 'string (slot-value (get-odt-product odt-ins) 'prd-name) ",")) odt)))
+	      (concatenate 'string (slot-value (slot-value odt-ins 'product) 'prd-name) ",")) odt)))
 
 ; This is a pure function. 
 (defun vendor-order-card (vorder-instance)

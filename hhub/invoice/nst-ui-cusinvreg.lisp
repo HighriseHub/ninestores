@@ -97,31 +97,31 @@
       (list widget1 widget2))))
 
 (defun display-customer-invoice-register-row (vm &rest args)
+  "Display a single row in the customer invoice register table."
   (declare (ignore args))
   (cl-who:with-html-output (*standard-output* nil)
-    (:td (cl-who:str (invoice-number      vm)))
-    (:td (cl-who:str (invoice-date        vm)))
-    (:td (cl-who:str (vendor-name         vm)))
-    (:td :align "right"
-         (cl-who:str (format nil "₹~A" (total-amount vm))))
-    (:td :align "right"
-         (cl-who:str (format nil "₹~A" (or (itc-amount vm) 0))))
+    (:td (cl-who:str (invoice-number vm)))
+    (:td (cl-who:str (invoice-date vm)))
+    (:td (cl-who:str (vendor-name vm)))
+    (:td :align :right (cl-who:str (format nil "₹~A" (total-amount vm))))
+    (:td :align :right (cl-who:str (format nil "₹~A" (or (itc-amount vm) 0))))
+    (:td (cl-who:str 
+          (let* ((status (string-upcase (or (gstr2b-match-status vm) "NOT_CHECKED")))
+                 (icon (cond ((string-equal status "MATCHED")"✅")
+                             ((string-equal status "MISMATCHED") "⚠️ ")
+                             ((string-equal status "MISSING") "❌")
+                             (t "—"))))
+            (format nil "~A ~A" icon (string-capitalize status)))))
     (:td (cl-who:str
-           (case (intern (string-upcase
-                           (or (gstr2b-match-status vm) "NOT_CHECKED"))
-                         :keyword)
-             (:matched    "✅ Matched")
-             (:mismatched "⚠️ Mismatch")
-             (:missing    "❌ Missing")
-             (otherwise   "— Pending"))))
-    (:td (cl-who:str
-           (case (intern (string-upcase
-                           (or (payment-status vm) "UNPAID"))
-                         :keyword)
-             (:paid           "✅ Paid")
-             (:partially-paid "⚠️ Partial")
-             (:unpaid         "❌ Unpaid")
-             (otherwise       (payment-status vm)))))))
+          (let* ((status (string-upcase (or (payment-status vm) "UNPAID")))
+                 (icon (cond ((string-equal status "PAID") "✅")
+                             ((string-equal status "PARTIALLY-PAID") "⚠️ ")
+                             ((string-equal status "UNPAID") "❌")
+                             (t "")))
+                 (display (cond ((string-equal status "PARTIALLY-PAID") "PARTIAL")
+                                (t (string-capitalize status)))))
+            (format nil "~A ~A" icon display))))))
+
 
 ;;; Context Flow Dispatcher Routes
 (register-outbound-route

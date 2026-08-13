@@ -180,39 +180,72 @@
      (if policy-func (funcall (intern  (string-upcase policy-func)) subject resource action env))))
 
 
-(defun has-permission (transaction &optional params)
-  :documentation "This function is the PEP (Policy Enforcement Point) in the ABAC system"
-  ;; Execute permission logic here. 
-  (let* ((policy-id (if transaction (slot-value transaction 'auth-policy-id)))
-	 (policy (if policy-id (get-ht-val policy-id (HHUB-GET-CACHED-AUTH-POLICIES-HT))))
-	 (policy-name (if policy (slot-value policy 'name)))
-	 (policy-func (if policy (slot-value policy 'policy-func)))
-	 (exceptionstr nil))
-    (handler-case 
-	(multiple-value-bind (returnvalues)
-	    (funcall (intern  (string-upcase policy-func) :nstores) params)
-	  ;; Return a list of return values and exception as nil. 
-	  ;;(logiamhere (format nil "Executing Policy - ~A" policy-func))
-	  (list returnvalues nil))
 
-      ;; If we get an ABAC Transaction exception
-      (hhub-abac-transaction-error (condition)
-	(setf exceptionstr (format nil "~A: HHUB ABAC Transaction error - ~A. Error: ~A~%" (mysql-now) (string-upcase policy-name) (getExceptionStr condition)))
-	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
-				:direction :output
-				:if-exists :append
-				:if-does-not-exist :create)
-	  (format stream "~A: ~A~A" (mysql-now) exceptionstr (sb-debug:list-backtrace)))
-	(list nil (format nil "Nine Stores General Authorization Error. Contact your system administrator.")))
+(defun has-permission (transaction &optional params)
+  "Policy Enforcement Point (PEP).
+   Returns (list returnvalue exceptionstr), where returnvalue is T/NIL,
+   and exceptionstr is a user-facing error string or NIL on success."
+  (flet ((log-error (msg)
+           (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                   :direction :output
+                                   :if-exists :append
+                                   :if-does-not-exist :create)
+             (format stream "~A: ~A~%" (mysql-now) msg))))
+    (let ((policy-name nil))  ; bind here so error handlers can see it
+      (handler-case
+          (progn
+            ;; 1. Transaction validation
+            (unless transaction
+              (return-from has-permission
+                (list nil "No transaction object provided.")))
+            (let ((policy-id (slot-value transaction 'auth-policy-id)))
+              (unless policy-id
+                (return-from has-permission
+                  (list nil (format nil "Transaction ~A has no associated policy ID."
+                                    (slot-value transaction 'name)))))
+
+              ;; 2. Policy retrieval
+              (let* ((policy (get-ht-val policy-id (HHUB-GET-CACHED-AUTH-POLICIES-HT)))
+                     (policy-func (when policy (slot-value policy 'policy-func))))
+                (setf policy-name (when policy (slot-value policy 'name)))
+
+                (unless policy
+                  (return-from has-permission
+                    (list nil (format nil "Policy ID ~A not found in cache." policy-id))))
+                (unless policy-func
+                  (return-from has-permission
+                    (list nil (format nil "Policy ~A has no associated function." policy-name))))
+
+                ;; 3. Resolve the policy function symbol safely
+                (let ((symbol (find-symbol (string-upcase policy-func) :nstores)))
+                  (unless (and symbol (fboundp symbol))
+                    (return-from has-permission
+                      (list nil (format nil "Policy function ~A not found or not callable."
+                                        (string-upcase policy-func)))))
+
+                  ;; 4. Execute the policy and return result
+                  (let ((result (funcall symbol params)))
+		    (logiamhere (format nil "Result for policy - ~A is ~A" policy-name result))
+		    (list result nil))))))
+
+        ;; 5. Handle specific ABAC errors
+        (hhub-abac-transaction-error (condition)
+          (let ((msg (format nil "~A: ABAC Policy Error for ~A: ~A"
+                             (mysql-now) (or policy-name "Unknown Policy")
+                             (getExceptionStr condition))))
+            (log-error msg)
+            #+sbcl (log-error (format nil "Backtrace:~%~A" (sb-debug:list-backtrace)))
+            (list nil "Nine Stores Authorization Error. Contact your system administrator.")))
+
+        ;; 6. Handle any other errors (including missing symbols)
+        (error (c)
+          (let ((msg (format nil "~A: General Policy Error for ~A: ~A"
+                             (mysql-now) (or policy-name "Unknown Policy") c)))
+            (log-error msg)
+            #+sbcl (log-error (format nil "Backtrace:~%~A" (sb-debug:list-backtrace)))
+            (list nil "Nine Stores General Authorization Error. Contact your system administrator.")))))))
+
   
-      ;; If we get any general error we will not throw it to the upper levels. Instead set the exception and log it. 
-      (error (c)
-	(setf exceptionstr (format nil  "~A: HHUB General ABAC Policy Error: ~A :: ~A~%" (mysql-now) (string-upcase policy-name) c))
-	(with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE* 
-				:direction :output
-				:if-exists :append
-				:if-does-not-exist :create)
-	  (format stream "~A: ~A~A" (mysql-now)  exceptionstr (sb-debug:list-backtrace)))
-	(list nil (format nil "Nine Stores General Authorization Error. Contact your system administrator."))))))
+
 
 
