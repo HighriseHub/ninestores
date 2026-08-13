@@ -371,436 +371,100 @@
                       (with-html-search-form "idsyssearchwarehouses" "syssearchwarehouses" 
                                             "idwarehouselivesearch" "warehouselivesearch" 
                                             "searchwarehouseaction" "onkeyupsearchform1event();" 
-                                            "Search for a warehouse"
+                                            "Enter Warehouse GSTINSearch for a warehouse"
                         (submitsearchform1event-js "#idwarehouselivesearch" 
                                                   "#warehouselivesearchresult")))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Main Warehouse Page
 ;;; ---------------------------------------------------------------------------
-(defun com-hhub-transaction-warehouse-page ()
-  "Main warehouse management page"
-  (with-opr-session-check
-    (with-mvc-ui-page "Warehouse Management" 
-                      #'create-model-for-showwarehouses 
-                      #'create-widgets-for-showwarehouses 
-                      :role :admin)))
 
-(defun create-model-for-showwarehouses ()
-  "Create model for showing all warehouses"
-  (let* ((company (get-login-company))
-         (username (get-login-user-name))
-         (vendor (get-login-vendor))
-         (warehousepresenter (make-instance 'WarehousePresenter))
-         (warehouserequestmodel (make-instance 'WarehouseRequestModel
-                                              :company company
-                                              :vendor vendor))
-         (warehouseadapter (make-instance 'WarehouseAdapter))
-         (warehouseobjlst (processreadallrequest warehouseadapter warehouserequestmodel))
-         (warehouseresponsemodellist (processresponselist warehouseadapter warehouseobjlst))
-         (viewallmodel (CreateAllViewModel warehousepresenter warehouseresponsemodellist))
-         (htmlview (make-instance 'WarehouseHTMLView))
-         (params nil))
-    (setf params (acons "username" (get-login-user-name) params))
-    (setf params (acons "rolename" (get-login-user-role-name) params))
-    (setf params (acons "uri" (hunchentoot:request-uri*) params))
-    (with-hhub-transaction "com-hhub-transaction-warehouse-page" params 
-      (function (lambda ()
-        (values viewallmodel htmlview username))))))
 
-(defun create-widgets-for-showwarehouses (modelfunc)
-  "Create widgets for warehouse page"
-  (multiple-value-bind (viewallmodel htmlview username) (funcall modelfunc)
-    (let ((widget1 (function (lambda ()
-                     (cl-who:with-html-output (*standard-output* nil)
-                       (:div :id "row"
-                             (:div :id "col-xs-6" 
-                                   (:h3 "Welcome " (cl-who:str (format nil "~A" username)))))
-                       (warehouse-search-html)
-                       (:hr)))))
-          (widget2 (function (lambda ()
-                     (cl-who:with-html-output (*standard-output* nil) 
-                       (with-html-div-row
-                         (:h4 "Showing warehouses"))
-                       (:div :id "warehouselivesearchresult" 
-                             (:div :class "row"
-                                   (:div :class "col-xs-6"
-                                         (:button :type "button" :class "btn btn-primary" 
-                                                 :data-toggle "modal" 
-                                                 :data-target "#editwarehouse-modal" 
-                                                 "Add Warehouse")
-                                         (modal-dialog "editwarehouse-modal" 
-                                                      "Add/Edit Warehouse" 
-                                                      (com-hhub-transaction-create-warehouse-dialog)))
-                                   (:div :class "col-xs-6" :align "right" 
-                                         (:span :class "badge" 
-                                               (cl-who:str (format nil "~A" (length viewallmodel))))))
-                             (:hr)
-                             (cl-who:str (RenderListViewHTML htmlview viewallmodel))))))))
-      (list widget1 widget2))))
+
+
+
 
 ;;; ---------------------------------------------------------------------------
 ;;; Search Functionality
 ;;; ---------------------------------------------------------------------------
-(defun create-model-for-searchwarehouses ()
-  "Create model for searching warehouses"
-  (let* ((search-clause (hunchentoot:parameter "warehouselivesearch"))
-         (company (get-login-company))
-         (warehousepresenter (make-instance 'WarehousePresenter))
-         (warehouserequestmodel (make-instance 'WarehouseSearchRequestModel
-                                              :wname search-clause
-                                              :company company))
-         (warehouseadapter (make-instance 'WarehouseAdapter))
-         (warehouseobjlst (processreadallrequest warehouseadapter warehouserequestmodel))
-         (warehouseresponsemodellist (processresponselist warehouseadapter warehouseobjlst))
-         (viewallmodel (CreateAllViewModel warehousepresenter warehouseresponsemodellist))
-         (htmlview (make-instance 'WarehouseHTMLView))
-         (params nil))
-    (setf params (acons "username" (get-login-user-name) params))
-    (setf params (acons "rolename" (get-login-user-role-name) params))
-    (setf params (acons "uri" (hunchentoot:request-uri*) params))
-    (with-hhub-transaction "com-hhub-transaction-search-warehouse-action" params 
-      (function (lambda ()
-        (values viewallmodel htmlview))))))
 
-(defun create-widgets-for-searchwarehouses (modelfunc)
-  "Create widgets for search results"
-  (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
-    (let ((widget1 (function (lambda ()
-                     (cl-who:with-html-output (*standard-output* nil) 
-                       (:div :class "row"
-                             (:div :class "col-xs-6"
-                                   (:button :type "button" :class "btn btn-primary" 
-                                           :data-toggle "modal" 
-                                           :data-target "#editwarehouse-modal" 
-                                           "Add Warehouse")
-                                   (modal-dialog "editwarehouse-modal" 
-                                                "Add/Edit Warehouse" 
-                                                (com-hhub-transaction-create-warehouse-dialog)))
-                             (:div :class "col-xs-6" :align "right" 
-                                   (:span :class "badge" 
-                                         (cl-who:str (format nil "~A" (length viewallmodel))))))
-                       (:hr)
-                       (RenderListViewHTML htmlview viewallmodel))))))
-      (list widget1))))
-
-(defun com-hhub-transaction-search-warehouse-action ()
-  "Search warehouse action handler"
-  (let* ((modelfunc (funcall #'create-model-for-searchwarehouses))
-         (widgets (funcall #'create-widgets-for-searchwarehouses modelfunc)))
-    (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-      (loop for widget in widgets do
-        (cl-who:str (funcall widget))))))
-
-;;; ---------------------------------------------------------------------------
-;;; HTML Rendering
-;;; ---------------------------------------------------------------------------
-(defmethod RenderListViewHTML ((htmlview WarehouseHTMLView) viewmodellist)
-  "Render warehouse list as HTML table with ownership info"
-  (when viewmodellist
-    (display-as-table (list "Name" "GSTIN" "City" "State" "Type" "Ownership" 
-                           "Manager" "Phone" "Active" "Actions") 
-                     viewmodellist 
-                     'display-warehouse-row)))
-
-(defun display-warehouse-row (warehouse &rest arguments)
-  "Display a single warehouse row with ownership information"
-  (declare (ignore arguments))
-  (with-slots (wname warehouse-gstin wcity wstate warehouse-type 
-               ownership-type owner-entity-type
-               wmanager wphone activeflag) warehouse 
-    (cl-who:with-html-output (*standard-output* nil)
-      (:td :height "10px" (cl-who:str wname))
-      (:td :height "10px" (cl-who:str (or warehouse-gstin "N/A")))
-      (:td :height "10px" (cl-who:str wcity))
-      (:td :height "10px" (cl-who:str wstate))
-      (:td :height "10px" (cl-who:str (or warehouse-type "OWN")))
-      (:td :height "10px" (cl-who:str (format nil "~A (~A)" 
-                                             (or ownership-type "SELLER_OWNED")
-                                             (or owner-entity-type "SELLER"))))
-      (:td :height "10px" (cl-who:str wmanager))
-      (:td :height "10px" (cl-who:str wphone))
-      (:td :height "10px" (cl-who:str activeflag))
-      (:td :height "10px" 
-           (:button :type "button" :class "btn btn-primary btn-sm" 
-                   :data-toggle "modal" 
-                   :data-target (format nil "#editwarehouse-modal~A" wname) 
-                   (:i :class "fa-solid fa-pencil"))
-           (modal-dialog (format nil "editwarehouse-modal~A" wname) 
-                        "Edit Warehouse" 
-                        (com-hhub-transaction-create-warehouse-dialog warehouse))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Warehouse Dialog (with all 41 fields organized in 5 tabs including Ownership)
 ;;; ---------------------------------------------------------------------------
-(defun com-hhub-transaction-create-warehouse-dialog (&optional warehouseobj)
-  "Create/Edit warehouse dialog with tabbed interface for all 41 fields"
-  (let* ((wname (if warehouseobj (slot-value warehouseobj 'wname)))
-         (waddr1 (if warehouseobj (slot-value warehouseobj 'waddr1)))
-         (waddr2 (if warehouseobj (slot-value warehouseobj 'waddr2)))
-         (wpin (if warehouseobj (slot-value warehouseobj 'wpin)))
-         (wcity (if warehouseobj (slot-value warehouseobj 'wcity)))
-         (wstate (if warehouseobj (slot-value warehouseobj 'wstate)))
-         (wcountry (if warehouseobj (slot-value warehouseobj 'wcountry)))
-         (wmanager (if warehouseobj (slot-value warehouseobj 'wmanager)))
-         (wphone (if warehouseobj (slot-value warehouseobj 'wphone)))
-         (waltphone (if warehouseobj (slot-value warehouseobj 'waltphone)))
-         (wemail (if warehouseobj (slot-value warehouseobj 'wemail)))
-         (activeflag (if warehouseobj (slot-value warehouseobj 'activeflag)))
-         
-         ;; Ownership fields (NEW)
-         (ownership-type (if warehouseobj (slot-value warehouseobj 'ownership-type)))
-         (owner-entity-type (if warehouseobj (slot-value warehouseobj 'owner-entity-type)))
-         (owner-entity-id (if warehouseobj (slot-value warehouseobj 'owner-entity-id)))
-         (operator-entity-type (if warehouseobj (slot-value warehouseobj 'operator-entity-type)))
-         (operator-entity-id (if warehouseobj (slot-value warehouseobj 'operator-entity-id)))
-         (legal-entity-type (if warehouseobj (slot-value warehouseobj 'legal-entity-type)))
-         
-         ;; GST and Advanced Fields
-         (warehouse-gstin (if warehouseobj (slot-value warehouseobj 'warehouse-gstin)))
-         (gstin-status (if warehouseobj (slot-value warehouseobj 'gstin-status)))
-         (legal-name (if warehouseobj (slot-value warehouseobj 'legal-name)))
-         (is-primary-location (if warehouseobj (slot-value warehouseobj 'is-primary-location)))
-         (state-code (if warehouseobj (slot-value warehouseobj 'state-code)))
-         (registration-type (if warehouseobj (slot-value warehouseobj 'registration-type)))
-         (warehouse-type (if warehouseobj (slot-value warehouseobj 'warehouse-type)))
-         (warehouse-purpose (if warehouseobj (slot-value warehouseobj 'warehouse-purpose)))
-         (default-transporter-id (if warehouseobj (slot-value warehouseobj 'default-transporter-id)))
-         (default-transporter-name (if warehouseobj (slot-value warehouseobj 'default-transporter-name)))
-         (eway-bill-enabled (if warehouseobj (slot-value warehouseobj 'eway-bill-enabled)))
-         (latitude (if warehouseobj (slot-value warehouseobj 'latitude)))
-         (longitude (if warehouseobj (slot-value warehouseobj 'longitude)))
-         (valuation-method (if warehouseobj (slot-value warehouseobj 'valuation-method)))
-         (hsn-wise-stock (if warehouseobj (slot-value warehouseobj 'hsn-wise-stock)))
-         (pan-number (if warehouseobj (slot-value warehouseobj 'pan-number))))
+(defun com-nst-transaction-vendor-warehouse-details-page ()
+  (with-vend-session-check
+    (with-mvc-ui-page "Create New Warehouse"
+                      #'create-model-for-addeditwarehouse
+                      #'create-widgets-for-addeditwarehouse
+      :role :vendor)))
+
+(defparameter *warehouse-field-map*
+  '((warehouse-uuid           . "%Warehouse UUID%")
+    (warehouse-code           . "%Warehouse Code%")
+    (wname                    . "%Warehouse Name%")
+    (waddr1                   . "%Warehouse Address1%")
+    (waddr2                   . "%Warehouse Address2%")
+    (wpin                     . "%Warehouse Pincode%")
+    (wcity                    . "%Warehouse City%")
+    (wstate                   . "%Warehouse State%")
+    (wcountry                 . "%Warehouse Country%")
+    (wmanager                 . "%Warehouse Manager%")
+    (wphone                   . "%Warehouse Phone%")
+    (waltphone                . "%Warehouse Alt Phone%")
+    (wemail                   . "%Warehouse Email%")
+    (activeflag               . "%Warehouse Active Flag%")
+    (ownership-type           . "%Warehouse Ownership Type%")
+    (owner-entity-type        . "%Warehouse Owner Entity Type%")
+    (owner-entity-id          . "%Warehouse Owner Entity ID%")
+    (operator-entity-type     . "%Warehouse Operator Entity Type%")
+    (operator-entity-id       . "%Warehouse Operator Entity ID%")
+    (legal-entity-type        . "%Warehouse Legal Entity Type%")
+    (warehouse-gstin          . "%Warehouse GSTIN%")
+    (gstin-status             . "%Warehouse GSTIN Status%")
+    (legal-name               . "%Warehouse Legal Name%")
+    (is-primary-location      . "%Warehouse Is Primary Location%")
+    (state-code               . "%Warehouse State Code%")
+    (registration-type        . "%Warehouse Registration Type%")
+    (pan-number               . "%Warehouse PAN Number%")
+    (warehouse-type           . "%Warehouse Type%")
+    (warehouse-purpose        . "%Warehouse Purpose%")
+    (default-transporter-id   . "%Warehouse Default Transporter ID%")
+    (default-transporter-name . "%Warehouse Default Transporter Name%")
+    (eway-bill-enabled        . "%Warehouse EWay Bill Enabled%")
+    (latitude                 . "%Warehouse Latitude%")
+    (longitude                . "%Warehouse Longitude%")
+    (valuation-method         . "%Warehouse Valuation Method%")
+    (hsn-wise-stock           . "%Warehouse HSN Wise Stock%")))
+
+
+(defun create-model-for-addeditwarehouse ()
+  (let* ((id (hunchentoot:parameter "id"))
+	 (vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (ctx (make-domain-ctx :actor "VENDOR" :tenant company :channel "ONLINE" :recipient vendor :source "VENDOR"))
+	 (warehouseobj (if id (fetch 'nst-whs id ctx)))
+	 (warehousedetailspagetempl (funcall (nst-get-cached-warehouse-template-func :templatenum 1))))
+    ;; For create/edit handling:
+    (dolist (pair *warehouse-field-map*)
+      (let* ((slot (car pair))
+             (placeholder (cdr pair))
+             (value (and warehouseobj (slot-value warehouseobj slot))))
+	(setf warehousedetailspagetempl 
+              (cl-ppcre:regex-replace-all 
+               placeholder 
+               warehousedetailspagetempl 
+               (if value (princ-to-string value) "")))))
     
-    (cl-who:with-html-output (*standard-output* nil)
-      (:div :class "row" 
-            (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-                  (with-html-form (format nil "form-addwarehouse~A" wname)  
-                                 (if warehouseobj "updatewarehouseaction" "createwarehouseaction")
-                    (:img :class "profile-img" :src "/img/logo.png" :alt "")
-                    
-                    ;; TAB Navigation (5 tabs now - added Ownership)
-                    (:ul :class "nav nav-tabs" :role "tablist"
-                         (:li :role "presentation" :class "active"
-                              (:a :href "#basic" :aria-controls "basic" :role "tab" :data-toggle "tab" "Basic Info"))
-                         (:li :role "presentation"
-                              (:a :href "#ownership" :aria-controls "ownership" :role "tab" :data-toggle "tab" 
-                                  (:span :class "label label-primary" "NEW") " Ownership"))
-                         (:li :role "presentation"
-                              (:a :href "#gst" :aria-controls "gst" :role "tab" :data-toggle "tab" "GST Details"))
-                         (:li :role "presentation"
-                              (:a :href "#logistics" :aria-controls "logistics" :role "tab" :data-toggle "tab" "Logistics"))
-                         (:li :role "presentation"
-                              (:a :href "#location" :aria-controls "location" :role "tab" :data-toggle "tab" "Location")))
-                    
-                    ;; TAB Content
-                    (:div :class "tab-content"
-                          
-                          ;; BASIC INFO TAB
-                          (:div :role "tabpanel" :class "tab-pane active" :id "basic"
-                                (:br)
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "wname" :maxlength "100" 
-                                             :value wname :placeholder "Warehouse Name *" :type "text" :required "required"))
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "waddr1" :maxlength "100" 
-                                             :value waddr1 :placeholder "Address Line 1" :type "text"))
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "waddr2" :maxlength "100" 
-                                             :value waddr2 :placeholder "Address Line 2" :type "text"))
-                                (:div :class "row"
-                                      (:div :class "col-xs-6"
-                                            (:div :class "form-group"
-                                                  (:input :class "form-control" :name "wpin" :maxlength "6" 
-                                                         :value wpin :placeholder "PIN Code" :type "text")))
-                                      (:div :class "col-xs-6"
-                                            (:div :class "form-group"
-                                                  (:input :class "form-control" :name "wcity" :maxlength "30" 
-                                                         :value wcity :placeholder "City" :type "text"))))
-                                (:div :class "row"
-                                      (:div :class "col-xs-6"
-                                            (:div :class "form-group"
-                                                  (:input :class "form-control" :name "wstate" :maxlength "30" 
-                                                         :value wstate :placeholder "State" :type "text")))
-                                      (:div :class "col-xs-6"
-                                            (:div :class "form-group"
-                                                  (:input :class "form-control" :name "wcountry" :maxlength "30" 
-                                                         :value wcountry :placeholder "Country" :type "text"))))
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "wmanager" :maxlength "100" 
-                                             :value wmanager :placeholder "Manager Name" :type "text"))
-                                (:div :class "row"
-                                      (:div :class "col-xs-6"
-                                            (:div :class "form-group"
-                                                  (:input :class "form-control" :name "wphone" :maxlength "16" 
-                                                         :value wphone :placeholder "Phone" :type "text")))
-                                      (:div :class "col-xs-6"
-                                            (:div :class "form-group"
-                                                  (:input :class "form-control" :name "waltphone" :maxlength "16" 
-                                                         :value waltphone :placeholder "Alternate Phone" :type "text"))))
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "wemail" :maxlength "100" 
-                                             :value wemail :placeholder "Email" :type "email"))
-                                (:div :class "form-group"
-                                      (:label "Active: ")
-                                      (:input :type "radio" :name "activeflag" :value "Y" 
-                                             :checked (equal activeflag "Y")) " Yes "
-                                      (:input :type "radio" :name "activeflag" :value "N" 
-                                             :checked (equal activeflag "N")) " No"))
-                          
-                          ;; OWNERSHIP TAB (NEW)
-                          (:div :role "tabpanel" :class "tab-pane" :id "ownership"
-                                (:br)
-                                (:div :class "alert alert-info" :role "alert"
-                                      (:i :class "fa fa-info-circle") " Define who owns, operates, and is legally registered for this warehouse.")
-                                
-                                (:div :class "form-group"
-                                      (:label "Ownership Type *")
-                                      (:select :class "form-control" :name "ownershiptype" :required "required"
-                                               (:option :value "SELLER_OWNED" :selected (equal ownership-type "SELLER_OWNED") "Seller Owned")
-                                               (:option :value "BUYER_OWNED" :selected (equal ownership-type "BUYER_OWNED") "Buyer Owned (VMI)")
-                                               (:option :value "THIRD_PARTY" :selected (equal ownership-type "THIRD_PARTY") "Third Party (3PL)")
-                                               (:option :value "PLATFORM_OWNED" :selected (equal ownership-type "PLATFORM_OWNED") "Platform Owned")
-                                               (:option :value "BONDED" :selected (equal ownership-type "BONDED") "Bonded Warehouse")
-                                               (:option :value "CONTRACT_MFG" :selected (equal ownership-type "CONTRACT_MFG") "Contract Manufacturing")))
-                                
-                                (:div :class "form-group"
-                                      (:label "Owner Entity Type *")
-                                      (:select :class "form-control" :name "ownerentitytype" :required "required"
-                                               (:option :value "SELLER" :selected (equal owner-entity-type "SELLER") "Seller/Vendor")
-                                               (:option :value "BUYER" :selected (equal owner-entity-type "BUYER") "Buyer/Customer")
-                                               (:option :value "PLATFORM" :selected (equal owner-entity-type "PLATFORM") "Platform")
-                                               (:option :value "THIRD_PARTY_LOGISTICS" :selected (equal owner-entity-type "THIRD_PARTY_LOGISTICS") "3PL Provider")
-                                               (:option :value "GOVERNMENT" :selected (equal owner-entity-type "GOVERNMENT") "Government")))
-                                
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "ownerentityid" :type "number" 
-                                             :value owner-entity-id :placeholder "Owner Entity ID *" :required "required"))
-                                
-                                (:hr)
-                                (:div :class "form-group"
-                                      (:label "Operator Entity Type " (:small "(if different from owner)"))
-                                      (:select :class "form-control" :name "operatorentitytype"
-                                               (:option :value "" :selected (null operator-entity-type) "-- Same as Owner --")
-                                               (:option :value "SELLER" :selected (equal operator-entity-type "SELLER") "Seller/Vendor")
-                                               (:option :value "BUYER" :selected (equal operator-entity-type "BUYER") "Buyer/Customer")
-                                               (:option :value "PLATFORM" :selected (equal operator-entity-type "PLATFORM") "Platform")
-                                               (:option :value "THIRD_PARTY_LOGISTICS" :selected (equal operator-entity-type "THIRD_PARTY_LOGISTICS") "3PL Provider")))
-                                
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "operatorentityid" :type "number" 
-                                             :value operator-entity-id :placeholder "Operator Entity ID (optional)"))
-                                
-                                (:hr)
-                                (:div :class "form-group"
-                                      (:label "Legal Entity Type (GST Registered) *")
-                                      (:select :class "form-control" :name "legalentitytype" :required "required"
-                                               (:option :value "SELLER" :selected (equal legal-entity-type "SELLER") "Seller/Vendor")
-                                               (:option :value "BUYER" :selected (equal legal-entity-type "BUYER") "Buyer/Customer")
-                                               (:option :value "PLATFORM" :selected (equal legal-entity-type "PLATFORM") "Platform")
-                                               (:option :value "THIRD_PARTY_LOGISTICS" :selected (equal legal-entity-type "THIRD_PARTY_LOGISTICS") "3PL Provider")))
-                                
-                                (:div :class "panel panel-info"
-                                      (:div :class "panel-heading" "Common Scenarios")
-                                      (:div :class "panel-body"
-                                            (:ul
-                                             (:li (:strong "Traditional:") " Owner=Seller, Operator=Seller, Legal=Seller")
-                                             (:li (:strong "VMI:") " Owner=Buyer, Operator=Seller, Legal=Buyer")
-                                             (:li (:strong "3PL:") " Owner=3PL, Operator=3PL, Legal=3PL")))))
-                          
-                          ;; GST DETAILS TAB
-                          (:div :role "tabpanel" :class "tab-pane" :id "gst"
-                                (:br)
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "warehousegstin" :maxlength "15" 
-                                             :value warehouse-gstin :placeholder "Warehouse GSTIN *" :type "text" :required "required"))
-                                (:div :class "form-group"
-                                      (:label "GSTIN Status")
-                                      (:select :class "form-control" :name "gstinstatus"
-                                               (:option :value "ACTIVE" :selected (equal gstin-status "ACTIVE") "Active")
-                                               (:option :value "CANCELLED" :selected (equal gstin-status "CANCELLED") "Cancelled")
-                                               (:option :value "SUSPENDED" :selected (equal gstin-status "SUSPENDED") "Suspended")))
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "legalname" :maxlength "200" 
-                                             :value legal-name :placeholder "Legal Name" :type "text"))
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "pannumber" :maxlength "10" 
-                                             :value pan-number :placeholder "PAN Number" :type "text"))
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "statecode" :maxlength "2" 
-                                             :value state-code :placeholder "State Code (2 digits) *" :type "text" :required "required"))
-                                (:div :class "form-group"
-                                      (:label "Registration Type")
-                                      (:select :class "form-control" :name "registrationtype"
-                                               (:option :value "REGULAR" :selected (equal registration-type "REGULAR") "Regular")
-                                               (:option :value "COMPOSITION" :selected (equal registration-type "COMPOSITION") "Composition")
-                                               (:option :value "SEZ" :selected (equal registration-type "SEZ") "SEZ")
-                                               (:option :value "EXPORT_WAREHOUSE" :selected (equal registration-type "EXPORT_WAREHOUSE") "Export Warehouse")
-                                               (:option :value "UNREGISTERED" :selected (equal registration-type "UNREGISTERED") "Unregistered")))
-                                (:div :class "form-group"
-                                      (:label "Primary Location: ")
-                                      (:input :type "checkbox" :name "isprimarylocation" :value "1" 
-                                             :checked (equal is-primary-location 1)) " Mark as primary warehouse"))
-                          
-                          ;; LOGISTICS TAB
-                          (:div :role "tabpanel" :class "tab-pane" :id "logistics"
-                                (:br)
-                                (:div :class "form-group"
-                                      (:label "Warehouse Type")
-                                      (:select :class "form-control" :name "warehousetype"
-                                               (:option :value "OWN" :selected (equal warehouse-type "OWN") "Own")
-                                               (:option :value "THIRD_PARTY" :selected (equal warehouse-type "THIRD_PARTY") "Third Party")
-                                               (:option :value "CONSIGNMENT" :selected (equal warehouse-type "CONSIGNMENT") "Consignment")
-                                               (:option :value "BRANCH" :selected (equal warehouse-type "BRANCH") "Branch")
-                                               (:option :value "GODOWN" :selected (equal warehouse-type "GODOWN") "Godown")))
-                                (:div :class "form-group"
-                                      (:label "Warehouse Purpose")
-                                      (:select :class "form-control" :name "warehousepurpose"
-                                               (:option :value "SALES" :selected (equal warehouse-purpose "SALES") "Sales")
-                                               (:option :value "STOCK_TRANSFER" :selected (equal warehouse-purpose "STOCK_TRANSFER") "Stock Transfer")
-                                               (:option :value "MANUFACTURING" :selected (equal warehouse-purpose "MANUFACTURING") "Manufacturing")
-                                               (:option :value "BOTH" :selected (equal warehouse-purpose "BOTH") "Both")))
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "defaulttransporterid" :maxlength "15" 
-                                             :value default-transporter-id :placeholder "Default Transporter ID" :type "text"))
-                                (:div :class "form-group"
-                                      (:input :class "form-control" :name "defaulttransportername" :maxlength "200" 
-                                             :value default-transporter-name :placeholder "Default Transporter Name" :type "text"))
-                                (:div :class "form-group"
-                                      (:label "E-Way Bill Enabled: ")
-                                      (:input :type "checkbox" :name "ewaybillenabled" :value "1" 
-                                             :checked (equal eway-bill-enabled 1)) " Enable E-Way Bill")
-                                (:div :class "form-group"
-                                      (:label "Valuation Method")
-                                      (:select :class "form-control" :name "valuationmethod"
-                                               (:option :value "FIFO" :selected (equal valuation-method "FIFO") "FIFO")
-                                               (:option :value "LIFO" :selected (equal valuation-method "LIFO") "LIFO")
-                                               (:option :value "WEIGHTED_AVG" :selected (equal valuation-method "WEIGHTED_AVG") "Weighted Average")))
-                                (:div :class "form-group"
-                                      (:label "HSN-wise Stock: ")
-                                      (:input :type "checkbox" :name "hsnwisestock" :value "1" 
-                                             :checked (equal hsn-wise-stock 1)) " Maintain HSN-wise stock"))
-                          
-                          ;; LOCATION TAB
-                          (:div :role "tabpanel" :class "tab-pane" :id "location"
-                                (:br)
-                                (:div :class "form-group"
-                                      (:label "Latitude")
-                                      (:input :class "form-control" :name "latitude" :step "0.00000001" 
-                                             :value latitude :placeholder "Latitude (e.g., 19.0760)" :type "number"))
-                                (:div :class "form-group"
-                                      (:label "Longitude")
-                                      (:input :class "form-control" :name "longitude" :step "0.00000001" 
-                                             :value longitude :placeholder "Longitude (e.g., 72.8777)" :type "number"))
-                                (:div :class "alert alert-info" :role "alert"
-                                      (:i :class "fa fa-info-circle") " Location coordinates help in tracking and logistics optimization.")))
-                    
-                    ;; Submit Button
-                    (:div :class "form-group"
-                          (:button :class "btn btn-lg btn-primary btn-block" 
-                                  :type "submit" "Submit"))))))))
+    (function (lambda ()
+      (values  warehousedetailspagetempl)))))
+
+(defun create-widgets-for-addeditwarehouse (modelfunc)
+  (multiple-value-bind ( warehousedetailspagetempl) (funcall modelfunc)
+    (let ((widget1  (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(cl-who:str warehousedetailspagetempl))))))
+    (list widget1))))
 
 
 ;;; ---------------------------------------------------------------------------
