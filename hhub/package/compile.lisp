@@ -182,6 +182,7 @@
      "customer/nst-ui-Customer.lisp"
      "customer/nst-ui-cuswall.lisp"
      "customer/nst-ui-prodetpag.lisp"
+     "customer/nst-bl-custapi.lisp"
      
      ;; Products
      "products/dod-dal-prd.lisp"
@@ -190,6 +191,7 @@
      "products/dod-dal-gst.lisp"
      "products/dod-bl-gst.lisp"
      "products/dod-ui-gst.lisp"
+     "products/nst-bl-prodapi.lisp"
      
      ;; Sysuser
      "sysuser/dod-dal-usr.lisp"
@@ -221,6 +223,7 @@
      "vendor/dod-ui-ven.lisp"
      "vendor/dod-dal-vpm.lisp"
      "vendor/dod-bl-vpm.lisp"
+     "vendor/nst-bl-vendapi.lisp"
      
      ;; Webpushnotify
      "webpushnotify/dod-dal-push.lisp"
@@ -251,6 +254,7 @@
      "invoice/nst-dal-cusinvreg.lisp"
      "invoice/nst-bl-cusinvreg.lisp"
      "invoice/nst-ui-cusinvreg.lisp"
+     "invoice/nst-bl-invapi.lisp"
      
      
      ;; UNIT TESTS
@@ -258,7 +262,7 @@
      "test/hhub-tst-cus.lisp"
      "test/hhub-tst-webpush.lisp"
      "test/hhub-tst-sms.lisp"
-     "test/hhub-tst-wrh.lisp"
+     "test/nst-tst-warehouse.lisp"
      "test/hhub-tst-vpm.lisp"))
   
   ;;; Core Compilation Functions
