@@ -1096,6 +1096,10 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/vsaveinvprintsettings"   'com-hhub-transaction-save-invoice-print-settings-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vuploadprdimagesaction"   'com-hhub-transaction-vendor-upload-product-images-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vwebrepl"   'com-hhub-transaction-vendor-display-webrepl-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vwarehouses"   'com-hhub-transaction-readall-warehouse)
+	(hunchentoot:create-regex-dispatcher "^/hhub/searchwarehouseaction"   'nst-controller-search-my-warehouse-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vwarehousedetailspage"   'com-nst-transaction-vendor-warehouse-details-page)
+	
 ))
 
 
