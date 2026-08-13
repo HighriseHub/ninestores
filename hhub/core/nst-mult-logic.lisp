@@ -329,6 +329,55 @@
               (length (remove-duplicates keys :test #'equal)))))))
 
 
+(defmacro with-nst-db-create ((&key (source "nst/db-create") pre-flight) &body body)
+  "INSERT boundary macro, no DBAdapterService holder. BODY performs
+   the raw CLSQL write and must return the dbobj as its last form —
+   caller does the row-id copy-back (bind-generated-row-id), not
+   this macro. :T=success/payload=dbobj. :F=confirmed DB-level
+   constraint rejection (row never written). :U=any other error,
+   logged. :C=optional caller-supplied PRE-FLIGHT form found rows
+   (stale-cache race, short-circuits before BODY ever runs)."
+  (let ((pf-gs (gensym "PF")) (bk-gs (gensym "BK")) (err-gs (gensym "ERR")))
+    `(let ((,bk-gs
+             ,(if pre-flight
+                  `(handler-case
+                       (let ((,pf-gs ,pre-flight))
+                         (when (and (listp ,pf-gs) (> (length ,pf-gs) 0))
+                           (make-bo-knowledge :truth :C :payload ,pf-gs :provenance ,source)))
+                     (error (,err-gs) (declare (ignore ,err-gs))
+                       (make-bo-knowledge :truth :U :payload nil :provenance ,source)))
+                  nil)))
+       (or ,bk-gs
+           (handler-case
+               (make-bo-knowledge :truth :T :payload (progn ,@body) :provenance ,source)
+             (clsql:sql-database-error (,err-gs)
+               (if (search "Duplicate entry" (format nil "~A" ,err-gs))
+                   (make-bo-knowledge :truth :F
+                     :payload (list :constraint-violation (format nil "~A" ,err-gs))
+                     :provenance ,source)
+                   (progn
+                     (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                         :direction :output :if-exists :append
+                                         :if-does-not-exist :create)
+                       (format s "~A NST-DB-CREATE-ERROR: ~A~%" (mysql-now) ,err-gs))
+                     (make-bo-knowledge :truth :U :payload nil :provenance ,source))))
+             (error (,err-gs)
+               (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                   :direction :output :if-exists :append
+                                   :if-does-not-exist :create)
+                 (format s "~A NST-DB-CREATE-ERROR (unexpected): ~A~%~A~%"
+                         (mysql-now) ,err-gs (sb-debug:list-backtrace)))
+               (make-bo-knowledge :truth :U :payload nil :provenance ,source)))))))
+
+
+;;; The one narrow copy-back point — row-id only, see prior turn.
+(defun bind-generated-row-id (entity dbobj)
+  "The ONLY copy-back from a freshly-inserted dbobj to its domain
+   entity. Every make method calls this — not an inline slot-value
+   setf — so the narrowing is enforced at one call site, not N."
+  (setf (slot-value entity 'id) (write-to-string (slot-value dbobj 'row-id))))
+
+
 
 ;;;; ─────────────────────────────────────────────────────────────
 ;;;;  1.  WITH-DB-CREATE
@@ -414,6 +463,52 @@
 		  :truth +unknown+
 		  :payload nil
 		  :provenance ,source))))))))
+
+
+(defmacro with-nst-db-update ((&key (source "nst/db-update") pre-flight) &body body)
+  "UPDATE boundary macro, no DBAdapterService holder. BODY performs
+   the raw CLSQL write and must return dbobj as its last form.
+   :F = PRE-FLIGHT found zero rows (target gone — real, expected,
+   not an error). :C = PRE-FLIGHT found >1 rows (ambiguous unique
+   key — refuse to mutate, don't guess which row). :T = write
+   succeeded. :U = any error during pre-flight or write, logged.
+   Without :pre-flight, :F/:C can never be produced — caller must
+   have already confirmed existence some other way (see nst-whs's
+   !update, which pre-fetches instead of using this parameter)."
+  (let ((pf-gs (gensym "PF")) (bk-gs (gensym "BK")) (err-gs (gensym "ERR")))
+    `(let ((,bk-gs
+             ,(if pre-flight
+                  `(handler-case
+                       (let ((,pf-gs ,pre-flight))
+                         (cond
+                           ((or (null ,pf-gs) (and (listp ,pf-gs) (zerop (length ,pf-gs))))
+                            (make-bo-knowledge :truth :F :payload nil :provenance ,source))
+                           ((and (listp ,pf-gs) (> (length ,pf-gs) 1))
+                            (make-bo-knowledge :truth :C :payload ,pf-gs :provenance ,source))
+                           (t nil)))
+                     (error (,err-gs)
+                       (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                           :direction :output :if-exists :append
+                                           :if-does-not-exist :create)
+                         (format s "~A NST-DB-UPDATE-PREFLIGHT-ERROR: ~A~%" (mysql-now) ,err-gs))
+                       (make-bo-knowledge :truth :U :payload nil :provenance ,source)))
+                  nil)))
+       (or ,bk-gs
+           (handler-case
+               (make-bo-knowledge :truth :T :payload (progn ,@body) :provenance ,source)
+             (clsql:sql-database-error (,err-gs)
+               (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                   :direction :output :if-exists :append
+                                   :if-does-not-exist :create)
+                 (format s "~A NST-DB-UPDATE-ERROR: ~A~%" (mysql-now) ,err-gs))
+               (make-bo-knowledge :truth :U :payload nil :provenance ,source))
+             (error (,err-gs)
+               (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                   :direction :output :if-exists :append
+                                   :if-does-not-exist :create)
+                 (format s "~A NST-DB-UPDATE-ERROR (unexpected): ~A~%~A~%"
+                         (mysql-now) ,err-gs (sb-debug:list-backtrace)))
+               (make-bo-knowledge :truth :U :payload nil :provenance ,source)))))))
 
 
 ;;;; ─────────────────────────────────────────────────────────────
@@ -522,7 +617,58 @@
                   :payload    nil
                   :provenance ,source))))))))
 
-
+(defmacro with-nst-db-delete ((&key (source "nst/db-delete") pre-flight
+                                     (allow-idempotent nil))
+                              &body body)
+  "SOFT-DELETE boundary macro, no DBAdapterService holder. Writes
+   ONLY deleted-state via clsql:update-record-from-slot — narrower
+   than with-nst-db-create/update's full-instance write, deliberately,
+   so a delete can't clobber concurrent changes to other columns.
+   BODY must set (deleted-state dbobj) to \"Y\" and return dbobj.
+   :F = PRE-FLIGHT found zero live rows, ALLOW-IDEMPOTENT nil (caller
+   expected a live row; it's gone — a real failure to report, not
+   silently swallowed). :T/:already-absent = same zero-row case,
+   ALLOW-IDEMPOTENT t (cleanup/expiry flows: desired state already
+   holds). :C = PRE-FLIGHT found >1 live rows — only reachable if
+   PRE-FLIGHT queries a non-unique key; unreachable for row-id-keyed
+   deletes like nst-whs's. :U = any error, logged."
+  (let ((pf-gs (gensym "PF")) (bk-gs (gensym "BK")) (err-gs (gensym "ERR")))
+    `(let ((,bk-gs
+             ,(if pre-flight
+                  `(handler-case
+                       (let ((,pf-gs ,pre-flight))
+                         (cond
+                           ((or (null ,pf-gs) (and (listp ,pf-gs) (zerop (length ,pf-gs))))
+                            (if ,allow-idempotent
+                                (make-bo-knowledge :truth :T :payload '(:already-absent t)
+                                                    :provenance ,source)
+                                (make-bo-knowledge :truth :F :payload nil :provenance ,source)))
+                           ((and (listp ,pf-gs) (> (length ,pf-gs) 1))
+                            (make-bo-knowledge :truth :C :payload ,pf-gs :provenance ,source))
+                           (t nil)))
+                     (error (,err-gs)
+                       (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                           :direction :output :if-exists :append
+                                           :if-does-not-exist :create)
+                         (format s "~A NST-DB-DELETE-PREFLIGHT-ERROR: ~A~%" (mysql-now) ,err-gs))
+                       (make-bo-knowledge :truth :U :payload nil :provenance ,source)))
+                  nil)))
+       (or ,bk-gs
+           (handler-case
+               (make-bo-knowledge :truth :T :payload (progn ,@body) :provenance ,source)
+             (clsql:sql-database-error (,err-gs)
+               (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                   :direction :output :if-exists :append
+                                   :if-does-not-exist :create)
+                 (format s "~A NST-DB-DELETE-ERROR: ~A~%" (mysql-now) ,err-gs))
+               (make-bo-knowledge :truth :U :payload nil :provenance ,source))
+             (error (,err-gs)
+               (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                                   :direction :output :if-exists :append
+                                   :if-does-not-exist :create)
+                 (format s "~A NST-DB-DELETE-ERROR (unexpected): ~A~%~A~%"
+                         (mysql-now) ,err-gs (sb-debug:list-backtrace)))
+               (make-bo-knowledge :truth :U :payload nil :provenance ,source)))))))
 
 (defmacro with-db-delete ((dbas
                            &key
@@ -712,6 +858,41 @@
 		     :provenance ,source))))))
        ,bk-gs)))
 
+
+
+(defmacro with-nst-db-read-all ((&key (source "nst/db-read-all") pk-extractor)
+                                 &body body)
+  "BODY returns a list (possibly empty) of dbobjs. :T = non-empty
+   list. :F = empty list — a real, expected result (no matches),
+   not an error. :C = PK-EXTRACTOR supplied and finds a duplicate
+   PK across the returned rows — a data-integrity signal, not a
+   query-syntax one; investigate the table, don't just retry.
+   :U = any error, logged."
+  (let ((rows-gs (gensym "ROWS")) (err-gs (gensym "ERR")))
+    `(handler-case
+         (let ((,rows-gs (progn ,@body)))
+           (cond
+             ((null ,rows-gs)
+              (make-bo-knowledge :truth :F :payload nil :provenance ,source))
+             (,(if pk-extractor
+                   `(let ((pks (mapcar ,pk-extractor ,rows-gs)))
+                      (/= (length pks) (length (remove-duplicates pks :test #'equal))))
+                   nil)
+              (make-bo-knowledge :truth :C :payload ,rows-gs :provenance ,source))
+             (t (make-bo-knowledge :truth :T :payload ,rows-gs :provenance ,source))))
+       (clsql:sql-database-error (,err-gs)
+         (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                             :direction :output :if-exists :append
+                             :if-does-not-exist :create)
+           (format s "~A NST-DB-READ-ALL-ERROR: ~A~%" (mysql-now) ,err-gs))
+         (make-bo-knowledge :truth :U :payload nil :provenance ,source))
+       (error (,err-gs)
+         (with-open-file (s *HHUBBUSINESSFUNCTIONSLOGFILE*
+                             :direction :output :if-exists :append
+                             :if-does-not-exist :create)
+           (format s "~A NST-DB-READ-ALL-ERROR (unexpected): ~A~%~A~%"
+                   (mysql-now) ,err-gs (sb-debug:list-backtrace)))
+         (make-bo-knowledge :truth :U :payload nil :provenance ,source)))))
 
 ;;;; ─────────────────────────────────────────────────────────────
 ;;;;  3.  WITH-DB-READ-ALL
