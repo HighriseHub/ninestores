@@ -136,6 +136,7 @@
      "core/nst-bl-ollama.lisp" ;; Ollama LLM and its associated models to generate response. 
      "core/nst-dal-pincodes.lisp" 
      "core/nst-bl-pincodes.lisp" ;; All India pincodes
+     "core/nst-bl-adhara.lisp"
      ;; Core UI Layer
      "core/dod-ui-site.lisp"
      "core/dod-ui-attr.lisp"
@@ -242,6 +243,9 @@
      "warehouse/dod-dal-wrh.lisp"
      "warehouse/dod-bl-wrh.lisp"
      "warehouse/dod-ui-wrh.lisp"
+     "warehouse/nst-dal-warehouse.lisp"
+     "warehouse/nst-bl-warehouse.lisp"
+     "warehouse/nst-ui-warehouse.lisp"
      
      ;; Invoices
      "invoice/templates/invoicesettings.lisp"
