@@ -134,11 +134,6 @@
        (:td
 	(:h3 (:span :class "label label-default" (cl-who:str (format nil "~$" subtotal)))))))))
 
-
-
-
-
-
 (defun product-card-shopcart-readonly (product-instance odt-instance)
   (let* ((prd-name (slot-value product-instance 'prd-name))
 	 (qty-per-unit (slot-value product-instance 'qty-per-unit))
