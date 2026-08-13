@@ -583,18 +583,4 @@ Returns:
 
     
 ;;; End of nst-bl-conflodis.lisp
-
-(register-outbound-route
-  :customer/read
-  :crud-op :read
-  :description "Reads customer profile by phone"
-  :requestmodel-class 'CustomerSearchRequestModel
-  :businessobject-class 'Customer
-  :adapter-class 'CustomerAdapter
-  :presenter-class 'CustomerPresenter
-  :view-classes  '((json . CustomerAddressJSONView))
-  :tags '(customer api v1)
-  :required-roles '(customer support)
-  :feature-flags '(new-customer-domain)
-  :audit-level :full)
  
