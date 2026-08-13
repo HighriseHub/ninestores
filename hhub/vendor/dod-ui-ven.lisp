@@ -1008,20 +1008,70 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun dod-controller-vendor-revenue ()
-(with-vend-session-check
-    ;list all the completed orders for Today. 
+  (with-vend-session-check
+    ;; list all the completed orders for today.
     (let* ((todaysorders (dod-get-cached-completed-orders-today))
-	   (total (if todaysorders (reduce #'+ (mapcar (lambda (ord) (slot-value ord 'order-amt)) todaysorders)))))
-    (with-standard-vendor-page "Welcome to DAS Platform- Vendor"
-      (:div :class "row"
-	    (:div :class "col-xs-12 col-sm-4 col-md-4 col-lg-4" 
-		  "Completed orders "
-		  (:span :class "badge" (cl-who:str (format nil " ~d " (length todaysorders))))) 
-	    (:div :class  "col-xs-12 col-sm-4 col-md-4 col-lg-4"  :align "right" (:h1(:span :class "label label-default" "Todays Revenue")))	  
-      (:div :class  "col-xs-12 col-sm-4 col-md-4 col-lg-4"  :align "right" 
-	    (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total))))))
-      (:hr)
-      (cl-who:str (display-as-tiles todaysorders 'vendor-order-card "order-box" ))))))
+	   (safecount (if todaysorders (length todaysorders) 0))
+	   (total (if todaysorders
+		      (reduce #'+ (mapcar (lambda (ord) (slot-value ord 'order-amt))
+					  todaysorders))
+		      0))
+	   (company (get-login-vendor-company))
+	   (currsymbol (get-currency-html-symbol (get-account-currency company)))
+	   (avg (if (> safecount 0) (/ total safecount) 0)))
+      (with-standard-vendor-page "Today's Revenue - Vendor Dashboard"
+	;; Summary stats row
+	(:div :class "row g-3 mb-4"
+	      ;; Total Revenue card
+	      (:div :class "col-12 col-md-4"
+		    (:div :class "card border-0 shadow-sm h-100"
+			  (:div :class "card-body text-center"
+				(:div :class "d-flex flex-column align-items-center gap-2"
+				      (:i :class "fa-solid fa-indian-rupee-sign fa-3x text-success")
+				      (:h6 :class "text-uppercase text-muted small mb-0" "Today's Revenue")
+				      (:h2 :class "card-title fw-bold text-success mb-0"
+					   (cl-who:str (format nil "~A ~$" currsymbol total))))
+				(:p :class "text-muted small mt-2 mb-0"
+				    (cl-who:str "(till now)"))))))
+	      ;; Completed Orders card
+	      (:div :class "col-12 col-md-4"
+		    (:div :class "card border-0 shadow-sm h-100"
+			  (:div :class "card-body text-center"
+				(:div :class "d-flex flex-column align-items-center gap-2"
+				      (:i :class "fa-solid fa-circle-check fa-3x text-primary")
+				      (:h6 :class "text-uppercase text-muted small mb-0" "Completed Orders")
+				      (:h2 :class "card-title fw-bold text-primary mb-0"
+					   (cl-who:str safecount)))
+				(:p :class "text-muted small mt-2 mb-0"
+				    (cl-who:str "fulfilled today")))))
+	      ;; Avg order value card
+	      (:div :class "col-12 col-md-4"
+		    (:div :class "card border-0 shadow-sm h-100"
+			  (:div :class "card-body text-center"
+				(:div :class "d-flex flex-column align-items-center gap-2"
+				      (:i :class "fa-solid fa-calculator fa-3x text-warning")
+				      (:h6 :class "text-uppercase text-muted small mb-0" "Avg / Order")
+				      (:h2 :class "card-title fw-bold text-warning mb-0"
+					   (cl-who:str (format nil "~A ~$" currsymbol avg))))
+				(:p :class "text-muted small mt-2 mb-0"
+				    (cl-who:str "average order value")))))
+	(:hr)
+	;; Section header for the order list
+	(:div :class "d-flex align-items-center justify-content-between mb-3"
+	      (:h5 :class "fw-semibold mb-0" "Completed Orders Today")
+	      (when (> safecount 0)
+		(cl-who:htm
+		 (:a :class "btn btn-outline-primary btn-sm"
+		     :href "dodvenexpexl?type=completedorders"
+		     (:i :class "fa-solid fa-file-excel")
+		     (cl-who:str " Export")))))
+	;; Orders list
+	(if (<= safecount 0)
+	    (cl-who:htm
+	     (:div :class "text-center py-5 text-muted"
+		   (:i :class "fa-solid fa-inbox fa-3x mb-3")
+		   (:p :class "mb-0" "No completed orders so far today.")))
+	    (cl-who:str (display-as-tiles todaysorders 'vendor-order-card "order-box")))))))
 
 
  
@@ -2637,7 +2687,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
         (handler-case
             (cond 
               ((equal context "ctxordprd") 
-               (ui-list-vendor-orders-by-products dodorders))
+               (ui-list-vendor-orders-by-products))
               
               ((and dodorders btnexpexl) 
                (hunchentoot:redirect (format nil "/hhub/dodvenexpexl?reqdate=~A" 
