@@ -10,6 +10,19 @@
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
+(defparameter *valid-gst-state-codes*
+  '("01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12" "13"
+    "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "26" "27"
+    "28" "29" "30" "31" "32" "33" "34" "35" "36" "37" "38")
+  "GST jurisdiction state codes. Verify against the current GSTN
+   master list before relying on this in production — codes are
+   occasionally added (new UTs) or reclassified.")
+
+(defun valid-indian-state-code-p (code)
+  (and (stringp code) (member code *valid-gst-state-codes* :test #'string=)))
+
+
+
 ;;; ===========================================================================
 ;;; DATABASE SERVICE METHODS
 ;;; ===========================================================================
@@ -346,6 +359,8 @@
                  default-transporter-id default-transporter-name eway-bill-enabled
                  latitude longitude valuation-method hsn-wise-stock pan-number 
                  warehouse-uuid warehouse-code tenant-id) destination
+
+ 
       ;; Basic fields
       (setf w-name (slot-value source 'wname))
       (setf w-addr1 (slot-value source 'waddr1))
