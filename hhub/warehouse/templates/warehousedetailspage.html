@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add/Edit Warehouse </title>
+  
+  <!-- Bootstrap 5.3.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome 6.5.1 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <style>
+    body {
+      background-color: #f8f9fa;
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+    .form-card {
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0.125rem 0.625rem rgba(0, 0, 0, 0.08);
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .profile-img {
+      max-height: 60px;
+      margin: 0 auto 1.25rem auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="row">
+    <div class="col-12 col-sm-10 offset-sm-1 col-md-8 offset-md-2">
+      <div class="form-card">
+        
+        <form class="form-addwarehouseNIL" id="idform-addwarehouseNIL2XC" name="form-addwarehouseNIL" method="POST" action="createwarehouseaction" novalidate="novalidate" role="form" enctype="multipart/form-data">
+          
+          <img class="profile-img" src="/img/logo.png" alt="Company Logo">
+          
+          <!-- Navigation Tabs -->
+          <ul class="nav nav-tabs" id="warehouseTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab" aria-controls="basic" aria-selected="true">Basic Info</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="ownership-tab" data-bs-toggle="tab" data-bs-target="#ownership" type="button" role="tab" aria-controls="ownership" aria-selected="false">
+                <span class="badge bg-primary">NEW</span> Ownership
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="gst-tab" data-bs-toggle="tab" data-bs-target="#gst" type="button" role="tab" aria-controls="gst" aria-selected="false">GST Details</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="logistics-tab" data-bs-toggle="tab" data-bs-target="#logistics" type="button" role="tab" aria-controls="logistics" aria-selected="false">Logistics</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="location-tab" data-bs-toggle="tab" data-bs-target="#location" type="button" role="tab" aria-controls="location" aria-selected="false">Location</button>
+            </li>
+          </ul>
+
+          <!-- Tab Content Panes -->
+          <div class="tab-content pt-3" id="warehouseTabsContent">
+            
+            <!-- Tab 1: Basic Info -->
+            <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="basic-tab">
+              <div class="mb-3">
+                <input class="form-control" name="wname" maxlength="100" placeholder="Warehouse Name *" type="text" value="%Warehouse Name%" required>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="waddr1" maxlength="100" placeholder="Address Line 1" type="text" value="%Warehouse Address1%">
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="waddr2" maxlength="100" placeholder="Address Line 2" type="text" value="%Warehouse Address2%">
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="wpin" maxlength="6" placeholder="PIN Code" type="text" value="%Warehouse Pincode%">
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="wcity" maxlength="30" placeholder="City" type="text" value="%Warehouse City%">
+                </div>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="wstate" maxlength="30" placeholder="State" type="text" value="%Warehouse State%">
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="wcountry" maxlength="30" placeholder="Country" type="text" value="%Warehouse Country%">
+                </div>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="wmanager" maxlength="100" placeholder="Manager Name" type="text" value="%Warehouse Manager%">
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="wphone" maxlength="16" placeholder="Phone" type="text" value="%Warehouse Phone%">
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="waltphone" maxlength="16" placeholder="Alternate Phone" type="text" value="%Warehouse Alt Phone%">
+                </div>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="wemail" maxlength="100" placeholder="Email" type="email" value="%Warehouse Email%">
+              </div>
+              <div class="mb-3">
+                <label class="form-label d-block">Active: </label>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="activeflag" id="activeY" value="Y" checked>
+                  <label class="form-check-label" for="activeY">Yes</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="activeflag" id="activeN" value="N">
+                  <label class="form-check-label" for="activeN">No</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: Ownership -->
+            <div class="tab-pane fade" id="ownership" role="tabpanel" aria-labelledby="ownership-tab">
+              <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                <i class="fa-solid fa-circle-info me-2"></i>
+                <div>Define who owns, operates, and is legally registered for this warehouse.</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Ownership Type *</label>
+                <select class="form-select" name="ownershiptype" required>
+                  <option value="SELLER_OWNED">Seller Owned</option>
+                  <option value="BUYER_OWNED">Buyer Owned (VMI)</option>
+                  <option value="THIRD_PARTY">Third Party (3PL)</option>
+                  <option value="PLATFORM_OWNED">Platform Owned</option>
+                  <option value="BONDED">Bonded Warehouse</option>
+                  <option value="CONTRACT_MFG">Contract Manufacturing</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Owner Entity Type *</label>
+                <select class="form-select" name="ownerentitytype" required>
+                  <option value="SELLER">Seller/Vendor</option>
+                  <option value="BUYER">Buyer/Customer</option>
+                  <option value="PLATFORM">Platform</option>
+                  <option value="THIRD_PARTY_LOGISTICS">3PL Provider</option>
+                  <option value="GOVERNMENT">Government</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="ownerentityid" type="number" placeholder="Owner Entity ID *" required>
+              </div>
+              <hr>
+              <div class="mb-3">
+                <label class="form-label">Operator Entity Type <small class="text-muted">(if different from owner)</small></label>
+                <select class="form-select" name="operatorentitytype">
+                  <option value="" selected>-- Same as Owner --</option>
+                  <option value="SELLER">Seller/Vendor</option>
+                  <option value="BUYER">Buyer/Customer</option>
+                  <option value="PLATFORM">Platform</option>
+                  <option value="THIRD_PARTY_LOGISTICS">3PL Provider</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="operatorentityid" type="number" placeholder="Operator Entity ID (optional)">
+              </div>
+              <hr>
+              <div class="mb-3">
+                <label class="form-label">Legal Entity Type (GST Registered) *</label>
+                <select class="form-select" name="legalentitytype" required>
+                  <option value="SELLER">Seller/Vendor</option>
+                  <option value="BUYER">Buyer/Customer</option>
+                  <option value="PLATFORM">Platform</option>
+                  <option value="THIRD_PARTY_LOGISTICS">3PL Provider</option>
+                </select>
+              </div>
+              <div class="card border-info mb-3">
+                <div class="card-header bg-info-subtle text-info-emphasis fw-bold">Common Scenarios</div>
+                <div class="card-body">
+                  <ul class="mb-0">
+                    <li><strong>Traditional:</strong> Owner=Seller, Operator=Seller, Legal=Seller</li>
+                    <li><strong>VMI:</strong> Owner=Buyer, Operator=Seller, Legal=Buyer</li>
+                    <li><strong>3PL:</strong> Owner=3PL, Operator=3PL, Legal=3PL</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 3: GST Details -->
+            <div class="tab-pane fade" id="gst" role="tabpanel" aria-labelledby="gst-tab">
+              <div class="mb-3">
+                <input class="form-control" name="warehousegstin" maxlength="15" placeholder="Warehouse GSTIN *" type="text" value="%Warehouse GSTIN%" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">GSTIN Status</label>
+                <select class="form-select" name="gstinstatus">
+                  <option value="ACTIVE">Active</option>
+                  <option value="CANCELLED">Cancelled</option>
+                  <option value="SUSPENDED">Suspended</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="legalname" maxlength="200" placeholder="Legal Name" type="text" value="%Warehouse Legal Name%">
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="pannumber" maxlength="10" placeholder="PAN Number" type="text" value="%Warehouse PAN Number%">
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="statecode" maxlength="2" placeholder="State Code (2 digits) *" type="text" value="%Warehouse State Code%" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Registration Type</label>
+                <select class="form-select" name="registrationtype">
+                  <option value="REGULAR">Regular</option>
+                  <option value="COMPOSITION">Composition</option>
+                  <option value="SEZ">SEZ</option>
+                  <option value="EXPORT_WAREHOUSE">Export Warehouse</option>
+                  <option value="UNREGISTERED">Unregistered</option>
+                </select>
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="isprimarylocation" id="isprimarylocation" value="1">
+                <label class="form-check-label" for="isprimarylocation">Mark as primary warehouse</label>
+              </div>
+            </div>
+
+            <!-- Tab 4: Logistics -->
+            <div class="tab-pane fade" id="logistics" role="tabpanel" aria-labelledby="logistics-tab">
+              <div class="mb-3">
+                <label class="form-label">Warehouse Type</label>
+                <select class="form-select" name="warehousetype">
+                  <option value="OWN">Own</option>
+                  <option value="THIRD_PARTY">Third Party</option>
+                  <option value="CONSIGNMENT">Consignment</option>
+                  <option value="BRANCH">Branch</option>
+                  <option value="GODOWN">Godown</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Warehouse Purpose</label>
+                <select class="form-select" name="warehousepurpose">
+                  <option value="SALES">Sales</option>
+                  <option value="STOCK_TRANSFER">Stock Transfer</option>
+                  <option value="MANUFACTURING">Manufacturing</option>
+                  <option value="BOTH">Both</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="defaulttransporterid" maxlength="15" placeholder="Default Transporter ID" type="text" value="%Warehouse Default Transporter ID%" >
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="defaulttransportername" maxlength="200" placeholder="Default Transporter Name" type="text" value="%Warehouse Default Transporter Name%" >
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="ewaybillenabled" id="ewaybillenabled" value="1">
+                <label class="form-check-label" for="ewaybillenabled">Enable E-Way Bill</label>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Valuation Method</label>
+                <select class="form-select" name="valuationmethod">
+                  <option value="FIFO">FIFO</option>
+                  <option value="LIFO">LIFO</option>
+                  <option value="WEIGHTED_AVG">Weighted Average</option>
+                </select>
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="hsnwisestock" id="hsnwisestock" value="1">
+                <label class="form-check-label" for="hsnwisestock">Maintain HSN-wise stock</label>
+              </div>
+            </div>
+
+            <!-- Tab 5: Location -->
+            <div class="tab-pane fade" id="location" role="tabpanel" aria-labelledby="location-tab">
+              <div class="mb-3">
+                <label class="form-label">Latitude</label>
+                <input class="form-control" name="latitude" step="0.00000001" placeholder="Latitude (e.g., 19.0760)" type="number" value="%Warehouse Latitude%">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Longitude</label>
+                <input class="form-control" name="longitude" step="0.00000001" placeholder="Longitude (e.g., 72.8777)" type="number" value="%Warehouse Longitude%">
+              </div>
+              <div class="alert alert-info d-flex align-items-center" role="alert">
+                <i class="fa-solid fa-circle-info me-2"></i>
+                <div>Location coordinates help in tracking and logistics optimization.</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Submit Button -->
+          <div class="mt-4">
+            <button class="btn btn-lg btn-primary w-100" type="submit">Submit Warehouse Details</button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap 5.3.3 JS Bundle (Includes Popper) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
