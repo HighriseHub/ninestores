@@ -86,6 +86,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "core/nst-bl-ollama")
    (:file "core/nst-dal-pincodes")
    (:file "core/nst-bl-pincodes")
+   (:file "core/nst-bl-adhara")
  ;; Account
    (:file "account/dod-dal-cmp")
    (:file "account/dod-bl-cmp")
@@ -185,6 +186,9 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "warehouse/dod-dal-wrh")
    (:file "warehouse/dod-bl-wrh")
    (:file "warehouse/dod-ui-wrh")
+   (:file "warehouse/nst-dal-warehouse")
+   (:file "warehouse/nst-bl-warehouse")
+   (:file "warehouse/nst-ui-warehouse")
    
    ;; Web Push Notification
    (:file "webpushnotify/dod-dal-push")
