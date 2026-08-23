@@ -69,6 +69,7 @@
     ("22032026-create-procure-ai-symentic-index-table"    migrate-2026March-create-procure-ai-symentic-index-table    "Create procure AI symentic index table.")
     ("22032026-insert-seed-data-to-ai-tables"    migrate-2026March-insert-seed-data-to-ai-tables    "Insert seed data to ai tables.")
     ("06052026-create-view-customer-inward-invoices"   migrate-2026May-create-customer-inward-invoices-view    "Create a view which shows customer inward invoices.")
+    ("25082026-insert-warehouse-policy-and-transactions"   migrate-2026Aug-insert-warehouse-policy-and-transactions   "Insert DOD_AUTH_POLICY + DOD_BUS_TRANSACTION seed rows for warehouse CRUD endpoints.")
     ))
 
 
@@ -102,6 +103,114 @@
              (format *error-output* "Migration error: ~A~%" e))))
     (when (clsql:connected-databases)
       (clsql:disconnect))))
+
+;;; ---------------------------------------------------------------------------
+;;; ABAC policy + transaction data-migration helpers (idempotent).
+;;;
+;;; These tables map URIs -> AUTH_POLICY_ID -> POLICY_FUNC, so they are
+;;; migrated as *business data* - "insert if the NAME isn't present" - rather
+;;; than as schema. Once these helpers are loaded, per-endpoint seed functions
+;;; (e.g. migrate-2026Aug-insert-warehouse-policy-and-transactions) call them.
+;;; ---------------------------------------------------------------------------
+
+(defun auth-policy-inserted-p (name tenant-id)
+  "Non-nil if a live (not soft-deleted) policy with NAME exists."
+  (let ((result (clsql:query
+                 (format nil
+                         "SELECT COUNT(*) FROM DOD_AUTH_POLICY
+                          WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N'"
+                         name tenant-id)
+                 :flatp t)))
+    (> (first result) 0)))
+
+(defun bus-transaction-inserted-p (name tenant-id)
+  "Non-nil if a live (not soft-deleted) transaction with NAME exists."
+  (let ((result (clsql:query
+                 (format nil
+                         "SELECT COUNT(*) FROM DOD_BUS_TRANSACTION
+                          WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N'"
+                         name tenant-id)
+                 :flatp t)))
+    (> (first result) 0)))
+
+(defun auth-policy-id-by-name (name tenant-id)
+  "Return the ROW_ID of the LIVE policy named NAME, or NIL."
+  (let ((result (clsql:query
+                 (format nil
+                         "SELECT ROW_ID FROM DOD_AUTH_POLICY
+                          WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N'
+                          LIMIT 1"
+                         name tenant-id)
+                 :flatp t)))
+    (and result (first result))))
+
+(defun insert-auth-policy (name description policy-func &key (tenant-id 1) (active-flg "Y"))
+  "Insert a policy row unless one with NAME already exists.
+   Returns the policy ROW_ID (existing or freshly inserted)."
+  (if (auth-policy-inserted-p name tenant-id)
+      (progn
+        (format t "  policy ~A already exists - skipping~%" name)
+        (auth-policy-id-by-name name tenant-id))
+      (progn
+        (clsql:execute-command
+         (format nil
+                 "INSERT INTO DOD_AUTH_POLICY
+                    (NAME, DESCRIPTION, POLICY_FUNC, CREATED_BY, ACTIVE_FLG, DELETED_STATE, TENANT_ID)
+                  VALUES
+                    ('~A', '~A', '~A', NULL, '~A', 'N', ~D)"
+                 name description policy-func active-flg tenant-id))
+        (format t "  inserted policy ~A~%" name)
+        (auth-policy-id-by-name name tenant-id))))
+
+(defun insert-bus-transaction (transaction-name uri trans-type
+                               &key policy-id policy-name policy-description policy-func
+                                    (trans-func nil) (abac-subject-id nil)
+                                    (tenant-id 1) (active-flg "Y"))
+  "Insert a transaction row (and, if its governing policy does not exist yet,
+   insert that policy too). Idempotent on transaction NAME.
+
+   Either pass :policy-id (the AUTH_POLICY_ID you already know) or pass
+   :policy-name, :policy-description, :policy-func to have the policy created
+   implicitly and linked.
+
+  Returns the transaction ROW_ID (existing or freshly inserted)."
+  (unless trans-func
+    (setf trans-func (concatenate 'string "com-hhub-transaction-" trans-type)))
+  (let* ((effective-policy-id
+           (if policy-id
+               policy-id
+               (insert-auth-policy policy-name policy-description policy-func
+                                   :tenant-id tenant-id :active-flg active-flg))))
+    (unless effective-policy-id
+      (error "Could not resolve AUTH_POLICY_ID for transaction ~A. Pass :policy-id or :policy-name." transaction-name))
+    (if (bus-transaction-inserted-p transaction-name tenant-id)
+        (progn
+          (format t "  transaction ~A already exists - skipping~%" transaction-name)
+          (let ((res (clsql:query
+                      (format nil
+                              "SELECT ROW_ID FROM DOD_BUS_TRANSACTION
+                               WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N' LIMIT 1"
+                              transaction-name tenant-id)
+                      :flatp t)))
+            (and res (first res))))
+        (progn
+          (clsql:execute-command
+           (format nil
+                   "INSERT INTO DOD_BUS_TRANSACTION
+                      (NAME, URI, AUTH_POLICY_ID, TRANS_TYPE, CREATED_BY, ACTIVE_FLG, DELETED_STATE, TENANT_ID, TRANS_FUNC, ABAC_SUBJECT_ID)
+                    VALUES
+                      ('~A', '~A', ~D, '~A', NULL, '~A', 'N', ~D, '~A', ~A)"
+                   transaction-name uri effective-policy-id trans-type active-flg tenant-id
+                   trans-func (if abac-subject-id (format nil "~D" abac-subject-id) "NULL")))
+          (format t "  inserted transaction ~A (~A) linked to policy ~D~%"
+                  transaction-name uri effective-policy-id)
+          (let ((res (clsql:query
+                      (format nil
+                              "SELECT ROW_ID FROM DOD_BUS_TRANSACTION
+                               WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N' LIMIT 1"
+                              transaction-name tenant-id)
+                      :flatp t)))
+            (and res (first res)))))))
 
 (defun column-exists-p (table column)
   (let* ((sql (format nil

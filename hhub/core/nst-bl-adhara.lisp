@@ -563,7 +563,7 @@
     returned row individually — the row-level check is redundant
     once the query itself is tenant-scoped correctly."))
 
-(defgeneric !update (entity ctx &rest changed-slots)
+(defgeneric !update (entity row-id ctx &rest changed-slots)
   (:documentation
    "!state प्रत्यय — entity is an EXISTING instance here, not a class
     symbol. GUARDRAIL 2 still holds: entity first, ctx before &rest."))
