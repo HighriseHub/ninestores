@@ -110,7 +110,27 @@
                        :errstring (format nil "Warehouse delete failed, row-id ~A" row-id)))
            (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge)))))))))
 
-
+(defmethod !update ((entity-class (eql 'nst-whs)) (row-id string) (ctx domain-ctx)
+                     &rest update-args)
+  (let* ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
+	(dbobj (select-warehouse-by-id (parse-integer row-id) tenant-id)))
+    (if (null dbobj)
+        (make-instance 'nst-entity-nil :tenant-id tenant-id
+                        :reason (format nil "Warehouse row-id ~A not found" row-id))
+	;;else 
+	(let ((entity (make-instance 'nst-whs :tenant-id tenant-id)))
+	  (copyWarehouse-dbtodomain dbobj entity) ;; hydrate current state
+          (apply #'reinitialize-instance entity update-args)  ;; CLOS partial-update —
+	  ;; only supplied initargs change
+	  (copyWarehouse-domaintodb entity dbobj)
+          (let ((knowledge (with-nst-db-update (:source "nst-whs/!update")
+                             (clsql:update-records-from-instance dbobj)
+                              dbobj)))
+            (case (bo-knowledge-truth knowledge)
+              (:T entity)
+              (:U (error 'hhub-database-error
+                          :errstring (format nil "Warehouse update failed, row-id ~A" row-id)))
+              (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge)))))))))
 
 (defun validate-sort-args (sort-by sort-dir)
   (let ((col (cdr (assoc sort-by *whs-sort-whitelist*))))
@@ -229,7 +249,6 @@
     (setf (ownership-type destination)        (ownership-type entity))
     (setf (owner-entity-type destination)     (owner-entity-type entity))
     (setf (owner-entity-id destination)       (owner-entity-id entity))
-    (setf (vendor destination)                (vendor entity))
     (setf (operator-entity-type destination)  (operator-entity-type entity))
     (setf (operator-entity-id destination)    (operator-entity-id entity))
     (setf (legal-entity-type destination)     (legal-entity-type entity))
@@ -254,18 +273,20 @@
     ;; INVENTORY MANAGEMENT
     (setf (valuation-method destination)      (valuation-method entity))
     (setf (hsn-wise-stock destination)        (hsn-wise-stock entity))
-    ;; TENANT
-    (setf (company destination)               (company entity))
     destination))
 
 ;;; domain->response-list — convenience for collections (e.g. enumerate
 ;;; results). Thin mapcar over the single-entity method; the entity
 ;;; instances still never cross the boundary directly.
-(defmethod domain->response-list ((entities list) (ctx domain-ctx))
+(defun domain->response-list (entities ctx)
   "Carries each nst-whs through domain->response, returning a list of
-   WarehouseResponseModel objects. BELNAP NOTE: mapping the list is a
-   pure structural transform — it does NOT inspect each element's
-   Belnap truth. Filter/route on sentinels BEFORE calling this."
+   WarehouseResponseModel objects. Plain function, not a generic —
+   the per-element dispatch already happens correctly inside
+   domain->response itself; wrapping mapcar in a defmethod on 'list'
+   would just be false ceremony, the same mistake caught in render-html
+   two turns ago. BELNAP NOTE: mapping the list is a pure structural
+   transform — it does NOT inspect each element's Belnap truth.
+   Filter/route on sentinels BEFORE calling this."
   (mapcar (lambda (dom) (domain->response dom ctx)) entities))
 
 ;;; processresponselist-warehouse — listed-view entry point. Thin

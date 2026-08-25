@@ -18,30 +18,22 @@
                       #'create-widgets-for-showwarehouses
                       :role :vendor)))
 
+
 (defun create-model-for-showwarehouses ()
-  "Direct enumerate call — no request->dispatch, no nst-request-model.
-   This page has no external input to filter through a boundary
-   object; domain-ctx from session is the only input, and enumerate
-   is the only verb. request->dispatch stays available for the day
-   a filtered/searchable view needs it — not manufactured now on
-   spec. enumerate's :U/:C error signaling still uncaught — open item,
-   unchanged."
   (let* ((vendor-name (get-login-vendor-name))
-	 (company (get-login-vendor-company))
-         (ctx (make-domain-ctx :actor "VENDOR" :tenant company :channel "ONLINE" :recipient "VENDOR" :source "VENDOR"))
+         (company (get-login-vendor-company))
+         (ctx (make-domain-ctx :actor "VENDOR" :tenant company :channel "ONLINE"
+                                :recipient "VENDOR" :source "VENDOR"))
          (warehouselist (enumerate 'nst-whs ctx))
-         (htmlview (make-instance 'nst-whs-list-view))
-	 (params nil))
-    (logiamhere (format nil "there are ~A warehouses" (length warehouselist)))
-    (setf params (acons "uri" (hunchentoot:request-uri*)  params))
+         (responselist (domain->response-list warehouselist ctx))
+         (params nil))
+    (setf params (acons "uri" (hunchentoot:request-uri*) params))
     (setf params (acons "company" company params))
     (with-hhub-transaction "com-hhub-transaction-readall-warehouse" params
-      (function (lambda () (values warehouselist htmlview vendor-name))))))
+      (function (lambda () (values responselist vendor-name ctx))))))
 
 (defun create-widgets-for-showwarehouses (modelfunc)
-  "Unchanged shape — only the type of what's inside warehouselist
-   changed, from WarehouseViewModel to nst-whs entities directly."
-  (multiple-value-bind (warehouselist htmlview username) (funcall modelfunc)
+  (multiple-value-bind (responselist username ctx) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
                      (cl-who:with-html-output (*standard-output* nil)
                        (:div :id "row"
@@ -54,15 +46,15 @@
                        (with-html-div-row (:h4 "Showing warehouses"))
                        (:div :id "warehouselivesearchresult"
                              (:div :class "row"
-				   (:div :class "col-xs-6"
-					 (:a :href (format nil "/hhub/vwarehousedetailspage")   :class "btn btn-primary" "Create Warehouse"))
-				   (:div :class "col-xs-6" :align "right"
+                                   (:div :class "col-xs-6"
+                                         (:a :href "/hhub/vwarehousedetailspage"
+                                             :class "btn btn-primary" "Create Warehouse"))
+                                   (:div :class "col-xs-6" :align "right"
                                          (:span :class "badge"
-						(cl-who:str (format nil "~A" (length warehouselist))))))
+                                                (cl-who:str (format nil "~A" (length responselist))))))
                              (:hr)
-                             (cl-who:str (RenderListViewHTML htmlview warehouselist))))))))
+                             (cl-who:str (render-html-list responselist ctx))))))))
       (list widget1 widget2))))
-
 
 
 (defun create-model-for-searchwarehouses ()
@@ -135,24 +127,6 @@
 
 
 ;;; ---------------------------------------------------------------------------
-;;; HTML Rendering
-;;; ---------------------------------------------------------------------------
-(defmethod RenderListViewHTMLold ((htmlview WarehouseHTMLView) viewmodellist)
-  "Render warehouse list as HTML table with ownership info"
-  (when viewmodellist
-    (display-as-table (list "Name" "GSTIN" "City" "State" "Type" "Ownership" 
-                           "Manager" "Phone" "Active" "Actions") 
-                     viewmodellist 
-                     'display-warehouse-row)))
-
-
-(defmethod RenderListViewHTML ((htmlview nst-whs-list-view) warehouselist)
-  (when warehouselist
-    (display-as-table (list "Name" "GSTIN" "City" "State" "Type" "Ownership"
-                             "Manager" "Phone" "Active" "Actions")
-                       warehouselist 'display-warehouse-row)))
-
-;;; ---------------------------------------------------------------------------
 ;;; render-html — list of WarehouseResponseModel (post-domain->response)
 ;;; ---------------------------------------------------------------------------
 ;;;
@@ -164,11 +138,21 @@
 ;;; RenderListViewHTML does for the entity-level list. cl-who:str inside
 ;;; display-warehouse-row provides HTML-escaping for every cell — same
 ;;; safety as the existing list page.
-(defmethod render-html ((responses list) (ctx domain-ctx))
+
+(defmethod render-html ((rm WarehouseResponseModel) (ctx domain-ctx))
+  "Single-item HTML fragment — genuinely entity-specific, dispatches
+   correctly. THIS is where display-warehouse-row's logic belongs."
+  (display-warehouse-row rm))
+
+(defun render-html-list (responses ctx)
+  "Plain function, not a generic — 'list' can't discriminate contents,
+   so don't ask CLOS to. Delegates each row to the entity-specific
+   render-html method above; CLOS dispatch happens per-element,
+   where it actually works."
   (when responses
     (display-as-table (list "Name" "GSTIN" "City" "State" "Type" "Ownership"
                              "Manager" "Phone" "Active" "Actions")
-                       responses 'display-warehouse-row)))
+                       responses (lambda (r &rest _) (declare (ignore _)) (render-html r ctx)))))
 
 (defun display-warehouse-row (whs &rest arguments)
   "UNVERIFIED against nst-whs's actual accessor names this session —
@@ -187,8 +171,243 @@
                                      (or (owner-entity-type whs) "SELLER"))))
     (:td :height "10px" (cl-who:str (wmanager whs)))
     (:td :height "10px" (cl-who:str (wphone whs)))
-    (:td :height "10px" (cl-who:str (deleted-state whs)))
+    (:td :height "10px" (cl-who:str (activeflag whs)))
     (:td :height "10px"
 	 (:a :href (format nil "/hhub/vwarehousedetailspage?id=~A" (row-id whs))   :class  "btn btn-primary"  (:i :class "fa-solid fa-pencil")))))
+
+;;; ---------------------------------------------------------------------------
+;;; HTML Search Interface
+;;; ---------------------------------------------------------------------------
+(defun warehouse-search-html ()
+  "Generate warehouse search HTML"
+  (cl-who:with-html-output (*standard-output* nil)
+    (:div :class "row"
+          (:div :id "custom-search-input"
+                (:div :class "input-group col-xs-12 col-sm-6 col-md-6 col-lg-6"
+                      (with-html-search-form "idsyssearchwarehouses" "syssearchwarehouses" 
+                                            "idwarehouselivesearch" "warehouselivesearch" 
+                                            "searchwarehouseaction" "onkeyupsearchform1event();" 
+                                            "Enter Warehouse GSTINSearch for a warehouse"
+                        (submitsearchform1event-js "#idwarehouselivesearch" 
+                                                  "#warehouselivesearchresult")))))))
+
+
+(defun com-nst-transaction-vendor-warehouse-details-page ()
+  (with-vend-session-check
+    (with-mvc-ui-page "Create New Warehouse"
+                      #'create-model-for-addeditwarehouse
+                      #'create-widgets-for-addeditwarehouse
+      :role :vendor)))
+
+(defparameter *warehouse-field-map*
+  '((warehouse-uuid           . "%Warehouse UUID%")
+    (warehouse-code           . "%Warehouse Code%")
+    (wname                    . "%Warehouse Name%")
+    (waddr1                   . "%Warehouse Address1%")
+    (waddr2                   . "%Warehouse Address2%")
+    (wpin                     . "%Warehouse Pincode%")
+    (wcity                    . "%Warehouse City%")
+    (wstate                   . "%Warehouse State%")
+    (wcountry                 . "%Warehouse Country%")
+    (wmanager                 . "%Warehouse Manager%")
+    (wphone                   . "%Warehouse Phone%")
+    (waltphone                . "%Warehouse Alt Phone%")
+    (wemail                   . "%Warehouse Email%")
+    (activeflag               . "%Warehouse Active Flag%")
+    (ownership-type           . "%Warehouse Ownership Type%")
+    (owner-entity-type        . "%Warehouse Owner Entity Type%")
+    (owner-entity-id          . "%Warehouse Owner Entity ID%")
+    (operator-entity-type     . "%Warehouse Operator Entity Type%")
+    (operator-entity-id       . "%Warehouse Operator Entity ID%")
+    (legal-entity-type        . "%Warehouse Legal Entity Type%")
+    (warehouse-gstin          . "%Warehouse GSTIN%")
+    (gstin-status             . "%Warehouse GSTIN Status%")
+    (legal-name               . "%Warehouse Legal Name%")
+    (is-primary-location      . "%Warehouse Is Primary Location%")
+    (state-code               . "%Warehouse State Code%")
+    (registration-type        . "%Warehouse Registration Type%")
+    (pan-number               . "%Warehouse PAN Number%")
+    (warehouse-type           . "%Warehouse Type%")
+    (warehouse-purpose        . "%Warehouse Purpose%")
+    (default-transporter-id   . "%Warehouse Default Transporter ID%")
+    (default-transporter-name . "%Warehouse Default Transporter Name%")
+    (eway-bill-enabled        . "%Warehouse EWay Bill Enabled%")
+    (latitude                 . "%Warehouse Latitude%")
+    (longitude                . "%Warehouse Longitude%")
+    (valuation-method         . "%Warehouse Valuation Method%")
+    (hsn-wise-stock           . "%Warehouse HSN Wise Stock%")))
+
+
+(defun create-model-for-addeditwarehouse ()
+  (let* ((id (hunchentoot:parameter "id"))
+	 (vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (ctx (make-domain-ctx :actor "VENDOR" :tenant company :channel "ONLINE" :recipient vendor :source "VENDOR"))
+	 (warehouseobj (if id (fetch 'nst-whs id ctx)))
+	 (warehousedetailspagetempl (funcall (nst-get-cached-warehouse-template-func :templatenum 1))))
+    ;; --- Set the form action: presence of id => update, absence => create ---
+    (setf warehousedetailspagetempl
+          (cl-ppcre:regex-replace-all
+           "%Warehouse Action%"
+           warehousedetailspagetempl
+           (if id "vupdatewarehouseaction" "vcreatewarehouseaction")))
+    ;; For create/edit handling:
+    (dolist (pair *warehouse-field-map*)
+      (let* ((slot (car pair))
+             (placeholder (cdr pair))
+             (value (and warehouseobj (slot-value warehouseobj slot))))
+	(setf warehousedetailspagetempl 
+              (cl-ppcre:regex-replace-all 
+               placeholder 
+               warehousedetailspagetempl 
+               (if value (princ-to-string value) "")))))
+    
+    (function (lambda ()
+      (values  warehousedetailspagetempl)))))
+
+(defun create-widgets-for-addeditwarehouse (modelfunc)
+  (multiple-value-bind ( warehousedetailspagetempl) (funcall modelfunc)
+    (let ((widget1  (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(cl-who:str warehousedetailspagetempl))))))
+    (list widget1))))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════
+;;; UPDATE — gana !update verb, MVC redirect flow
+;;; ═══════════════════════════════════════════════════════════════════════
+
+(defun com-hhub-transaction-update-warehouse-action ()
+  "Handler for updating a warehouse via the proc.bhandara !update verb.
+
+   Uses the gana (NST) path directly — !update 'nst-whs — instead of
+   the legacy Context Flow Dispatcher (dispatch-route :warehouse/update →
+   WarehouseAdapter/WarehouseService.doUpdate).
+
+   row-id arrives as HTTP param \"id\" (the edit page's URL carries
+   ?id=<row>; same key used by fetch for pre-population). All other
+   fields arrive from the POSTed warehousedetailspage.html form and are
+   passed as CLOS reinitialize-initargs so the !update method performs a
+   genuine partial update — only the supplied slots change.
+
+   On success redirects back to /hhub/vwarehousedetailspage?id=<row> (the
+   same warehouse's details page) so the user sees the refreshed record."
+  (with-vend-session-check
+    (with-mvc-redirect-ui #'create-model-for-updatewarehouse
+                          #'create-widgets-for-genericredirect)))
+
+(defun create-model-for-updatewarehouse ()
+  "Model for the update-warehouse action. Runs !update and returns the
+   redirect URL back to the same warehouse's details page."
+  (flet ((parse-int-or-0 (s)
+           "Parse S as an integer, returning 0 if S is nil or empty."
+           (if (and s (string/= s ""))
+               (parse-integer s)
+               0)))
+    (let* ((id (hunchentoot:parameter "id"))
+         (company (get-login-vendor-company))
+         (vendor (get-login-vendor))
+
+         ;; ctx is a domain-ctx (the gana kāraka passenger struct), NOT
+         ;; the conflodis call-context. tenant = vendor session company.
+         (ctx (make-domain-ctx :actor "VENDOR" :tenant company
+                               :channel "ONLINE" :recipient vendor :source "VENDOR"))
+
+         (wname (hunchentoot:parameter "wname"))
+         (waddr1 (hunchentoot:parameter "waddr1"))
+         (waddr2 (hunchentoot:parameter "waddr2"))
+         (wpin (hunchentoot:parameter "wpin"))
+         (wcity (hunchentoot:parameter "wcity"))
+         (wstate (hunchentoot:parameter "wstate"))
+         (wcountry (hunchentoot:parameter "wcountry"))
+         (wmanager (hunchentoot:parameter "wmanager"))
+         (wphone (hunchentoot:parameter "wphone"))
+         (waltphone (hunchentoot:parameter "waltphone"))
+         (wemail (hunchentoot:parameter "wemail"))
+         (activeflag (hunchentoot:parameter "activeflag"))
+
+         ;; Ownership fields
+         (ownership-type (hunchentoot:parameter "ownershiptype"))
+         (owner-entity-type (hunchentoot:parameter "ownerentitytype"))
+         (owner-entity-id (parse-int-or-0 (hunchentoot:parameter "ownerentityid")))
+         (operator-entity-type (hunchentoot:parameter "operatorentitytype"))
+         (operator-entity-id (let ((oeid (hunchentoot:parameter "operatorentityid")))
+                                (when (and oeid (string/= oeid ""))
+                                  (parse-integer oeid))))
+         (legal-entity-type (hunchentoot:parameter "legalentitytype"))
+
+         ;; GST and Advanced Fields
+         (warehouse-gstin (hunchentoot:parameter "warehousegstin"))
+         (gstin-status (hunchentoot:parameter "gstinstatus"))
+         (legal-name (hunchentoot:parameter "legalname"))
+         (is-primary-location (parse-int-or-0 (hunchentoot:parameter "isprimarylocation")))
+         (state-code (hunchentoot:parameter "statecode"))
+         (registration-type (hunchentoot:parameter "registrationtype"))
+         (warehouse-type (hunchentoot:parameter "warehousetype"))
+         (warehouse-purpose (hunchentoot:parameter "warehousepurpose"))
+         (default-transporter-id (hunchentoot:parameter "defaulttransporterid"))
+         (default-transporter-name (hunchentoot:parameter "defaulttransportername"))
+         (eway-bill-enabled (parse-int-or-0 (hunchentoot:parameter "ewaybillenabled")))
+         (latitude (float (with-input-from-string (in (or (hunchentoot:parameter "latitude") "0.0"))
+                            (read in))))
+         (longitude (float (with-input-from-string (in (or (hunchentoot:parameter "longitude") "0.0"))
+                             (read in))))
+         (valuation-method (hunchentoot:parameter "valuationmethod"))
+         (hsn-wise-stock (parse-int-or-0 (hunchentoot:parameter "hsnwisestock")))
+         (pan-number (hunchentoot:parameter "pannumber"))
+
+         (update-args (list :wname wname
+                            :waddr1 waddr1
+                            :waddr2 waddr2
+                            :wpin wpin
+                            :wcity wcity
+                            :wstate wstate
+                            :wcountry wcountry
+                            :wmanager wmanager
+                            :wphone wphone
+                            :waltphone waltphone
+                            :wemail wemail
+                            :activeflag activeflag
+                            ;; Ownership fields
+                            :ownership-type ownership-type
+                            :owner-entity-type owner-entity-type
+                            :owner-entity-id owner-entity-id
+                            :operator-entity-type operator-entity-type
+                            :operator-entity-id operator-entity-id
+                            :legal-entity-type legal-entity-type
+                            ;; GST fields
+                            :warehouse-gstin warehouse-gstin
+                            :gstin-status gstin-status
+                            :legal-name legal-name
+                            :is-primary-location is-primary-location
+                            :state-code state-code
+                            :registration-type registration-type
+                            :warehouse-type warehouse-type
+                            :warehouse-purpose warehouse-purpose
+                            :default-transporter-id default-transporter-id
+                            :default-transporter-name default-transporter-name
+                            :eway-bill-enabled eway-bill-enabled
+                            :latitude latitude
+                            :longitude longitude
+                            :valuation-method valuation-method
+                            :hsn-wise-stock hsn-wise-stock
+                            :pan-number pan-number
+                            :company company
+                            :vendor vendor))
+         (redirecturl (format nil "/hhub/vwarehousedetailspage?id=~A" (or id "")))
+         (params nil))
+    (setf params (acons "uri" (hunchentoot:request-uri*) params))
+    (with-hhub-transaction "com-hhub-transaction-update-warehouse-action" params
+      (handler-case
+          (apply #'!update 'nst-whs id ctx update-args)  ; perform the update
+        (error (c)
+          (error 'hhub-business-function-error
+                 :errstring (format t "~A" c)))))
+    ;; Return ONLY the redirect URL — the sole value create-widgets-for-
+    ;; genericredirect consumes to emit the browser redirect.
+    (function (lambda () redirecturl)))))
+
+
+
 
 
