@@ -1,10 +1,4 @@
-;;; nst-bl-ollama.lisp
-;;;
-;;; Copyright (c) 2026 Nine Stores. All rights reserved.
-;;;
-;;; Distributed under the MIT License. See LICENSE file in the project root.
-;; -*- mode: common-lisp; coding: utf-8 -*-
-(in-package :nstores)                      
+(in-package :nstores)
 
 (defun function-lookup-table () (function (lambda () 
   '(
@@ -15,6 +9,8 @@
      "Get GST-compliant UQC code for any UOM code." "" NIL)
     ("UPDATE-SHIPPING-METHODS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-bl-osh.lisp" "" "" NIL)
+    ("NST-GET-CACHED-WAREHOUSE-TEMPLATE-FUNC" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("PERSIST-VENDOR-SHIP-ZONE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-bl-osh.lisp" "" "" NIL)
     ("OPERATION" "GENERIC-FUNCTION"
@@ -37,9 +33,22 @@
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("MODAL.VENDOR-ORDER-DETAILS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("DOMAIN-CTX-RECIPIENT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
+    ("TOTAL-TDS-DEDUCTED" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("IS-B2B-CUSTOMER-P" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp"
      "Check if customer is B2B (has GSTIN)" "" NIL)
+    ("TEST-EXTRACT-DOMAIN-INITARGS-STRIPS-TENANT-ID" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "[LEGAL/SECURITY] A client-supplied :tenant-id in rm.params must
+   NEVER survive into the returned initargs. This is the नियम-1 bypass
+   this function exists to close — test it explicitly, not incidentally.
+   STUB: build rm with params containing (:tenant-id 99 :wname \"X\"),
+   call extract-domain-initargs, assert :tenant-id absent from result,
+   assert :wname present."
+     "" NIL)
     ("DOD-CONTROLLER-CMPSEARCH-FOR-VEND-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-PRDPRICEWITHDISCOUNT" "FUNCTION"
@@ -52,14 +61,12 @@
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("GET-LOGIN-VENDOR-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("GET-ALL-GST-SAC-CODES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("SGST-AMOUNT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
+    ("NST-RESPONSE-CONTRADICTION" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("CREATED-AT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
-    ("CREATE-MODEL-FOR-CUSTVEN-SIGNUP-PAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("UI-LIST-SHOPCART-FOR-EMAIL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("CHECK-LOW-WALLET-BALANCE" "FUNCTION"
@@ -70,6 +77,10 @@
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("REQUESTMODELVENDORAPPROVAL" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
+    ("DISPLAY-ORDER-HEADER-FOR-CUSTOMER" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
+    ("PERSIST-AUTH-ATTR-LOOKUP" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("LOG-CRITICAL-ERROR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp"
      "Logs a critical error, automatically including the function that initiated the DB call."
@@ -105,13 +116,34 @@
      "Returns current date as a string in DD-MM-YYYY format." "" NIL)
     ("BANNER" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-dal-cmp.lisp" "" "" NIL)
-    ("W-COUNTRY" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+    ("KAARAKA-REF-P" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
+    ("DOMAIN-CTX-OVERRIDE-REASON" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
+    ("COM-HHUB-BUSINESSFUNCTION-DB-GETPUSHNOTIFYSUBSCRIPTIONFORVENDOR"
+     "FUNCTION" "/home/ubuntu/ninestores/hhub/webpushnotify/dod-bl-push.lisp"
+     "" "" NIL)
+    ("MAKE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "सृजन प्रत्यय — crystallizes a new entity instance.
+    [LEGAL] Any GSTIN-bearing entity (nst-whs, nst-vnd, ...) MUST run
+    a ?exists uniqueness check as a :before method BEFORE construction
+    completes — see the nst-whs example below. :U from that check
+    MUST abort; only a confirmed :F (not found) permits creation."
+     "" NIL)
     ("BO-MERGE*" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-beltrusys.lisp"
      "Merge multiple bo-knowledge objects (fold left using bo-merge)." "" NIL)
     ("ACCORDION-EXAMPLE1" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("RENDER-HTML" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Post-ferry outbound encoding, HTML. response dispatches the method:
+    a single nst-boundary-object (or its subclass), a LIST of them, or a
+    response-model Belnap sentinel. Returns an HTML string. Same multiple-
+    dispatch contract as render-json — response determines both
+    cardinality and entity type."
+     "" NIL)
     ("CREATE-MODEL-FOR-CADUPDATEDETAILSACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("UI-LIST-CUST-ORDERDETAILS" "FUNCTION"
@@ -127,9 +159,6 @@
      "" NIL)
     ("CUSTOMER-COMPANY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/subscription/dod-dal-opf.lisp" "" "" NIL)
-    ("REFACTOR-QUICK" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
-     "Quick refactor with default settings and no dry-run." "" NIL)
     ("SHIPADDR" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("DOD-CONTROLLER-SEARCH-PRODUCTS" "FUNCTION"
@@ -161,6 +190,8 @@
      "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
     ("CREATE-DIGEST-SHA1" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
+    ("VENDORPUSHNOTIFICATIONSERVICE" "CLASS"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("VENDOR-FILING-FREQUENCY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("MODAL.REJECT-VENDOR-HTML" "FUNCTION"
@@ -189,8 +220,6 @@
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("UI-LIST-SHOPCART-READONLY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
-    ("COMPCESS" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("URI-PREFIX-BOUNDARY-P" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("DISPLAYSTOREPICKUPWIDGET" "FUNCTION"
@@ -204,26 +233,35 @@
      "Get all B2B customers (with GSTIN)" "" NIL)
     ("CUSTOMER-SEARCH-HTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
+    ("KAARAKA-REF-ENTITY-TYPE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("NST-LOAD-EMAIL-TEMPLATES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
-    ("UPDATE-PRD-DETAILS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("RENDER-PENDING-ORDERS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Render the pending orders view with a clean action bar." "" NIL)
+    ("DISPLAY-VENDOR-DEMAND-ROW" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-ui-ord.lisp"
+     "Row renderer for the product demand table. Each ROW is
+   (prd quantity subtotal orders); the currency symbol is passed
+   through ARGUMENTS."
+     "" NIL)
     ("HHUB-SESSION-VALIDP" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-usr.lisp" "" "" NIL)
     ("GET-BUS-TRAN-POLICY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-bo.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-VEND-SHIPPING-METHODS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-CREATE-WHATSAPP-LINK-WITH-MESSAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("HTML-BACK-BUTTON" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("HSN-WISE-STOCK" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("LIST-DOD-USERS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-bl-usr.lisp" "" "" NIL)
     ("GET-SYSTEM-BUS-TRANSACTIONS-HT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
-    ("GET-UNIX-TIME" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("CREATERESPONSEMODEL" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Creates a responsemodel from businessobject" "" NIL)
@@ -235,8 +273,6 @@
     ("READ-YAML-FILE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "Read a YAML file and return its parsed content." "" NIL)
-    ("REJECT-PRODUCT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/sysuser/dod-bl-cad.lisp" "" "" NIL)
     ("ORDER-SHIPPING-RATE-CHECK-ZONEWISE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-ui-osh.lisp" "" "" NIL)
     ("CREATE-PRODUCTS-CSV2" "FUNCTION"
@@ -244,7 +280,7 @@
     ("DELETE-AUTH-POLICIES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("VM-REASON" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("CRM-DB-CONNECT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("SELECT-PAYMENT-TRANS-BY-CUSTOMER" "FUNCTION"
@@ -266,14 +302,23 @@
      "/home/ubuntu/ninestores/hhub/invoice/nst-bl-ihd.lisp" "" "" NIL)
     ("CALCULATE-SHIPPING-COST-FOR-ORDER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("READ-SOURCE-FILE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Retrieves the complete live source code of FUNCTION-NAME from the running image via Swank."
+     "" NIL)
     ("ORDER-ITEM-EDIT-POPUP" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("INVOICEITEMADAPTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("COMPANY-TYPE-DROPDOWN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-ABAC-SECURITY" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
+    ("!UPDATE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "!state प्रत्यय — entity is an EXISTING instance here, not a class
+    symbol. GUARDRAIL 2 still holds: entity first, ctx before &rest."
+     "" NIL)
+    ("NST-VIEW-UNKNOWN" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("FULFILLED" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("MAKE-LAZY" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp"
@@ -286,6 +331,14 @@
      "" "" NIL)
     ("MIGRATE-2025MAY-ADD-PRODUCT-CODE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp" "" "" NIL)
+    ("DELETE!" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "लोप प्रत्यय — soft-delete. Sets deleted-state to \"Y\". Never a
+    hard DELETE — नियम-2 already blocks all further verbs on the
+    result; physical removal is not this project's concern."
+     "" NIL)
+    ("WAREHOUSE-PURPOSE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("QLISP" "MACRO" "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
      "Surgical REPL prompter interface. Captures raw Common Lisp forms without 
    requiring manual text quote wrapping or escaping nested string tokens."
@@ -304,8 +357,20 @@
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("PAYMENT-API-SALT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
+    ("RESTORE-DELETED-AUTH-POLICY-ATTRS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("DISPLAY-CUSTOMER-PAGE-WITH-WIDGETS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("WITH-NST-DB-CREATE" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
+     "INSERT boundary macro, no DBAdapterService holder. BODY performs
+   the raw CLSQL write and must return the dbobj as its last form —
+   caller does the row-id copy-back (bind-generated-row-id), not
+   this macro. :T=success/payload=dbobj. :F=confirmed DB-level
+   constraint rejection (row never written). :U=any other error,
+   logged. :C=optional caller-supplied PRE-FLIGHT form found rows
+   (stale-cache race, short-circuits before BODY ever runs)."
+     "" NIL)
     ("COM-HHUB-TRANSACTION-SADMIN-CREATE-USERS-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-usr.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-ORDER" "FUNCTION"
@@ -328,6 +393,8 @@
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-VENDORORDERDETAILS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("MODAL.VENDOR-PRODUCT-EDIT-HTML" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("HHUB-INIT-BUSINESS-FUNCTIONS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("COPYCUSTOMER-DOMAINTODB" "FUNCTION"
@@ -344,26 +411,48 @@
      "/home/ubuntu/ninestores/hhub/core/dod-dal-rol.lisp" "" "" NIL)
     ("CURRENT-DATE-OBJECT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
+    ("DOD-ROLES" "CLASS" "/home/ubuntu/ninestores/hhub/core/dod-dal-rol.lisp"
+     "" "" NIL)
     ("UI-LIST-PROD-CATG-DROPDOWN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("HHUB-INIT-NETWORK-FUNCTIONS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SEARCHCUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
+    ("ADDBO" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
+     "Reads the params and create a new BusinessObject. Return the newly created BusinessObject"
+     "" NIL)
+    ("GANA-PACKAGE-FOR" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Returns the गण package (keyword) that owns verb-symbol.
+    [STRUCTURAL/LEGAL]: an unregistered verb reaching this function
+    means a verb was invoked without being declared in Document 1's
+    grammar — this is treated as an error, not a silent no-op, because
+    silently returning nil here would make the ferry dispatch into
+    nothing and fail confusingly three lines later instead of failing
+    clearly at the actual point of the grammar violation."
+     "" NIL)
+    ("DOD-CONTROLLER-VENDOR-SHIPZONE-RATETABLE-PAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("HAS-PERMISSION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp"
+     "Policy Enforcement Point (PEP).
+   Returns (list returnvalue exceptionstr), where returnvalue is T/NIL,
+   and exceptionstr is a user-facing error string or NIL on success."
+     "" NIL)
     ("DOREAD" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "DoCreate service implementation for a Business Service" "" NIL)
     ("SETCOMPANY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "Set the Company" ""
      NIL)
+    ("TOTALITEMVAL" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("MEMOIZEKEYFUNC" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/memoize.lisp" "" "" NIL)
     ("BUYER-ID" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
-    ("HHUB-GET-CACHED-VENDOR-PRODUCTS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-REMOVESHOPCARTITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-CREATE-INVOICE-ACTION" "FUNCTION"
@@ -374,9 +463,6 @@
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("BUSINESSOBJECTCONTRADICTION" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
-    ("DISCOVERSERVICE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
-     "discover a business service based on the service-code" "" NIL)
     ("DOD-CONTROLLER-PASSWORD-RESET-TOKEN-EXPIRED" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("DISPLAY-ADDRESS-CONSENT-WIDGET" "FUNCTION"
@@ -386,25 +472,26 @@
     ("PICTURE-PATH" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VEND-INDEX" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("GET-COUNTRY" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Main controller for vendor dashboard." "" NIL)
     ("GENERATE-LOOKUP-FILE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-ui-prosymloo.lisp" "" "" NIL)
     ("RESTORE-DELETED-ORDERPREFS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/subscription/dod-bl-opf.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SAVE-INVOICE-PRINT-SETTINGS-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
-    ("RETURN-JSON" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("DETERMINE-DEFAULT-SHIPPING-OPTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("TOKEN" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-pas.lisp" "" "" NIL)
     ("DISPLAY-GST-HSN-CODE-ROW" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
-    ("FIND-PINCODE-DETAILS-FROM-DB" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-pincodes.lisp" "" "" NIL)
+    ("UPIPAYMENTSHTMLVIEW" "CLASS"
+     "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
+    ("SELECT-INVOICE-ITEM-BY-PRODUCT-ID" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-bl-itm.lisp" "" "" NIL)
+    ("BILLZIPCODE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("MODAL.CUSTOMER-FORGOT-PASSWORD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("PAYMENT-MODE" "GENERIC-FUNCTION"
@@ -413,8 +500,8 @@
      "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
      "Handler for reading a single warehouse using context flow dispatcher" ""
      NIL)
-    ("GENERATE-ACCOUNT-EXT-URL" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
+    ("DOD-CUST-LOGIN-AS-GUEST" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("VENDOR-UPLOAD-FILE-S3BUCKET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("TOTAL-DISCOUNT" "GENERIC-FUNCTION"
@@ -433,15 +520,15 @@
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp"
      "Generate the invoice tax breakdown object based on the invoice header and invoice items"
      "" NIL)
-    ("DELETE-PRODUCT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-VEND-LOGIN-WITH-OTP" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("COPY-KAARAKA-REF" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("REQUESTCREATEWEBPUSHNOTIFYVENDOR" "CLASS"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("COPY-BUSINESSOBJECT-TO-DBOBJECT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Syncs the dbobject and the domainobject" "" NIL)
-    ("CREATE-WIDGETS-FOR-TRANSCUSTEDITORDERITEM" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CREATE-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-SEARCH-CUST-WALLET-PAGE" "FUNCTION"
@@ -462,14 +549,40 @@
       (:READS :INVOICEITEMS) (:WRITES) (:THROWS) (:PURE) (:COST . :LOW)))
     ("CUSTOMER-ADD-TO-CART-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("HHUB-BUSINESS-ADAPTER" "FUNCTION"
+    ("SUBMITSEARCHFORM3EVENT-JS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("WITH-NST-DB-DELETE" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
+     "SOFT-DELETE boundary macro, no DBAdapterService holder. Writes
+   ONLY deleted-state via clsql:update-record-from-slot — narrower
+   than with-nst-db-create/update's full-instance write, deliberately,
+   so a delete can't clobber concurrent changes to other columns.
+   BODY must set (deleted-state dbobj) to \"Y\" and return dbobj.
+   :F = PRE-FLIGHT found zero live rows, ALLOW-IDEMPOTENT nil (caller
+   expected a live row; it's gone — a real failure to report, not
+   silently swallowed). :T/:already-absent = same zero-row case,
+   ALLOW-IDEMPOTENT t (cleanup/expiry flows: desired state already
+   holds). :C = PRE-FLIGHT found >1 live rows — only reachable if
+   PRE-FLIGHT queries a non-unique key; unreachable for row-id-keyed
+   deletes like nst-whs's. :U = any error, logged."
+     "" NIL)
+    ("NST-BOUNDARY-OBJECT" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "ROOT of ALL boundary/adapter objects. NEVER inherits from
+    nst-domain-entity — that inheritance would recreate the exact
+    vulnerability this document exists to close.
+
+    NEVER accepted as the primary dispatching argument by any proc.GANA
+    or proc.bs method. Exists ONLY between HTTP/UI/CLI and the domain
+    grammar. Dies at the Adapter boundary — the लोप principle, now
+    structural rather than conventional."
+     "" NIL)
     ("WITH-HTML-CHECKBOX" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("WITH-HTML-INPUT-TEXTAREA" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
-    ("BILLZIPCODE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
+    ("ZONEZIPCODESDISPLAYFUNC" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("FIND-CUSTOMER-BY-PAN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp"
      "Find customer by PAN" "" NIL)
@@ -482,8 +595,6 @@
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("AMOUNT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
-    ("VIEWMODELNIL" "CLASS"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("WEBPUSHNOTIFYCUSTOMER" "CLASS"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("DOD-CONTROLLER-LOW-WALLET-BALANCE-FOR-ORDERITEMS" "FUNCTION"
@@ -492,10 +603,10 @@
      "" NIL)
     ("VENDOR-DELETE-FILES-S3BUCKET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("VENDOR-CREATE-UPDATE-CUSTOMER-DIALOG" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("WITH-STANDARD-VENDOR-PAGE" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("SAVE-UPI-TRANSACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("WITH-HTML-DIV-COL-10" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CREATEMODELFORTRANSACTIONTOPOLICYLINKPAGE" "FUNCTION"
@@ -512,12 +623,12 @@
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SEARCHINVOICEITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
+    ("LAZY-CDR" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp" ""
+     "" NIL)
     ("SELECT-ALL-GSTHSNCODES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
     ("ITC-CLAIMABLE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
-    ("DOD-PAYMENT-TRANSACTION" "CLASS"
-     "/home/ubuntu/ninestores/hhub/paymentgateway/dod-dal-pay.lisp" "" "" NIL)
     ("DISPLAY-VENDORS-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("DOD-ORDER-ITEMS-TRACK" "CLASS"
@@ -554,8 +665,6 @@
     ("GST-BREAKDOWN" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp"
      "A container that groups taxes by HSN and Rate." "" NIL)
-    ("VEDORPASSCODESERVICE" "CLASS"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("W-NAME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("ACCOUNT-CREATED-DAYS-AGO" "FUNCTION"
@@ -566,26 +675,28 @@
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "Returns current year as a string in YYYY format" "" NIL)
     ("LEGAL-NAME" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("INITBUSINESSSERVER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-VENDOR-CURRENTPRODCATGCOUNT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
-    ("SELECT-PRDCATG-BY-NAME" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("VENDOR-UPI-PAYMENT-CANCEL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
+    ("CUSTOMERREQUESTMODEL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/customer/nst-dal-Customer.lisp" "" "" NIL)
     ("CURR-SYMBOL" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-dal-sys.lisp" "" "" NIL)
+    ("%DETECT-DUPLICATE-PKS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
+     "Return T if PK-EXTRACTOR applied to ROWS yields any duplicate values." ""
+     NIL)
     ("MY-NOT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
      "Implements the logical NOT operator for FDE logic." "" NIL)
     ("CREATE-MODEL-FOR-PRDDETAILSFORGUESTCUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("COPYGSTHSNCODES-DOMAINTODB" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
-    ("GET-LOGIN-CUSTOMER-ID" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("VEDORPASSCODESERVICE" "CLASS"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("SETEXCEPTION" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Set the Exception for the Database Adapter Service" "" NIL)
@@ -617,14 +728,16 @@
     ("CURRENT-TIME-STRING" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "Returns current time  as a string in HH:MM:SS  format" "" NIL)
-    ("CREATE-PRODUCT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
-    ("CREATE-ODTINST-SHOPCART" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
     ("HASHCALCULATE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
+    ("RENDER-VENDOR-DASHBOARD-HOME" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Render the home dashboard view with cards using Font Awesome icons." ""
+     NIL)
     ("BILLCITY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
+    ("GET-COUNTRY" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
     ("EDIT-INVOICEITEM-DIALOG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
     ("GET-SHIPPING-METHOD-FOR-VENDOR" "FUNCTION"
@@ -658,6 +771,8 @@
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-PRIVACY-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
+    ("EMIT-AUDIT" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("SELECT-VENDOR-WAREHOUSES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
      "Select all warehouses owned by a vendor" "" NIL)
@@ -669,38 +784,42 @@
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("SELECT-PRDCATG-BY-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
-    ("DOD-VEND-PROFILE" "CLASS"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("RESTORE-DELETED-VENDORS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
     ("ORDER-AMT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
+    ("RENDER-JSON" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Post-ferry outbound encoding, JSON. response dispatches the method:
+    a single nst-boundary-object (or its subclass), a LIST of them, or a
+    response-model Belnap sentinel. Returns the JSON text (a string).
+    Multiple dispatch: response carries BOTH cardinality and entity type;
+    CLOS resolves both — no if/else over types in method bodies."
+     "" NIL)
     ("BREAK-END-TIME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vad.lisp" "" "" NIL)
     ("SEND-NEW-COMPANY-REGISTRATION-EMAIL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/email/templates/registration.lisp" "" "" NIL)
     ("UPIPAYMENTSVIEWMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-VEND-SHIPPING-METHODS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("PERSIST-AUTH-ATTR-LOOKUP" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
+    ("PRODUCT-CARD-SHOPCART-READONLY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-DELETE-INVOICEITEM-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
     ("ATTRINLIST-P" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("DOD-VPAYMENT-METHODS" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
+    ("DELETE-PRDCATGS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("NST-LOAD-PRODUCT-TEMPLATES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTADDORDERSUBS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-CUST-ADD-TO-CART" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("DOD-CONTROLLER-NEW-STORE-REQUEST-STEP2" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("VENDOR" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("GET-BILLSAMEASSHIP" "GENERIC-FUNCTION"
@@ -711,6 +830,9 @@
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("VENDORAPPROVALSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
+    ("NST-RESPONSE-MODEL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Domain result reshaped for outbound transport." "" NIL)
     ("DOD-BUS-TRANSACTION" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-bo.lisp" "" "" NIL)
     ("PRODUCT-PRICE-WITH-DISCOUNT-WIDGET" "FUNCTION"
@@ -731,8 +853,6 @@
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("GET-VOLUMETRIC-WEIGHT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-ui-osh.lisp" "" "" NIL)
-    ("RENDER-UI-PAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("IS-GST-COMPLIANT-UQC-P" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-dal-sys.lisp"
      "Check if code is a pure GST UQC (not an alias)." "" NIL)
@@ -757,12 +877,10 @@
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("HHUB-LOG-MESSAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
-    ("SELECT-BUS-OBJECT-BY-COMPANY" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
     ("GET-COMPANY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
-    ("DISPLAY-PRODUCTS-CAROUSEL" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("GET-OPREF-BY-ID" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/subscription/dod-bl-opf.lisp" "" "" NIL)
     ("WITH-COMPADMIN-NAVIGATION-BAR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("CALL-CONTEXT-CREATE" "CLASS"
@@ -771,12 +889,14 @@
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("DOD-ORD-PREF" "CLASS"
      "/home/ubuntu/ninestores/hhub/subscription/dod-dal-opf.lisp" "" "" NIL)
+    ("MODAL.VENDOR-PRODUCT-PRICING" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("WITH-NO-NAVBAR-PAGE" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("GET-VENDOR-COMPANY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
-    ("GET-SYSTEM-BUS-TRANSACTIONS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
+    ("DOD-INVOICE-HEADER" "CLASS"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("DELETEBUSINESSOBJECTREPOSITORY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Delete the business object repository" "" NIL)
@@ -793,7 +913,7 @@
     ("GET-BUS-OBJECT-BY-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
     ("OWNER-ENTITY-ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("DISPLAY-PRODUCT-IN-INVOICE-ROW" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("DELETEBUSINESSSESSION" "GENERIC-FUNCTION"
@@ -801,8 +921,9 @@
      "Deletes the business session on a given key" "" NIL)
     ("COPYORDERITEM-DOMAINTODB" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-bl-OrderItem.lisp" "" "" NIL)
-    ("TRANSACTION-ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
+    ("GET-TOP-CUSTOMERS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp"
+     "Get top customers by spend or order count" "" NIL)
     ("UNIT-PRICE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("DOD-VEND-LOGIN" "FUNCTION"
@@ -823,10 +944,6 @@
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("PAYLATERENABLED" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
-    ("MAKE-BO-KNOWLEDGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-beltrusys.lisp"
-     "Create a bo-knowledge instance. PROVENANCE may be a single value or a list."
-     "" NIL)
     ("CREATE-UI-FOR-CUSTORDERSUBS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/subscription/dod-ui-opf.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CREATE-WAREHOUSE-ACTION" "FUNCTION"
@@ -843,9 +960,6 @@
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("RESTORE-DELETED-ORDERS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
-    ("GET-ACTIVE-WAREHOUSES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
-     "Get all active warehouses for a tenant" "" NIL)
     ("COPYINVOICEHEADER-DBTODOMAIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-bl-ihd.lisp" "" "" NIL)
     ("GET-DATESTR-FROM-OBJ-YYYYMMDD" "FUNCTION"
@@ -877,15 +991,15 @@
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CREATE-INVOICEHEADER-DIALOG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
+    ("AUTH-POLICY-INSERTED-P" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp"
+     "Non-nil if a live (not soft-deleted) policy with NAME exists." "" NIL)
     ("GSTNUMBER" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUSTOMER-RESET-PASSWORD-ACTION-LINK" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("WITH-VENDOR-BREADCRUMB" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
-    ("CREATE-WIDGETS-FOR-PROJECT-SYMBOLS-LOOKUP-PAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-ui-prosymloo.lisp"
-     "Widget Factory: Calls the widget with the model data." "" NIL)
     ("DOD-CONTROLLER-VENDOR-UPDATE-FLATRATE-SHIPPING-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("GENERATE-LISP-FILENAME" "FUNCTION"
@@ -898,6 +1012,8 @@
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("ACK-NUMBER" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
+    ("DOD-GET-CACHED-ORDER-ITEMS-BY-PRODUCT-ID" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("VENDOR-UPI-PAYMENT-CONFIRM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("CTX-REQUEST-URI" "GENERIC-FUNCTION"
@@ -909,30 +1025,49 @@
      "Returns a view instance for this request." "" NIL)
     ("NST-API-INTERNAL-ERROR" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
-    ("WITH-CUSTOMER-BREADCRUMB" "MACRO"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("GET-PAYMENT-TRANS-BY-TRANSACTION-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/paymentgateway/dod-bl-pay.lisp" "" "" NIL)
+    ("TEST-CTX-IS-STRUCT-NOT-DISPATCHABLE-CLASS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "domain-ctx must remain a struct — never converted to a CLOS class
+   that could accidentally become a dispatch target for the entity
+   position in a proc.GANA verb signature."
+     "" NIL)
     ("BREAK-START-TIME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vad.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-UPDATE-WAREHOUSE-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
-     "Handler for updating a warehouse using context flow dispatcher with ownership"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
+     "Handler for updating a warehouse via the proc.bhandara !update verb.
+
+   Uses the gana (NST) path directly — !update 'nst-whs — instead of
+   the legacy Context Flow Dispatcher (dispatch-route :warehouse/update →
+   WarehouseAdapter/WarehouseService.doUpdate).
+
+   row-id arrives as HTTP param \"id\" (the edit page's URL carries
+   ?id=<row>; same key used by fetch for pre-population). All other
+   fields arrive from the POSTed warehousedetailspage.html form and are
+   passed as CLOS reinitialize-initargs so the !update method performs a
+   genuine partial update — only the supplied slots change.
+
+   On success redirects back to /hhub/vwarehousedetailspage?id=<row> (the
+   same warehouse's details page) so the user sees the refreshed record."
      "" NIL)
     ("HHUB-SAVE-CUSTOMER-PUSH-SUBSCRIPTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-ui-push.lisp" "" "" NIL)
+    ("DOD-VEND-PROFILE" "CLASS"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
+    ("COPYGSTHSNCODES-DBTODOMAIN" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-UPDATE-CUSTOMER-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
     ("COUNT-ORDER-ITEMS-PENDING" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
     ("GET-CUST-WALLETS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
-    ("IAM-SECURITY-PAGE-HEADER" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
+    ("ROLE-CREATED-BY" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-dal-rol.lisp" "" "" NIL)
     ("VENDORWEBPUSHNOTIFYADAPTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
-    ("SELECT-INVOICE-ITEM-BY-PRODUCT-ID" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-bl-itm.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CREATEINVOICEHEADER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("ATTR-CREATED-BY" "GENERIC-FUNCTION"
@@ -954,6 +1089,8 @@
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-CUST-EDIT-ORDER-ITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
+    ("VALIDATE-SORT-ARGS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-bl-warehouse.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-VENDORUPISETTINGS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("SELECT-COMPANY-BY-NAME" "FUNCTION"
@@ -963,10 +1100,6 @@
     ("COM-HHUB-BUSINESS-FUNCTION-TEMPSTORAGE-GETPUSHNOTIFYSUBSCRIPTIONFORVENDOR"
      "FUNCTION" "/home/ubuntu/ninestores/hhub/webpushnotify/dod-bl-push.lisp"
      "" "" NIL)
-    ("MAKE-INVOICE-DOMAIN-OBJECT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-bl-cusinvreg.lisp"
-     "Construct CustomerInvoiceEntry from a dod-v-customer-invoice-register instance."
-     "" NIL)
     ("COM-HHUB-POLICY-SHOW-INVOICE-PAYMENT-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("GETMINORDERAMT" "FUNCTION"
@@ -976,12 +1109,16 @@
     ("RESTORE-DELETED-AUTH-POLICY-ATTR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("DISPLAY-WAREHOUSE-ROW" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
-     "Display a single warehouse row with ownership information" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
+     "UNVERIFIED against nst-whs's actual accessor names this session —
+   these are the slot names I've been writing throughout (wname,
+   warehouse-gstin, etc.) but I have not re-confirmed the accessor
+   forms (vs slot-value) exist on nst-whs. Grep before running this."
+     "" NIL)
     ("VENDORPROFILESERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
-    ("COM-HHUB-POLICY-UPDATE-GST-HSN-CODE-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("COM-HHUB-TRANSACTION-CUSTOMER&VENDOR-CREATE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("GET-STATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("HHUB-REMOVE-VENDOR-PUSH-SUBSCRIPTION" "FUNCTION"
@@ -989,7 +1126,7 @@
     ("DOD-CONTROLLER-VENDOR-PRODUCTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("OWNER-ENTITY-TYPE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("MAKE-PAYMENT-REQUEST-HTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/paymentgateway/dod-ui-pay.lisp" "" "" NIL)
     ("HHUB-WEBPUSH-SUBSCRIPTION-EXISTS" "CLASS"
@@ -1029,29 +1166,26 @@
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-ui-push.lisp" "" "" NIL)
     ("VENDOR-PRODUCT-CATEGORY-ROW" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("MODAL.VENDOR-PRODUCT-PRICING" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
+    ("DISPLAY-ORDERITEM-ROW" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
     ("ROLE-UPDATED-BY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-rol.lisp" "" "" NIL)
     ("SELECT-COMPANIES-BY-PINCODE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
+    ("CUST-PROFILE-WALLETS" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CUSTMYORDERDETAILS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("SETASSERVICEPRODUCT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTORDERCREATE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("GET-PROJECT-SYMBOLS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-ui-prosymloo.lisp"
-     "Collects ALL defined symbols (internal and external functions, macros, and classes) 
-   from the project's packages."
-     "" NIL)
     ("VENDORPRESENTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("STOREPICKUPENABLED" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("ORDERADAPTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
-    ("COM-HHUB-TRANSACTION-CAD-LOGIN-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-DISPLAYINVOICEEMAIL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("HHUB-GET-CACHED-CURRENCY-HTML-SYMBOLS-HT" "FUNCTION"
@@ -1059,7 +1193,7 @@
     ("WITH-CATCH-SUBMIT-EVENT" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("WADDR1" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("REQUESTGETWEBPUSHNOFITYVENDOR" "CLASS"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SADMIN-LOGIN" "FUNCTION"
@@ -1070,8 +1204,6 @@
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-cusinvreg.lisp" "" "" NIL)
     ("SEND-CONTACTUS-EMAIL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/email/templates/registration.lisp" "" "" NIL)
-    ("CREATE-WIDGETS-FOR-VENDSHIPPINGMETHODS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("PRD-IMAGE-PATH" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("GSTHSNCODESDBSERVICE" "CLASS"
@@ -1084,6 +1216,13 @@
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
     ("ODT-STATUS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
+    ("?EXISTS" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "प्रत्यभिज्ञा प्रत्यय — existence check, Belnap-returning (:T/:F/
+    :U/:C). lookup-value's meaning is entity-specific and documented
+    per method — usually the primary id, but for uniqueness checks
+    (GSTIN, phone, email) it is whatever field must be unique."
+     "" NIL)
     ("GET-BILLSTATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
     ("CALL-CONTEXT-READ" "CLASS"
@@ -1110,20 +1249,28 @@
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
     ("RESPONSEMODEL" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
-    ("COM-HHUB-POLICY-COMPADMIN-UPDATEDETAILS-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
-    ("ADD-NEW-NODE-PRDCATG" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("REFACTOR-LIVE-FUNCTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Drives the refactoring agent loop for FUNCTION-SYMBOL.
+   DeepSeek has peak/off-peak pricing, so this only operates during off-peak
+   IST coding windows: 09:30–11:30 and 15:30–06:30 (next morning).
+   Outside those windows it aborts without consuming DeepSeek quota.
+   Termination is handled via the condition system — REFACTORING-COMPLETE is signalled
+   when the agent issues the complete action, caught here to return the result string."
+     "" NIL)
+    ("DEFINE-TOOL" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Defines a Lisp function, registers it as an agent tool, and attaches
+   its documentation to its symbol plist in one form.
+   The system prompt is auto-generated from registered tools at call time —
+   it is always in sync with the implementation."
+     "" NIL)
     ("MODAL.UPLOAD-CSV-FILE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("HHUB-EMAIL-LOGO" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/email/templates/registration.lisp" "" "" NIL)
     ("GETBUSINESSSERVICEMETHOD" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
-    ("INVOICEHEADERADAPTER" "CLASS"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
-    ("GET-OPREF-BY-ID" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/subscription/dod-bl-opf.lisp" "" "" NIL)
     ("UI-LIST-VENDOR-ORDERS-BY-PRODUCTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-ui-ord.lisp" "" "" NIL)
     ("GENERATE-INVOICE-ITEMS-ROWS" "FUNCTION"
@@ -1161,6 +1308,8 @@
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("CREATE-VENDOR-SHIP-ZONE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-bl-osh.lisp" "" "" NIL)
+    ("COM-HHUB-TRANSACTION-SEARCH-ORDERITEM-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
     ("FINYEAR" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("WITH-BO-KNOWLEDGE-CHECK" "MACRO"
@@ -1179,19 +1328,21 @@
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("DISPLAY-SHIPPING&BILLING-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("RUN-ALL-ADHARA-TESTS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("ORDERITEM" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("SAVE-VENDOR-ORDERS-IN-DB" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
+    ("SELECT-WAREHOUSE-BY-CODE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
+     "Select warehouse by business code" "" NIL)
     ("DISPLAY-SUPERADMIN-PAGE-WITH-WIDGETS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("HHUB-GET-CACHED-ABAC-ATTRIBUTES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
-    ("WSTATE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
-    ("SELECT-ALL-WAREHOUSES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
-     "Select all warehouses for a tenant" "" NIL)
+    ("FIND-INVOICE-ITEM" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-bl-itm.lisp" "" "" NIL)
     ("GET-VENDOR-ORDERS-FROM-UPI-TRANSACTIONS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-bl-upi.lisp" "" "" NIL)
     ("WITH-HTML-DIV-COL" "MACRO"
@@ -1217,29 +1368,14 @@
     ("FIND-CUSTOMER-BY-COMPANY-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp"
      "Find customer by company name" "" NIL)
+    ("HHUB-EXECUTE-NETWORK-FUNCTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("INVOICEHEADERDBSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("WITH-HTML-INPUT-TEXT" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VEND-PROFILE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("RESPONSEGETWEBPUSHNOTIFYVENDOR" "CLASS"
-     "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
-    ("GENERATE-SKU" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
-     "Generate an SKU from product information by taking 2 chars from each word.
-  
-  Arguments:
-  - PRODUCT-NAME: String (e.g., \"Organic Apples\")
-  - DESCRIPTION: String or NIL (e.g., \"Red Delicious\")
-  - QTY-PER-UNIT: Number (e.g., 1, 100, 2.5)
-  - UNIT-OF-MEASURE: String (e.g., \"KG\", \"G\", \"L\")
-  
-  Returns:
-  - A generated SKU string in format NN-DD-QTY-UOM-RANDOM
-    Where NN is from product name words, DD from description words
-  "
-     "" NIL)
     ("EXTRACT-PAN-FROM-GSTIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp"
      "Extract PAN number from GSTIN (characters 3-12)" "" NIL)
@@ -1277,32 +1413,36 @@
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-INVOICEPRINTSETTINGSACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
+    ("KAARAKA-REF-ENTITY-ID" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("CONSTRAINT-MESSAGE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-INVOICESETTINGSPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("CGSTRATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
+    ("RENDER-SIDEBAR-DROPDOWN" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Render a collapsible dropdown section." "" NIL)
     ("DOD-CONTROLLER-CUST-DEL-ORDERPREF-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("TAXABLEVALUE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-VGENPRODCTTEMPL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-CREATEGSTHSNCODE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
     ("SELECT-WAREHOUSES-BY-CITY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
      "Select warehouses by city" "" NIL)
     ("DISPLAY-ADD-CUSTOMER-TO-INVOICE-ROW" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
-    ("RENDERLISTVIEWHTML" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "Renders a list view"
-     "" NIL)
     ("DOD-CONTROLLER-VENDOR-SEARCH-PRODUCTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CREATEINVOICEHEADER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("DEFAULT-TRANSPORTER-ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("DOD-INDIA-PINCODES" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/nst-dal-pincodes.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-COMPANY-MAXPRODCATGCOUNT" "FUNCTION"
@@ -1325,6 +1465,8 @@
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("CANCEL-ORDER-ITEMS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
+    ("%GET-BREAKDOWN-KEY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-bl-itm.lisp" "" "" NIL)
     ("DOD-CONTROLLER-MAKE-PAYMENT-REQUEST-HTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/paymentgateway/dod-ui-pay.lisp" "" "" NIL)
     ("MODAL-DIALOG" "MACRO" "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp"
@@ -1340,8 +1482,6 @@
      "Loads existing lookup data and returns a hash table mapping symbol 
    names to (keywords . meta-plist) — preserving both old slots."
      "" NIL)
-    ("WITH-HTML-INPUT-HIDDEN" "MACRO"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("INVOICETAXBREAKDOWN" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("SEARCH-ODT-BY-ORDER-ID" "FUNCTION"
@@ -1350,34 +1490,28 @@
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SEARCH-PRODUCT-FOR-INVOICE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
-    ("DISPLAY-ORDERITEM-ROW" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-VENDOR-RESET-PASSWORD-ACTION-LINK" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("DELETE-SUBSCRIPTIONS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-bl-push.lisp" "" "" NIL)
     ("GET-ORDER-ITEM-BY-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
     ("CTX-OUTPUT-TYPE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
-    ("CREATEWIDGETSFORTRANSACTIONTOPOLICYLINKPAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("NST-LOAD-VENDOR-TABLES-STRUCTURE-FOR-AGENTIC-AI" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
-    ("SELECT-PRODUCTS-BY-CATEGORY" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("ASYNC-UPLOAD-IMAGES-FOR-BULK-UPLOAD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-VENDOR-TENANT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
+    ("GSTHSNCODESREQUESTMODEL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
     ("DOD-RESET-ORDER-FUNCTIONS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("INVOICEITEMPRESENTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SHOWVENDORCUSTOMERS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("IS-CONVERTED-TO-INVOICE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
-    ("GET-PUSH-NOTIFY-SUBSCRIPTION-FOR-CUSTOMER" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/webpushnotify/dod-bl-push.lisp" "" "" NIL)
     ("BUSINESSSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("DB-FETCH-VENDOR-WEBPUSHNOTIFYSUBSCRIPTIONS" "GENERIC-FUNCTION"
@@ -1427,12 +1561,22 @@
      "" NIL)
     ("INVOICEITEMS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
-    ("EXPIRED" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
+    ("NST-ENTITY-UNKNOWN" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Belnap :U sentinel. [LEGAL: callers MUST treat this as 'cannot proceed',
+    never as 'assume false' or 'assume true'.]"
+     "" NIL)
     ("MERGE-KNOWLEDGE*" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp" "" "" NIL)
+    ("HHUB-CONTROLLER-SAVE-VENDOR-UPI-SETTINGS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("PAN-NUMBER" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
+    ("WAREHOUSERESPONSEMODEL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp"
+     "Boundary response model for warehouses. Adapter/HTTP outbound shape.
+    Contains all nst-whs fields; dies at the layer boundary."
+     "" NIL)
     ("CREATE-ORDER-EMAIL-CONTENT-FOR-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("INVOICEITEMREQUESTMODEL" "CLASS"
@@ -1450,17 +1594,10 @@
      "Takes the viewmodel and converts into JSON" "" NIL)
     ("CREATE-ORDER-EMAIL-CONTENT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-LIST-ABAC-SUBJECTS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("COPYCUSTOMER-DBTODOMAIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-bl-Customer.lisp" "" "" NIL)
     ("WAREHOUSESEARCHREQUESTMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
-    ("CURRENT-DATE-STRING-DDMMYYYY" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
-     "Returns current date as a string in DD-MM-YYYY format" "" NIL)
-    ("PRODUCT" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-UPDATE-FREE-SHIPPING-METHOD-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CONTACTUSACTION" "FUNCTION"
@@ -1470,18 +1607,25 @@
     ("UPDATE-ITEM-IN-TAX-BREAKDOWN" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp"
      "Adjusts the breakdown when an item is modified." "" NIL)
+    ("DOD-CONTROLLER-LIST-ABAC-SUBJECTS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-GENERATE-TEMP-PASSWORD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("UPDATE-AUTH-ATTR-LOOKUP" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("WADDR2" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
+    ("DISPLAY-VENDOR-DEMAND-TABLE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-ui-ord.lisp"
+     "Renders the aggregated demand data as an HTML table." "" NIL)
     ("CREATE-ROLE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-rol.lisp" "" "" NIL)
     ("CTX-BO-KNOWLEDGE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SHOW-CUSTOMER-UPI-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
+    ("CALL-CONTEXT-DELETE" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("GET-VENDOR-AVAILABILITY-DAYS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vad.lisp" "" "" NIL)
     ("DELETE-PRODUCT-PRICING" "FUNCTION"
@@ -1491,19 +1635,20 @@
     ("GUESTCUSTOMER" "CLASS"
      "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
     ("WITH-HHUB-TRANSACTION" "MACRO"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp"
+     "Policy Enforcement Point. If permission granted and URI matches, evaluate BODY.
+   Otherwise, redirect and abort the request."
+     "" NIL)
     ("COM-HHUB-ATTRIBUTE-COMPANY-WALLETS-ENABLED" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
     ("UI-LIST-COMPANIES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-ui-cmp.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-CUSTOMER-INVOICE-REGISTER" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-cusinvreg.lisp" "" "" NIL)
     ("DOD-CONTROLLER-RUN-DAILY-ORDERS-BATCH" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CREATECUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
-    ("ADDBO" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
-     "Reads the params and create a new BusinessObject. Return the newly created BusinessObject"
-     "" NIL)
     ("ORDERPRESENTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("COMPANY-CREATED-BY" "GENERIC-FUNCTION"
@@ -1517,6 +1662,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
     ("CREATE-PRDCATG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("PARAMS" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CONTACTUSPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTUPDATECART" "FUNCTION"
@@ -1544,6 +1691,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CUSTUPDATECART" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("PRODUCT-CARD-FOR-VENDOR" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("WITH-VENDOR-SIDEBAR" "MACRO"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("UNIVERSAL-TO-UNIX-TIME" "FUNCTION"
@@ -1562,8 +1711,10 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-prodetpag.lisp" "" "" NIL)
     ("BANKACCNUM" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
-    ("CREATE-MODEL-FOR-SHOWGSTHSNCODES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
+    ("LOOKUP-METADATA" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Confirms FUNCTION-NAME exists in the project index. Returns its metadata plist."
+     "" NIL)
     ("GETBO" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Fetch the Business Object from repository." "" NIL)
@@ -1586,8 +1737,6 @@ Only shows sections based on availability flags and customer type."
      "" NIL)
     ("FORMAT-PRICING-FEATURES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
-    ("CREATE-MODEL-FOR-CUSTADDORDEROTPSTEP" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("UPDATE-PRDCATG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("GENERATEHASHKEY" "FUNCTION"
@@ -1603,6 +1752,8 @@ Only shows sections based on availability flags and customer type."
     ("DODELETE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "DoCreate service implementation for a Business Service" "" NIL)
+    ("COM-HHUB-POLICY-CAD-LOGOUT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-EDIT-INVOICE-EMAIL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("UPIPAYMENTSREQUESTMODEL" "CLASS"
@@ -1610,20 +1761,15 @@ Only shows sections based on availability flags and customer type."
     ("SELECT-MATCHING-WAREHOUSES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
      "Select warehouses matching partial name" "" NIL)
+    ("PROCESSRESPONSELIST-WAREHOUSE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-bl-warehouse.lisp"
+     "DEPRECATED-PREFERENCE: prefer domain->response-list directly.
+   Load-bearing only for code that predates the generic method."
+     "" NIL)
     ("COPYUPIPAYMENT-DOMAINTODB" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-bl-upi.lisp" "" "" NIL)
-    ("LAZY-NIL" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp" ""
-     "" NIL)
-    ("COM-HHUB-TRANSACTION-SUSPEND-ACCOUNT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("GET-LOGIN-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("REFACTOR-LIVE-FUNCTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
-     "Drives the 3-phase refactoring agent loop for FUNCTION-SYMBOL.
-   Phase 1: lookup-metadata -> Phase 2: read-source-file -> Phase 3: complete.
-   Returns the refactored defun string on success, NIL on parse error or step exhaustion."
-     "" NIL)
     ("WITH-BOUNDARY-CHECK" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
      "Enforces clean architecture by requiring explicit handling of all four 
@@ -1638,8 +1784,9 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("CGST-AMOUNT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
-    ("SELECT-ALL-INDIA-PINCODES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-pincodes.lisp" "" "" NIL)
+    ("RENDER-COMPLETED-ORDERS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Render the completed orders view." "" NIL)
     ("REMOVE-ITEM-FROM-TAX-BREAKDOWN" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp"
      "Subtracts an InvoiceItem's values from the breakdown summary." "" NIL)
@@ -1647,12 +1794,26 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp" "" "" NIL)
     ("COPYVENDOR-DBTODOMAIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
+    ("DISPATCH-TOOL" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Resolves the tool name to its registered symbol and calls it directly.
+   Adding a new tool requires only a new DEFINE-TOOL form — nothing here changes."
+     "" NIL)
     ("SELECT-COMPANIES-BY-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-SADMIN-CREATE-USERS-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
-    ("GET-OPF-PRD-ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/subscription/dod-dal-opf.lisp" "" "" NIL)
+    ("HSN-DESCRIPTION" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-VENDPAYMENTMETHODSUPDATE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-VENDOR-DEMAND" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-ui-ord.lisp"
+     "Takes the model closure, retrieves the aggregated demand data and returns a
+   list of widget functions to be rendered in order."
+     "" NIL)
+    ("PRODUCT-CARD" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("GET-ITEM-PRODUCT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-VDISPLAY-WEBREPL" "FUNCTION"
@@ -1661,12 +1822,21 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/order/nst-bl-Order.lisp" "" "" NIL)
     ("STD-CUST-PAYMENT-MODE-DROPDOWN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("DISPLAY-PRODUCTS-CAROUSEL" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("HHUB-BUSINESS-FUNCTION-ERROR" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
+    ("DB-FETCH-ALL" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
+     "Fetch records by company" "" NIL)
     ("SYNCOBJECTS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("CGSTAMT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("ORDERITEMSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
+    ("CUSTOMER-PRODUCT-DETAIL-PAGE-COMPONENT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/nst-ui-prodetpag.lisp" "" "" NIL)
     ("MAKE-REQUESTMODEL" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp"
      "Create requestmodel instance for a route from ctx-requestmodel-params."
@@ -1691,12 +1861,12 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-bl-cad.lisp" "" "" NIL)
     ("PRODUCT-QTY-ADD-HTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("W-COUNTRY" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("VENDOR-GST-TYPE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("UPIPAYMENTSSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
-    ("CUSTOMERREQUESTMODEL" "CLASS"
-     "/home/ubuntu/ninestores/hhub/customer/nst-dal-Customer.lisp" "" "" NIL)
     ("COMP-CESS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
     ("WITH-HTML-CUSTOM-CHECKBOX" "MACRO"
@@ -1709,11 +1879,11 @@ Only shows sections based on availability flags and customer type."
     ("WITH-HTML-DROPDOWN" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("EWAY-BILL-ENABLED" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
+    ("HHUB-GET-CACHED-COMPANY-PRODUCTS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("AFTER-DISPATCH-HOOK" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
-    ("COM-HHUB-POLICY-VENDOR-APPROVE-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("CUSTOMER-PRODUCT-DETAIL-MENU-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-prodetpag.lisp" "" "" NIL)
     ("CALCULATE-INVOICE-TOTALIGST" "FUNCTION"
@@ -1728,8 +1898,6 @@ Only shows sections based on availability flags and customer type."
       (:OUTPUTS
        ((:NAME . TOTAL-IGST) (:TYPE . DECIMAL) (:BINDS-AS . :IGST-AMOUNT)))
       (:READS :INVOICEITEMS) (:WRITES) (:THROWS) (:PURE) (:COST . :LOW)))
-    ("ROLE-CREATED-BY" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-dal-rol.lisp" "" "" NIL)
     ("W-ALT-PHONE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("UOM" "GENERIC-FUNCTION"
@@ -1744,11 +1912,14 @@ Only shows sections based on availability flags and customer type."
    and returns a BO-KNOWLEDGE instance."
      "" NIL)
     ("LEGAL-ENTITY-TYPE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
+    ("GENERATE-AGENT-PROMPT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Builds the agent system prompt directly from the registered tool docstrings.
+   The prompt is always in sync with the implementation — there is no separate schema."
+     "" NIL)
     ("DOD-CONTROLLER-NEW-COMPANY-REGISTRATION-EMAIL-SENT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
-    ("MODAL.GENERATE-SKU-DIALOG" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SEARCHHSNCODES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUSTOMER-GENERATE-TEMP-PASSWORD" "FUNCTION"
@@ -1766,6 +1937,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("TODAY-LOG-FILE-PATH" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-otp.lisp" "" "" NIL)
+    ("HHUB-ABAC-TRANSACTION-ERROR" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
     ("SEND-ORDER-MAIL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/email/templates/registration.lisp" "" "" NIL)
     ("DISPLAY-WALLET-FOR-CUSTOMER" "FUNCTION"
@@ -1775,16 +1948,18 @@ Only shows sections based on availability flags and customer type."
      "Returns a hash table where each pincode is a unique key, 
    ignoring sub-office distinctions."
      "" NIL)
-    ("CUSTOMERINVOICEREGISTERPRESENTER" "CLASS"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
-    ("COPYGSTHSNCODES-DBTODOMAIN" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
+    ("ACTIVEFLAG" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
+    ("WITH-HTML-INPUT-HIDDEN" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("WAREHOUSEHTMLVIEW" "CLASS"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("FUNCTION-LOOKUP-TABLE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-funloodat.lisp" "" "" NIL)
     ("RESTORE-DELETED-VENDOR-APPOINTMENT-INSTANCES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vas.lisp" "" "" NIL)
+    ("IAM-SECURITY-PAGE-HEADER" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("WITH-ENTITY-READALL" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("DB-SAVE" "GENERIC-FUNCTION"
@@ -1810,8 +1985,6 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("NST-GET-CACHED-EMAIL-TEMPLATE-FUNC" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
-    ("MEMOIZE" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/memoize.lisp"
-     "Replace fn-name's global definition with a memoized version." "" NIL)
     ("BUYER-GST-TYPE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("RESTORE-DELETED-CUSTOMER" "FUNCTION"
@@ -1845,10 +2018,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/upi/dod-bl-upi.lisp" "" "" NIL)
     ("GSTORGNAME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
-    ("EXPECTED-DELIVERY-DATE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
-    ("ACTIVEFLAG" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-TRANSCUSTEDITORDERITEM" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("CREATE-USER-WITH-ROLE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-usr.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-INVOICE-SETTINGS-PAGE" "FUNCTION"
@@ -1863,10 +2034,14 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("VIEWMODEL" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
+    ("SELECT-WAREHOUSES-BY-FILTER" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-bl-warehouse.lisp" "" "" NIL)
     ("ACTOR-PRIORITY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("PROCESS-FILE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
+    ("RUN-DAILY-ORDERS-BATCH" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("UI-LIST-PROD-CATG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("COUNT-ORDER-ITEMS-COMPLETED" "FUNCTION"
@@ -1880,8 +2055,8 @@ Only shows sections based on availability flags and customer type."
      "" NIL)
     ("ITEMINLIST-P" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
-    ("VENDORPUSHNOTIFICATIONSERVICE" "CLASS"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-CUSTSHOWSHOPCARTREADONLY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("GETBUSINESSOBJECTREPOSITORY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Get the Business object repository" "" NIL)
@@ -1896,15 +2071,15 @@ Only shows sections based on availability flags and customer type."
     ("TRIAL-ACCOUNT-DAYS-TO-EXPIRY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
     ("WAREHOUSE-UUID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("APPT-DATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vas.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-VENDOR-RESET-PASSWORD-ACTION-LINK" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("HHUB-ADD-PENDING-UPI-TASK" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("RESTOREACCOUNT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
+    ("RENDER-SIDEBAR-OFFCANVAS-OLD" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("PERSIST-WALLET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("ORDERITEMDBSERVICE" "CLASS"
@@ -1913,24 +2088,27 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-bl-usr.lisp" "" "" NIL)
     ("RESPONSEMODELCONTRADICTION" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
+    ("RESTORE-DELETED-ORDER-DETAILS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
     ("GET-LOGIN-USER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-ui-cmp.lisp" "" "" NIL)
+    ("DOD-PRD-MASTER" "CLASS"
+     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("END-DATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/subscription/dod-dal-opf.lisp" "" "" NIL)
     ("DISPLAY-CUSTOMER-INVOICE-REGISTER-ROW" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-cusinvreg.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-cusinvreg.lisp"
+     "Display a single row in the customer invoice register table." "" NIL)
     ("COM-HHUB-POLICY-DELETE-INVOICEITEM-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
-    ("PRODUCT-CARD-SHOPCART-READONLY" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("COPYORDER-DBTODOMAIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-bl-Order.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUSTOMER-PASSWORD-RESET-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CONTACTUSACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
-    ("WAREHOUSEVIEWMODEL" "CLASS"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+    ("SELECT-MATCHING-HSN-CODES" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SHOWCUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-PROJECT-SYMBOLS-LOOKUP-PAGE" "FUNCTION"
@@ -1948,6 +2126,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CREATE-ATTRIBUTE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("SELECT-PRODUCTS-BY-CATEGORY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("GET-USER-ROLES.USER" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-rol.lisp" "" "" NIL)
     ("CALCULATE-ORDER-TOTALIGST" "FUNCTION"
@@ -1956,6 +2136,10 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-ROLE-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
+    ("GET-ROOT-PRD-CATG" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("DOD-GST-SAC-CODES" "CLASS"
+     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("BOREPOSITORIES-HT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("DOD-CONTROLLER-LOGINPAGE" "FUNCTION"
@@ -1965,6 +2149,8 @@ Only shows sections based on availability flags and customer type."
      "Optionally signal from a DB adapter when a required record is
     definitively absent.  Treated as :F in read/update/delete macros."
      "" NIL)
+    ("GET-OPREF-VENDORLIST" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("PERSIST-PUSH-NOTIFY-SUBSCRIPTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-bl-push.lisp" "" "" NIL)
     ("CTX-COMPANY" "GENERIC-FUNCTION"
@@ -1973,8 +2159,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pas.lisp" "" "" NIL)
     ("SETASSERVICEORDER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
-    ("CREATE-WIDGETS-FOR-CREATEGSTHSNCODE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
+    ("PRODUCT" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("SET-ORDER-FULFILLED" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("GET-OPREFLIST-FOR-CUSTOMER" "FUNCTION"
@@ -1995,8 +2181,10 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("SEND-ORDER-EMAIL-GUEST-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("HHUB-EXECUTE-NETWORK-FUNCTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
+    ("MAKE-KAARAKA-REF" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
+    ("RENDER-UI-PAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUSTOMER-LOGINPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("W-ADDR2" "GENERIC-FUNCTION"
@@ -2026,28 +2214,37 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("DELETE-PRDCATG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("TEST-GANA-PACKAGE-FOR-ERRORS-ON-UNREGISTERED-VERB" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "An unregistered verb symbol must signal a clear error, not return
+   nil and let the ferry fail three lines later with a confusing
+   find-symbol-on-nil error.
+   STUB: (gana-package-for 'not-a-real-verb) → error, not nil."
+     "" NIL)
     ("CUSTOMERRESPONSEMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/customer/nst-dal-Customer.lisp" "" "" NIL)
     ("LAZY-CAR" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp" ""
      "" NIL)
+    ("CREATE-PRODUCT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("CUSTOMERINVOICEENTRYRESPONSEMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("CUSTOMERITCSUMMARY" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("CREATE-VENDOR-AVAILABILITY-DAY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vad.lisp" "" "" NIL)
+    ("MODAL.GENERATE-SKU-DIALOG" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("GST-HSN-FUNC" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
-    ("DOD-GST-SAC-CODES" "CLASS"
-     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
+    ("GET-SYSTEM-BUS-TRANSACTIONS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-VENDOR-REJECT-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-ABOUTUSPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
     ("GETFLATRATEPRICE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-bl-osh.lisp" "" "" NIL)
-    ("HHUB-CONTROLLER-SAVE-VENDOR-UPI-SETTINGS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("JSCRIPT-DISPLAYERROR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("TOOL-FIND-FUNCTION-METADATA" "FUNCTION"
@@ -2070,7 +2267,7 @@ Only shows sections based on availability flags and customer type."
     ("PLACEOFSUPPLY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("TENANT-ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("DISPLAY-CAPTCHA-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CUSTOMER-PROFILE-PAGE" "FUNCTION"
@@ -2078,14 +2275,10 @@ Only shows sections based on availability flags and customer type."
     ("CURRENT-DATE-STRING-YYYYMMDD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "Returns current date as a string in YYYY-MM-DD format" "" NIL)
-    ("TOTAL-TDS-DEDUCTED" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("DOD-VENDOR-TENANTS" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("INVOICEHEADER-SEARCH-HTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
-    ("MYSQL-NOW+DAYS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("NULL-VALUE-ERROR" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
     ("BUSINESS-OBJECTS-DROPDOWN" "FUNCTION"
@@ -2096,8 +2289,6 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("REQUESTPINCODE" "CLASS"
      "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
-    ("CREATE-MODEL-FOR-PUBLISHACCOUNTEXTURL" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("APPLY-MIGRATIONS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp" "" "" NIL)
     ("RENDER-FREE-SHIPPING-PAGE" "FUNCTION"
@@ -2116,6 +2307,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("VPAYMENTMETHODS" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-LOW-WALLET-BALANCE-FOR-SHOPCART" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("HHUBSTORE" "CLASS"
      "/home/ubuntu/ninestores/hhub/account/dod-dal-cmp.lisp" "" "" NIL)
     ("MODAL.ACCOUNT-ADMIN-CHANGE-PIN" "FUNCTION"
@@ -2124,14 +2317,19 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SHOWORDER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
+    ("REFACTORING-COMPLETE" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Signalled when the agent delivers a completed refactoring.
+                   Caught by the agent loop to terminate cleanly with the result."
+     "" NIL)
     ("MIGRATE-2025SEP-ORDERITEM-UPGRADE-SGST" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CREATEINVOICEITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
     ("ABAC-SUBJECT-DROPDOWN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
-    ("CREATE-WIDGETS-FOR-CUSTOMER-INVOICE-REGISTER" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-cusinvreg.lisp" "" "" NIL)
+    ("DESCRIPTION" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-TRANSCUSTEDITORDERITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-READALL-WAREHOUSE" "FUNCTION"
@@ -2144,7 +2342,7 @@ Only shows sections based on availability flags and customer type."
     ("CREATE-MODEL-FOR-VENDADDTOCARTFORINVOICE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("WPIN" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-OTPLOGINPAGEV2" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-DELETE-PRODUCT" "FUNCTION"
@@ -2153,21 +2351,31 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/core/dod-dal-rol.lisp" "" "" NIL)
     ("DISPLAY-MY-CUSTOMERS-ROW" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("ENTITY-REASON" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-CUSTOMER-MY-ORDERDETAILS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("ADDRESSVIEWMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
-    ("W-CITY" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+    ("NST-VIEW-MODEL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Presentation-ready shape — HTML/JSON rendering input." "" NIL)
     ("REQUIRED-ROLES" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-VENDOR-UPDATE-DEFAULT-SHIPPING-METHOD" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("GETALLBO" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Fetch all Business objects from the repository" "" NIL)
-    ("GETRESPONSEMODEL" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
+    ("TEST-GANA-PACKAGE-FOR-RESOLVES-JUNCTION-ENTITY-VERBS-CORRECTLY"
+     "FUNCTION" "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "nst-inv is a triple-junction entity. Verify gana-package-for routes
+   correctly per VERB, not per entity:
+     (gana-package-for 'invoice)      → :proc.finance
+     (gana-package-for 'reconcile-2b) → :proc.tax
+     (gana-package-for 'approve)      → :proc.governance
+   All three verbs act on the SAME entity class (nst-inv) but resolve
+   to three DIFFERENT गण packages. This is the bug the original ferry
+   had — entity-class alone could never have produced this."
+     "" NIL)
     ("SEED-AUTH-POLICIES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("FIND-NEAREST-ELEMENTS" "FUNCTION"
@@ -2180,8 +2388,6 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("GET-LOGIN-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-ui-cmp.lisp" "" "" NIL)
-    ("BIRTHDATE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("APPROVED-BY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("BO-KNOWN-FALSE-P" "GENERIC-FUNCTION"
@@ -2191,6 +2397,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
     ("RESPONSEVENDOR" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
+    ("CREATE-ODTINST-SHOPCART" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-POLICY-CREATE-DIALOG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-COPY-INVOICE" "FUNCTION"
@@ -2204,8 +2412,6 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-CONTACTUS-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
-    ("PERSIST-PRODUCT-PRICING" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("ENFORCEUSERSESSION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-bl-usr.lisp" "" "" NIL)
     ("GET-PENDING-ORDER-ITEMS-FOR-VENDOR-BY-PRODUCT" "FUNCTION"
@@ -2223,7 +2429,7 @@ Only shows sections based on availability flags and customer type."
     ("GET-LOGIN-USER-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-usr.lisp" "" "" NIL)
     ("WMANAGER" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUST-WALLET-DISPLAY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-cuswall.lisp" "" "" NIL)
     ("WEBPUSHNOTIFY" "CLASS"
@@ -2235,12 +2441,12 @@ Only shows sections based on availability flags and customer type."
      - Staging      : log full stacktrace + re-signal
      - Production   : log sanitized + signal business condition"
      "" NIL)
-    ("LAZY-NULL" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp"
-     "" "" NIL)
     ("CREATE-MODEL-FOR-SHOWINVOICECONFIRMPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("SHIPZIPCODE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
+    ("USERSESSIONOBJECT" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("WITH-VENDOR-NAVIGATION-BAR-V2" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("DOD-CONTROLLER-OTP-REGENERATE-ACTION" "FUNCTION"
@@ -2253,7 +2459,7 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/order/dod-ui-ord.lisp" "" "" NIL)
     ("ENDPOINT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-VENDOR-SEARCH-CUST-WALLET-ACTION" "FUNCTION"
+    ("DOD-CONTROLLER-VEND-LOGIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("SEND-MESSAGE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
@@ -2263,20 +2469,19 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
     ("GETLOGINVENDORSESSIONSTARTTIME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("SELECT-MATCHING-HSN-CODES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
-    ("GET-ROOT-PRD-CATG" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("VIEWMODELNIL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("SELECT-USER-ROLE-BY-USERID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-rol.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-MY-ORDERS1" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CODE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-dal-sys.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-CUSTOMER-ORDER-CUTOFF-TIME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
-    ("DOD-GET-CACHED-ORDER-ITEMS-BY-PRODUCT-ID" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("GET-CUST-ORDER-PARAMS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("NST-ENTITY-CONTRADICTION" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Belnap :C sentinel. Two sources disagree — human review required." "" NIL)
     ("DOD-VEND-LOGIN-WITH-OTP" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("SELECT-AUTH-ATTR-BY-KEY" "FUNCTION"
@@ -2293,18 +2498,26 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
     ("CONDITION-TXT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
+    ("WITH-CATCH-FILE-UPLOAD-EVENT" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("DOD-USERS" "CLASS"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-dal-usr.lisp" "" "" NIL)
     ("PRODUCT-CARD-FOR-APPROVAL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
-    ("SET-WALLET-BALANCE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
+    ("TEST-COMPLETE-IMMUNITY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Walks every domain package's exported generic functions.
+   FAILS if any method specializer is nst-boundary-object or a subclass.
+   Run this in CI after every commit touching proc.* packages."
+     "" NIL)
     ("GET-CUST-WALLET-BY-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("EMAIL" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("PLACE-OF-SUPPLY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
+    ("DOMAIN-CTX-P" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("MODAL.VENDOR-UPDATE-DETAILS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("DOD-CONTROLLER-MY-ORDERS" "FUNCTION"
@@ -2317,8 +2530,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-VENDOR-STOREPICKUP-ENABLED" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
-    ("DOD-INVOICE-HEADER" "CLASS"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
+    ("CREATEWIDGETSFORTRANSACTIONTOPOLICYLINKPAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("DOREADALL" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "DoCreate service implementation for a Business Service" "" NIL)
@@ -2330,6 +2543,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-bl-usr.lisp" "" "" NIL)
     ("LAST-VIEWED-AT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
+    ("REFACTORING-TARGET" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp" "" "" NIL)
     ("GET-LOGIN-USER-ROLE-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-ui-cmp.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-VENDOR-FREESHIP-ENABLED" "FUNCTION"
@@ -2338,6 +2553,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/subscription/dod-bl-opf.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-SADMIN-PROFILE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("COM-NST-TRANSACTION-VENDOR-WAREHOUSE-DETAILS-PAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp" "" "" NIL)
     ("INVOICE-EMAIL-OPTIONS-MENU" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("SELECT-VENDORS-BY-NAME" "FUNCTION"
@@ -2367,7 +2584,7 @@ Only shows sections based on availability flags and customer type."
     ("WEBSITE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-dal-cmp.lisp" "" "" NIL)
     ("DEFAULT-TRANSPORTER-NAME" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("GET-GSTVALUES-FOR-PRODUCT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUST-ADD-ORDERPREF-ACTION" "FUNCTION"
@@ -2376,6 +2593,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
     ("TEST-WEBPUSH-NOTIFICATION-FOR-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-ui-push.lisp" "" "" NIL)
+    ("FIND-PINCODE-DETAILS-FROM-DB" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-pincodes.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-INVOICE-PAID-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("UPDATE-VENDOR-PAYMENT-PARAMS" "FUNCTION"
@@ -2404,13 +2623,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-SEARCH-INVOICE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
-    ("SAFE-READ-ALIST" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
-     "Safely read an alist from string, returns alist as-is." "" NIL)
     ("CREATE-MODEL-FOR-SEARCHORDERITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
-    ("PRDCATG-CARD" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("LOCATE-SOURCE-VIA-SWANK" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
      "Leverages SLIME's backend to programmatically find a symbol's definition source."
@@ -2425,6 +2639,8 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-COMPANY-MAXCUSTOMERCOUNT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
+    ("COM-HHUB-POLICY-VENDOR-APPROVE-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("ORDER-TYPE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("MAKE-UI-PAGE" "FUNCTION"
@@ -2435,12 +2651,16 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
     ("VPAYMENTMETHODSHTMLVIEW" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-CUSTVEN-SIGNUP-PAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("GET-SHOPCART-VENDORLIST" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("GET-ORDERIDS-FOR-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("ROLE-DROPDOWN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-rol.lisp" "" "" NIL)
+    ("SELECT-ALL-INDIA-PINCODES" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-pincodes.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CREATEINVOICEITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-DISPLAYORDHEADERFORCUST" "FUNCTION"
@@ -2453,42 +2673,43 @@ Only shows sections based on availability flags and customer type."
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("GET-LOGIN-VEND-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("UPDATE-PRD-DETAILS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("DISPLAY-INVOICE-PAYMENT-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("VNUM" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
-    ("PARSE-DATE-STRING" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
-     "Read a date string of the form \"DD/MM/YYYY\" and return the 
-corresponding universal time."
-     "" NIL)
     ("WITH-NO-NAVBAR-PAGE-V2" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
-    ("COM-HHUB-TRANSACTION-WAREHOUSE-PAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
-     "Main warehouse management page" "" NIL)
     ("DOD-CONTROLLER-VENDOR-BULK-ADD-PRODUCTS-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("FREQUENCY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/subscription/dod-dal-opf.lisp" "" "" NIL)
-    ("GET-PROD-CAT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("GETBUSINESSOBJECT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "gets the domain object" "" NIL)
     ("DOD-CONTROLLER-CUST-ORDER-SHIPPING-ADDRESS-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("RENDER-SIDEBAR-HEADER" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Render the offcanvas header." "" NIL)
     ("GET-AUTH-ATTRS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("KNOWLEDGE-MEET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
      "Intersection of knowledge (common certainty)." "" NIL)
+    ("COPY-DOMAIN-CTX" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
+    ("DOMAIN-CTX-SOURCE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("GENERATEQRCODEFORVENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("SUSPEND-FLAG" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("SHOW-EMPTY-SHOPPING-CART" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("WITH-HTML-ACCORDION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTORDERPAYMENTPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("STOP-DAS" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp"
@@ -2499,12 +2720,21 @@ corresponding universal time."
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SHOW-INVOICEITEM-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-ABAC-SECURITY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-VUPLOADPRDIMAGES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("ODTK-STATUS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-dal-odt.lisp" "" "" NIL)
     ("WEBPUSHNOTIFYDBSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
+    ("NST-CONTROLLER-SEARCH-MY-WAREHOUSE-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
+     "Shakvari-tier UI action: live-search filter for warehouse list page.
+   All filtering logic lives in enumerate — this function only renders."
+     "" NIL)
+    ("CREATE-MODEL-FOR-CUSTSHIPMETHODSPAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("DOD-CONTROLLER-DBRESET-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SHOWVENDORUPITRANSACTIONS" "FUNCTION"
@@ -2546,14 +2776,21 @@ Returns:
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("SELECT-BUS-TRANS-BY-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
-    ("DOD-PRD-MASTER" "CLASS"
-     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("WITH-HTML-SEARCH-FORM" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("ACTOR-STATE-CLEAN-CALLBACK" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
+    ("ACTOR-CONDITION" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("MODAL.VENDOR-EXTERNAL-SHIPPING-PARTNERS-CONFIG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("NST-WHS-LIST-VIEW" "CLASS"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
+     "Pure dispatch marker for RenderListViewHTML — NOT part of either
+    Tree 1 or Tree 2. Carries no state, exists only so CL-WHO output
+    functions can be specialized by defmethod like the old HTMLView
+    pattern did, without inheriting any of that tree's baggage."
+     "" NIL)
     ("CREATE-MODEL-FOR-VPRODSHIPINFOADDACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("READ-SOURCE-FROM-SWANK-LOCATION" "FUNCTION"
@@ -2565,15 +2802,18 @@ Returns:
     ("REMOVE-INVOICE-ITEM-MARKERS-FROM-TEMPLATE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("WALTPHONE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTADDTOCART" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("DOD-UPI-PAYMENTS" "CLASS"
      "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
     ("CTX-DOMAIN-OBJECT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
-    ("ODTK-REMARKS" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-dal-odt.lisp" "" "" NIL)
+    ("TEST-REQUESTMODEL-REJECTED-BY-DOMAIN-VERB" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Any proc.GANA verb called with an nst-request-model as first arg
+   must signal no-applicable-method — not silently succeed."
+     "" NIL)
     ("CREATE-MODEL-FOR-SHOWORDERITEMS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
     ("GET-LOGIN-VENDOR" "FUNCTION"
@@ -2604,8 +2844,8 @@ Returns:
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUSTOMER-PRODUCTS-BY-CATEGORY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("DISPLAY-ORDER-HEADER-FOR-CUSTOMER" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
+    ("NST-RESPONSE-NIL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("CMP-TYPE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-dal-cmp.lisp" "" "" NIL)
     ("NAME" "GENERIC-FUNCTION"
@@ -2637,10 +2877,12 @@ Returns:
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
     ("RENDER-COMPADMIN-SIDEBAR-OFFCANVAS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
-    ("PARAMS" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
-    ("WITH-HTML-ACCORDION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("TEST-EXTRACT-DOMAIN-INITARGS-IGNORES-UNKNOWN-KEYS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "A key in rm.params that entity-class does not declare as an initarg
+   must be silently dropped, not passed through to make-instance.
+   STUB: rm.params contains :bogus-field \"x\", assert absent from result."
+     "" NIL)
     ("GSTR2B-VERIFIED-DATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("MODAL.APPROVE-VENDOR-HTML" "FUNCTION"
@@ -2650,10 +2892,12 @@ Returns:
     ("SELECT-WAREHOUSE-BY-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
      "Select warehouse by row-id" "" NIL)
+    ("VALID-INDIAN-STATE-CODE-P" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp" "" "" NIL)
+    ("MYSQL-NOW+DAYS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("GET-BUS-TRAN-CREATED-BY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-bo.lisp" "" "" NIL)
-    ("GET-LOGIN-CUST-NAME" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("GET-PRODUCTS-FOR-APPROVAL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("REJECT-VENDOR" "FUNCTION"
@@ -2666,17 +2910,12 @@ Returns:
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Do Service implementation for a Business Service. Takes in the BusinessSession and input params and returns back output params and exceptions if any."
      "" NIL)
-    ("USERSESSIONOBJECT" "CLASS"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("ORDERITEMVIEWMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("RENDER-TAX-SUMMARY-HTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp"
      "Generates the HTML table for the GST breakdown with a Grand Total row."
      "" NIL)
-    ("DB-FETCH" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
-     "Fetch the DBObject by row-id" "" NIL)
     ("BUSINESSSESSION" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("DISPATCH-ROUTE" "FUNCTION"
@@ -2694,8 +2933,6 @@ Returns:
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-SHOW-INVOICE-CONFIRM-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
-    ("CREATE-WIDGETS-FOR-COMPADMINHOME" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("TRANSFERKNOWLEDGE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Transfer BO knowledge from one adapter-layer object to another." "" NIL)
@@ -2705,8 +2942,6 @@ Returns:
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("SELECT-PRODUCTS-BY-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
-    ("%GET-BREAKDOWN-KEY" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-bl-itm.lisp" "" "" NIL)
     ("END-TIME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vad.lisp" "" "" NIL)
     ("MAKE-UI-COMPONENT" "FUNCTION"
@@ -2727,8 +2962,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Deletes a business context" "" NIL)
     ("SELECT-VENDORS-FOR-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
-    ("DELETE-PRDCATGS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("COM-HHUB-TRANSACTION-SHOW-INVOICES-PAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("HHUB-UNKNOWN" "CLASS" "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp"
      "Base condition for logical database results (non-fatal)." "" NIL)
     ("DOD-CONTROLLER-CUSTOMER-LOGOUT" "FUNCTION"
@@ -2743,8 +2978,12 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("DOD-CONTROLLER-LOGOUT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
+    ("GET-UNIX-TIME" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("ERROR-MESSAGE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-ADDEDITWAREHOUSE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp" "" "" NIL)
     ("GET-AUTH-POLICY-ATTR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("SET-USER-SESSION-PARAMS" "FUNCTION"
@@ -2759,14 +2998,23 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-OTPSUBMITACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
+    ("RM-ROW-ID" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Shared helper — every verb needing row-id extracts it the same way.
+   NOT a new abstraction layer, just avoiding six copies of one getf."
+     "" NIL)
     ("TABLE-EXISTS-P" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-CUSTOMER&VENDOR-CREATE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("COM-HHUB-TRANSACTION-UPDATE-ORDERITEM-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
     ("FILTER-ORDER-ITEMS-BY-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("VPAYMENTMETHODSVIEWMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
+    ("EXPECTED-DELIVERY-DATE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("GET-VENDOR-ORDER-INSTANCE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-CREATE" "FUNCTION"
@@ -2777,16 +3025,14 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-bl-usr.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CAD-PRODUCT-APPROVE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
-    ("GET-OPREF-VENDORLIST" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("WITH-CUSTOMER-BREADCRUMB" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("GENERATEUPIURLSFORVENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("USER-CARD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-usr.lisp" "" "" NIL)
     ("VENDORDBSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
-    ("CREATE-MODEL-FOR-UPDATEGSTHSNCODE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
     ("SUBMITFORMEVENT-JS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("GET-TOTAL-OF" "FUNCTION"
@@ -2801,13 +3047,14 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("DISPLAY-PRODUCT-CARDS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("RENDER-SIDEBAR-OFFCANVAS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Render the complete sidebar offcanvas component." "" NIL)
     ("UPDATE-CONFIG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/templates/invoicesettings.lisp"
      "Update a specific KEY in SECTION of config*invoice-settings* to NEW-VALUE."
      "" NIL)
-    ("CREATE-MODEL-FOR-UPDATEORDERITEM" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
+    ("GETREQUESTMODEL" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("CUSTOMERADAPTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/customer/nst-dal-Customer.lisp" "" "" NIL)
     ("REFRESHIAMSETTINGS" "FUNCTION"
@@ -2822,6 +3069,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("FILTER-PRODUCTS-BY-CATEGORY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("MAKE-UI-WIDGET" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("PRESENTERSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("UNIX-TO-UNIVERSAL-TIME" "FUNCTION"
@@ -2837,8 +3086,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
     ("MAX-ITEM" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "" "" NIL)
-    ("DOD-CONTROLLER-VEND-LOGIN-WITH-OTP" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("RENDER-MULTIPLE-PRODUCT-IMAGES" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("UPDATE-VENDOR-DETAILS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
     ("SAFE-NL-TO-SQL" "FUNCTION"
@@ -2849,6 +3098,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-ADDCUSTTOINVOICE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-VENDOR-SEARCH-CUST-WALLET-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("ORDERHTMLVIEW" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("GET-VENDORS-BY-ORDERID" "FUNCTION"
@@ -2863,6 +3114,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-VENDOR-UPLOAD-PRODUCT-IMAGES-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("SELECT-HSN-CODES-BY-TEXT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
     ("DOD-GET-CACHED-ORDER-ITEMS-BY-ORDER-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("GET-ORDER-ITEMS-FOR-VENDOR" "FUNCTION"
@@ -2870,13 +3123,14 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("CUSTOMERS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-dal-cmp.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SHOWWAREHOUSES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
-     "Create model for showing all warehouses" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-RESTORE-ACCOUNT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("KNOWLEDGE-JOIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
      "Combines knowledge states from two sources (union of knowledge)." "" NIL)
+    ("PRD-NAME" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("DISPLAY-PRDCATG-CAROUSEL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CUSTOMER" "GENERIC-FUNCTION"
@@ -2889,12 +3143,12 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("DOD-GST-HSN-CODES" "CLASS"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-LIST-ORDER-DETAILS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("WCITY" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("SELECT-PRODUCT-PRICING-BY-STARTDATE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
-    ("SELECT-CUSTOMERS-FOR-COMPANY" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("SELECT-WAREHOUSES-BY-OWNERSHIP" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
      "Select warehouses by ownership criteria" "" NIL)
@@ -2902,8 +3156,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("CHECK-ALL-VENDORS-WALLET-BALANCE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("PERSIST-PRDCATG" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("ORDER-TRACK-COMPANY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-dal-odt.lisp" "" "" NIL)
     ("UNIT-OF-MEASURE" "GENERIC-FUNCTION"
@@ -2911,12 +3163,10 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("CREATE-WIDGETS-FOR-SEARCHINVOICEHEADER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("VENDOR-ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
     ("MODAL.VENDOR-MY-CUSTOMER-WALLET-RECHARGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-PRODUCTS-CSV" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("MODAL.VENDOR-UPDATE-UPI-PAYMENT-SETTINGS-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("TAKE-ALL" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp" ""
      "" NIL)
@@ -2925,6 +3175,9 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("COPY-DBOBJECT-TO-BUSINESSOBJECT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Syncs the DBobject to BusinessObject" "" NIL)
+    ("RENDER-SIDEBAR-BODY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Render the offcanvas body content." "" NIL)
     ("DOD-CONTROLLER-VENDOR-PASSWORD-RESET-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("TAGS" "GENERIC-FUNCTION"
@@ -2953,13 +3206,13 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      NIL)
     ("RCM-PAID-DATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
+    ("IGSTAMT" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("PROCESSREADALLREQUEST" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Adapter Service method to call the BusinessService Read method" "" NIL)
     ("GET-VENDOR-APPOINTMENT-INSTANCE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vas.lisp" "" "" NIL)
-    ("HHUB-BUSINESS-FUNCTION-ERROR" "CLASS"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
     ("HHUB-EXECUTE-PENDING-UPI-TASK" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("BO-MERGE-PROVENANCE" "GENERIC-FUNCTION"
@@ -2967,8 +3220,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Return merged provenance list (deduped)" "" NIL)
     ("GET-ORDER-BY-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
-    ("ACTOR-CONDITION" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("DOD-CONTROLLER-PASSWORD-RESET-MAIL-SENT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("GET-OPF-PRODUCT" "GENERIC-FUNCTION"
@@ -2987,6 +3238,15 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("WITH-GUESTUSER-NAVIGATION-BAR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("BUILD-DOMAIN-CTX-FROM-REQUEST" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "ASSUMPTION FLAGGED ABOVE: signature matches make-domain-ctx as
+   recalled from memory, not re-verified against Document 3/5 this
+   session. tenant-id MUST come from session (get-login-company or
+   equivalent), NEVER from client params directly — this is the
+   नियम-1 boundary; verify the actual key your session layer uses
+   before trusting this line in production."
+     "" NIL)
     ("STATUS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
     ("WITH-HTML-DIV-COL-1" "MACRO"
@@ -3011,8 +3271,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
     ("PRODUCT-CARD-SHOPCART" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
-    ("DOD-VENDOR-APPOINTMENT" "CLASS"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vas.lisp" "" "" NIL)
     ("ATTR" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" ""
      "" NIL)
     ("DOD-CONTROLLER-LIST-BUSTRANS" "FUNCTION"
@@ -3023,10 +3281,29 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
      "Copy database object to warehouse domain object with ownership fields" ""
      NIL)
+    ("COM-HHUB-TRANSACTION-READALL-WAREHOUSE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
+     "Unchanged — with-mvc-ui-page's contract stays as-is." "" NIL)
     ("HHUB-CONTROLLER-GET-VENDOR-PUSH-SUBSCRIPTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-ui-push.lisp" "" "" NIL)
     ("LIST-CUSTOMER-LOW-WALLET-BALANCE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("ACTIVATE-PRODUCT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("NST-ENTITY-NIL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Belnap :F sentinel. A domain fact: this entity does not exist." "" NIL)
+    ("INSERT-BUS-TRANSACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp"
+     "Insert a transaction row (and, if its governing policy does not exist yet,
+   insert that policy too). Idempotent on transaction NAME.
+
+   Either pass :policy-id (the AUTH_POLICY_ID you already know) or pass
+   :policy-name, :policy-description, :policy-func to have the policy created
+   implicitly and linked.
+
+  Returns the transaction ROW_ID (existing or freshly inserted)."
+     "" NIL)
     ("ADVANCE-GST-REVERSED" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTOMERINDEXPAGE" "FUNCTION"
@@ -3037,16 +3314,13 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("DOD-CONTROLLER-COMPANY-SEARCH-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("COM-HHUB-BUSINESSFUNCTION-DB-GETPUSHNOTIFYSUBSCRIPTIONFORVENDOR"
-     "FUNCTION" "/home/ubuntu/ninestores/hhub/webpushnotify/dod-bl-push.lisp"
-     "" "" NIL)
-    ("CREATE-WIDGETS-FOR-SHOWCUSTOMER" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
+    ("INSERT-AUTH-POLICY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp"
+     "Insert a policy row unless one with NAME already exists.
+   Returns the policy ROW_ID (existing or freshly inserted)."
+     "" NIL)
     ("DOD-COMPANY" "CLASS"
      "/home/ubuntu/ninestores/hhub/account/dod-dal-cmp.lisp" "" "" NIL)
-    ("DB-FETCH-ALL" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
-     "Fetch records by company" "" NIL)
     ("PRODUCT-SUBSCRIBE-HTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("DISPLAY-CUST-SHIPPING-COSTS-WIDGET" "FUNCTION"
@@ -3085,10 +3359,15 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-VENDOR-APPROVE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
+    ("DOMAIN->RESPONSE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Reverse ferry: Tree 1 result → Tree 2 nst-response-model.
+    entity is the ONLY dispatching argument that may be nst-domain-entity.
+    Returns an nst-response-model — never the entity itself.
+    The entity does not cross into Ring 4 (UI/HTTP) directly."
+     "" NIL)
     ("BUSINESSOBJECT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
-    ("CREATEWHATSAPPLINKWITHMESSAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("WITH-VEND-SESSION-CHECK" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SHOWORDERITEM" "FUNCTION"
@@ -3099,12 +3378,19 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-ADD-CUSTOMER-TO-INVOICE-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-VEND-LOGIN" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("ENUMERATE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "दर्शन प्रत्यय — list within tenant scope. नियम-1 applies to the
+    SCOPE filter here (WHERE tenant_id = ctx.tenant), not to each
+    returned row individually — the row-level check is redundant
+    once the query itself is tenant-scoped correctly."
+     "" NIL)
     ("GETEXCEPTIONSTR" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
     ("SHIPCITY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
+    ("W-CITY" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SADMIN-HOME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("SEND-TEST-EMAIL" "GENERIC-FUNCTION"
@@ -3114,6 +3400,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "" "" NIL)
     ("ACTOR-THREAD" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-UPDATEGSTHSNCODE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CREATE-ORDER-DIALOG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
     ("WITH-DB-CREATE" "MACRO"
@@ -3124,6 +3412,11 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
    (:U ...) (:C ...) are optional; if omitted the bo-knowledge is 
    returned and you can branch with WITH-BO-KNOWLEDGE-CHECK."
      "" NIL)
+    ("GET-PROJECT-SYMBOLS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-ui-prosymloo.lisp"
+     "Collects ALL defined symbols (internal and external functions, macros, and classes) 
+   from the project's packages."
+     "" NIL)
     ("DISPLAY-VENDOR-PAGE-WITH-WIDGETS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-VENDORPROFILE" "FUNCTION"
@@ -3131,6 +3424,17 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("ADD-ITEM-TO-TAX-BREAKDOWN" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp"
      "Processes an InvoiceItem and aggregates it into the breakdown summary."
+     "" NIL)
+    ("MAKE-INVOICE-DOMAIN-OBJECT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-bl-cusinvreg.lisp"
+     "Construct CustomerInvoiceEntry from a dod-v-customer-invoice-register instance."
+     "" NIL)
+    ("WITH-COMPADMIN-BREADCRUMB" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-UPDATEWAREHOUSE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
+     "Model for the update-warehouse action. Runs !update and returns the
+   redirect URL back to the same warehouse's details page."
      "" NIL)
     ("UPDATED-AT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
@@ -3145,11 +3449,11 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("GET-TIME-STRING-FROM-DATEOBJ" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "Returns current time  as a string in HH:MM:SS  format" "" NIL)
-    ("FIND-INVOICE-ITEM" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-bl-itm.lisp" "" "" NIL)
     ("GET-DATE-STRING" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "Returns current date as a string in DD/MM/YYYY format." "" NIL)
+    ("COMPCESS" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("ACTOR-LOCK" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SHOWINVOICEITEM" "FUNCTION"
@@ -3166,12 +3470,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("SEARCH-ODT-BY-PRD-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
-    ("GETREQUESTMODEL" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SEARCH-ORDER-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
-    ("CREATE-WIDGETS-FOR-DISPLAYORDERHEADERFORCUST" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("HHUB-GET-CACHED-CURRENCY-FONTAWESOME-SYMBOLS-HT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CUSTPRODBYVENDOR" "FUNCTION"
@@ -3187,8 +3487,7 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("CALCULATE-ORDER-TOTALSGST" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-bl-Order.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SHOWWAREHOUSES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
-     "Create widgets for warehouse page" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp" "" "" NIL)
     ("UI-LIST-POLICIES-FOR-LINKING" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-VENDOR-PROD-SHIP-INFOADD" "FUNCTION"
@@ -3200,7 +3499,7 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("CUSTNAME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("IS-PRIMARY-LOCATION" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("AUTH" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("SAC-CODE" "GENERIC-FUNCTION"
@@ -3215,16 +3514,16 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
     ("DELETE-VENDOR-APPOINTMENT-INSTANCE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vas.lisp" "" "" NIL)
-    ("RENDERLIST" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-UPDATE-EXTERNAL-SHIPPING-PARTNER-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("ACTOR-MESSAGE-COUNT" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CREATEORDER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
-    ("SET-VENDOR-SESSION-PARAMS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("PRODUCTS-DROPDOWN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("DOMAIN-CTX-CHANNEL" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("INVOICEITEMHTMLVIEW" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-EDITINVOICEHEADERPAGE" "FUNCTION"
@@ -3245,6 +3544,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/upi/dod-bl-upi.lisp" "" "" NIL)
     ("GET-CUST-WALLETS-FOR-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
+    ("EXPIRED" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SEARCHHSNCODES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
     ("CHECK&ENCRYPT" "FUNCTION"
@@ -3253,6 +3554,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-VENDUPDATEPGSETTINGS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-SHOWGSTHSNCODES" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
     ("GET-SORTED-TAX-SUMMARY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp"
      "Returns the tax entries as a list sorted by HSN code." "" NIL)
@@ -3261,6 +3564,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Extracts the row sub-template and repeats it for every item." "" NIL)
     ("HSN-CODE-4DIGIT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
+    ("DISPLAY-AS-TABLE-OLD" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CREATEALLVIEWMODEL" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Converts the ResponseModel to ViewModel" "" NIL)
@@ -3268,6 +3573,9 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("GET-ORDER" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/paymentgateway/dod-dal-pay.lisp" "" "" NIL)
+    ("SELECT-PRIMARY-WAREHOUSE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
+     "Select primary warehouse location" "" NIL)
     ("NST-GENERIC-LOGIN-WITH-PASSWORD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CREATEGSTHSNCODE" "FUNCTION"
@@ -3276,8 +3584,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("DESTROY-ACTOR" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
-    ("CREATE-MODEL-FOR-DISPLAYORDERHEADERFORVENDOR" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("ADD-ROOT-PRDCATG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("SELECT-BUS-TRANS-BY-COMPANY" "FUNCTION"
@@ -3286,22 +3592,16 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-ADD-PRODUCT-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-DUPLICATE-CUSTOMER" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("GET-ALL-VENDOR-ORDERS-BY-ORDERID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("PERSIST-AUTH-POLICY-ATTR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
+    ("COPYGSTHSNCODES-DOMAINTODB" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SADMINHOME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
-    ("COM-HHUB-TRANSACTION-SHOW-INVOICES-PAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("BO-KNOWLEDGE-SUMMARY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-beltrusys.lisp" "" "" NIL)
-    ("RESTORE-DELETED-AUTH-POLICY-ATTRS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
-    ("COM-HHUB-TRANSACTION-UPDATE-ORDERITEM-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
     ("SELECT-AUTH-POLICY-BY-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("GET-OPREF-ITEMS-TOTAL-FOR-VENDOR" "FUNCTION"
@@ -3310,8 +3610,9 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("PERSIST-PAYMENT-TRANS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/paymentgateway/dod-bl-pay.lisp" "" "" NIL)
-    ("GSTHSNCODESREQUESTMODEL" "CLASS"
-     "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
+    ("RENDERLISTVIEWHTML" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "Renders a list view"
+     "" NIL)
     ("NEW-DOD-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
     ("LOGIAMHERE" "FUNCTION"
@@ -3322,6 +3623,16 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATEINVOICEITEMOBJECT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-bl-itm.lisp" "" "" NIL)
+    ("KAARAKA-REF" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "A typed reference used by recipient/source below (and any future
+   kāraka-valued field). Deliberately NOT a raw cons cell — printable,
+   type-checkable at the REPL, extensible without breaking callers.
+   ASCII name: kaaraka-ref, not kāraka-ref — see typing-convention
+   discussion; double-a spells the long ā without a diacritic."
+     "" NIL)
+    ("AVAIL-DATE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vad.lisp" "" "" NIL)
     ("GET-B2C-CUSTOMERS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp"
      "Get all B2C customers (no GSTIN or INDIVIDUAL type)" "" NIL)
@@ -3331,12 +3642,25 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("DOD-CONTROLLER-DELETE-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-ui-cmp.lisp" "" "" NIL)
+    ("DOMAIN->RESPONSE-LIST" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-bl-warehouse.lisp"
+     "Carries each nst-whs through domain->response, returning a list of
+   WarehouseResponseModel objects. Plain function, not a generic —
+   the per-element dispatch already happens correctly inside
+   domain->response itself; wrapping mapcar in a defmethod on 'list'
+   would just be false ceremony, the same mistake caught in render-html
+   two turns ago. BELNAP NOTE: mapping the list is a pure structural
+   transform — it does NOT inspect each element's Belnap truth.
+   Filter/route on sentinels BEFORE calling this."
+     "" NIL)
     ("OPERATOR-ENTITY-ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("CALCULATE-ORDER-ITEM-COST" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("PRINT-WEB-SESSION-TIMEOUT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("DEDUCT-WALLET-BALANCE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CUSTWALLETDISPLAY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-cuswall.lisp" "" "" NIL)
     ("VPAYMENTMETHODSSERVICE" "CLASS"
@@ -3349,6 +3673,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SHOWCUSTOMERUPIPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
+    ("COM-HHUB-TRANSACTION-SUSPEND-ACCOUNT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("VENDORWEBPUSHNOTIFYSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("PERSIST-ORDERPREF" "FUNCTION"
@@ -3359,9 +3685,9 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("LAZY-MAPCAN" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp"
      "" "" NIL)
-    ("SELECT-PRIMARY-WAREHOUSE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
-     "Select primary warehouse location" "" NIL)
+    ("DB-FETCH" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
+     "Fetch the DBObject by row-id" "" NIL)
     ("RENDER-INVOICE-SETTINGS-MENU" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("WITH-STANDARD-CUSTOMER-PAGE-V3" "MACRO"
@@ -3370,6 +3696,11 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("EMAIL-ADD-VERIFIED" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-dal-Customer.lisp" "" "" NIL)
+    ("PARSE-DATE-STRING" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
+     "Read a date string of the form \"DD/MM/YYYY\" and return the 
+corresponding universal time."
+     "" NIL)
     ("CREATE-WIDGETS-FOR-SHOWVENDORPRODUCTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CGST-RATE" "GENERIC-FUNCTION"
@@ -3386,6 +3717,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUST-ORDER-DATA-JSON" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-UPDATEORDERITEM" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
     ("ADAPTERSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("INIT-HHUBPLATFORM" "FUNCTION"
@@ -3402,22 +3735,22 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/subscription/dod-bl-opf.lisp" "" "" NIL)
     ("MODAL.HHUB-COOKIE-POLICY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
+    ("PERSIST-PRDCATG" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("DISPLAY-ORDDATEREQDATE-TEXT-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-VENDSHIPPINGMETHODS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("WAREHOUSE-SEARCH-HTML" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
      "Generate warehouse search HTML" "" NIL)
-    ("PRODUCT-CARD" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
+    ("GET-PUSH-NOTIFY-SUBSCRIPTION-FOR-CUSTOMER" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/webpushnotify/dod-bl-push.lisp" "" "" NIL)
     ("INVDATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("PRODUCT-COMPANY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-dal-osh.lisp" "" "" NIL)
     ("MODAL.VENDOR-CHANGE-PIN" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("ZONEZIPCODESDISPLAYFUNC" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTSHOWSHOPCART" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
@@ -3431,10 +3764,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SADMINHOME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
-    ("SAFE-READ-FROM-STRING" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp"
-     "Attempts to read a Lisp expression from a string, returning a default value if parsing fails."
-     "" NIL)
     ("DOD-AUTH-POLICY-ATTR" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-pol.lisp" "" "" NIL)
     ("LAZY-NTH" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp" ""
@@ -3446,9 +3775,21 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("SESSIONINVOICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("WEMAIL" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("GET-LOGIN-CUST-TENANT-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-ui-cmp.lisp" "" "" NIL)
+    ("CURRENT-DATE-STRING-DDMMYYYY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
+     "Returns current date as a string in DD-MM-YYYY format" "" NIL)
+    ("KW->ENUM-STRING" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-bl-warehouse.lisp"
+     "Converts a Lisp keyword like :third-party to the MySQL enum string
+   THIRD_PARTY. Hyphen→underscore — MySQL ENUM values throughout
+   DOD_WAREHOUSE (WAREHOUSE_TYPE, REGISTRATION_TYPE, WAREHOUSE_PURPOSE,
+   VALUATION_METHOD, GSTIN_STATUS) use underscores; Lisp keywords
+   idiomatically use hyphens. A bare (string kw) call would silently
+   write the wrong string for any multi-word value."
+     "" NIL)
     ("GET-CURRENCY-HTML-SYMBOL-MAP" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-dal-sys.lisp" "" "" NIL)
     ("UPDATE-AUTH-POLICY" "FUNCTION"
@@ -3459,6 +3800,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CREATE-ORDERITEM-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
+    ("MODAL.VENDOR-UPDATE-UPI-PAYMENT-SETTINGS-PAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CUSTOMERADDRESSJSONVIEW" "CLASS"
      "/home/ubuntu/ninestores/hhub/customer/nst-dal-Customer.lisp" "" "" NIL)
     ("CALCULATE-INVOICE-TOTALBEFORETAX" "FUNCTION"
@@ -3471,10 +3814,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-UPI-CUSTOMER-ORDER-PAYMENT-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
-    ("TOOL-RECOMPILE-AND-SAVE-FUNCTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
-     "Finds the function's source file, replaces the old definition, saves the file, and reloads it."
-     "" NIL)
+    ("GET-SHIPSTATE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
     ("SHIPSTATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("PROCESSREADREQUEST" "GENERIC-FUNCTION"
@@ -3498,6 +3839,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("CODENABLED" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
+    ("GET-VENDOR-ORDERS-BY-ORDERID" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SEARCHPRODUCTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("GSTHSNCODESSEARCHREQUESTMODEL" "CLASS"
@@ -3508,20 +3851,29 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("DOD-PASSWORD-RESET" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-pas.lisp" "" "" NIL)
+    ("SELECT-WAREHOUSE-BY-NAME" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
+     "Select warehouse by name" "" NIL)
     ("LATITUDE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("FIND-PINCODE-DETAILS-FROM-HT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-pincodes.lisp" "" "" NIL)
     ("GETRATETABLECSV" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-bl-osh.lisp" "" "" NIL)
+    ("COM-HHUB-TRANSACTION-VENDOR-CREATE-CUSTOMER-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("DOD-SHIPPING-METHODS" "CLASS"
      "/home/ubuntu/ninestores/hhub/shipping/dod-dal-osh.lisp" "" "" NIL)
     ("TAXABLE-VALUE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("SELECT-CUSTOMER-BY-PHONE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
-    ("TOTALITEMVAL" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
+    ("NST-REQUEST-MODEL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Raw inbound parameters, still shaped by the transport (Layer 2/3
+    from the communication-modes discussion). Never touches proc.GANA.
+    Consumed entirely by request→dispatch (Section 4) and discarded."
+     "" NIL)
     ("COM-HHUB-POLICY-CREATE-GST-HSN-CODE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("MODAL.CUSTOMER-UPDATE-DETAILS" "FUNCTION"
@@ -3532,6 +3884,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
     ("DISPLAY-TERMS-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("HHUB-BUSINESS-ADAPTER" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("DOD-INVOICE-ITEMS" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("RUN-AUTONOMOUS-TASK" "FUNCTION"
@@ -3556,8 +3910,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
     ("DISPLAY-CSV-AS-HTML-TABLE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
-    ("WAREHOUSE-PURPOSE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("DOD-CONTROLLER-GUEST-CUSTOMER-LOGOUT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("PAYPROVIDERSENABLED" "GENERIC-FUNCTION"
@@ -3586,6 +3938,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
    Example usage:
    (check-null some-value \"Expected non-null value for calculation\")"
      "" NIL)
+    ("DISPLAY-ORDER-ROW" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-DISPLAYORDERHEADERFORVENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("HHUB-DATABASE-ERROR" "CLASS"
@@ -3599,8 +3953,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
     ("PRODUCT-ID" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
-    ("GET-WEB-SESSION-TIMEOUT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("GET-LOGIN-CUSTOMER-ID" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-CONTACTUS-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
     ("CTX-VIEW" "GENERIC-FUNCTION"
@@ -3613,21 +3967,19 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("DOD-GEN-ORDER-FUNCTIONS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("STATE-CODE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("OLLAMA-GENERATE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp" "" "" NIL)
     ("CUSTOMER-REGISTRATION-HTML-CONTENT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/email/templates/registration.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-PUSHSUBSCRIBE-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("RENDER-MULTIPLE-PRODUCT-IMAGES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("WNAME" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CREATE-COMPANY-DIALOG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
-    ("CUSTOMER-PRODUCT-DETAIL-PAGE-COMPONENT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/nst-ui-prodetpag.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-ADDCUSTTOINVOICE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-PUBLISH-ACCOUNT-EXTURL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("CUST-OPF-AS-ROW" "FUNCTION"
@@ -3636,8 +3988,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-dal-sys.lisp" "" "" NIL)
     ("DOD-CONTROLLER-NEW-COMPANY-REQUEST-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-VENDOR-SHIPZONE-RATETABLE-PAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTDELETEORDERSUBSCRIPTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("COPYINVOICEHEADER-DOMAINTODB" "FUNCTION"
@@ -3648,8 +3998,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("MYSQL-NOW" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "" "" NIL)
-    ("ORDERITEMADAPTER" "CLASS"
-     "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("GET-LOGIN-USERID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-usr.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-APPROVAL-PAGE" "FUNCTION"
@@ -3660,16 +4008,24 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-ui-push.lisp" "" "" NIL)
     ("SEND-ORDER-EMAIL-STANDARD-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("RUN-DAILY-ORDERS-BATCH" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
-    ("HHUB-ABAC-TRANSACTION-ERROR" "CLASS"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
+    ("SAFE-READ-ALIST" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Safely read an alist from string, returns alist as-is." "" NIL)
+    ("TEST-EXTRACT-DOMAIN-INITARGS-NEEDS-ZERO-CHANGES-FOR-NEW-ENTITY"
+     "FUNCTION" "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Structural test: define a throwaway nst-domain-entity subclass with
+   a novel slot, verify extract-domain-initargs handles it correctly
+   with NO code changes to extract-domain-initargs itself. This is
+   the MOP-driven guarantee — confirm it holds, don't just assert it."
+     "" NIL)
     ("SEND-SMS-NOTIFICATION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-ui-push.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-OTPLOGINPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("DELETE-ORDERS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
+    ("GET-LOGIN-CUST-NAME" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CUSTORDERPAYMENTPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("UPDATE-VENDOR-APPOINTMENT-INSTANCE" "GENERIC-FUNCTION"
@@ -3686,10 +4042,12 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/order/nst-bl-Order.lisp" "" "" NIL)
     ("RESTORE-DELETED-PRDCATGS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("MY-OR" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
+     "Implements the logical OR operator for FDE logic.
+   (Based on the join operation of the Truth lattice.)"
+     "" NIL)
     ("ACTOR-ROLE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
-    ("WITH-COMPADMIN-BREADCRUMB" "MACRO"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("HTMLDATA" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("GET-UNIVERSAL-TIME-FROM-DATE" "FUNCTION"
@@ -3739,6 +4097,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
     ("RESET-CUSTOMER-PASSWORD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
+    ("CUST-PROFILE-ORDERS" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SEARCH-INVOICEITEM-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
     ("DELETE-AUTH-POLICIE-ATTRS" "FUNCTION"
@@ -3746,12 +4106,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("REQUESTMODEL-CLASS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SEARCH-WAREHOUSE-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
      "Search warehouse action handler" "" NIL)
-    ("MY-OR" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
-     "Implements the logical OR operator for FDE logic.
-   (Based on the join operation of the Truth lattice.)"
-     "" NIL)
     ("CREATED" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("ACTOR-LAST-ACTIVE-AT" "GENERIC-FUNCTION"
@@ -3765,13 +4121,24 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("SELECT-UPI-TRANSACTIONS-BY-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-bl-upi.lisp" "" "" NIL)
     ("LONGITUDE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
+    ("GET-PRODUCTS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("IGST" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
+    ("IST-VALID-CODING-TIME-P" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Predicate: returns T only if the current IST time falls inside one of the
+   DeepSeek off-peak coding windows (times in IST):
+     Window 1: 09:30 – 11:30
+     Window 2: 15:30 – 06:30 (next morning)
+   Returns NIL outside those slots, e.g. to block DeepSeek calls during
+   peak/expensive hours."
+     "" NIL)
     ("CTX-ROUTE-KEY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("OPERATOR-ENTITY-TYPE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("UPDATE-AUTH-POLICY-ATTR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-PRDDETAILSFORCUSTOMER" "FUNCTION"
@@ -3780,6 +4147,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-VENDOR-ADDTOCART-FOR-INVOICE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
+    ("MEMOIZE" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/memoize.lisp"
+     "Replace fn-name's global definition with a memoized version." "" NIL)
     ("VPRODUCT-QTY-ADD-FOR-INVOICE-HTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("RESET-PASSWORD-COMPANY" "GENERIC-FUNCTION"
@@ -3791,6 +4160,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Update customer's order metrics after a new order" "" NIL)
     ("CREATE-PREPAID-WALLET-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-COMPADMINHOME" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SEARCHCUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
     ("PROCESSCREATEREQUEST" "GENERIC-FUNCTION"
@@ -3801,6 +4172,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("GENERATE-BRANCH-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "Generate a validated Git branch name: scope/type/id-desc." "" NIL)
+    ("ADD-NEW-NODE-PRDCATG" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("HHUB-GET-CACHED-GST-SAC-CODES-HT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("DOD-VENDOR-ORDERS" "CLASS"
@@ -3815,6 +4188,10 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("DELETE-RESET-PASSWORD-INSTANCES" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pas.lisp" "" "" NIL)
+    ("ESCAPE-LIKE-WILDCARDS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-bl-warehouse.lisp"
+     "Escapes MySQL LIKE metachars so name-like input is treated literally." ""
+     NIL)
     ("DOD-CONTROLLER-CAD-PROFILE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("DISPLAY-ORDER-HEADER-FOR-VENDOR" "FUNCTION"
@@ -3828,7 +4205,7 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("GETBUSINESSSERVICE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("COMPANY" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("GET-VENDOR-INVOICE-SETTINGS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("INVOICEHEADERREQUESTMODEL" "CLASS"
@@ -3865,18 +4242,18 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
     ("GET-SHIPPING-RATE-FROM-TABLE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-bl-osh.lisp" "" "" NIL)
-    ("CREATEGSTHSNCODESOBJECT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-MY-ORDERS1" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("WITH-HTML-DIV-COL-8" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("GSTIN-STATUS" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("GET-ORDER-ITEMS-FOR-VENDOR-BY-ORDER-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
     ("UI-LIST-CMP-FOR-VEND-TENANT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SEARCHWAREHOUSES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
      "Create widgets for search results" "" NIL)
     ("ZIPCODE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
@@ -3887,6 +4264,15 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Select warehouse by GSTIN" "" NIL)
     ("GET-SORTED-SUMMARY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-bl-itm.lisp" "" "" NIL)
+    ("WITH-NST-DB-READ-ALL" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
+     "BODY returns a list (possibly empty) of dbobjs. :T = non-empty
+   list. :F = empty list — a real, expected result (no matches),
+   not an error. :C = PK-EXTRACTOR supplied and finds a duplicate
+   PK across the returned rows — a data-integrity signal, not a
+   query-syntax one; investigate the table, don't just retry.
+   :U = any error, logged."
+     "" NIL)
     ("GET-LOGIN-VEND-TENANT-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-ui-cmp.lisp" "" "" NIL)
     ("GET-SOURCE-CODE-REFLECTIVE" "FUNCTION"
@@ -3897,18 +4283,22 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("WAREHOUSEPRESENTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+    ("REJECT-PRODUCT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/sysuser/dod-bl-cad.lisp" "" "" NIL)
     ("WELCOMEMESSAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("CUSTOMERINVOICEREGISTERADAPTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("WITH-STANDARD-PAGE-TEMPLATE-V2" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("COM-HHUB-TRANSACTION-CREATE-ORDERITEM-DIALOG" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-UPI-RECHARGE-WALLET-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("TAKE" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp" "" ""
      NIL)
-    ("IS-USER-ALREADY-LOGIN?" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
+    ("SET-VENDOR-SESSION-PARAMS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("WITH-STANDARD-PAGE-TEMPLATE-WITH-SIDEBAR" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-COMPANY-SUBSCRIPTION-PLAN" "FUNCTION"
@@ -3922,16 +4312,27 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUSTOMER-CHANGE-PIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("IGSTAMT" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
+    ("NST-WHS" "CLASS"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp"
+     "Warehouse domain entity. Single-गण (भण्डारगण). Reference entity —
+    no BusinessService in its call path per the earlier architecture
+    decision. id/tenant-id/created-at/updated-at/deleted-state are all
+    inherited from nst-domain-entity — do not redeclare them here.
+
+    Remaining DOD_WAREHOUSE columns (registration-type, purpose,
+    default-transporter, lat/long, valuation-method, hsn-wise-stock,
+    pan-number, addr1/addr2) deliberately NOT added yet — add one at
+    a time, per column, when a real verb needs it."
+     "" NIL)
     ("CUSTOMER-SUBSCRIPTIONS-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/subscription/dod-ui-opf.lisp" "" "" NIL)
     ("PINCODE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/dod-sto-zip.lisp" "" "" NIL)
-    ("INVOICEITEMSERVICE" "CLASS"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("MODAL.CUST-DELETE-ORDER-ITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
+    ("SELECT-ALL-WAREHOUSES" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
+     "Select all warehouses for a tenant" "" NIL)
     ("SELECT-PRODUCT-BY-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("MIGRATE-2025MAY-ADD-DISCOUNT-COLUMN" "FUNCTION"
@@ -3946,8 +4347,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SEARCHORDERITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
-    ("CREATE-MODEL-FOR-CUSTSHIPMETHODSPAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("EXTRACT-FUNCTION-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
      "Pulls the last word/symbol name out of the user prompt string." "" NIL)
@@ -3957,6 +4356,23 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("GET-BUS-OBJ-CREATED-BY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-bo.lisp" "" "" NIL)
+    ("WITH-DB-UPDATE" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
+     "UPDATE boundary macro for CLSQL via DBAdapterService.db-save.
+
+   Caller responsibilities BEFORE this macro:
+     1. (init dbas updated-bo)                     ; attach updated BO
+     2. (setcompany dbas company)                  ; set tenant context
+     3. (copy-businessobject-to-dbobject dbas)     ; flush new values to DB row
+
+   PRE-FLIGHT (strongly recommended) — a CLSQL SELECT expression that
+   returns a list of rows matching the update target.  Drives :F and :C
+   detection.  Without it, :F cannot be produced because CLSQL does not
+   return rows-affected from db-save.
+
+   Returns a BO-KNOWLEDGE instance.  Use WITH-BO-KNOWLEDGE-CHECK to
+   branch on the result.  BODY is unused and reserved for future use."
+     "" NIL)
     ("CATG-NAME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("GET-TENANT-NAME" "FUNCTION"
@@ -3995,6 +4411,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("ADDRESS-PRESENTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
+    ("CREATEGSTHSNCODESOBJECT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-VENDOR-ISSUSPENDED" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
     ("COLUMN-TYPE-EQUALS-P" "FUNCTION"
@@ -4025,10 +4443,14 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Polymorphic viewmodel creation - only for READ operations" "" NIL)
     ("CUST-PROFILE-USERS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
+    ("MAKE-DOMAIN-CTX" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("GET-SYSTEM-ABAC-ATTRIBUTES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("DELETE-BUS-TRANSACTIONS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
+    ("HHUB-GET-CACHED-VENDOR-PRODUCTS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CREATE-CUST-WALLET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("NORMALIZE-MD5-FIELDS" "FUNCTION"
@@ -4043,6 +4465,64 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("VIEW-CLASSES" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
+    ("DOMAIN-CTX" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Passenger struct — travels through EVERY proc.GANA and proc.bs call as
+   the last argument. Carries context WITHOUT carrying boundary-tree
+   baggage across into the domain tree.
+
+   GUARDRAIL 2 anchor: every domain verb signature is (entity ... ctx).
+   ctx is always LAST. It is never the entity. It is never dispatched on.
+
+   कारक (kāraka) coverage — six classical semantic roles, five carried
+   here; the sixth (कर्म/karma, 'the object acted upon') is deliberately
+   NOT a ctx field — it is always the verb's own first argument (the
+   entity), per Guardrail 2. Putting karma on ctx would let it drift
+   out of dispatch position, which is exactly the discipline Guardrail
+   2 exists to prevent.
+
+     actor     — कर्ता (kartā), the agent performing the action
+                 (:human/:ai-agent/:scheduled-job + id)
+     tenant    — अधिकरण (adhikaraṇa), tenant/company context
+     channel   — करण (karaṇa), the instrument
+                 (:http/:grpc/:event-bus/:cli/:scheduler)
+     recipient — संप्रदान (sampradāna), 'for whom' — who the effect is
+                 directed at: an approver being routed to, a vendor
+                 being notified, a customer an invoice is issued to.
+                 nil, ONE kaaraka-ref, or a LIST of kaaraka-ref for
+                 fan-out (e.g. a notification going to several usr).
+     source    — अपादान (apādāna), 'from which' — point of origin:
+                 the budget funding a pr, the warehouse stock is drawn
+                 from, the vendor an RFQ is sourced from. nil or ONE
+                 kaaraka-ref.
+
+   PROVENANCE NOTE — do not conflate with bo-knowledge provenance:
+     recipient/source here are BUSINESS-SEMANTIC facts about the WORLD
+     (which entity is the source/recipient). bo-knowledge provenance
+     (BO-ADD-PROVENANCE, BO-MERGE-PROVENANCE — nst-bl-beltrusys.lisp,
+     both EXISTING) is an EPISTEMIC fact — which boundary call/system
+     told us something, used for Belnap :C conflict-merge tracking.
+     Two different layers, same word 'source' in casual English —
+     keep them distinct in code and in conversation.
+
+     Composition rule: a recipient/source value MAY have been resolved
+     via an uncertain boundary call (e.g. 'which vendor fulfils this
+     RFQ' from an external catalog). That call's own bo-knowledge and
+     provenance are checked and resolved to :T BEFORE this struct is
+     built. domain-ctx NEVER carries a :U-tainted kaaraka-ref — if
+     source/recipient resolution comes back :U, ctx construction
+     itself must abort rather than proceed with an uncertain value.
+     [LEGAL: an uncertain recipient for a GST-relevant notification —
+     e.g. self-invoice routing under RCM — is the same class of risk
+     as any other :U-on-GST-verb case; abort, do not guess.]
+
+   NIYAM EXEMPTION — recipient/source are NOT covered by नियम-1's
+   strict tenant-equality check. A vendor recipient legitimately
+   belongs to a DIFFERENT tenant than the acting company — cross-
+   tenant reference is the normal case for vnd/quot/rfq kāraka-refs,
+   not a violation. नियम-1 continues to apply, unmodified, to the
+   VERB'S OWN entity argument only."
+     "" NIL)
     ("ACTOR-NAME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("GET-PROJECT-PACKAGES" "FUNCTION"
@@ -4073,30 +4553,28 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      :C — duplicate PKs detected in result list
      :U — any error during execution of DB-FORM"
      "" NIL)
+    ("SELECT-BUS-OBJECT-BY-COMPANY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
     ("CONVERT-NUMBER-TO-WORDS-INR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
-    ("HHUB-RANDOM-PASSWORD" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
-    ("CUST-PROFILE-ORDERS" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
+    ("WSTATE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("VPAYMENTMETHODSPRESENTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
     ("TRANSMODE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("REMOVE-WEBPUSH-SUBSCRIPTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-bl-push.lisp" "" "" NIL)
-    ("MAKE-UI-WIDGET" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("IS-CONVERTED-TO-INVOICE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("INVOICE-NUMBER" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("SELECT-AUTH-ATTRS-BY-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("WAREHOUSEADAPTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
-    ("GET-VENDOR-ORDERS-BY-ORDERID" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
-    ("EXCEPTION" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
+    ("BIRTHDATE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("CALCULATE-ORDER-TOTALCGST" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-bl-Order.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-UPDATEORDER" "FUNCTION"
@@ -4105,12 +4583,17 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-bl-usr.lisp" "" "" NIL)
     ("CUSTOMERDBSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/customer/nst-dal-Customer.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-VENDSHIPPINGMETHODS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-UPDATE-INVOICE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-COMPANY-ISSUSPENDED" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SHOW-INVOICE-CONFIRM-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
+    ("RENDER-VENDOR-FILTER-FORM" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Render the hidden filter/search form." "" NIL)
     ("SELECT-ALLVPAYMENT-METHODS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vpm.lisp" "" "" NIL)
     ("QTY" "GENERIC-FUNCTION"
@@ -4119,8 +4602,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/subscription/dod-dal-opf.lisp" "" "" NIL)
     ("SELECT-VENDOR-BY-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
-    ("CALL-CONTEXT-DELETE" "CLASS"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("ADDRESS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("INVOICEITEMDBSERVICE" "CLASS"
@@ -4133,6 +4614,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
     ("CUSTOMER-PRODUCT-DETAIL-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-prodetpag.lisp" "" "" NIL)
+    ("SETASSALESPRODUCT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("GET-PRODUCT-QTY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/subscription/dod-dal-opf.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SHOW-ORDER-PAGE" "FUNCTION"
@@ -4145,8 +4628,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("GET-SYSTEM-BUS-OBJECTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
-    ("DOD-CUST-LOGIN-AS-GUEST" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-PRODUCTCATEGORIESPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("CUSTADDR" "GENERIC-FUNCTION"
@@ -4168,14 +4649,14 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Write a Lisp data structure to a YAML file." "" NIL)
     ("WITH-HTML-DIV-COL-4" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
-    ("COM-HHUB-TRANSACTION-CREATE-ORDERITEM-DIALOG" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTWALLETDISPLAY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-cuswall.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-UPDATE-GST-HSN-CODE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-gst.lisp" "" "" NIL)
     ("SELECT-CUSTOMER-BY-EMAIL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-CUST-ADD-TO-CART" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("GET-LATEST-ORDER-FOR-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("MODAL.VENDOR-FORGOT-PASSWORD" "FUNCTION"
@@ -4195,7 +4676,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("ORDERITEMPRESENTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("SUBMITSEARCHFORM2EVENT-JS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp"
+     "Generate JS for second search with redundancy prevention" "" NIL)
     ("W-PIN" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("ADDLOGINVENDORSETTINGS" "FUNCTION"
@@ -4208,8 +4690,10 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("VIEWMODELUNKNOWN" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
-    ("RESTORE-DELETED-ORDER-DETAILS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
+    ("BUS-TRANSACTION-INSERTED-P" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp"
+     "Non-nil if a live (not soft-deleted) transaction with NAME exists." ""
+     NIL)
     ("COMPANY-UPDATED-BY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-dal-cmp.lisp" "" "" NIL)
     ("COUNTER-BEHAVIOR" "FUNCTION"
@@ -4241,16 +4725,30 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Merge two bo-knowledge instances under Belnap knowledge ordering." "" NIL)
     ("FEATURE-FLAGS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
-    ("GET-PRODUCTS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("NST-DOMAIN-ENTITY" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "ROOT of ALL domain entities. Every nst-pr, nst-ord, nst-inv, nst-whs,
+    nst-apr, nst-vnd — every entity from Document 2's शिवसूत्र — descends
+    from here and ONLY from here.
+
+    proc.pravesh, proc.yojana, proc.kraya, proc.purti, proc.vitta, proc.kara,
+    proc.shasana, proc.bhandara generic methods NEVER specialize on anything
+    outside this subtree for their primary (entity) argument.
+
+    This class NEVER inherits from BusinessObject (existing hhub-bl-ent.lisp).
+    This class NEVER inherits from RequestModel/ResponseModel/ViewModel.
+    This is Shiva — inert without the verb (Shakti) that acts upon it."
+     "" NIL)
     ("DELETEBO" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Deletes the BusinessObject from the BusinessObjectRepository" "" NIL)
     ("CREATE-MODEL-FOR-SEARCHWAREHOUSES" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
      "Create model for searching warehouses" "" NIL)
     ("TOTALVALUE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
+    ("CUSTOMERINVOICEREGISTERPRESENTER" "CLASS"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-CUSTOMER-TYPE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
     ("DELETE-PRD-CATG" "FUNCTION"
@@ -4265,6 +4763,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/account/dod-ui-cmp.lisp" "" "" NIL)
     ("ORDERITEMREQUESTMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
+    ("GETRESPONSEMODEL" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-REFRESH-IAM-SETTINGS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("VERSION" "GENERIC-FUNCTION"
@@ -4275,10 +4775,10 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp" "" "" NIL)
     ("BO-KNOWLEDGE-PAYLOAD" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-beltrusys.lisp" "" "" NIL)
-    ("WAREHOUSERESPONSEMODEL" "CLASS"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("WITH-HTML-EMAIL" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-DUPLICATE-CUSTOMER" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SEARCHINVOICEITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VEN-EXPEXL" "FUNCTION"
@@ -4294,6 +4794,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("REQUESTMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-VENDPUSHSUBSCRIBEPAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("DELETE-THREADS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("GETPINCODEDETAILS-OLD" "FUNCTION"
@@ -4301,27 +4803,40 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("COM-HHUB-BUSINESSFUNCTION-BL-GETPUSHNOTIFYSUBSCRIPTIONFORVENDOR"
      "FUNCTION" "/home/ubuntu/ninestores/hhub/webpushnotify/dod-bl-push.lisp"
      "" "" NIL)
+    ("DOD-PAYMENT-TRANSACTION" "CLASS"
+     "/home/ubuntu/ninestores/hhub/paymentgateway/dod-dal-pay.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-CREATE-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("PRD-QTY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
-    ("SELECT-WAREHOUSE-BY-NAME" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
-     "Select warehouse by name" "" NIL)
     ("GET-ORDER-ITEMS-BY-PRODUCT-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
-    ("HSN-DESCRIPTION" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
+    ("CREATEWHATSAPPLINK" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("SELECT-AUTH-ATTR-BY-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
-    ("DISPLAY-ORDER-ROW" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
+    ("REQUEST->DISPATCH" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "THE FERRY. The only sanctioned crossing from Tree 2 (nst-request-model)
+    to Tree 1 (nst-domain-entity subclass).
+
+    request-model DIES here. Its slots are read ONCE to build entity
+    initargs. The request-model instance itself is never returned, never
+    stored, never passed to any proc.GANA or proc.bs method. Only the
+    extracted primitive values survive the crossing — exactly as लोप
+    (Document 4) elides an intermediate form that the next operation
+    does not need to see directly.
+
+    GUARDRAIL 2: the entity constructed here becomes the FIRST argument
+    to whatever proc.GANA verb is dispatched. ctx remains LAST."
+     "" NIL)
     ("DOD-CONTROLLER-VENDOR-GENERATE-PRODUCTS-TEMPL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("WITH-STANDARD-VENDOR-PAGE-V2" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
-    ("COM-HHUB-TRANSACTION-VENDOR-CREATE-CUSTOMER-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
+    ("AUTH-POLICY-ID-BY-NAME" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-sch-mig.lisp"
+     "Return the ROW_ID of the LIVE policy named NAME, or NIL." "" NIL)
     ("STANDARDCUSTOMER" "CLASS"
      "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUST-APT-NO" "FUNCTION"
@@ -4349,8 +4864,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Aggregate ITC position for the buyer ITC dashboard card." "" NIL)
     ("WITH-STANDARD-CUSTOMER-PAGE" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
-    ("DESCRIPTION" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-VDISPLAY-WEBREPL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("GET-ORDER-BY-STATUS" "FUNCTION"
@@ -4373,10 +4886,15 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("WITH-MVC-REDIRECT-UI" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+    ("DELETE-PRODUCT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("USERNAME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-dal-usr.lisp" "" "" NIL)
     ("PRODUCT-CARD-WITH-DETAILS-FOR-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
+    ("RENDER-SIDEBAR-NAV-ITEM" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp"
+     "Render a simple nav item." "" NIL)
     ("DISPLAY-PRODUCTS-BY-CATEGORY-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CADPROFILE" "FUNCTION"
@@ -4385,8 +4903,28 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/nst-bl-beltrusys.lisp"
      "Return a new bo-knowledge with SOURCE added to provenance (non-destructive)."
      "" NIL)
+    ("GET-OPF-PRD-ID" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/subscription/dod-dal-opf.lisp" "" "" NIL)
     ("SAC-DESCRIPTION" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
+    ("EXTRACT-DOMAIN-INITARGS" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Reads rm's params (a plist), filters against entity-class's own
+    declared initargs via CLOS MOP introspection, and returns ONLY the
+    initargs entity-class actually declares, MINUS *reserved-initargs*.
+
+    MOP-driven deliberately: no per-entity mapping function is hand-
+    written anywhere. A new entity (nst-pr, nst-rfq, whatever comes
+    after Warehouse) needs ZERO changes to this function — it works
+    for any nst-domain-entity subclass the moment the class exists.
+
+    This function IS where लोप actually happens: rm's transport-shaped
+    params go in, a plain initargs plist matching the domain class's
+    own slots comes out. rm itself is discarded by the caller
+    immediately after this returns."
+     "" NIL)
+    ("COM-HHUB-TRANSACTION-CAD-LOGIN-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("WITH-STANDARD-VENDOR-PAGE-V3" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("VIEWUNKNOWN" "CLASS" "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
@@ -4409,7 +4947,7 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
     ("NST-GET-CACHED-PRODUCT-TEMPLATE-FUNC" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("ROW-ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("DISPLAY-UPI-TRANSACTION-ROW" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("RESPONSEMODELNIL" "CLASS"
@@ -4438,12 +4976,29 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-VENDOR-UPI-CANCEL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
+    ("CUSTOMERHTMLVIEW" "CLASS"
+     "/home/ubuntu/ninestores/hhub/customer/nst-dal-Customer.lisp" "" "" NIL)
     ("TRIAL-ACCOUNT-EXPIRED-P" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
     ("UPDATE-GST-FOR-ORDER-LINEITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
     ("WAREHOUSE-CODE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
+    ("GENERATE-SKU" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
+     "Generate an SKU from product information by taking 2 chars from each word.
+  
+  Arguments:
+  - PRODUCT-NAME: String (e.g., \"Organic Apples\")
+  - DESCRIPTION: String or NIL (e.g., \"Red Delicious\")
+  - QTY-PER-UNIT: Number (e.g., 1, 100, 2.5)
+  - UNIT-OF-MEASURE: String (e.g., \"KG\", \"G\", \"L\")
+  
+  Returns:
+  - A generated SKU string in format NN-DD-QTY-UOM-RANDOM
+    Where NN is from product name words, DD from description words
+  "
+     "" NIL)
     ("HHUB-CONTROLLER-VSEARCHCUSTBYPHONE-FOR-INVOICE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("EVALUATE-CHECKOUT-READINESS" "FUNCTION"
@@ -4454,10 +5009,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
     ("EDITINVOICEWIDGET-SECTION2" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
-    ("SETASSERVICEPRODUCT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
-    ("AVAIL-DATE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vad.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-CUSTADDORDEROTPSTEP" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("HHUB-GET-CACHED-ACTIVE-VENDOR-PRODUCTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-PUSH-NOTIFY-SUBSCRIPTION-FOR-CUSTOMER" "FUNCTION"
@@ -4466,6 +5019,10 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-ADDPRDTOINVOICE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
+    ("COM-HHUB-POLICY-CAD-PRODUCT-REJECT-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("NST-RESPONSE-UNKNOWN" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("ROUND-TO-2-DECIMAL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
      "Standard rounding to 2 decimal places." "" NIL)
@@ -4488,8 +5045,6 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("URI-PREFIX-P" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
-    ("CUST-PROFILE-WALLETS" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-dal-cus.lisp" "" "" NIL)
     ("DOD-CONTROLLER-PRD-DETAILS-FOR-GUEST-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CALCULATE-CARTITEMS-WEIGHT-KGS" "FUNCTION"
@@ -4507,6 +5062,8 @@ RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
      "Takes the viewmodel and converts into HTML" "" NIL)
     ("CTX-REQUESTMODEL" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
+    ("COM-HHUB-TRANSACTION-CREATE-ORDER-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
     ("%LOG-DB-ERROR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
      "Append a DB error to the business-functions log file." "" NIL)
@@ -4548,8 +5105,8 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
     ("COM-HHUB-ATTRIBUTE-VENDOR-TABLERATESHIP-ENABLED" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-attr.lisp" "" "" NIL)
-    ("SAC-CODE-4DIGIT" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
+    ("LAZY-NULL" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp"
+     "" "" NIL)
     ("CREATE-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
     ("BO-UNKNOWN-P" "GENERIC-FUNCTION"
@@ -4563,6 +5120,11 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("GET-LOGIN-CUSTOMER-COMPANY-WEBSITE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-ui-cmp.lisp" "" "" NIL)
+    ("COM-HHUB-POLICY-COMPADMIN-UPDATEDETAILS-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("DISCOVERSERVICE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
+     "discover a business service based on the service-code" "" NIL)
     ("INVOICEPRINTSETTINGSWIDGETHTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("GET-SHIPCITY" "GENERIC-FUNCTION"
@@ -4574,14 +5136,10 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("UPDATE-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
-    ("DOD-ROLES" "CLASS" "/home/ubuntu/ninestores/hhub/core/dod-dal-rol.lisp"
-     "" "" NIL)
     ("BUSINESSOBJECT-CLASS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CREATE-INVOICE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
-    ("LAZY-CDR" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp" ""
-     "" NIL)
     ("DISC-RATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("UPDATE-BUS-TRANSACTION" "FUNCTION"
@@ -4593,12 +5151,10 @@ Returns a list of widget outputs."
     ("ALIST-GET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
      "Get value from alist by key (case-insensitive string comparison)." "" NIL)
-    ("COM-HHUB-TRANSACTION-CREATE-WAREHOUSE-DIALOG" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-ui-wrh.lisp"
-     "Create/Edit warehouse dialog with tabbed interface for all 41 fields" ""
-     NIL)
+    ("TRANSACTION-ID" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
     ("WPHONE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("RENDER-UI-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("POLICY-ROW" "FUNCTION"
@@ -4619,6 +5175,13 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("REVENUE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-dal-cmp.lisp" "" "" NIL)
+    ("DEFINE-GANA-VERBS" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Self-registering — called once near the top of each proc.GANA
+   package file, right after that package's defpackage form.
+   Keeps verb→गण ownership declared in the same file as the verbs
+   themselves, so the two can never silently drift apart."
+     "" NIL)
     ("PRDCATGINLIST-P" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("FORMAT-PRICING-PLANS" "FUNCTION"
@@ -4633,6 +5196,10 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("GET-LOGIN-USERNAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-usr.lisp" "" "" NIL)
+    ("DEFUN-MEMO" "MACRO" "/home/ubuntu/ninestores/hhub/core/memoize.lisp"
+     "Define a memoized function." "" NIL)
+    ("CREATE-WIDGETS-FOR-SHOWCUSTOMER" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
     ("GET-BILLCITY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
     ("INVOICEHEADERSTATUSREQUESTMODEL" "CLASS"
@@ -4644,8 +5211,8 @@ Returns a list of widget outputs."
     ("CREATEBUSINESSCONTEXT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Create a business context" "" NIL)
-    ("CREATE-MODEL-FOR-CUSTSHOWSHOPCARTREADONLY" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("RETURN-JSON" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-CUSTOMER&VENDOR-CREATE-OTPSTEP" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("IS-DOD-SESSION-VALID?" "FUNCTION"
@@ -4659,6 +5226,8 @@ Returns a list of widget outputs."
     ("LAZY" "MACRO" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp" "" "" NIL)
     ("GET-REQUESTED-DATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
+    ("GET-WEB-SESSION-TIMEOUT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("COUNT-COMPANY-VENDORS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
     ("REPORT-META-COVERAGE" "FUNCTION"
@@ -4667,8 +5236,6 @@ Returns a list of widget outputs."
     ("SEND-ORDER-SMS-GUEST-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("DOD-CONTROLLER-VENDOR-CHANGE-PIN" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("HHUB-GET-CACHED-COMPANY-PRODUCTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("WITH-CUSTOMER-NAVIGATION-BAR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
@@ -4693,13 +5260,9 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vad.lisp" "" "" NIL)
     ("CANCEL-REASON" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
-    ("COPYVPAYMENTMETHODS-DOMAINTODB" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vpm.lisp" "" "" NIL)
     ("ORDERRESPONSEMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("UPI-ID" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
-    ("TITLE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("HSN-CODE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
@@ -4709,6 +5272,8 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
     ("BROWSER-NAME" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
+    ("DOMAIN-CTX-ACTOR" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("PARSE-TIME-STRING" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("INITBUSINESSCONTEXTS" "GENERIC-FUNCTION"
@@ -4725,8 +5290,6 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
     ("DOD-GET-CACHED-COMPLETED-ORDERS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("SAVE-UPI-TRANSACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/upi/dod-ui-upi.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-NEW-COMMUNITY-STORE-REQUEST-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("BUILD-PINCODE-CACHE" "FUNCTION"
@@ -4735,8 +5298,6 @@ Returns a list of widget outputs."
     ("GET-UOM-DESCRIPTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-dal-sys.lisp"
      "Get user-friendly description for a UOM code." "" NIL)
-    ("DOD-CONTROLLER-LIST-ORDER-DETAILS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-CREATE-WAREHOUSE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-COMPADMINHOME" "FUNCTION"
@@ -4763,20 +5324,28 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("WITH-HTML-DIV-COL-12" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
-    ("GET-SHIPSTATE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
+    ("BIND-GENERATED-ROW-ID" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
+     "The ONLY copy-back from a freshly-inserted dbobj to its domain
+   entity. Every make method calls this — not an inline slot-value
+   setf — so the narrowing is enforced at one call site, not N."
+     "" NIL)
     ("ADD-LOGIN-USER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("SELECT-CUSTOMER-LIST-BY-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
+    ("REFACTORING-RESULT" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp" "" "" NIL)
+    ("LAZY-NIL" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/hhublazy.lisp" ""
+     "" NIL)
     ("DISPLAY-GST-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("PRODUCT-CARD-WITH-DETAILS-FOR-CUSTOMER2" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-prodetpag.lisp" "" "" NIL)
     ("CALCULATE-ORDER-TOTALBEFORETAX" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-bl-Order.lisp" "" "" NIL)
-    ("CREATE-MODEL-FOR-VENDPAYMENTMETHODSUPDATE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("SAC-CODE-4DIGIT" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("INTERSTATE-P" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("CREATEVPAYMENTMETHODSOBJECT" "FUNCTION"
@@ -4795,30 +5364,18 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
     ("ORDER-DATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-dal-ord.lisp" "" "" NIL)
+    ("GET-PROD-CAT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-PRODCATG-ADD-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
-    ("SETASSALESPRODUCT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("SETDBOBJECT" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "Set the DBObject" ""
+     NIL)
     ("GENERATE-UQC-MIGRATION-SQL" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/sysuser/dod-dal-sys.lisp"
      "Generate SQL to populate UQC field from unit_of_measure." "" NIL)
-    ("WITH-DB-UPDATE" "MACRO"
-     "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
-     "UPDATE boundary macro for CLSQL via DBAdapterService.db-save.
-
-   Caller responsibilities BEFORE this macro:
-     1. (init dbas updated-bo)                     ; attach updated BO
-     2. (setcompany dbas company)                  ; set tenant context
-     3. (copy-businessobject-to-dbobject dbas)     ; flush new values to DB row
-
-   PRE-FLIGHT (strongly recommended) — a CLSQL SELECT expression that
-   returns a list of rows matching the update target.  Drives :F and :C
-   detection.  Without it, :F cannot be produced because CLSQL does not
-   return rows-affected from db-save.
-
-   Returns a BO-KNOWLEDGE instance.  Use WITH-BO-KNOWLEDGE-CHECK to
-   branch on the result.  BODY is unused and reserved for future use."
-     "" NIL)
+    ("RESPONSEGETWEBPUSHNOTIFYVENDOR" "CLASS"
+     "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("MAKE-ADAPTER" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp"
      "Create adapter instance for route. Override as needed." "" NIL)
@@ -4833,12 +5390,16 @@ Returns a list of widget outputs."
      "" "" NIL)
     ("PROCESS-MESSAGES" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
-    ("CUSTOMERHTMLVIEW" "CLASS"
-     "/home/ubuntu/ninestores/hhub/customer/nst-dal-Customer.lisp" "" "" NIL)
+    ("GENERATE-ACCOUNT-EXT-URL" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
+    ("NST-LOAD-WAREHOUSE-TEMPLATES" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("ORDERITEMSEARCHREQUESTMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-READ-WAREHOUSE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("INVOICEHEADERADAPTER" "CLASS"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("ORDERSEARCHREQUESTMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("DOD-AUTH-ATTR-LOOKUP" "CLASS"
@@ -4846,7 +5407,7 @@ Returns a list of widget outputs."
     ("COM-HHUB-TRANSACTION-UPDATE-INVOICEITEM-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
     ("WCOUNTRY" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("PRODUCT-CSV-FILE-DATA-ROW" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("SELECT-AUTH-POLICY-BY-COMPANY" "FUNCTION"
@@ -4855,6 +5416,10 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("WITH-ENTITY-CREATE" "MACRO"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
+    ("SAFE-READ-FROM-STRING" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp"
+     "Attempts to read a Lisp expression from a string, returning a default value if parsing fails."
+     "" NIL)
     ("COUNTRY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/dod-sto-zip.lisp" "" "" NIL)
     ("DOD-CONTROLLER-UPDATE-WALLET-BALANCE" "FUNCTION"
@@ -4877,15 +5442,10 @@ Returns a list of widget outputs."
      "Represents a single row in the HSN summary table." "" NIL)
     ("MODAL.VENDOR-FREE-SHIPPING-CONFIG" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("UI-LIST-CUSTOMER-PRODUCTS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CUSTADDTOCART" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("DELETE-PRODUCTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
-    ("SELECT-WAREHOUSE-BY-CODE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
-     "Select warehouse by business code" "" NIL)
     ("GET-ORDERS-BY-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
     ("CREATEUPIPAYMENTOBJECT" "FUNCTION"
@@ -4893,6 +5453,13 @@ Returns a list of widget outputs."
     ("PROCESSDELETEREQUEST" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Adapter Service method to call the BusinessService Delete method" "" NIL)
+    ("RENDER-HTML-LIST" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp"
+     "Plain function, not a generic — 'list' can't discriminate contents,
+   so don't ask CLOS to. Delegates each row to the entity-specific
+   render-html method above; CLOS dispatch happens per-element,
+   where it actually works."
+     "" NIL)
     ("GET-CUST-WALLET-BY-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("GENERATE-WAREHOUSE-UUID" "FUNCTION"
@@ -4906,12 +5473,19 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/shipping/dod-dal-osh.lisp" "" "" NIL)
     ("GET-MAX-OF" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-PROJECT-SYMBOLS-LOOKUP-PAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-ui-prosymloo.lisp"
+     "Widget Factory: Calls the widget with the model data." "" NIL)
+    ("RENDER-PICKUP-ONLY-PAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("UI-LIST-CUSTOMER-PRODUCTS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("ADAPTER-CLASS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("UPDATE-RESET-PASSWORD-INSTANCE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pas.lisp" "" "" NIL)
-    ("MODAL.VENDOR-PRODUCT-EDIT-HTML" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
+    ("CREATE-WIDGETS-FOR-DISPLAYORDERHEADERFORCUST" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("PAYMENT-GATEWAY-MODE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("GSTHSNCODESPRESENTER" "CLASS"
@@ -4920,12 +5494,18 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/order/dod-dal-odt.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-SHOWORDER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
-    ("COM-HHUB-POLICY-CAD-PRODUCT-REJECT-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("GET-ALL-GST-SAC-CODES" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("HHUB-CONTROLLER-VSEARCHCUSTBYNAME-FOR-INVOICE-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
-    ("COM-HHUB-TRANSACTION-SEARCH-ORDERITEM-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
+    ("TITLE" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
+    ("REFACTOR-LIVE-FUNCTION-OLD" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
+     "Drives the 3-phase refactoring agent loop for FUNCTION-SYMBOL.
+   Phase 1: lookup-metadata -> Phase 2: read-source-file -> Phase 3: complete.
+   Returns the refactored defun string on success, NIL on parse error or step exhaustion."
+     "" NIL)
     ("INVOICEHEADERPRESENTER" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("HAS-PERMISSION1" "FUNCTION"
@@ -4936,20 +5516,18 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/order/dod-ui-ord.lisp" "" "" NIL)
     ("FILTER-OPREF-ITEMS-BY-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("WITH-CATCH-FILE-UPLOAD-EVENT" "MACRO"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("PERSIST-FREE-SHIPPING-METHOD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-bl-osh.lisp" "" "" NIL)
     ("INIT-PINCODE" "FUNCTION" "/home/ubuntu/ninestores/hhub/dod-sto-zip.lisp"
      "" "" NIL)
-    ("CREATE-WIDGETS-FOR-ADDCUSTTOINVOICE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
+    ("SELECT-CUSTOMERS-FOR-COMPANY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("ACTOR-THREAD-STATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("DBADAPTERSERVICE" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
-    ("CREATEWHATSAPPLINK" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
+    ("IS-USER-ALREADY-LOGIN?" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-sys.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-SEARCHORDER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
     ("CANCEL-ORDER-BY-CUSTOMER" "FUNCTION"
@@ -4962,8 +5540,8 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
     ("CUSTOMER-SUBSCRIPTIONS-TABLE-WIDGET" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/subscription/dod-ui-opf.lisp" "" "" NIL)
-    ("UPIPAYMENTSHTMLVIEW" "CLASS"
-     "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
+    ("DOD-CONTROLLER-VENDOR-UPDATE-DEFAULT-SHIPPING-METHOD" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("OUTBOUND-ADAPTER-ROUTE" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-VENDOR-REJECT-ACTION" "FUNCTION"
@@ -4972,16 +5550,33 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("TOTAL-AMOUNT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
+    ("GENERATE-WAREHOUSE-SHORT-CODE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
+     "Generate short alphanumeric code: WH-XXXXXXXX" "" NIL)
     ("SELECT-INVOICES-FOR-BUYER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-bl-cusinvreg.lisp"
      "Fetch inward invoice register rows for a B2B buyer via CLSQL ORM." "" NIL)
     ("OWNERSHIP-TYPE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
+    ("WITH-NST-DB-UPDATE" "MACRO"
+     "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
+     "UPDATE boundary macro, no DBAdapterService holder. BODY performs
+   the raw CLSQL write and must return dbobj as its last form.
+   :F = PRE-FLIGHT found zero rows (target gone — real, expected,
+   not an error). :C = PRE-FLIGHT found >1 rows (ambiguous unique
+   key — refuse to mutate, don't guess which row). :T = write
+   succeeded. :U = any error during pre-flight or write, logged.
+   Without :pre-flight, :F/:C can never be produced — caller must
+   have already confirmed existence some other way (see nst-whs's
+   !update, which pre-fetches instead of using this parameter)."
+     "" NIL)
     ("FIND-CALLER-NAME-FROM-BACKTRACE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-err.lisp"
      "Uses string parsing on SBCL's LIST-BACKTRACE to find the 
    symbol name of the function that called the DB adapter."
      "" NIL)
+    ("INVOICEITEMSERVICE" "CLASS"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-dal-itm.lisp" "" "" NIL)
     ("BILLSTATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-Order.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CREATEORDERITEM" "FUNCTION"
@@ -5034,9 +5629,6 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("ADD-NEW-PRDCATG-NODE-AS-CHILD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
-    ("SETDBOBJECT" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "Set the DBObject" ""
-     NIL)
     ("INVOICEPRODUCTS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
     ("VENDOR-NAME" "GENERIC-FUNCTION"
@@ -5073,10 +5665,8 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/subscription/dod-bl-opf.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CUSTSHOWSHOPCART" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
-    ("PRD-NAME" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
     ("WAREHOUSE-TYPE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("COM-HHUB-TRANSACTION-SEARCH-CUSTOMER-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/nst-ui-Customer.lisp" "" "" NIL)
     ("INVOICETEMPLATEFILLITEMROWS" "FUNCTION"
@@ -5099,15 +5689,16 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/order/nst-ui-OrderItem.lisp" "" "" NIL)
     ("CGST" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-prd.lisp" "" "" NIL)
-    ("GENERATE-WAREHOUSE-SHORT-CODE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
-     "Generate short alphanumeric code: WH-XXXXXXXX" "" NIL)
+    ("HHUB-RANDOM-PASSWORD" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("PASSWORD" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUSTOMER-PRODUCTS-BY-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("MODAL.VENDOR-PAYMENT-METHODS-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
+    ("NST-VIEW-CONTRADICTION" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("GENERATEPDF" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("TCUF-VALUE-CHECKER" "FUNCTION"
@@ -5115,11 +5706,11 @@ Returns a list of widget outputs."
      "Adapter function that performs the simple, deterministic T/F check." ""
      NIL)
     ("REGISTRATION-TYPE" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("DOD-CONTROLLER-CUSTOMER-PAYMENT-CANCEL-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/paymentgateway/dod-ui-pay.lisp" "" "" NIL)
-    ("DEFUN-MEMO" "MACRO" "/home/ubuntu/ninestores/hhub/core/memoize.lisp"
-     "Define a memoized function." "" NIL)
+    ("ORDERITEMADAPTER" "CLASS"
+     "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
     ("BO-KNOWLEDGE-PROVENANCE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-beltrusys.lisp" "" "" NIL)
     ("GET-LOGIN-VENDOR-COMPANY" "FUNCTION"
@@ -5132,7 +5723,8 @@ Returns a list of widget outputs."
     ("INVOICEITEM-SEARCH-HTML" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
     ("SUBMITSEARCHFORM1EVENT-JS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp"
+     "Generate JS for second search with redundancy prevention" "" NIL)
     ("SELECT-PRODUCTS-BY-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("ZONENAME" "GENERIC-FUNCTION"
@@ -5159,6 +5751,8 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("BALANCE-DUE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-cusinvreg.lisp" "" "" NIL)
+    ("SET-WALLET-BALANCE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("INVOICES-ACTIONS-MENU" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("SHIPPINGRATECHECK" "CLASS"
@@ -5181,17 +5775,19 @@ Returns a list of widget outputs."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("NST-GET-CACHED-VENDOR-TABLES-STRUCTURE-FOR-AGENTIC-AI" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
-    ("GET-TOP-CUSTOMERS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp"
-     "Get top customers by spend or order count" "" NIL)
+    ("VENDOR-CREATE-UPDATE-CUSTOMER-DIALOG" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
     ("ODT-VENDOROBJECT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/shipping/dod-dal-osh.lisp" "" "" NIL)
     ("DELETE-BUS-TRANSACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-bo.lisp" "" "" NIL)
+    ("BUILD-WAREHOUSE-FILTER-CLAUSES" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-bl-warehouse.lisp"
+     "गण: Anusthup. Assembles WHERE clauses for warehouse queries.
+   DELETED_STATE = 'N' is fixed, not a keyword."
+     "" NIL)
     ("INVOICEHEADERSEARCHREQUESTMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/invoice/nst-dal-ihd.lisp" "" "" NIL)
-    ("GET-CUST-ORDER-PARAMS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("AUTO-POPULATE-FROM-GSTIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp"
      "Auto-populate PAN and state from GSTIN if not set" "" NIL)
@@ -5200,18 +5796,27 @@ Returns a list of widget outputs."
      "Read a date string of the form \"YYYY-MM-DD\" and return the 
 corresponding universal time."
      "" NIL)
+    ("COPYVPAYMENTMETHODS-DOMAINTODB" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vpm.lisp" "" "" NIL)
     ("HHUB-HTML-PAGE-FOOTER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-site.lisp" "" "" NIL)
     ("STATE" "GENERIC-FUNCTION" "/home/ubuntu/ninestores/hhub/dod-sto-zip.lisp"
      "" "" NIL)
+    ("MAKE-BO-KNOWLEDGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-beltrusys.lisp"
+     "Create a bo-knowledge instance. PROVENANCE may be a single value or a list."
+     "" NIL)
+    ("TEST-NIYAM-FIRES-ON-DOMAIN-ENTITY-NOT-BOUNDARY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "check-niyam :before must apply to nst-whs (domain) and must NOT
+   have an applicable method for nst-view-model (boundary)."
+     "" NIL)
     ("BO-KNOWLEDGE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
-    ("RENDER-PICKUP-ONLY-PAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("ATTRIBUTE-TYPE-DROPDOWN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
-    ("PRODUCT-CARD-FOR-VENDOR" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
+    ("EXCEPTION" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("GET-SYSTEM-CURRENCIES-HT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-sys.lisp" "" "" NIL)
     ("SELECT-WAREHOUSES-BY-STATE-CODE" "FUNCTION"
@@ -5231,16 +5836,24 @@ corresponding universal time."
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("HHUB-GET-CACHED-ROLES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-VENDOR-DEMAND" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-ui-ord.lisp"
+     "Collects the aggregated demand data for the vendor's pending orders and
+   returns a closure that, when funcalled, yields (values agg-with-demand company
+   currsymbol vendor-name)."
+     "" NIL)
     ("BUSOBJ-CARD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("CANCEL-ORDER-BY-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp" "" "" NIL)
-    ("ACTIVATE-PRODUCT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-DISPLAYORDERHEADERFORVENDOR" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp" "" "" NIL)
     ("VIEWCONTRADICTION" "CLASS"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-CUSTORDERS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-ADDEDITWAREHOUSE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-ui-warehouse.lisp" "" "" NIL)
     ("CTX-REQUESTMODEL-PARAMS" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-conflodis.lisp" "" "" NIL)
     ("GET-ALL-ORDERS-FOR-VENDOR" "FUNCTION"
@@ -5248,6 +5861,8 @@ corresponding universal time."
     ("RESET-VENDOR-PASSWORD" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
     ("SELECT-ACTIVE-PRODUCTS-BY-VENDOR" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("DEACTIVATE-PRODUCT" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("DELETE-DOD-COMPANY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/account/dod-bl-cmp.lisp" "" "" NIL)
@@ -5266,6 +5881,8 @@ corresponding universal time."
     ("CREATE-B2B-CUSTOMER" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp"
      "Create a new B2B customer" "" NIL)
+    ("PRDCATG-CARD" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-ui-prd.lisp" "" "" NIL)
     ("INIT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "Set the domain object of the ResponseModel " "" NIL)
@@ -5275,7 +5892,16 @@ corresponding universal time."
      "/home/ubuntu/ninestores/hhub/upi/dod-dal-upi.lisp" "" "" NIL)
     ("GUEST-CUST-PAYMENT-MODE-DROPDOWN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("TEST-DOMAIN-ENTITY-NEVER-INHERITS-BOUNDARY" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Structural check: nst-domain-entity subtree and nst-boundary-object
+   subtree must never intersect below standard-object."
+     "" NIL)
     ("CREATE-PRODUCT-PRICING" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+    ("CHECK-NIYAM" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
+    ("SELECT-PRDCATG-BY-NAME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CUSTOMERINDEXPAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
@@ -5286,8 +5912,6 @@ corresponding universal time."
     ("COM-HHUB-POLICY-CREATE-ATTRIBUTE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("ACTOR-CREATED-AT" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
-    ("ACTOR-MESSAGE-COUNT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-bl-act.lisp" "" "" NIL)
     ("SALT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
@@ -5313,10 +5937,10 @@ corresponding universal time."
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("COM-HHUB-POLICY-SADMIN-HOME" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("CREATEWHATSAPPLINKWITHMESSAGE" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("PERSIST-AUTH-POLICY" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pol.lisp" "" "" NIL)
-    ("COM-HHUB-TRANSACTION-CUSTOMER&VENDOR-CREATE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("MODAL.VENDOR-UPDATE-PAYMENT-GATEWAY-SETTINGS-PAGE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-WIDGETS-FOR-CUSTDELETEORDERSUBSCRIPTION" "FUNCTION"
@@ -5346,6 +5970,13 @@ corresponding universal time."
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATE-MODEL-FOR-DELETEINVOICEITEM" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-itm.lisp" "" "" NIL)
+    ("FETCH" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "स्मरण प्रत्यय — recall by identity. Returns either a real entity
+    instance or an nst-entity-nil/nst-entity-unknown/nst-entity-
+    contradiction sentinel (Section 1) — never a bare CL nil, so
+    callers always have a Belnap-inspectable domain object back."
+     "" NIL)
     ("UPIENABLED" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vpm.lisp" "" "" NIL)
     ("ACCORDION-EXAMPLE2" "FUNCTION"
@@ -5364,26 +5995,41 @@ corresponding universal time."
      "/home/ubuntu/ninestores/hhub/webpushnotify/dod-dal-push.lisp" "" "" NIL)
     ("SELECT-HSN-CODE-BY-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
-    ("DOD-CONTROLLER-LOW-WALLET-BALANCE-FOR-SHOPCART" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("TEST-FERRY-DISCARDS-REQUEST-MODEL" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "request->dispatch must not retain rm beyond the call.
+   STUB: use a weak-pointer or manual GC check to confirm rm is
+   collectible immediately after request->dispatch returns."
+     "" NIL)
     ("COM-HHUB-POLICY-VENDOR-ADD-PRODUCT-ACTION" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("WAREHOUSE-GSTIN" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("BUSINESSSERVICES-HT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("GET-COMPLETED-ORDER-ITEMS-FOR-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp" "" "" NIL)
+    ("ODTK-REMARKS" "GENERIC-FUNCTION"
+     "/home/ubuntu/ninestores/hhub/order/dod-dal-odt.lisp" "" "" NIL)
     ("MEMO" "FUNCTION" "/home/ubuntu/ninestores/hhub/core/memoize.lisp"
      "Return a memo-function of fn." "" NIL)
+    ("TEST-EXTRACT-DOMAIN-INITARGS-STRIPS-ALL-RESERVED-FIELDS" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp"
+     "Every symbol in *reserved-initargs* must be absent from the result,
+   regardless of what rm.params contains.
+   STUB: build rm.params containing all five reserved keys plus one
+   legitimate key, assert only the legitimate key survives."
+     "" NIL)
     ("RESTORE-DELETED-VENDOR-AVAILABILITY-DAY-INSTANCES" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vad.lisp" "" "" NIL)
     ("SALUTATION" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-dal-ven.lisp" "" "" NIL)
     ("POLICY-ATTR-COMPANY" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-dal-pol.lisp" "" "" NIL)
-    ("COM-HHUB-POLICY-CAD-LOGOUT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
+    ("CREATE-MODEL-FOR-PUBLISHACCOUNTEXTURL" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/sysuser/dod-ui-cad.lisp" "" "" NIL)
+    ("DOMAIN-CTX-TENANT" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("CREATE-BULK-PRODUCTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("GET-SYSTEM-GST-HSN-CODES" "FUNCTION"
@@ -5396,15 +6042,13 @@ corresponding universal time."
      "/home/ubuntu/ninestores/hhub/core/dod-ui-utl.lisp" "" "" NIL)
     ("GET-VENDOR-TENANTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-ven.lisp" "" "" NIL)
-    ("REFACTOR-LIVE-FUNCTION-DRY-RUN" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-bl-ollama.lisp"
-     "Preview refactored code without applying changes." "" NIL)
     ("BUSINESSOBJECTS-HT" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp" "" "" NIL)
     ("EDITINVOICEWIDGET-SECTION3" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp" "" "" NIL)
-    ("COM-HHUB-TRANSACTION-CREATE-ORDER-ACTION" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/order/nst-ui-Order.lisp" "" "" NIL)
+    ("GET-ACTIVE-WAREHOUSES" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/warehouse/dod-bl-wrh.lisp"
+     "Get all active warehouses for a tenant" "" NIL)
     ("GET-LOGIN-VENDOR-TENANT-ID" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("CREATE-AUTH-ATTR-LOOKUP" "FUNCTION"
@@ -5418,25 +6062,25 @@ corresponding universal time."
      "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp" "" "" NIL)
     ("CREATE-RESET-PASSWORD-INSTANCE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-bl-pas.lisp" "" "" NIL)
+    ("PERSIST-PRODUCT-PRICING" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
     ("SELECT-CUSTOMERS-FOR-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
     ("COPYVPAYMENTMETHODS-DBTODOMAIN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/vendor/dod-bl-vpm.lisp" "" "" NIL)
-    ("DEDUCT-WALLET-BALANCE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/customer/dod-bl-cus.lisp" "" "" NIL)
+    ("DOD-VENDOR-APPOINTMENT" "CLASS"
+     "/home/ubuntu/ninestores/hhub/vendor/dod-dal-vas.lisp" "" "" NIL)
     ("DOCREATE" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/hhub-bl-ent.lisp"
      "DoCreate service implementation for a Business Service" "" NIL)
     ("VALUATION-METHOD" "GENERIC-FUNCTION"
-     "/home/ubuntu/ninestores/hhub/warehouse/dod-dal-wrh.lisp" "" "" NIL)
-    ("DEACTIVATE-PRODUCT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-prd.lisp" "" "" NIL)
+     "/home/ubuntu/ninestores/hhub/warehouse/nst-dal-warehouse.lisp" "" "" NIL)
     ("HHUB-GET-CACHED-ABAC-SUBJECTS" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/dod-ini-sys.lisp" "" "" NIL)
     ("GSTHSNCODESVIEWMODEL" "CLASS"
      "/home/ubuntu/ninestores/hhub/products/dod-dal-gst.lisp" "" "" NIL)
-    ("SELECT-HSN-CODES-BY-TEXT" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/products/dod-bl-gst.lisp" "" "" NIL)
+    ("COM-HHUB-POLICY-UPDATE-GST-HSN-CODE-ACTION" "FUNCTION"
+     "/home/ubuntu/ninestores/hhub/core/dod-ui-pol.lisp" "" "" NIL)
     ("CUSTOMER-VENDOR-DROPDOWN" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
     ("CREATEORDEROBJECT" "FUNCTION"
@@ -5445,14 +6089,10 @@ corresponding universal time."
      "" "" NIL)
     ("GET-ORDER-ITEMS-TOTAL-FOR-VENDOR" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/customer/dod-ui-cus.lisp" "" "" NIL)
+    ("NST-VIEW-NIL" "CLASS"
+     "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp" "" "" NIL)
     ("ORDER" "GENERIC-FUNCTION"
      "/home/ubuntu/ninestores/hhub/order/nst-dal-OrderItem.lisp" "" "" NIL)
-    ("%DETECT-DUPLICATE-PKS" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/core/nst-mult-logic.lisp"
-     "Return T if PK-EXTRACTOR applied to ROWS yields any duplicate values." ""
-     NIL)
-    ("CREATE-WIDGETS-FOR-VENDPUSHSUBSCRIBEPAGE" "FUNCTION"
-     "/home/ubuntu/ninestores/hhub/vendor/dod-ui-ven.lisp" "" "" NIL)
     ("WRITE-FINAL-LOOKUP-FILE" "FUNCTION"
      "/home/ubuntu/ninestores/hhub/core/nst-ui-prosymloo.lisp"
      "Writes collected and merged symbol data.
