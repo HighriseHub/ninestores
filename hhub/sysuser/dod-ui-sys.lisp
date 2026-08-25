@@ -1099,6 +1099,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/vwarehouses"   'com-hhub-transaction-readall-warehouse)
 	(hunchentoot:create-regex-dispatcher "^/hhub/searchwarehouseaction"   'nst-controller-search-my-warehouse-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vwarehousedetailspage"   'com-nst-transaction-vendor-warehouse-details-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vupdatewarehouseaction"   'com-hhub-transaction-update-warehouse-action)
 	
 ))
 
