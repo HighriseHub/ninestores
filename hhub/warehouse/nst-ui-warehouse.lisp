@@ -200,7 +200,8 @@
       :role :vendor)))
 
 (defparameter *warehouse-field-map*
-  '((warehouse-uuid           . "%Warehouse UUID%")
+  '((row-id                     . "%Warehouse ID%")
+    (warehouse-uuid           . "%Warehouse UUID%")
     (warehouse-code           . "%Warehouse Code%")
     (wname                    . "%Warehouse Name%")
     (waddr1                   . "%Warehouse Address1%")
@@ -244,33 +245,182 @@
 	 (company (get-login-vendor-company))
 	 (ctx (make-domain-ctx :actor "VENDOR" :tenant company :channel "ONLINE" :recipient vendor :source "VENDOR"))
 	 (warehouseobj (if id (fetch 'nst-whs id ctx)))
-	 (warehousedetailspagetempl (funcall (nst-get-cached-warehouse-template-func :templatenum 1))))
-    ;; --- Set the form action: presence of id => update, absence => create ---
-    (setf warehousedetailspagetempl
-          (cl-ppcre:regex-replace-all
-           "%Warehouse Action%"
-           warehousedetailspagetempl
-           (if id "vupdatewarehouseaction" "vcreatewarehouseaction")))
-    ;; For create/edit handling:
+	 ;; The action to submit to depends on whether we are creating or editing.
+	 (action (if id "vupdatewarehouseaction" "vcreatewarehouseaction"))
+	 ;; Load the full template page, but pull out ONLY the marker-delimited
+	 ;; form-content region.  The widget layer wraps this fragment in a
+	 ;; parenscript-generated <form>, so the template must not carry its own
+	 ;; outer <form> inside the markers.
+	 (warehousedetailspagetempl (funcall (nst-get-cached-warehouse-template-func :templatenum 1)))
+	 (form-snippet (extract-html-between-markets
+			warehousedetailspagetempl
+			"<!--WAREHOUSE_DETAILS_FORM_BEGIN-->"
+			"<!--WAREHOUSE_DETAILS_FORM_END-->")))
+    (unless form-snippet
+      (error "Could not find the <!--WAREHOUSE_DETAILS_FORM_BEGIN--> / <!--WAREHOUSE_DETAILS_FORM_END--> markers in the warehouse template."))
+    ;; Populate the form fields with existing warehouse data (edit case).
     (dolist (pair *warehouse-field-map*)
       (let* ((slot (car pair))
              (placeholder (cdr pair))
              (value (and warehouseobj (slot-value warehouseobj slot))))
-	(setf warehousedetailspagetempl 
-              (cl-ppcre:regex-replace-all 
-               placeholder 
-               warehousedetailspagetempl 
+	(setf form-snippet
+              (cl-ppcre:regex-replace-all
+               placeholder
+               form-snippet
                (if value (princ-to-string value) "")))))
-    
+    ;; Return the cleaned-up form fragment plus the action token so the caller
+    ;; (widget layer) can wrap it in the appropriate <form> without repeating
+    ;; the create/edit decision logic.
     (function (lambda ()
-      (values  warehousedetailspagetempl)))))
+      (values form-snippet action)))))
 
 (defun create-widgets-for-addeditwarehouse (modelfunc)
-  (multiple-value-bind ( warehousedetailspagetempl) (funcall modelfunc)
+  ;; The model hands us the form-content fragment and the action it should POST
+  ;; to.  We wrap the fragment with with-html-form-having-submit-event so the
+  ;; form submission is wired up via parenscript-generated frontend JS.
+  (multiple-value-bind (form-snippet action) (funcall modelfunc)
     (let ((widget1  (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
-			(cl-who:str warehousedetailspagetempl))))))
+			(with-html-form-having-submit-event "warehousedetailsform" action
+			  (cl-who:str form-snippet)))))))
     (list widget1))))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════
+;;; CREATE — gana make verb, MVC redirect flow
+;;; ═══════════════════════════════════════════════════════════════════════
+
+(defun com-hhub-transaction-create-warehouse-action ()
+  "Handler for creating a new warehouse via the gana (NST) make verb.
+
+   Uses the gana path directly — make 'nst-whs — instead of the legacy
+   Context Flow Dispatcher (dispatch-route :warehouse/create →
+   WarehouseAdapter/WarehouseService).
+
+   All fields arrive from the POSTed warehousedetailspage.html create
+   form (action \"vcreatewarehouseaction\") and are passed as make
+   initargs. The make method generates the warehouse UID/code, runs the
+   GSTIN uniqueness :before check, persists via with-nst-db-create, and
+   binds the generated row-id back onto the returned entity.
+
+   On success redirects to the warehouse list page (/hhub/vwarehouses)
+   so the user sees the newly created record among the others."
+  (with-vend-session-check
+    (with-mvc-redirect-ui #'create-model-for-createwarehouse
+                          #'create-widgets-for-genericredirect)))
+
+(defun create-model-for-createwarehouse ()
+  "Model for the create-warehouse action. Runs make 'nst-whs and returns
+   the redirect URL to the warehouse list page."
+  (flet ((parse-int-or-0 (s)
+           "Parse S as an integer, returning 0 if S is nil or empty."
+           (if (and s (string/= s ""))
+               (parse-integer s)
+               0)))
+    (let* ((company (get-login-vendor-company))
+         (vendor (get-login-vendor))
+
+         ;; ctx is a domain-ctx (the gana kāraka passenger struct), NOT
+         ;; the conflodis call-context. tenant = vendor session company.
+         (ctx (make-domain-ctx :actor "VENDOR" :tenant company
+                               :channel "ONLINE" :recipient vendor :source "VENDOR"))
+
+         (wname (hunchentoot:parameter "wname"))
+         (waddr1 (hunchentoot:parameter "waddr1"))
+         (waddr2 (hunchentoot:parameter "waddr2"))
+         (wpin (hunchentoot:parameter "wpin"))
+         (wcity (hunchentoot:parameter "wcity"))
+         (wstate (hunchentoot:parameter "wstate"))
+         (wcountry (hunchentoot:parameter "wcountry"))
+         (wmanager (hunchentoot:parameter "wmanager"))
+         (wphone (hunchentoot:parameter "wphone"))
+         (waltphone (hunchentoot:parameter "waltphone"))
+         (wemail (hunchentoot:parameter "wemail"))
+         (activeflag (hunchentoot:parameter "activeflag"))
+
+         ;; Ownership fields
+         (ownership-type (hunchentoot:parameter "ownershiptype"))
+         (owner-entity-type (hunchentoot:parameter "ownerentitytype"))
+         (owner-entity-id (parse-int-or-0 (hunchentoot:parameter "ownerentityid")))
+         (operator-entity-type (hunchentoot:parameter "operatorentitytype"))
+         (operator-entity-id (let ((oeid (hunchentoot:parameter "operatorentityid")))
+                                (when (and oeid (string/= oeid ""))
+                                  (parse-integer oeid))))
+         (legal-entity-type (hunchentoot:parameter "legalentitytype"))
+
+         ;; GST and Advanced Fields
+         (warehouse-gstin (hunchentoot:parameter "warehousegstin"))
+         (gstin-status (hunchentoot:parameter "gstinstatus"))
+         (legal-name (hunchentoot:parameter "legalname"))
+         (is-primary-location (parse-int-or-0 (hunchentoot:parameter "isprimarylocation")))
+         (state-code (hunchentoot:parameter "statecode"))
+         (registration-type (hunchentoot:parameter "registrationtype"))
+         (warehouse-type (hunchentoot:parameter "warehousetype"))
+         (warehouse-purpose (hunchentoot:parameter "warehousepurpose"))
+         (default-transporter-id (hunchentoot:parameter "defaulttransporterid"))
+         (default-transporter-name (hunchentoot:parameter "defaulttransportername"))
+         (eway-bill-enabled (parse-int-or-0 (hunchentoot:parameter "ewaybillenabled")))
+         (latitude (float (with-input-from-string
+                              (in (or (hunchentoot:parameter "latitude") "0.0"))
+                            (handler-case (read in)
+                              (end-of-file () 0.0)))))
+         (longitude (float (with-input-from-string
+                               (in (or (hunchentoot:parameter "longitude") "0.0"))
+                             (handler-case (read in)
+                               (end-of-file () 0.0)))))
+         (valuation-method (hunchentoot:parameter "valuationmethod"))
+         (hsn-wise-stock (parse-int-or-0 (hunchentoot:parameter "hsnwisestock")))
+         (pan-number (hunchentoot:parameter "pannumber"))
+
+         (create-args (list :wname wname
+                            :waddr1 waddr1
+                            :waddr2 waddr2
+                            :wpin wpin
+                            :wcity wcity
+                            :wstate wstate
+                            :wcountry wcountry
+                            :wmanager wmanager
+                            :wphone wphone
+                            :waltphone waltphone
+                            :wemail wemail
+                            :activeflag activeflag
+                            ;; Ownership fields
+                            :ownership-type ownership-type
+                            :owner-entity-type owner-entity-type
+                            :owner-entity-id owner-entity-id
+                            :operator-entity-type operator-entity-type
+                            :operator-entity-id operator-entity-id
+                            :legal-entity-type legal-entity-type
+                            ;; GST fields
+                            :warehouse-gstin warehouse-gstin
+                            :gstin-status gstin-status
+                            :legal-name legal-name
+                            :is-primary-location is-primary-location
+                            :state-code state-code
+                            :registration-type registration-type
+                            :warehouse-type warehouse-type
+                            :warehouse-purpose warehouse-purpose
+                            :default-transporter-id default-transporter-id
+                            :default-transporter-name default-transporter-name
+                            :eway-bill-enabled eway-bill-enabled
+                            :latitude latitude
+                            :longitude longitude
+                            :valuation-method valuation-method
+                            :hsn-wise-stock hsn-wise-stock
+                            :pan-number pan-number
+                            :company company
+                            :vendor vendor))
+         (redirecturl "/hhub/vwarehouses")
+         (params nil))
+    (setf params (acons "uri" (hunchentoot:request-uri*) params))
+    (with-hhub-transaction "com-hhub-transaction-create-warehouse-action" params
+      (with-nst-error-handler 
+          (apply #'make 'nst-whs ctx create-args)
+	'hhub-business-function-error))  ; perform the create
+
+    ;; Return ONLY the redirect URL — the sole value create-widgets-for-
+    ;; genericredirect consumes to emit the browser redirect.
+    (function (lambda () redirecturl)))))
 
 
 ;;; ═══════════════════════════════════════════════════════════════════════
@@ -304,7 +454,7 @@
            (if (and s (string/= s ""))
                (parse-integer s)
                0)))
-    (let* ((id (hunchentoot:parameter "id"))
+    (let* ((id (hunchentoot:parameter "wid"))
          (company (get-login-vendor-company))
          (vendor (get-login-vendor))
 
@@ -398,11 +548,10 @@
          (params nil))
     (setf params (acons "uri" (hunchentoot:request-uri*) params))
     (with-hhub-transaction "com-hhub-transaction-update-warehouse-action" params
-      (handler-case
-          (apply #'!update 'nst-whs id ctx update-args)  ; perform the update
-        (error (c)
-          (error 'hhub-business-function-error
-                 :errstring (format t "~A" c)))))
+      (with-nst-error-handler 
+          (apply #'!update 'nst-whs id ctx update-args)
+	'hhub-business-function-error))  ; perform the update
+        
     ;; Return ONLY the redirect URL — the sole value create-widgets-for-
     ;; genericredirect consumes to emit the browser redirect.
     (function (lambda () redirecturl)))))
