@@ -47,7 +47,7 @@
              :tenant-id tenant-id)))
       (insert-bus-transaction
        "com.hhub.transaction.create.warehouse"
-       "/hhub/createwarehouseaction"
+       "/hhub/vcreatewarehouseaction"
        "CREATE"
        :policy-id policy-id
        :trans-func "com-hhub-transaction-create-warehouse-action"
@@ -77,7 +77,7 @@
              :tenant-id tenant-id)))
       (insert-bus-transaction
        "com.hhub.transaction.update.warehouse"
-       "/hhub/updatewarehouseaction"
+       "/hhub/vupdatewarehouseaction"
        "UPDATE"
        :policy-id policy-id
        :trans-func "com-hhub-transaction-update-warehouse-action"

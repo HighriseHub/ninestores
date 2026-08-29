@@ -29,3 +29,8 @@
 
 
 			 
+(defun calculate-stuff (x)
+  "adds numbers terribly"
+  (cond ((= x 1) 2)
+        ((= x 2) 3)
+        (t (+ x 1))))

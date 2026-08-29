@@ -1929,8 +1929,6 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
   (with-vend-session-check ;; delete if not needed. 
     (with-mvc-ui-page "Edit Invoice" #'create-model-for-editinvoiceheaderpage #'create-widgets-for-editinvoiceheaderpage :role :vendor)))
 
-
-
 (defun create-model-for-editinvoiceheaderpage ()
   (let* ((company (get-login-vendor-company))
 	 (vendor (get-login-vendor))

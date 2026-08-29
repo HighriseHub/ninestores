@@ -16,6 +16,35 @@
 ;; 3) Widgets - A widget is a leaf node in the page and component hierarchy. The widget contains the
 ;; actual HTML, CSS and JAVASCRIPT. 
 
+;;; ============================================================================
+;;; extract-html-between-markets
+;;;
+;;; Extracts the HTML fragment that lives between two named comment markers in a
+;;; larger HTML template string.  This lets a single saved template continue to
+;;; serve as a complete standalone page, while a discrete sub-region (e.g. just
+;;; the interior fields of a <form>) can be pulled out and re-wrapped at render
+;;; time by whatever generation strategy the current request needs (a plain
+;;; server-side POST form, or a parenscript-generated submit handler).
+;;;
+;;; Marker convention:  <!--NAME_BEGIN--> ... <!--NAME_END-->
+;;;
+;;; Parameters:
+;;;   TEMPLATE     - the raw HTML template string to search in.
+;;;   BEGIN-MARKER - the opening marker, e.g. "<!--WAREHOUSE_DETAILS_FORM_BEGIN-->".
+;;;   END-MARKER   - the closing marker,   e.g. "<!--WAREHOUSE_DETAILS_FORM_END-->" .
+;;;
+;;; Returns the substring between the two markers (excluding the markers), or
+;;; NIL if either marker is not found.  Useful for wrapping a form fragment with
+;;; with-html-form-having-submit-event / parenscript.
+;;;
+;;; NOTE: "?s" makes "." match newlines so the fragment can span multiple lines.
+;;; The markers here consist only of regex-safe characters ("<!--" "-->"), so
+;;; they can be interpolated directly.  If a marker ever contains regex
+;;; metacharacters (".", "(", etc.), escape it with cl-ppcre:quote-meta-chars.
+(defun extract-html-between-markets (template begin-marker end-marker)
+  (let ((regex (format nil "(?s)~A(.*?)~A" begin-marker end-marker)))
+    (cl-ppcre:register-groups-bind (snippet) (regex template) snippet)))
+
 ;; Widget is a function that when called renders HTML/JS/CSS
 (defun make-ui-widget (render-fn)
   ;; returns a widget structure containing closure
@@ -162,8 +191,7 @@ Returns a list of widget outputs."
   (defun submitformevent-js (id-bind-element)
     (cl-who:with-html-output (*standard-output* nil)
       (:script :type "text/javascript"
-	       (cl-who:str
-		(parenscript:ps
+	       (cl-who:str		(parenscript:ps
 		 (parenscript:chain ($ "document") 
 				    (ready (lambda ()
 					     (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
@@ -888,24 +916,9 @@ Returns a list of widget outputs."
 		     (cl-who:htm (:option :value key (cl-who:str value))))) ,kvhash))))))
   
 
-(defun display-as-table (header listdata rowdisplayfunc &rest arguments)
-  (let ((incr (let ((count 0)) (lambda () (incf count)))))
-    (cl-who:with-html-output-to-string (*standard-output* nil)
-      (:div :id "searchresult" :class "container-fluid"
-            (:div :class "table-responsive"
-                  (:table :class "table table-sm table-striped table-hover"
-                          (:thead (:tr
-                                   (:th :scope "col" "#")
-                                   (mapc (lambda (item) 
-                                           (cl-who:htm (:th :scope "col" (cl-who:str item)))) 
-                                         header)))
-                          (:tbody :class "table-group-divider"
-                                  (mapc (lambda (item)
-                                          (cl-who:htm (:tr (:td (cl-who:str (funcall incr)))
-                                                           (apply rowdisplayfunc item arguments))))
-                                        listdata))))))))
 
-(defun display-as-table-old (header listdata rowdisplayfunc &rest arguments) 
+
+(defun display-as-table (header listdata rowdisplayfunc &rest arguments) 
 :documentation "This is a generic function which will display items in list as a html table. You need to pass the html table header and  list data, and a display function which will display data. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizing refer to style.css. " 
   (let ((incr (let ((count 0)) (lambda () (incf count)))))
     (cl-who:with-html-output-to-string (*standard-output* nil)
