@@ -38,8 +38,8 @@
     <div class="col-12 col-sm-10 offset-sm-1 col-md-8 offset-md-2">
       <div class="form-card">
         
-        <form class="form-addwarehouseNIL" id="idform-addwarehouseNIL2XC" name="form-addwarehouseNIL" method="POST" action="%Warehouse Action%" novalidate="novalidate" role="form" enctype="multipart/form-data">
-          
+        <div class="form-addwarehouse">
+          <!--WAREHOUSE_DETAILS_FORM_BEGIN-->
           <img class="profile-img" src="/img/logo.png" alt="Company Logo">
           
           <!-- Navigation Tabs -->
@@ -68,6 +68,9 @@
             
             <!-- Tab 1: Basic Info -->
             <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="basic-tab">
+              <div class="mb-3">
+                <input class="form-control" name="wid" type="hidden" value="%Warehouse ID%">
+              </div>
               <div class="mb-3">
                 <input class="form-control" name="wname" maxlength="100" placeholder="Warehouse Name *" type="text" value="%Warehouse Name%" required>
               </div>
@@ -128,7 +131,7 @@
               </div>
               <div class="mb-3">
                 <label class="form-label">Ownership Type *</label>
-                <select class="form-select" name="ownershiptype" required>
+                <select class="form-select" name="ownershiptype">
                   <option value="SELLER_OWNED">Seller Owned</option>
                   <option value="BUYER_OWNED">Buyer Owned (VMI)</option>
                   <option value="THIRD_PARTY">Third Party (3PL)</option>
@@ -139,7 +142,7 @@
               </div>
               <div class="mb-3">
                 <label class="form-label">Owner Entity Type *</label>
-                <select class="form-select" name="ownerentitytype" required>
+                <select class="form-select" name="ownerentitytype">
                   <option value="SELLER">Seller/Vendor</option>
                   <option value="BUYER">Buyer/Customer</option>
                   <option value="PLATFORM">Platform</option>
@@ -148,7 +151,7 @@
                 </select>
               </div>
               <div class="mb-3">
-                <input class="form-control" name="ownerentityid" type="number" placeholder="Owner Entity ID *" required>
+                <input class="form-control" name="ownerentityid" type="number" placeholder="Owner Entity ID *">
               </div>
               <hr>
               <div class="mb-3">
@@ -167,7 +170,7 @@
               <hr>
               <div class="mb-3">
                 <label class="form-label">Legal Entity Type (GST Registered) *</label>
-                <select class="form-select" name="legalentitytype" required>
+                <select class="form-select" name="legalentitytype">
                   <option value="SELLER">Seller/Vendor</option>
                   <option value="BUYER">Buyer/Customer</option>
                   <option value="PLATFORM">Platform</option>
@@ -189,7 +192,7 @@
             <!-- Tab 3: GST Details -->
             <div class="tab-pane fade" id="gst" role="tabpanel" aria-labelledby="gst-tab">
               <div class="mb-3">
-                <input class="form-control" name="warehousegstin" maxlength="15" placeholder="Warehouse GSTIN *" type="text" value="%Warehouse GSTIN%" required>
+                <input class="form-control" name="warehousegstin" maxlength="15" placeholder="Warehouse GSTIN *" type="text" value="%Warehouse GSTIN%">
               </div>
               <div class="mb-3">
                 <label class="form-label">GSTIN Status</label>
@@ -206,7 +209,7 @@
                 <input class="form-control" name="pannumber" maxlength="10" placeholder="PAN Number" type="text" value="%Warehouse PAN Number%">
               </div>
               <div class="mb-3">
-                <input class="form-control" name="statecode" maxlength="2" placeholder="State Code (2 digits) *" type="text" value="%Warehouse State Code%" required>
+                <input class="form-control" name="statecode" maxlength="2" placeholder="State Code (2 digits) *" type="text" value="%Warehouse State Code%">
               </div>
               <div class="mb-3">
                 <label class="form-label">Registration Type</label>
@@ -291,8 +294,9 @@
           <div class="mt-4">
             <button class="btn btn-lg btn-primary w-100" type="submit">Submit Warehouse Details</button>
           </div>
+          <!--WAREHOUSE_DETAILS_FORM_END-->
 
-        </form>
+        </div>
 
       </div>
     </div>
