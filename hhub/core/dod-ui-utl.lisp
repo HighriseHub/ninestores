@@ -171,7 +171,7 @@ Returns a list of widget outputs."
               :name ,form-name 
               :method "POST" 
               :action ,form-action 
-              :novalidate "novalidate" ;; Prevents default browser bubbles
+              ;;:novalidate "novalidate" ;; Prevents default browser bubbles
               :role "form" 
               :enctype "multipart/form-data"
               ,@body)
@@ -906,14 +906,14 @@ Returns a list of widget outputs."
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-html-dropdown (name kvhash selectedkey)
-    (let ((id (format nil "id~A" name)))
+  (let ((id (format nil "id~A" name)))
     `(cl-who:with-html-output (*standard-output* nil)
-       (:select :class "form-control" :id ,id :name ,name 
-		(maphash (lambda (key value) 
-			   (if (equal key  ,selectedkey) 
-			       (cl-who:htm (:option :selected "true" :value key (cl-who:str value)))
-					;else
-		     (cl-who:htm (:option :value key (cl-who:str value))))) ,kvhash))))))
+       (:select :class "form-select" :id ,id :name ,name
+        (maphash (lambda (kv-key kv-value)
+                   (if (equal kv-key ,selectedkey)
+                       (cl-who:htm (:option :value kv-key :selected "true" (cl-who:str kv-value)))
+                       (cl-who:htm (:option :value kv-key (cl-who:str kv-value)))))
+                 ,kvhash))))))
   
 
 

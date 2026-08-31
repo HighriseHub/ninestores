@@ -131,38 +131,19 @@
               </div>
               <div class="mb-3">
                 <label class="form-label">Ownership Type *</label>
-                <select class="form-select" name="ownershiptype">
-                  <option value="SELLER_OWNED">Seller Owned</option>
-                  <option value="BUYER_OWNED">Buyer Owned (VMI)</option>
-                  <option value="THIRD_PARTY">Third Party (3PL)</option>
-                  <option value="PLATFORM_OWNED">Platform Owned</option>
-                  <option value="BONDED">Bonded Warehouse</option>
-                  <option value="CONTRACT_MFG">Contract Manufacturing</option>
-                </select>
+		%Warehouse Ownership Type%
               </div>
               <div class="mb-3">
                 <label class="form-label">Owner Entity Type *</label>
-                <select class="form-select" name="ownerentitytype">
-                  <option value="SELLER">Seller/Vendor</option>
-                  <option value="BUYER">Buyer/Customer</option>
-                  <option value="PLATFORM">Platform</option>
-                  <option value="THIRD_PARTY_LOGISTICS">3PL Provider</option>
-                  <option value="GOVERNMENT">Government</option>
-                </select>
-              </div>
+		%Warehouse Owner Entity Type%
+	      </div>
               <div class="mb-3">
                 <input class="form-control" name="ownerentityid" type="number" placeholder="Owner Entity ID *">
               </div>
               <hr>
               <div class="mb-3">
                 <label class="form-label">Operator Entity Type <small class="text-muted">(if different from owner)</small></label>
-                <select class="form-select" name="operatorentitytype">
-                  <option value="" selected>-- Same as Owner --</option>
-                  <option value="SELLER">Seller/Vendor</option>
-                  <option value="BUYER">Buyer/Customer</option>
-                  <option value="PLATFORM">Platform</option>
-                  <option value="THIRD_PARTY_LOGISTICS">3PL Provider</option>
-                </select>
+		%Warehouse Operator Entity Type%
               </div>
               <div class="mb-3">
                 <input class="form-control" name="operatorentityid" type="number" placeholder="Operator Entity ID (optional)">
@@ -170,12 +151,7 @@
               <hr>
               <div class="mb-3">
                 <label class="form-label">Legal Entity Type (GST Registered) *</label>
-                <select class="form-select" name="legalentitytype">
-                  <option value="SELLER">Seller/Vendor</option>
-                  <option value="BUYER">Buyer/Customer</option>
-                  <option value="PLATFORM">Platform</option>
-                  <option value="THIRD_PARTY_LOGISTICS">3PL Provider</option>
-                </select>
+		%Warehouse Legal Entity Type%
               </div>
               <div class="card border-info mb-3">
                 <div class="card-header bg-info-subtle text-info-emphasis fw-bold">Common Scenarios</div>
@@ -192,16 +168,12 @@
             <!-- Tab 3: GST Details -->
             <div class="tab-pane fade" id="gst" role="tabpanel" aria-labelledby="gst-tab">
               <div class="mb-3">
-                <input class="form-control" name="warehousegstin" maxlength="15" placeholder="Warehouse GSTIN *" type="text" value="%Warehouse GSTIN%">
+                <input class="form-control" name="warehousegstin" maxlength="15" placeholder="Warehouse GSTIN *" type="text" value="%Warehouse GSTIN%" required>
               </div>
               <div class="mb-3">
                 <label class="form-label">GSTIN Status</label>
-                <select class="form-select" name="gstinstatus">
-                  <option value="ACTIVE">Active</option>
-                  <option value="CANCELLED">Cancelled</option>
-                  <option value="SUSPENDED">Suspended</option>
-                </select>
-              </div>
+		%Warehouse GSTIN Status%
+                </div>
               <div class="mb-3">
                 <input class="form-control" name="legalname" maxlength="200" placeholder="Legal Name" type="text" value="%Warehouse Legal Name%">
               </div>
@@ -213,13 +185,7 @@
               </div>
               <div class="mb-3">
                 <label class="form-label">Registration Type</label>
-                <select class="form-select" name="registrationtype">
-                  <option value="REGULAR">Regular</option>
-                  <option value="COMPOSITION">Composition</option>
-                  <option value="SEZ">SEZ</option>
-                  <option value="EXPORT_WAREHOUSE">Export Warehouse</option>
-                  <option value="UNREGISTERED">Unregistered</option>
-                </select>
+		%Warehouse Registration Type%
               </div>
               <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" name="isprimarylocation" id="isprimarylocation" value="1">
@@ -231,22 +197,11 @@
             <div class="tab-pane fade" id="logistics" role="tabpanel" aria-labelledby="logistics-tab">
               <div class="mb-3">
                 <label class="form-label">Warehouse Type</label>
-                <select class="form-select" name="warehousetype">
-                  <option value="OWN">Own</option>
-                  <option value="THIRD_PARTY">Third Party</option>
-                  <option value="CONSIGNMENT">Consignment</option>
-                  <option value="BRANCH">Branch</option>
-                  <option value="GODOWN">Godown</option>
-                </select>
+		%Warehouse Type%
               </div>
               <div class="mb-3">
                 <label class="form-label">Warehouse Purpose</label>
-                <select class="form-select" name="warehousepurpose">
-                  <option value="SALES">Sales</option>
-                  <option value="STOCK_TRANSFER">Stock Transfer</option>
-                  <option value="MANUFACTURING">Manufacturing</option>
-                  <option value="BOTH">Both</option>
-                </select>
+		%Warehouse Purpose%
               </div>
               <div class="mb-3">
                 <input class="form-control" name="defaulttransporterid" maxlength="15" placeholder="Default Transporter ID" type="text" value="%Warehouse Default Transporter ID%" >
@@ -260,11 +215,7 @@
               </div>
               <div class="mb-3">
                 <label class="form-label">Valuation Method</label>
-                <select class="form-select" name="valuationmethod">
-                  <option value="FIFO">FIFO</option>
-                  <option value="LIFO">LIFO</option>
-                  <option value="WEIGHTED_AVG">Weighted Average</option>
-                </select>
+		%Warehouse Valuation Method%
               </div>
               <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" name="hsnwisestock" id="hsnwisestock" value="1">
