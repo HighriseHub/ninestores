@@ -251,6 +251,7 @@ Database type: Supported type is ':odbc'"
     (init-gst-invoice-terms)
     (setf *otp-store* (make-otp-store))
     (init-shipping-zones)
+    (init-warehouse-data)
     (setf *NSTSENDORDEREMAILACTOR* (make-instance 'nst-actor
 						  :name "Send Order Email Actor"
 						  :behavior #'send-order-email-behavior
