@@ -3,6 +3,86 @@
 
 ;;; nst-ui-warehouse.lisp — list page only, nothing else touched yet
 
+(defvar warehouse-ownershiptype-ht (make-hash-table :test 'equal))
+(defvar warehouse-ownerentitytype-ht (make-hash-table :test 'equal))
+(defvar warehouse-operatorentitytype-ht (make-hash-table :test 'equal))
+(defvar warehouse-legalentitytype-ht (make-hash-table :test 'equal))
+(defvar warehouse-gstinstatus-ht (make-hash-table :test 'equal))
+(defvar warehouse-registrationtype-ht (make-hash-table :test 'equal))
+(defvar warehouse-warehousetype-ht (make-hash-table :test 'equal))
+(defvar warehouse-warehousepurpose-ht (make-hash-table :test 'equal))
+(defvar warehouse-valuationmethod-ht (make-hash-table :test 'equal))
+
+(defun init-warehouse-ownershiptype-ht ()
+  (setf (gethash "SELLER_OWNED" warehouse-ownershiptype-ht) "Seller Owned")
+  (setf (gethash "BUYER_OWNED" warehouse-ownershiptype-ht) "Buyer Owned (VMI)")
+  (setf (gethash "PLATFORM_OWNED" warehouse-ownershiptype-ht) "Platform Owned")
+  (setf (gethash "BONDED" warehouse-ownershiptype-ht) "Bonded Warehouse")
+  (setf (gethash "THIRD_PARTY" warehouse-ownershiptype-ht) "Third Party (3PL)")
+  (setf (gethash "CONTRACT_MFG" warehouse-ownershiptype-ht) "Contract Manufacturing"))
+
+(defun init-warehouse-ownerentitytype-ht ()
+  (setf (gethash "SELLER" warehouse-ownerentitytype-ht) "Seller/Vendor")
+  (setf (gethash "BUYER" warehouse-ownerentitytype-ht) "Buyer/Customer")
+  (setf (gethash "PLATFORM" warehouse-ownerentitytype-ht) "Platform")
+  (setf (gethash "THIRD_PARTY_LOGISTICS" warehouse-ownerentitytype-ht) "3PL Provider")
+  (setf (gethash "GOVERNMENT" warehouse-ownerentitytype-ht) "Government"))
+
+(defun init-warehouse-operatorentitytype-ht ()
+  (setf (gethash "" warehouse-operatorentitytype-ht) "-- Same as Owner --")
+  (setf (gethash "SELLER" warehouse-operatorentitytype-ht) "Seller/Vendor")
+  (setf (gethash "BUYER" warehouse-operatorentitytype-ht) "Buyer/Customer")
+  (setf (gethash "PLATFORM" warehouse-operatorentitytype-ht) "Platform")
+  (setf (gethash "THIRD_PARTY_LOGISTICS" warehouse-operatorentitytype-ht) "3PL Provider"))
+
+(defun init-warehouse-legalentitytype-ht ()
+  (setf (gethash "SELLER" warehouse-legalentitytype-ht) "Seller/Vendor")
+  (setf (gethash "BUYER" warehouse-legalentitytype-ht) "Buyer/Customer")
+  (setf (gethash "PLATFORM" warehouse-legalentitytype-ht) "Platform")
+  (setf (gethash "THIRD_PARTY_LOGISTICS" warehouse-legalentitytype-ht) "3PL Provider"))
+
+(defun init-warehouse-gstinstatus-ht ()
+  (setf (gethash "ACTIVE" warehouse-gstinstatus-ht) "Active")
+  (setf (gethash "CANCELLED" warehouse-gstinstatus-ht) "Cancelled")
+  (setf (gethash "SUSPENDED" warehouse-gstinstatus-ht) "Suspended"))
+
+(defun init-warehouse-registrationtype-ht ()
+  (setf (gethash "REGULAR" warehouse-registrationtype-ht) "Regular")
+  (setf (gethash "COMPOSITION" warehouse-registrationtype-ht) "Composition")
+  (setf (gethash "SEZ" warehouse-registrationtype-ht) "SEZ")
+  (setf (gethash "EXPORT_WAREHOUSE" warehouse-registrationtype-ht) "Export Warehouse")
+  (setf (gethash "UNREGISTERED" warehouse-registrationtype-ht) "Unregistered"))
+
+(defun init-warehouse-warehousetype-ht ()
+  (setf (gethash "OWN" warehouse-warehousetype-ht) "Own")
+  (setf (gethash "THIRD_PARTY" warehouse-warehousetype-ht) "Third Party")
+  (setf (gethash "CONSIGNMENT" warehouse-warehousetype-ht) "Consignment")
+  (setf (gethash "BRANCH" warehouse-warehousetype-ht) "Branch")
+  (setf (gethash "GODOWN" warehouse-warehousetype-ht) "Godown"))
+
+(defun init-warehouse-warehousepurpose-ht ()
+  (setf (gethash "SALES" warehouse-warehousepurpose-ht) "Sales")
+  (setf (gethash "STOCK_TRANSFER" warehouse-warehousepurpose-ht) "Stock Transfer")
+  (setf (gethash "MANUFACTURING" warehouse-warehousepurpose-ht) "Manufacturing")
+  (setf (gethash "BOTH" warehouse-warehousepurpose-ht) "Both"))
+
+(defun init-warehouse-valuationmethod-ht ()
+  (setf (gethash "FIFO" warehouse-valuationmethod-ht) "FIFO")
+  (setf (gethash "LIFO" warehouse-valuationmethod-ht) "LIFO")
+  (setf (gethash "WEIGHTED_AVG" warehouse-valuationmethod-ht) "Weighted Average"))
+
+
+(defun init-warehouse-data ()
+  (init-warehouse-ownershiptype-ht)
+  (init-warehouse-ownerentitytype-ht)
+  (init-warehouse-operatorentitytype-ht)
+  (init-warehouse-legalentitytype-ht)
+  (init-warehouse-gstinstatus-ht)
+  (init-warehouse-registrationtype-ht)
+  (init-warehouse-warehousetype-ht)
+  (init-warehouse-warehousepurpose-ht)
+  (init-warehouse-valuationmethod-ht))
+
 (defclass nst-whs-list-view () ()
   (:documentation
    "Pure dispatch marker for RenderListViewHTML — NOT part of either
@@ -239,6 +319,7 @@
     (hsn-wise-stock           . "%Warehouse HSN Wise Stock%")))
 
 
+
 (defun create-model-for-addeditwarehouse ()
   (let* ((id (hunchentoot:parameter "id"))
 	 (vendor (get-login-vendor))
@@ -258,16 +339,92 @@
 			"<!--WAREHOUSE_DETAILS_FORM_END-->")))
     (unless form-snippet
       (error "Could not find the <!--WAREHOUSE_DETAILS_FORM_BEGIN--> / <!--WAREHOUSE_DETAILS_FORM_END--> markers in the warehouse template."))
+    
     ;; Populate the form fields with existing warehouse data (edit case).
     (dolist (pair *warehouse-field-map*)
       (let* ((slot (car pair))
              (placeholder (cdr pair))
              (value (and warehouseobj (slot-value warehouseobj slot))))
-	(setf form-snippet
-              (cl-ppcre:regex-replace-all
-               placeholder
-               form-snippet
-               (if value (princ-to-string value) "")))))
+	(cond
+	  ((equal placeholder "%Warehouse Ownership Type%")
+	   ;; Ownership type: inject the dropdown, not the raw value.
+	   (let ((dropdown-html
+		   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "ownershiptype" warehouse-ownershiptype-ht value)))))
+             (setf form-snippet
+		   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))
+	     (logiamhere (format nil "selected key is ~A and html is ~A" value dropdown-html))))
+	  ((equal placeholder "%Warehouse Owner Entity Type%")
+	   ;; Owner entity type: inject the dropdown, not the raw value.
+	   (let ((dropdown-html
+		   (with-output-to-string (stream)
+		     (let ((*standard-output* stream))
+		       (with-html-dropdown "ownerentitytype" warehouse-ownerentitytype-ht value)))))
+	     (setf form-snippet
+		   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))
+	     (logiamhere (format nil "selected key is ~A and html is ~A" value dropdown-html))))
+	  ((equal placeholder "%Warehouse Operator Entity Type%")
+	   ;; Operator entity type: inject the dropdown, not the raw value.
+	   (let ((dropdown-html
+		   (with-output-to-string (stream)
+		     (let ((*standard-output* stream))
+		       (with-html-dropdown "operatorentitytype" warehouse-operatorentitytype-ht value)))))
+	     (setf form-snippet
+		   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))
+	     (logiamhere (format nil "selected key is ~A and html is ~A" value dropdown-html))))
+	  ((equal placeholder "%Warehouse Legal Entity Type%")
+	   ;; Legal entity type: inject the dropdown, not the raw value.
+	   (let ((dropdown-html
+		   (with-output-to-string (stream)
+		     (let ((*standard-output* stream))
+		       (with-html-dropdown "legalentitytype" warehouse-legalentitytype-ht value)))))
+	     (setf form-snippet
+		   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))
+	     (logiamhere (format nil "selected key is ~A and html is ~A" value dropdown-html))))
+	  ((equal placeholder "%Warehouse GSTIN Status%")
+	   ;; GSTIN status: inject the dropdown, not the raw value.
+	   (let ((dropdown-html
+		   (with-output-to-string (stream)
+		     (let ((*standard-output* stream))
+		       (with-html-dropdown "gstinstatus" warehouse-gstinstatus-ht value)))))
+	     (setf form-snippet
+		   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))
+	     (logiamhere (format nil "selected key is ~A and html is ~A" value dropdown-html))))
+	  ((equal placeholder "%Warehouse Registration Type%")
+	   ;; Registration type: inject the dropdown, not the raw value.
+	   (let ((dropdown-html
+		   (with-output-to-string (stream)
+		     (let ((*standard-output* stream))
+		       (with-html-dropdown "registrationtype" warehouse-registrationtype-ht value)))))
+	     (setf form-snippet
+		   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))
+	     (logiamhere (format nil "selected key is ~A and html is ~A" value dropdown-html))))
+	  ((equal placeholder "%Warehouse Type%")
+	   ;; Warehouse type: inject the dropdown, not the raw value.
+	   (let ((dropdown-html
+		   (with-output-to-string (stream)
+		     (let ((*standard-output* stream))
+		       (with-html-dropdown "warehousetype" warehouse-warehousetype-ht value)))))
+	     (setf form-snippet
+		   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))
+	     (logiamhere (format nil "selected key is ~A and html is ~A" value dropdown-html))))
+	  ((equal placeholder "%Warehouse Valuation Method%")
+	   ;; Valuation method: inject the dropdown, not the raw value.
+	   (let ((dropdown-html
+		   (with-output-to-string (stream)
+		     (let ((*standard-output* stream))
+		       (with-html-dropdown "valuationmethod" warehouse-valuationmethod-ht value)))))
+	     (setf form-snippet
+		   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))
+	     (logiamhere (format nil "selected key is ~A and html is ~A" value dropdown-html))))
+	  (t
+	   ;; All other fields: inject the raw stringified value.
+	   (setf form-snippet
+		 (cl-ppcre:regex-replace-all
+		  placeholder
+		  form-snippet
+		  (if value (princ-to-string value) "")))))))
     ;; Return the cleaned-up form fragment plus the action token so the caller
     ;; (widget layer) can wrap it in the appropriate <form> without repeating
     ;; the create/edit decision logic.
