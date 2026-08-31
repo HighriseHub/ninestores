@@ -74,6 +74,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "core/nst-bl-act")
    (:file "core/nst-bl-otp")
    (:file "core/nst-sch-mig")
+   (:file "core/dod-ini-sys")
    (:file "core/nst-bl-conflodis")
    (:file "customer/nst-bl-custapi")
    (:file "invoice/nst-bl-invapi")
@@ -85,7 +86,6 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "core/nst-dal-pincodes")
    (:file "core/nst-bl-pincodes")
    (:file "core/nst-bl-adhara")
-   (:file "core/dod-ini-sys")
    (:file "core/dod-ui-site")
 
 
