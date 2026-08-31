@@ -932,3 +932,103 @@ function searchformevent(idBindElement, searchresultid) {
 	element.value.length === 21 ? searchformsubmit(theForm, searchresultid) : null;
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab-aware form validation (Bootstrap tabs)
+//
+// Problem: the warehouse form spans several Bootstrap tab panes inside ONE
+// <form>. Native validation bubbles cannot be shown for a required field that
+// sits in a hidden tab (.tab-pane without .active => display:none), so
+// clicking Submit on the "Basic" tab silently fails when, say, the GSTIN
+// field in the "GST Details" tab is empty.
+//
+// Solution (no need for one form per tab): hook the browser's constraint-
+// validation pass. The 'invalid' event fires for every invalid control BEFORE
+// the browser anchors its bubble, so we switch to the tab that contains the
+// FIRST invalid field — once visible, the native bubble displays normally.
+// The offending field is also highlighted with Bootstrap's .is-invalid class,
+// cleared as soon as the user starts fixing it.
+//
+// NOTE: a plain form.addEventListener('submit', ...) cannot do this — the
+// 'submit' event only fires AFTER native validation passes, i.e. never for an
+// invalid form. 'invalid' is the hook that actually runs pre-bubble.
+// ─────────────────────────────────────────────────────────────────────────────
+function enableTabAwareFormValidation(form) {
+    if (!form) return;
+
+    var firstInvalidHandled = false;
+
+    // Activate the Bootstrap tab that contains the given pane (safe across
+    // Bootstrap 4/5 API differences, and across both tab markup styles:
+    // anchor-style <a href="#pane"> and button-style <button data-bs-target="#pane">).
+    var showTabForPane = function (pane) {
+        if (!pane || typeof bootstrap === 'undefined' || !bootstrap.Tab) return;
+        var tabLink =
+            document.querySelector('a[href="#' + pane.id + '"]') ||
+            document.querySelector('[data-bs-target="#' + pane.id + '"]');
+        if (!tabLink) return;
+        if (bootstrap.Tab.getOrCreateInstance) {
+            bootstrap.Tab.getOrCreateInstance(tabLink).show();
+        } else {
+            new bootstrap.Tab(tabLink).show();
+        }
+    };
+
+    // Primary path (native validation). Fires during the validation pass, in
+    // DOM order, for each invalid control — before the browser shows the
+    // bubble. The first one is the field the browser will complain about.
+    form.addEventListener('invalid', function (e) {
+        if (firstInvalidHandled) return;
+        firstInvalidHandled = true;
+
+        var invalid = e.target;
+
+        // Highlight the offending field (Bootstrap red state).
+        invalid.classList.add('is-invalid');
+
+        // Bring its tab into view so the native bubble can actually be shown.
+        var pane = invalid.closest('.tab-pane');
+        if (pane && !pane.classList.contains('active')) {
+            showTabForPane(pane);
+        }
+    }, true); // capture phase: catches invalid events from any nested control
+
+    // Fallback path (e.g. if a form ever carries novalidate): 'submit' only
+    // fires after a PASSING validation, so run the check ourselves and hand
+    // the first invalid field back to the browser via reportValidity()
+    // (which fires the 'invalid' events → tab switch above).
+    form.addEventListener('submit', function (e) {
+        if (!form.checkValidity()) {
+            e.preventDefault();
+            form.reportValidity();
+        }
+    });
+
+    // Re-arm the invalid tracker on every submit attempt (constraint
+    // validation runs right after the submit button is clicked).
+    form.addEventListener('click', function (e) {
+        if (e.target.matches && e.target.matches('button[type="submit"], input[type="submit"]')) {
+            firstInvalidHandled = false;
+        }
+    });
+
+    // Clear the red highlight as soon as the user starts correcting the field.
+    form.addEventListener('input', function (e) {
+        if (e.target.classList && e.target.classList.contains('is-invalid')) {
+            e.target.classList.remove('is-invalid');
+        }
+    });
+}
+
+// Auto-wire the warehouse details form (create/edit page).
+// NOTE: with-html-form-having-submit-event renders :id as "id~A" of the
+// form name, so the element id is "idwarehousedetailsform" (the name
+// attribute is the unprefixed "warehousedetailsform"). Try both plus a
+// name-based lookup so this survives either markup.
+$(document).ready(function () {
+    var warehouseForm =
+        document.getElementById('idwarehousedetailsform') ||
+        document.querySelector('form[name="warehousedetailsform"]');
+    enableTabAwareFormValidation(warehouseForm);
+});
+
