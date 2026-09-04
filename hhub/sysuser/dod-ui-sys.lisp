@@ -23,7 +23,7 @@
       (jscript-displayerror message))))
 
 
-(defun dod-controller-OTP-request-page ()
+(defun dod-controller-OTP-request-page.old ()
   (let ((session-id (hunchentoot:parameter "session"))
 	(phone (hunchentoot:parameter "phone")))
     (with-no-navbar-page-v2  "OTP Page"
@@ -48,6 +48,53 @@
 		      (with-html-input-text-hidden "phone" phone)
 		      (:button :class "submit center-block btn btn-primary btn-block" :type "submit" (cl-who:str  (format nil "Regenerate OTP for ~A " (concatenate 'string "xxxxx" (subseq phone 6)))))))
 	      (hhub-html-page-footer)))
+      (:script "window.onload = function() {countdowntimer(0,0,2,0);}"))))
+
+(defun dod-controller-OTP-request-page ()
+  (let* ((session-id (hunchentoot:parameter "session"))
+	(phone (hunchentoot:parameter "phone"))
+	(maskedphone (when phone (concatenate 'string "xxxxx" (subseq phone 6)))))
+    (with-standard-page-template-v3
+	"OTP Verification | Nine Stores"
+	(lambda ()
+	  (cl-who:htm
+	   (:nav :class "bg-gray-950/80 backdrop-blur-md text-white p-4 shadow-md"
+		 (:div :class "container mx-auto flex justify-between items-center"
+		       (:div :class "text-lg font-semibold tracking-wide" "Nine Stores")
+		       (:div
+			(:a :href "/" :class "text-gray-300 hover:text-white transition"
+			    "← Back to Home"))))))
+      (:div :class "bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl w-[90%] max-w-md p-8 text-center text-white"
+	    (:img :src "/img/logo.png" :alt "Nine Stores Logo"
+		  :class "mx-auto mb-6 w-28 h-28 rounded-full shadow-lg border border-white/10 bg-white/10 p-2")
+	    (:h1 :class "text-2xl font-bold mb-2" "OTP Verification")
+	    (:p :class "text-gray-300 mb-6"
+		(cl-who:str (format nil "OTP has been sent to your phone ~A" maskedphone)))
+	    (with-catch-submit-event "idform-otpentry"
+	      ;; OTP entry form. Lives inside the countdown block: on expiry JS replaces this
+	      ;; whole div (form included) with "SESSION EXPIRED" - same behaviour as before.
+	      (:div :id "withCountDownTimerExpired"
+		    (:form :id "frmotpsubmit" :method "POST" :action "hhubotpsubmitaction" :class "space-y-5"
+			   (:input :type "hidden" :name "session" :value session-id)
+			   (:div
+			    (:input :type "text" :id "otp" :name "otp"
+				    :placeholder "Enter 6-digit OTP"
+				    :required "true"
+				    :autocomplete "one-time-code"
+				    :inputmode "numeric"
+				    :pattern "[0-9]*"
+				    :maxlength "6"
+				    :class "w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-center text-lg tracking-[0.4em] font-semibold focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder-gray-400 text-white placeholder:tracking-normal placeholder:text-sm"))
+			   (:button :type "submit"
+				    :class "w-full py-3 bg-gradient-to-r from-[#38bdf8] to-[#3b82f6] hover:opacity-90 rounded-lg text-white font-semibold text-lg shadow-md transition"
+				    "Verify OTP")
+			   (:p :id "withCountDownTimer" :class "text-sm text-red-300 mt-2" "")))
+	      (:div :class "my-6 border-t border-white/20")
+	      ;; Regenerate button removed (step-2 decision): the OTP store enforces a 2-minute
+	      ;; TTL server-side, so a new OTP means restarting the flow from Home.
+	      (:a :href "/" :class "block w-full py-2.5 border border-white/30 rounded-lg text-gray-200 hover:bg-white/10 transition text-sm text-center"
+		  "← Back to Home"))
+	    (:footer :class "mt-8 text-xs text-gray-400" "&copy 2026 Nine Stores. All rights reserved."))
       (:script "window.onload = function() {countdowntimer(0,0,2,0);}"))))
 
 (defun dod-controller-otp-submit-action ()
@@ -997,6 +1044,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorsearch"  'dod-controller-customer-search-vendor)
 	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustomeraddress/([0-9]{10})$" 'dod-controller-customer-address)
 	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustinvoices" 'com-hhub-transaction-customer-invoice-register-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustprofilepage" 'com-nst-transaction-customer-profile-page)
 
 
 ;;***************************************************************************************************************************
@@ -1032,7 +1080,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodsearchcustwalletpage" 'dod-controller-vendor-search-cust-wallet-page )
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodsearchcustwalletaction" 'dod-controller-vendor-search-cust-wallet-action )
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodupdatewalletbalance" 'dod-controller-update-wallet-balance)
-	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendororderdetails" 'dod-controller-vendor-orderdetails)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vorderdetailspage" 'com-hhub-transaction-vendor-order-details)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenaddprodpage" 'dod-controller-vendor-add-product-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenbulkaddprodpage" 'dod-controller-vendor-bulk-add-products-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/generateproductcsvaction" 'dod-controller-vendor-generate-products-templ)
