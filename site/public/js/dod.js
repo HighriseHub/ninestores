@@ -1020,15 +1020,3 @@ function enableTabAwareFormValidation(form) {
     });
 }
 
-// Auto-wire the warehouse details form (create/edit page).
-// NOTE: with-html-form-having-submit-event renders :id as "id~A" of the
-// form name, so the element id is "idwarehousedetailsform" (the name
-// attribute is the unprefixed "warehousedetailsform"). Try both plus a
-// name-based lookup so this survives either markup.
-$(document).ready(function () {
-    var warehouseForm =
-        document.getElementById('idwarehousedetailsform') ||
-        document.querySelector('form[name="warehousedetailsform"]');
-    enableTabAwareFormValidation(warehouseForm);
-});
-
