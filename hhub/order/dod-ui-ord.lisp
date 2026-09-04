@@ -289,6 +289,30 @@
 		  (modal-dialog-v2 (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details vorder-instance company))
 		  (if storepickupenabled
 		      (cl-who:htm (:a :data-toggle "tooltip" :title "Store Pickup" :href "#" (:i :class "fa-solid fa-person-walking-luggage")))))))))
-      
 
+
+;; Row renderer for the vendor orders table.  Mirrors display-warehouse-row:
+;; each vendor order is emitted as a sequence of <td> cells so it can be
+;; consumed by display-as-table (which adds its own leading "Sr. No" cell).
+;; The final cell links to the vendor order details page.
+(defun vendor-order-row (vorder &rest arguments)
+  (declare (ignore arguments))
+  (let* ((customer (get-customer vorder))
+         (order-id (slot-value vorder 'order-id))
+         (name (if customer (slot-value customer 'name) "N/A"))
+         (storepickupenabled (if (equal (slot-value vorder 'storepickupenabled) "Y") T NIL))
+         (address (if customer (slot-value customer 'address) "N/A"))
+         (short-address (if (and address (> (length address) 20)) (subseq address 0 20) address)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (:td :height "10px" (cl-who:str order-id))
+      (:td :height "10px" (cl-who:str name))
+      (:td :height "10px" (cl-who:str short-address))
+      (:td :height "10px"
+           (if storepickupenabled
+               (cl-who:htm (:i :class "fa-solid fa-person-walking-luggage" :title "Store Pickup"))
+               (cl-who:htm (cl-who:str "No"))))
+      (:td :height "10px"
+           (:a :href (format nil "/hhub/vorderdetailspage?id=~A" order-id)
+               :class "btn btn-primary"
+               (:i :class "fa-solid fa-pencil"))))))
 
