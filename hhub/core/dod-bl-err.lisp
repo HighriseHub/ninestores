@@ -58,11 +58,72 @@
       :initarg :errstring
       :reader getExceptionStr))))
 
+;; ─────────────────────────────────────────────────────────────────────────────
+;; ABAC Condition Hierarchy (Policy Enforcement Point)
+;;
+;; Industry benchmark: CLHS §9.1 (Condition System), the Google Common Lisp
+;; Style Guide (§Conditions), and the hierarchical condition designs used by
+;; usocket, ironclad, bordeaux-threads and Hunchentoot itself. A hierarchy lets
+;; handlers catch the whole family (hhub-abac-error), the URI family
+;; (hhub-abac-uri-error), or one precise failure. Every ABAC condition derives
+;; from ERROR so the PEP fails closed: an authorization anomaly must never
+;; degrade into an allow.
+;; ─────────────────────────────────────────────────────────────────────────────
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (define-condition hhub-abac-transaction-error (error)
+  (define-condition hhub-abac-error (error)
     ((errstring
       :initarg :errstring
-      :reader getExceptionStr))))
+      :initform "Nine Stores authorization error."
+      :reader getExceptionStr))
+    (:report (lambda (c s)
+               (format s "ABAC policy failure: ~A" (getExceptionStr c))))
+    (:documentation "Base condition for all ABAC Policy Enforcement Point failures.")))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition hhub-abac-transaction-error (hhub-abac-error)
+    ()
+    (:report (lambda (c s)
+               (format s "ABAC transaction not found: ~A" (getExceptionStr c))))
+    (:documentation "Raised when the PEP cannot find the named transaction in the cache.")))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition hhub-abac-uri-error (hhub-abac-error)
+    ((db-uri
+      :initarg :db-uri
+      :initform nil
+      :reader abac-db-uri)
+     (request-uri
+      :initarg :request-uri
+      :initform nil
+      :reader abac-request-uri))
+    (:report (lambda (c s)
+               (format s "ABAC URI verification failure: ~A" (getExceptionStr c))))
+    (:documentation "Base condition for URI verification failures in the PEP.")))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition hhub-abac-uri-missing-error (hhub-abac-uri-error)
+    ()
+    (:report (lambda (c s)
+               (format s "Transaction has no URI configured in the database (config defect): ~A"
+                       (getExceptionStr c))))
+    (:documentation "Raised when the transaction exists but has no URI registered in the DB.")))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition hhub-abac-uri-absent-error (hhub-abac-uri-error)
+    ()
+    (:report (lambda (c s)
+               (format s "Request carried no URI for ABAC verification (caller defect): ~A"
+                       (getExceptionStr c))))
+    (:documentation "Raised when the request params carry no \"uri\" key (caller defect).")))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition hhub-abac-uri-mismatch-error (hhub-abac-uri-error)
+    ()
+    (:report (lambda (c s)
+               (format s "URI mismatch: database '~A' vs browser '~A'. ~A"
+                       (abac-db-uri c) (abac-request-uri c) (getExceptionStr c))))
+    (:documentation "Raised when the DB transaction URI and the browser request URI do not match.")))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-condition hhub-method-not-found (error)
