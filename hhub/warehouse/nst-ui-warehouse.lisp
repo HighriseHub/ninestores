@@ -439,8 +439,25 @@
     (let ((widget1  (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-html-form-having-submit-event "warehousedetailsform" action
-			  (cl-who:str form-snippet)))))))
-    (list widget1))))
+			  (cl-who:str form-snippet))))))
+	   ;; Auto-wire tab-aware validation (the form spans Bootstrap tab panes,
+	   ;; so native validation bubbles must be steered to the tab holding the
+	   ;; first invalid field). Kept as its own widget so it stays modular.
+	   ;; NOTE: with-html-form-having-submit-event renders the element id as
+	   ;; "idwarehousedetailsform" while the name attribute is the unprefixed
+	   ;; "warehousedetailsform"; try both lookups.
+	   (widget2 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(:script :type "text/javascript"
+			         (cl-who:str
+			          (parenscript:ps
+			            (parenscript:chain ($ "document")
+			                           (ready (lambda ()
+			                                    (let ((warehouse-form
+			                                            (or (parenscript:chain document (get-element-by-id "idwarehousedetailsform"))
+			                                                (parenscript:chain document (query-selector "form[name=\"warehousedetailsform\"]")))))
+			                                      (enable-tab-aware-form-validation warehouse-form)))))))))))))
+      (list widget1 widget2))))
 
 
 ;;; ═══════════════════════════════════════════════════════════════════════
