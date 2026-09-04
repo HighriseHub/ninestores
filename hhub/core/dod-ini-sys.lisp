@@ -149,6 +149,7 @@
 (defvar *NST-ORDER-TEMPLATES* nil)
 ;; customer templates
 (defvar *NST-DUPLICATE-CUSTOMER-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/customer/templates/duplicate-customer.html")
+(defvar *NST-CUSTOMER-PROFILE-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/customer/templates/customerprofile.html")
 (defvar *NST-CUSTOMER-TEMPLATES* nil)
 ;; warehouse template
 (defvar *NST-WAREHOUSE-DETAILS-PAGE* "/home/ubuntu/ninestores/hhub/warehouse/templates/warehousedetailspage.html")
@@ -252,6 +253,7 @@ Database type: Supported type is ':odbc'"
     (setf *otp-store* (make-otp-store))
     (init-shipping-zones)
     (init-warehouse-data)
+    (init-customer-profile-data)
     (setf *NSTSENDORDEREMAILACTOR* (make-instance 'nst-actor
 						  :name "Send Order Email Actor"
 						  :behavior #'send-order-email-behavior
@@ -558,17 +560,20 @@ Database type: Supported type is ':odbc'"
 
 ;;;;;;;;;;;;;;;;;;;;;;;CUSTOMER TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun nst-load-customer-templates ()
-  :documentation "Load the order templates at startup"
-  (let* ((duplicatecustomertemplate  (hhub-read-file *NST-DUPLICATE-CUSTOMER-TEMPLATEFILE*)))
+  :documentation "Load the customer templates at startup"
+  (let* ((duplicatecustomertemplate  (hhub-read-file *NST-DUPLICATE-CUSTOMER-TEMPLATEFILE*))
+	 (customerprofiletemplate  (hhub-read-file *NST-CUSTOMER-PROFILE-TEMPLATEFILE*)))
     (function (lambda ()
       (values
-       (function (lambda () duplicatecustomertemplate)))))))
+       (function (lambda () duplicatecustomertemplate))
+       (function (lambda () customerprofiletemplate)))))))
 
 (defun nst-get-cached-customer-template-func (&key templatenum)
-  :documentation "returns the function responsible for order HTML template. Call the returning function to get the HTML."
-  (multiple-value-bind (duplicatecustomertemplate) (funcall *NST-CUSTOMER-TEMPLATES*)
+  :documentation "returns the function responsible for customer HTML template. Call the returning function to get the HTML."
+  (multiple-value-bind (duplicatecustomertemplate customerprofiletemplate) (funcall *NST-CUSTOMER-TEMPLATES*)
     (case templatenum
-      (1 duplicatecustomertemplate))))
+      (1 duplicatecustomertemplate)
+      (2 customerprofiletemplate))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

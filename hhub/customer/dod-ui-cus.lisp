@@ -625,20 +625,139 @@ Only shows sections based on availability flags and customer type."
 		       (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Submit"))))))))
 
 (defun dod-controller-customer-update-action ()
-  (with-cust-session-check 
+  "Controller for the customer profile update action. Thin wrapper in the
+   style of com-hhub-transaction-update-warehouse-action: the model performs
+   the update and returns ONLY the redirect URL, which the generic redirect
+   widget emits."
+  (with-cust-session-check
+    (with-mvc-redirect-ui #'create-model-for-customer-update-action
+                          #'create-widgets-for-genericredirect)))
+
+(defun create-model-for-customer-update-action ()
+  "Model for the customer profile update action. Reads every posted field of
+   customerprofile.html (parameter names kept verbatim from the template),
+   applies them as a partial update to the logged-in customer, persists via
+   update-customer, and returns (function (lambda () redirecturl)) - the sole
+   value create-widgets-for-genericredirect consumes."
+  (flet ((parse-int-or-0 (s)
+           "Parse S as an integer, returning 0 if S is nil or empty."
+           (if (and s (string/= s ""))
+               (parse-integer s)
+               0))
+         (parse-float-or-0 (s)
+           "Parse S as a float, returning 0.0 if S is nil or empty."
+           (if (and s (string/= s ""))
+               (float (with-input-from-string (in s) (read in)))
+               0.0)))
     (let* ((customer (get-login-customer))
-	   (name (hunchentoot:parameter "name"))
-	   (address (hunchentoot:parameter "address"))
-	   (phone (hunchentoot:parameter "phone"))
-	   (zipcode (hunchentoot:parameter "zipcode"))
-	   (email (hunchentoot:parameter "email")))
-      (setf (slot-value customer 'name) name)
-      (setf (slot-value customer 'address) address)
-      (setf (slot-value customer 'phone) phone)
-      (setf (slot-value customer 'zipcode) zipcode)
-      (setf (slot-value customer 'email) email)
-      (update-customer customer)
-      (hunchentoot:redirect "/hhub/dodcustprofile"))))
+           ;; --- names below are the name= attributes of customerprofile.html ---
+           (name (hunchentoot:parameter "name"))
+           (phone (hunchentoot:parameter "phone"))
+           (email (hunchentoot:parameter "email"))
+           (address (hunchentoot:parameter "address"))
+           (zipcode (hunchentoot:parameter "zipcode"))
+           (activeflag (hunchentoot:parameter "activeflag"))
+           ;; Company Details
+           (legal-company-name (hunchentoot:parameter "legal-company-name"))
+           (industry (hunchentoot:parameter "industry"))
+           (employee-count (parse-int-or-0 (hunchentoot:parameter "employee-count")))
+           (annual-turnover (parse-float-or-0 (hunchentoot:parameter "annual-turnover")))
+           (business-established-date
+             (let ((ds (hunchentoot:parameter "business-established-date")))
+               (when (and ds (string/= ds ""))
+                 (get-dateobj-from-string-yyyymmdd ds))))
+           (msme-number (hunchentoot:parameter "msme-number"))
+           ;; GST & Tax
+           (gstin (hunchentoot:parameter "gstin"))
+           (pan-number (hunchentoot:parameter "pan-number"))
+           (tan-number (hunchentoot:parameter "tan-number"))
+           (is-tax-exempt (if (hunchentoot:parameter "is-tax-exempt") "Y" "N"))
+           (tax-exemption-cert (hunchentoot:parameter "tax-exemption-cert"))
+           ;; Financial Terms
+           (paymentterms (hunchentoot:parameter "paymentterms"))
+           (credit-days (parse-int-or-0 (hunchentoot:parameter "credit-days")))
+           (credit-limit (parse-float-or-0 (hunchentoot:parameter "credit-limit")))
+           ;; Contacts
+           (primary-contact-name (hunchentoot:parameter "primary-contact-name"))
+           (primary-contact-phone (hunchentoot:parameter "primary-contact-phone"))
+           (primary-contact-email (hunchentoot:parameter "primary-contact-email"))
+           (primary-contact-designation (hunchentoot:parameter "primary-contact-designation"))
+           (accounts-contact-name (hunchentoot:parameter "accounts-contact-name"))
+           (accounts-contact-phone (hunchentoot:parameter "accounts-contact-phone"))
+           (accounts-contact-email (hunchentoot:parameter "accounts-contact-email"))
+           ;; Addresses
+           (registered-address (hunchentoot:parameter "registered-address"))
+           (registered-city (hunchentoot:parameter "registered-city"))
+           (registered-state (hunchentoot:parameter "registered-state"))
+           (registered-zipcode (hunchentoot:parameter "registered-zipcode"))
+           (billing-address (hunchentoot:parameter "billing-address"))
+           (shipping-address (hunchentoot:parameter "shipping-address"))
+           ;; Bank Details
+           (bank-account-holder-name (hunchentoot:parameter "bank-account-holder-name"))
+           (bank-account-number (hunchentoot:parameter "bank-account-number"))
+           (bank-ifsc-code (hunchentoot:parameter "bank-ifsc-code"))
+           (bank-name (hunchentoot:parameter "bank-name"))
+           (bank-branch (hunchentoot:parameter "bank-branch"))
+           ;; Dropdowns (selects injected by create-model-for-customer-profile-page)
+           (businesstype (hunchentoot:parameter "businesstype"))
+           (customertype (hunchentoot:parameter "customertype"))
+           (gstregistrationtype (hunchentoot:parameter "gstregistrationtype"))
+           (kycstatus (hunchentoot:parameter "kycstatus"))
+
+           ;; plist of every mutable slot, mirroring the warehouse update-args
+           (update-args (list 'name name
+                              'phone phone
+                              'email email
+                              'address address
+                              'zipcode zipcode
+                              'active-flag activeflag
+                              'legal-company-name legal-company-name
+                              'industry industry
+                              'employee-count employee-count
+                              'annual-turnover annual-turnover
+                              'business-established-date business-established-date
+                              'msme-number msme-number
+                              'gstin gstin
+                              'pan-number pan-number
+                              'tan-number tan-number
+                              'is-tax-exempt is-tax-exempt
+                              'tax-exemption-cert tax-exemption-cert
+                              'payment-terms paymentterms
+                              'credit-days credit-days
+                              'credit-limit credit-limit
+                              'primary-contact-name primary-contact-name
+                              'primary-contact-phone primary-contact-phone
+                              'primary-contact-email primary-contact-email
+                              'primary-contact-designation primary-contact-designation
+                              'accounts-contact-name accounts-contact-name
+                              'accounts-contact-phone accounts-contact-phone
+                              'accounts-contact-email accounts-contact-email
+                              'registered-address registered-address
+                              'registered-city registered-city
+                              'registered-state registered-state
+                              'registered-zipcode registered-zipcode
+                              'billing-address billing-address
+                              'shipping-address shipping-address
+                              'bank-account-holder-name bank-account-holder-name
+                              'bank-account-number bank-account-number
+                              'bank-ifsc-code bank-ifsc-code
+                              'bank-name bank-name
+                              'bank-branch bank-branch
+                              'business-type businesstype
+                              'gst-customer-type customertype
+                              'gst-registration-type gstregistrationtype
+                              'kyc-status kycstatus))
+           (redirecturl "/hhub/dodcustprofile"))
+      (with-nst-error-handler
+          (progn
+            ;; partial update: only the posted slots change
+            (loop for (slot value) on update-args by #'cddr do
+                  (setf (slot-value customer slot) value))
+            (update-customer customer))
+        'hhub-business-function-error)
+      ;; Return ONLY the redirect URL - the sole value create-widgets-for-
+      ;; genericredirect consumes to emit the browser redirect.
+      (function (lambda () redirecturl)))))
 
       
 (defun modal.customer-change-pin ()
@@ -692,7 +811,8 @@ Only shows sections based on availability flags and customer type."
        (:h3 "Welcome " (cl-who:str (format nil "~a" customername)))
        (:hr)
        (:div :class "list-group col-sm-6 col-md-6 col-lg-6 col-xs-12"
-	     (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustupdate-modal")  :href "#"  "Customer Contact Info")
+	     (:a :class "list-group-item" :href "nstcustprofilepage"  "Customer Profile")
+	     (:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustupdate-modal")  :href "#"  "Quick Update Contact Info")
 	     (modal-dialog-v2 (format nil "dodcustupdate-modal") "Update Customer" (modal.customer-update-details customer-instance)) 
 	     ;; We have OTP based login now, so will not support changing password by customer.
 	     ;;(:a :class "list-group-item" :data-bs-toggle "modal" :data-bs-target (format nil "#dodcustchangepin-modal")  :href "#"  "Change Password")
@@ -1739,7 +1859,7 @@ Only shows sections based on availability flags and customer type."
 							       (hunchentoot:redirect "/hhub/hhubcustloginv2"))))))
 
 
-(defun dod-controller-customer-otploginpage ()
+(defun dod-controller-customer-otploginpage.old ()
   (handler-case 
       (progn  
 	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
@@ -1765,6 +1885,51 @@ Only shows sections based on availability flags and customer type."
 								   (stop-das) 
 								   (start-das)
 								   (hunchentoot:redirect "/hhub/customer-login.html"))))))
+
+(defun dod-controller-customer-otploginpage ()
+  (handler-case
+      (progn
+        (when (equal (caar (clsql:query "select 1"
+                                        :flatp nil :field-names nil
+                                        :database *dod-db-instance*)) 1)
+          t)
+        ;; if customer is already logged in, then logout and show the login page
+        (if (is-dod-cust-session-valid?)
+            (hunchentoot:remove-session hunchentoot:*session*))
+        (with-standard-page-template-v3
+            "Customer OTP Login | Nine Stores"
+            (lambda ()
+              (cl-who:htm
+                (:nav :class "bg-gray-950/80 backdrop-blur-md text-white p-4 shadow-md"
+                  (:div :class "container mx-auto flex justify-between items-center"
+                    (:div :class "text-lg font-semibold tracking-wide"
+                      "Nine Stores Customer Portal")
+                    (:div
+                      (:a :href "/" :class "text-gray-300 hover:text-white transition"
+                          "← Back to Home"))))))
+          (:div :class "bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl w-[90%] max-w-md p-8 text-center text-white"
+                (:img :src "/img/logo.png" :alt "Nine Stores Logo" :class "mx-auto mb-6 w-28 h-28 rounded-full shadow-lg border border-white/10 bg-white/10 p-2")
+                (:h1 :class "text-2xl font-bold mb-2" "Welcome to Nine Stores")
+                (:p :class "text-gray-300 mb-6" "Customer OTP Login Portal")
+                (with-catch-submit-event "idform-custsignin"
+                  (:form :id "custsigninwithotp" :method "POST" :action "hhubcustloginotpstep" :class "space-y-5"
+                         (:div
+                          (:input :type "number"
+                                  :id "phone"
+                                  :name "phone"
+                                  :placeholder "Enter RMN. Ex: 9999999999"
+                                  :required "true"
+                                  :class "w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder-gray-300 text-white"))
+                         (:button :type "submit"
+                                  :class "w-full py-3 bg-gradient-to-r from-[#38bdf8] to-[#3b82f6] hover:opacity-90 rounded-lg text-white font-semibold text-lg shadow-md transition"
+                                  "Get OTP")))
+                (:div :class "my-6 border-t border-white/20")
+                (:footer :class "mt-8 text-xs text-gray-400" "&copy 2026 Nine Stores. All rights reserved."))))
+    (clsql:sql-database-data-error (condition)
+      (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
+							       (stop-das) 
+							       (start-das)
+							       (hunchentoot:redirect "/hhub/customer-login.html"))))))
 
 (defun is-dod-cust-session-valid? ()
   (if hunchentoot:*session* T NIL))
@@ -3568,6 +3733,267 @@ Only shows sections based on availability flags and customer type."
 	(stop-das) 
 	(start-das)
 	(hunchentoot:redirect "/hhub/customer-login.html")))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; CUSTOMER PROFILE dropdown value hash tables — same pattern as the
+;;; warehouse dropdowns in nst-ui-warehouse.lisp: one defvar + one init
+;;; function per dropdown.  Keys are the enum values stored in
+;;; dod_cust_profile (see dod-dal-cus.lisp) mapped to human labels.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar customer-businesstype-ht (make-hash-table :test 'equal))
+(defvar customer-customertype-ht (make-hash-table :test 'equal))
+(defvar customer-gstregistrationtype-ht (make-hash-table :test 'equal))
+(defvar customer-kycstatus-ht (make-hash-table :test 'equal))
+(defvar customer-paymentterms-ht (make-hash-table :test 'equal))
+
+(defun init-customer-businesstype-ht ()
+  (setf (gethash "INDIVIDUAL" customer-businesstype-ht) "Individual")
+  (setf (gethash "SOLE_PROPRIETORSHIP" customer-businesstype-ht) "Sole Proprietorship")
+  (setf (gethash "PARTNERSHIP" customer-businesstype-ht) "Partnership")
+  (setf (gethash "LLP" customer-businesstype-ht) "LLP (Limited Liability Partnership)")
+  (setf (gethash "PRIVATE_LIMITED" customer-businesstype-ht) "Private Limited Company")
+  (setf (gethash "PUBLIC_LIMITED" customer-businesstype-ht) "Public Limited Company")
+  (setf (gethash "TRUST" customer-businesstype-ht) "Trust")
+  (setf (gethash "SOCIETY" customer-businesstype-ht) "Society / NGO")
+  (setf (gethash "GOVERNMENT" customer-businesstype-ht) "Government / PSU")
+  (setf (gethash "OTHER" customer-businesstype-ht) "Other"))
+
+(defun init-customer-customertype-ht ()
+  (setf (gethash "B2B" customer-customertype-ht) "B2B (Business to Business)")
+  (setf (gethash "B2C" customer-customertype-ht) "B2C (Business to Consumer)"))
+
+(defun init-customer-gstregistrationtype-ht ()
+  (setf (gethash "REGULAR" customer-gstregistrationtype-ht) "Regular")
+  (setf (gethash "COMPOSITION" customer-gstregistrationtype-ht) "Composition")
+  (setf (gethash "SEZ" customer-gstregistrationtype-ht) "SEZ")
+  (setf (gethash "CASUAL" customer-gstregistrationtype-ht) "Casual Taxable Person")
+  (setf (gethash "ISD" customer-gstregistrationtype-ht) "Input Service Distributor")
+  (setf (gethash "UNREGISTERED" customer-gstregistrationtype-ht) "Unregistered"))
+
+(defun init-customer-kycstatus-ht ()
+  (setf (gethash "PENDING" customer-kycstatus-ht) "Pending")
+  (setf (gethash "SUBMITTED" customer-kycstatus-ht) "Submitted")
+  (setf (gethash "UNDER_REVIEW" customer-kycstatus-ht) "Under Review")
+  (setf (gethash "VERIFIED" customer-kycstatus-ht) "Verified")
+  (setf (gethash "REJECTED" customer-kycstatus-ht) "Rejected")
+  (setf (gethash "EXPIRED" customer-kycstatus-ht) "Expired"))
+
+(defun init-customer-paymentterms-ht ()
+  (setf (gethash "PREPAID" customer-paymentterms-ht) "Prepaid")
+  (setf (gethash "COD" customer-paymentterms-ht) "Cash on Delivery")
+  (setf (gethash "CREDIT" customer-paymentterms-ht) "Credit")
+  (setf (gethash "NET_15" customer-paymentterms-ht) "Net 15 Days")
+  (setf (gethash "NET_30" customer-paymentterms-ht) "Net 30 Days")
+  (setf (gethash "NET_45" customer-paymentterms-ht) "Net 45 Days")
+  (setf (gethash "NET_60" customer-paymentterms-ht) "Net 60 Days"))
+
+(defun init-customer-profile-data ()
+  (init-customer-businesstype-ht)
+  (init-customer-customertype-ht)
+  (init-customer-gstregistrationtype-ht)
+  (init-customer-kycstatus-ht)
+  (init-customer-paymentterms-ht))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; CUSTOMER PROFILE (tabbed) — MVC page
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Every slot of dod-cust-profile (dod-dal-cus.lisp), mapped to the
+;; %Customer ...% placeholder of the same name in customerprofile.html.
+;; Placeholders not present in the template are harmless no-ops (the
+;; regex-replace-all simply finds nothing) but keep the map complete.
+(defparameter *customer-profile-field-map*
+  '((row-id                       . "%Customer ID%")
+    (name                         . "%Customer Name%")
+    (address                      . "%Customer Address%")
+    (phone                        . "%Customer Phone%")
+    (username                     . "%Customer Username%")
+    (password                     . "%Customer Password%")
+    (salt                         . "%Customer Salt%")
+    (email                        . "%Customer Email%")
+    (firstname                    . "%Customer First Name%")
+    (lastname                     . "%Customer Last Name%")
+    (fullname                     . "%Customer Full Name%")
+    (salutation                   . "%Customer Salutation%")
+    (title                        . "%Customer Title%")
+    (birthdate                    . "%Customer Birth Date%")
+    (picture-path                 . "%Customer Picture Path%")
+    (city                         . "%Customer City%")
+    (state                        . "%Customer State%")
+    (country                      . "%Customer Country%")
+    (zipcode                      . "%Customer Zipcode%")
+    (created                      . "%Customer Created%")
+    (updated                      . "%Customer Updated%")
+    (deleted-state                . "%Customer Deleted State%")
+    (approved-flag                . "%Customer Approved Flag%")
+    (approval-status              . "%Customer Approval Status%")
+    (approved-by                  . "%Customer Approved By%")
+    (cust-type                    . "%Customer Cust Type%")
+    (active-flag                  . "%Customer Active Flag%")
+    (email-add-verified           . "%Customer Email Add Verified%")
+    (suspend-flag                 . "%Customer Suspend Flag%")
+    (upi-id                       . "%Customer UPI ID%")
+    (legal-company-name           . "%Customer Legal Company Name%")
+    (gst-customer-type            . "%Customer Type%")
+    (company-name                 . "%Customer Company Name%")
+    (legal-name                   . "%Customer Legal Name%")
+    (gstin                        . "%Customer GSTIN%")
+    (pan-number                   . "%Customer PAN%")
+    (business-type                . "%Customer Business Type%")
+    (organization-type            . "%Customer Organization Type%")
+    (gst-registration-type        . "%Customer GST Registration Type%")
+    (tan-number                   . "%Customer TAN Number%")
+    (msme-number                  . "%Customer MSME Number%")
+    (is-tax-exempt                . "%Customer Is Tax Exempt%")
+    (tax-exemption-cert           . "%Customer Tax Exemption Cert%")
+    (business-established-date    . "%Customer Business Established Date%")
+    (annual-turnover              . "%Customer Annual Turnover%")
+    (employee-count               . "%Customer Employee Count%")
+    (industry                     . "%Customer Industry%")
+    (credit-limit                 . "%Customer Credit Limit%")
+    (payment-terms                . "%Customer Payment Terms%")
+    (credit-days                  . "%Customer Credit Days%")
+    (primary-contact-name         . "%Customer Primary Contact Name%")
+    (primary-contact-phone        . "%Customer Primary Contact Phone%")
+    (primary-contact-email        . "%Customer Primary Contact Email%")
+    (primary-contact-designation  . "%Customer Primary Contact Designation%")
+    (accounts-contact-name        . "%Customer Accounts Contact Name%")
+    (accounts-contact-phone       . "%Customer Accounts Contact Phone%")
+    (accounts-contact-email       . "%Customer Accounts Contact Email%")
+    (bank-account-number          . "%Customer Bank Account Number%")
+    (bank-ifsc-code               . "%Customer IFSC Code%")
+    (bank-name                    . "%Customer Bank Name%")
+    (bank-branch                  . "%Customer Bank Branch%")
+    (bank-account-holder-name     . "%Customer Bank Account Holder Name%")
+    (registered-address           . "%Customer Registered Address%")
+    (billing-address              . "%Customer Billing Address%")
+    (shipping-address             . "%Customer Shipping Address%")
+    (registered-state             . "%Customer Registered State%")
+    (registered-city              . "%Customer Registered City%")
+    (registered-zipcode           . "%Customer Registered Zipcode%")
+    (kyc-status                   . "%Customer KYC Status%")
+    (kyc-verified-date            . "%Customer KYC Verified Date%")
+    (kyc-verified-by              . "%Customer KYC Verified By%")
+    (kyc-documents                . "%Customer KYC Documents%")
+    (blacklisted-vendors          . "%Customer Blacklisted Vendors%")
+    (last-order-date              . "%Customer Last Order Date%")
+    (total-orders                 . "%Customer Total Orders%")
+    (total-spent                  . "%Customer Total Spent%")
+    (loyalty-points               . "%Customer Loyalty Points%")
+    (tenant-id                    . "%Customer Tenant ID%")
+    (kyc-verifier                 . "%Customer KYC Verifier%")))
+    
+
+(defun com-nst-transaction-customer-profile-page ()
+  (with-cust-session-check
+    (with-mvc-ui-page "Update customer profile"
+                      #'create-model-for-customer-profile-page
+                      #'create-widgets-for-customer-profile-page
+      :role :customer)))
+
+(defun create-model-for-customer-profile-page ()
+  "Model for the tabbed Update Customer Profile page. Mirrors
+   create-model-for-addeditwarehouse: load the cached customerprofile
+   template (templatenum 2), extract the marker-delimited form fragment,
+   then walk *customer-profile-field-map* replacing every placeholder —
+   the five dropdown placeholders get <select> HTML, everything else gets
+   the stringified slot value. The subject is the logged-in customer
+   ('my profile' page), so unlike the warehouse there is no id parameter
+   and no create-vs-edit decision — it is always an update."
+  (let* ((customer (get-login-customer))
+         (action "hhubcustupdateaction")
+         (customerprofilepagetempl (funcall (nst-get-cached-customer-template-func :templatenum 2)))
+         (form-snippet (extract-html-between-markets
+                        customerprofilepagetempl
+                        "<!--CUSTOMER_PROFILE_FORM_BEGIN-->"
+                        "<!--CUSTOMER_PROFILE_FORM_END-->")))
+    (unless form-snippet
+      (error "Could not find the <!--CUSTOMER_PROFILE_FORM_BEGIN--> / <!--CUSTOMER_PROFILE_FORM_END--> markers in the customer profile template."))
+
+    ;; Populate the form fields with the logged-in customer's data.
+    (dolist (pair *customer-profile-field-map*)
+      (let* ((slot (car pair))
+             (placeholder (cdr pair))
+             (value (and customer (slot-value customer slot))))
+        (cond
+          ((equal placeholder "%Customer Business Type%")
+           ;; Business type: inject the dropdown, not the raw value.
+           (let ((dropdown-html
+                   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "businesstype" customer-businesstype-ht value)))))
+             (setf form-snippet
+                   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))))
+          ((equal placeholder "%Customer Type%")
+           ;; Customer type (B2B/B2C): inject the dropdown, not the raw value.
+           (let ((dropdown-html
+                   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "customertype" customer-customertype-ht value)))))
+             (setf form-snippet
+                   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))))
+          ((equal placeholder "%Customer GST Registration Type%")
+           ;; GST registration type: inject the dropdown, not the raw value.
+           (let ((dropdown-html
+                   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "gstregistrationtype" customer-gstregistrationtype-ht value)))))
+             (setf form-snippet
+                   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))))
+          ((equal placeholder "%Customer KYC Status%")
+           ;; KYC status: inject the dropdown, not the raw value.
+           (let ((dropdown-html
+                   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "kycstatus" customer-kycstatus-ht value)))))
+             (setf form-snippet
+                   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))))
+          ((equal placeholder "%Customer Payment Terms%")
+           ;; Payment terms: inject the dropdown, not the raw value.
+           (let ((dropdown-html
+                   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "paymentterms" customer-paymentterms-ht value)))))
+             (setf form-snippet
+                   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))))
+          (t
+           ;; All other fields: inject the raw stringified value.
+           (setf form-snippet
+                 (cl-ppcre:regex-replace-all
+                  placeholder
+                  form-snippet
+                  (if value (princ-to-string value) "")))))))
+    ;; Return the cleaned-up form fragment plus the action token so the
+    ;; widget layer can wrap it in the <form> without repeating the
+    ;; create/edit decision logic.
+    (function (lambda ()
+      (values form-snippet action)))))
+
+(defun create-widgets-for-customer-profile-page (modelfunc)
+  ;; The model hands us the form-content fragment and the action it should
+  ;; POST to.  Wrap the fragment with with-html-form-having-submit-event so
+  ;; the form submission is wired up via parenscript-generated frontend JS.
+  (multiple-value-bind (form-snippet action) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+                  (cl-who:with-html-output (*standard-output* nil)
+                    (with-html-form-having-submit-event "customerprofileform" action
+                      (cl-who:str form-snippet))))))
+
+	  (widget2 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(:script :type "text/javascript"
+			         (cl-who:str
+			          (parenscript:ps
+			            (parenscript:chain ($ "document")
+			                           (ready (lambda ()
+			                                    (let ((warehouse-form
+			                                            (or (parenscript:chain document (get-element-by-id "idcustomerprofileform"))
+			                                                (parenscript:chain document (query-selector "form[name=\"customerprofileform\"]")))))
+			                                      (enable-tab-aware-form-validation warehouse-form)))))))))))))
+      (list widget1 widget2))))
 
 
 

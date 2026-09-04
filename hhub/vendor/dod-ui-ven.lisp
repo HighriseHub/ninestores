@@ -3009,57 +3009,98 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       (if odtlst (ui-list-vend-orderdetails header odtlst currsymbol) "No order details")
       (if mainorder (display-order-header-for-vendor mainorder)))))
 
-(defun dod-controller-vendor-orderdetails ()
+
+
+
+
+;; ---------------------------------------------------------------------------
+;; Vendor order details page — MVC decomposition of modal.vendor-order-details.
+;; ---------------------------------------------------------------------------
+
+(defun com-hhub-transaction-vendor-order-details ()
+  "Vendor order details page.  The model captures every let* binding from
+   modal.vendor-order-details; the widgets split its display body apart."
   (with-vend-session-check
-    (with-mvc-ui-page "Vendor Order Details" #'create-model-for-vendororderdetails #'create-widgets-for-vendororderdetails :role :vendor)))
+    (with-mvc-ui-page "Vendor Order Details"
+                      #'create-model-for-vendor-order-details
+                      #'create-widgets-for-vendor-order-details
+                      :role :vendor)))
 
-(defun create-model-for-vendororderdetails ()
+
+(defun create-model-for-vendor-order-details ()
+  "Builds the model for the vendor order details page.  The vendor order is
+   fetched by the ?id= query parameter (the main order's row-id, matching the
+   link emitted by vendor-order-row), then every let* binding found in
+   modal.vendor-order-details is reproduced and yielded by the returned closure."
   (let* ((vendor (get-login-vendor))
-	 (company (get-login-vendor-company))
-	 (dodvenorder (get-vendor-orders-by-orderid (hunchentoot:parameter "id") vendor company))
-	 (customer (get-customer dodvenorder))
-	 (wallet (get-cust-wallet-by-vendor customer vendor company))
-	 (balance (slot-value wallet 'balance))
-	 (venorderfulfilled (if dodvenorder (slot-value dodvenorder 'fulfilled)))
-	 (order (get-order-by-id (hunchentoot:parameter "id") company))
-	 (order-id (if order (slot-value order 'row-id)))
-	 (payment-mode (slot-value order 'payment-mode))
-	 (header (list "Product" "Product Qty" "Unit Price"  "Sub-total"))
-	 (odtlst (if order (dod-get-cached-order-items-by-order-id (slot-value order 'row-id) (hunchentoot:session-value :order-func-list)  )) )
-	 (total (reduce #'+  (mapcar (lambda (odt)
-				       (* (slot-value odt 'current-price) (slot-value odt 'prd-qty))) odtlst)))
-	 (lowwalletbalance (< balance total))
-	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
+         (company (get-login-vendor-company))
+         (vorder-instance (get-vendor-orders-by-orderid (hunchentoot:parameter "id") vendor company))
+         (customer (if vorder-instance (get-customer vorder-instance)))
+         (wallet (if customer (get-cust-wallet-by-vendor customer vendor company)))
+         (balance (if wallet (slot-value wallet 'balance) 0))
+         (venorderfulfilled (if vorder-instance (slot-value vorder-instance 'fulfilled)))
+         (mainorder (if vorder-instance (get-order-by-id (slot-value vorder-instance 'order-id) company)))
+         (order-id (if mainorder (slot-value mainorder 'row-id)))
+         (payment-mode (if mainorder (slot-value mainorder 'payment-mode)))
+         (header (list "Product" "Product Qty" "Unit Price" "SGST" "CGST" "IGST" "Sub-total"))
+         (odtlst (if mainorder (dod-get-cached-order-items-by-order-id (slot-value mainorder 'row-id) (hunchentoot:session-value :order-func-list))))
+         (order-amt (if vorder-instance (slot-value vorder-instance 'order-amt) 0))
+         (shipping-cost (if vorder-instance (slot-value vorder-instance 'shipping-cost) 0))
+         (storepickupenabled (if vorder-instance (slot-value vorder-instance 'storepickupenabled)))
+         (total (if shipping-cost (+ order-amt shipping-cost) order-amt))
+         (lowwalletbalance (< balance total))
+         (currsymbol (get-currency-html-symbol (get-account-currency company))))
     (function (lambda ()
-      (values order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled currsymbol)))))
+      (values vorder-instance customer mainorder order-id payment-mode header odtlst
+              order-amt shipping-cost storepickupenabled total lowwalletbalance balance
+              venorderfulfilled currsymbol)))))
 
-(defun create-widgets-for-vendororderdetails (modelfunc)
-  (multiple-value-bind (order order-id header odtlst lowwalletbalance payment-mode balance total venorderfulfilled currsymbol) (funcall modelfunc)
+
+(defun create-widgets-for-vendor-order-details (modelfunc)
+  (multiple-value-bind (vorder-instance customer mainorder order-id payment-mode header odtlst
+                        order-amt shipping-cost storepickupenabled total lowwalletbalance balance
+                        venorderfulfilled currsymbol)
+      (funcall modelfunc)
+    (declare (ignore vorder-instance customer))
     (let ((widget1 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil) 
-		       (if order (display-order-header-for-vendor  order))))))
-	  (widget2 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil) 
-		       (if odtlst (ui-list-vend-orderdetails header odtlst currsymbol) "No order details")))))
-	  (widget3 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil) 
-		       (with-html-div-row 
-			 (:div :class "col-md-12" :align "right" 
-			       (if (and lowwalletbalance (equal payment-mode "PRE")) 
-				   (cl-who:htm (:h2 (:span :class "label label-danger" (cl-who:str (format nil "Low wallet Balance = Rs ~$" balance))))))
-			       ;; else
-			       (:h2 (:span :class "label label-default" (cl-who:str (format nil "Total = Rs ~$" total))))
-			       (if (equal venorderfulfilled "Y") 
-				   (cl-who:htm (:span :class "label label-info" "FULFILLED"))
-				   ;; ELSE
-				   ;; Convert the complete button to a submit button and introduce a form here. 
-				   (cl-who:htm 
-				    ;; (:a :onclick "return CancelConfirm();" :href (format nil "dodvenordcancel?id=~A" (slot-value order 'row-id) ) (:span :class "btn btn-primary"  "Cancel")) "&nbsp;&nbsp;"
-				    (:a :href (format nil "dodvenordfulfilled?id=~A" order-id ) (:span :class "btn btn-primary"  "Complete")))))))))))
-      (list widget1 widget2 widget3))))
-
-
-
+                     (cl-who:with-html-output (*standard-output* nil)
+                       (with-html-div-row
+                         (:div :class "col" :align "right"
+                               (when (and shipping-cost (> shipping-cost 0))
+                                 (cl-who:htm
+                                  (:p (cl-who:str (format nil "Shipping: ~A ~$" currsymbol shipping-cost)))
+                                  (:p (cl-who:str (format nil "Sub Total: ~A ~$" currsymbol order-amt)))))))))))
+          (widget2 (function (lambda ()
+                     (cl-who:with-html-output (*standard-output* nil)
+                       (with-html-div-row
+                         (:div :class "col-md-12" :align "right"
+                               (if (and lowwalletbalance (equal payment-mode "PRE"))
+                                   (cl-who:htm (:h2 (:span :class "label label-danger" (cl-who:str (format nil "Low wallet Balance = Rs ~$" balance))))))
+                               (:h3 (:span :class "label label-success" (cl-who:str (format nil "Total: ~A ~$" currsymbol total))))
+                               (if (equal venorderfulfilled "N")
+                                   (cl-who:htm
+                                    (with-html-form "form-vendordercancel" "dodvenordcancel"
+                                      (with-html-input-text-hidden "id" order-id)
+                                      (:div :class "form-group" :style "display:block"
+                                            (:input :type "submit" :class "btn btn-primary" :value "Cancel Order")))))
+                               (if (equal venorderfulfilled "Y")
+                                   (cl-who:htm (:span :class "label label-info" "FULFILLED"))
+                                   (cl-who:htm
+                                    (with-html-form "form-vendordercomplete" "dodvenordfulfilled"
+                                      (:input :type "hidden" :name "id" :value order-id)
+                                      (:div :class "form-group"
+                                            (if mainorder
+                                                (cl-who:htm (:input :type "submit" :class "btn btn-primary" :value "Fulfill Order")))))))))
+                       (when (and (equal storepickupenabled "Y") (= shipping-cost 0.00))
+                         (cl-who:htm
+                          (:div :align "right" :class "stampbox-big rotated" "Store Pickup")))))))
+          (widget3 (function (lambda ()
+                     (cl-who:with-html-output (*standard-output* nil)
+                       (if odtlst (ui-list-vend-orderdetails header odtlst currsymbol) (cl-who:htm "No order details"))))))
+          (widget4 (function (lambda ()
+                     (cl-who:with-html-output (*standard-output* nil)
+                       (if mainorder (display-order-header-for-vendor mainorder)))))))
+      (list widget4 widget2 widget3 widget1))))
 
 (defun ui-list-vend-orderdetails (header data currsymbol)
     (cl-who:with-html-output (*standard-output* nil)
