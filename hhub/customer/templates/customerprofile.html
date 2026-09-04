@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add/Edit Customer Profile (B2B)</title>
+
+  <!-- Bootstrap 5.3.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome 6.5.1 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    body {
+      background-color: #f8f9fa;
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+    .form-card {
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0.125rem 0.625rem rgba(0, 0, 0, 0.08);
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .profile-img {
+      max-height: 60px;
+      margin: 0 auto 1.25rem auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="row">
+    <div class="col-12 col-sm-10 offset-sm-1 col-md-8 offset-md-2">
+      <div class="form-card">
+
+        <div class="form-customerprofile">
+          <!--CUSTOMER_PROFILE_FORM_BEGIN-->
+          <img class="profile-img" src="/img/logo.png" alt="Company Logo">
+
+          <!-- Navigation Tabs -->
+          <ul class="nav nav-tabs" id="customerTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab" aria-controls="basic" aria-selected="true">Basic Info</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="company-tab" data-bs-toggle="tab" data-bs-target="#company" type="button" role="tab" aria-controls="company" aria-selected="false">
+                <span class="badge bg-success">B2B</span> Company Details
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="gst-tab" data-bs-toggle="tab" data-bs-target="#gst" type="button" role="tab" aria-controls="gst" aria-selected="false">GST &amp; Tax</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="finance-tab" data-bs-toggle="tab" data-bs-target="#finance" type="button" role="tab" aria-controls="finance" aria-selected="false">Financial Terms</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="contacts-tab" data-bs-toggle="tab" data-bs-target="#contacts" type="button" role="tab" aria-controls="contacts" aria-selected="false">Contacts</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="addresses-tab" data-bs-toggle="tab" data-bs-target="#addresses" type="button" role="tab" aria-controls="addresses" aria-selected="false">Addresses</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="bank-tab" data-bs-toggle="tab" data-bs-target="#bank" type="button" role="tab" aria-controls="bank" aria-selected="false">Bank Details</button>
+            </li>
+          </ul>
+
+          <!-- Tab Content Panes -->
+          <div class="tab-content pt-3" id="customerTabsContent">
+
+            <!-- Tab 1: Basic Info -->
+            <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="basic-tab">
+              <div class="mb-3">
+                <input class="form-control" name="cid" type="hidden" value="%Customer ID%">
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="name" maxlength="70" placeholder="Customer Name *" type="text" value="%Customer Name%" required>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="phone" maxlength="30" placeholder="Phone *" type="text" value="%Customer Phone%" required>
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="email" maxlength="255" placeholder="Email *" type="email" value="%Customer Email%" required>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Address</label>
+                <textarea class="form-control" name="address" maxlength="400" placeholder="Address (max 400 characters)" rows="3">%Customer Address%</textarea>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="zipcode" maxlength="10" placeholder="Pincode" type="text" value="%Customer Zipcode%">
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Customer Type (B2B / B2C)</label>
+                  %Customer Type%
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label d-block">Active: </label>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="activeflag" id="activeY" value="Y" checked>
+                  <label class="form-check-label" for="activeY">Yes</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="activeflag" id="activeN" value="N">
+                  <label class="form-check-label" for="activeN">No</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: Company Details (B2B) -->
+            <div class="tab-pane fade" id="company" role="tabpanel" aria-labelledby="company-tab">
+              <div class="alert alert-success d-flex align-items-center mb-3" role="alert">
+                <i class="fa-solid fa-building me-2"></i>
+                <div>Company identity used on tax invoices and for B2B procurement onboarding.</div>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="legal-company-name" maxlength="255" placeholder="Legal Company Name *" type="text" value="%Customer Legal Company Name%" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Business Type</label>
+                %Customer Business Type%
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="industry" maxlength="100" placeholder="Industry" type="text" value="%Customer Industry%">
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="employee-count" placeholder="Employee Count" type="number" value="%Customer Employee Count%">
+                </div>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="annual-turnover" step="0.01" placeholder="Annual Turnover (INR)" type="number" value="%Customer Annual Turnover%">
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="business-established-date" placeholder="Business Established Date" type="date" value="%Customer Business Established Date%">
+                </div>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="msme-number" maxlength="50" placeholder="MSME / Udyam Registration Number" type="text" value="%Customer MSME Number%">
+              </div>
+            </div>
+
+            <!-- Tab 3: GST & Tax -->
+            <div class="tab-pane fade" id="gst" role="tabpanel" aria-labelledby="gst-tab">
+              <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                <i class="fa-solid fa-circle-info me-2"></i>
+                <div>GSTIN is mandatory on B2B invoices and e-invoices (IRN). PAN and state auto-fill from a valid GSTIN.</div>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="gstin" maxlength="15" placeholder="GSTIN (15 characters) *" type="text" value="%Customer GSTIN%" required>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="pan-number" maxlength="10" placeholder="PAN Number" type="text" value="%Customer PAN%">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">GST Registration Type</label>
+                %Customer GST Registration Type%
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="tan-number" maxlength="10" placeholder="TAN Number" type="text" value="%Customer TAN Number%">
+                </div>
+                <div class="col-6">
+                  <label class="form-label">KYC Status</label>
+                  %Customer KYC Status%
+                </div>
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="is-tax-exempt" id="istaxexempt" value="Y">
+                <label class="form-check-label" for="istaxexempt">Tax Exempt (e.g., government / diplomatic entities)</label>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="tax-exemption-cert" maxlength="100" placeholder="Tax Exemption Certificate Reference" type="text" value="%Customer Tax Exemption Cert%">
+              </div>
+            </div>
+
+            <!-- Tab 4: Financial Terms -->
+            <div class="tab-pane fade" id="finance" role="tabpanel" aria-labelledby="finance-tab">
+              <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+                <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                <div>Credit terms are typically approved by the vendor/admin before a B2B buyer can order on credit.</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Payment Terms</label>
+                %Customer Payment Terms%
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="credit-days" placeholder="Credit Days (e.g. 0, 15, 30, 45)" type="number" value="%Customer Credit Days%">
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="credit-limit" step="0.01" placeholder="Credit Limit (INR)" type="number" value="%Customer Credit Limit%">
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 5: Contacts -->
+            <div class="tab-pane fade" id="contacts" role="tabpanel" aria-labelledby="contacts-tab">
+              <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                <i class="fa-solid fa-user-tie me-2"></i>
+                <div>Primary contact = purchase approver; Accounts contact = billing / AP department.</div>
+              </div>
+              <h6 class="text-primary mb-3">Primary Contact</h6>
+              <div class="mb-3">
+                <input class="form-control" name="primary-contact-name" maxlength="255" placeholder="Primary Contact Name *" type="text" value="%Customer Primary Contact Name%" required>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="primary-contact-phone" maxlength="30" placeholder="Primary Contact Phone *" type="text" value="%Customer Primary Contact Phone%" required>
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="primary-contact-email" maxlength="255" placeholder="Primary Contact Email *" type="email" value="%Customer Primary Contact Email%" required>
+                </div>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="primary-contact-designation" maxlength="100" placeholder="Designation (e.g. Procurement Manager)" type="text" value="%Customer Primary Contact Designation%">
+              </div>
+              <hr>
+              <h6 class="text-primary mb-3">Accounts / AP Contact</h6>
+              <div class="mb-3">
+                <input class="form-control" name="accounts-contact-name" maxlength="255" placeholder="Accounts Contact Name" type="text" value="%Customer Accounts Contact Name%">
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="accounts-contact-phone" maxlength="30" placeholder="Accounts Contact Phone" type="text" value="%Customer Accounts Contact Phone%">
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="accounts-contact-email" maxlength="255" placeholder="Accounts Contact Email" type="email" value="%Customer Accounts Contact Email%">
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 6: Addresses -->
+            <div class="tab-pane fade" id="addresses" role="tabpanel" aria-labelledby="addresses-tab">
+              <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                <i class="fa-solid fa-location-dot me-2"></i>
+                <div>Registered state drives place of supply (IGST vs CGST+SGST) and auto-fills from the GSTIN state code.</div>
+              </div>
+              <h6 class="text-primary mb-3">Registered Address</h6>
+              <div class="mb-3">
+                <textarea class="form-control" name="registered-address" maxlength="500" placeholder="Registered Address *" rows="2" required>%Customer Registered Address%</textarea>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-4">
+                  <input class="form-control" name="registered-city" maxlength="256" placeholder="City *" type="text" value="%Customer Registered City%" required>
+                </div>
+                <div class="col-4">
+                  <input class="form-control" name="registered-state" maxlength="256" placeholder="State *" type="text" value="%Customer Registered State%" required>
+                </div>
+                <div class="col-4">
+                  <input class="form-control" name="registered-zipcode" maxlength="10" placeholder="Pincode *" type="text" value="%Customer Registered Zipcode%" required>
+                </div>
+              </div>
+              <hr>
+              <div class="mb-3">
+                <label class="form-label">Billing Address</label>
+                <textarea class="form-control" name="billing-address" maxlength="500" placeholder="Billing Address" rows="2">%Customer Billing Address%</textarea>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Shipping Address</label>
+                <textarea class="form-control" name="shipping-address" maxlength="500" placeholder="Shipping Address" rows="2">%Customer Shipping Address%</textarea>
+              </div>
+            </div>
+
+            <!-- Tab 7: Bank Details -->
+            <div class="tab-pane fade" id="bank" role="tabpanel" aria-labelledby="bank-tab">
+              <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                <i class="fa-solid fa-building-columns me-2"></i>
+                <div>Used for refunds and credit-note settlements to B2B buyers.</div>
+              </div>
+              <div class="mb-3">
+                <input class="form-control" name="bank-account-holder-name" maxlength="255" placeholder="Account Holder Name *" type="text" value="%Customer Bank Account Holder Name%" required>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="bank-account-number" maxlength="30" placeholder="Bank Account Number *" type="text" value="%Customer Bank Account Number%" required>
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="bank-ifsc-code" maxlength="11" placeholder="IFSC Code *" type="text" value="%Customer IFSC Code%" required>
+                </div>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <input class="form-control" name="bank-name" maxlength="100" placeholder="Bank Name" type="text" value="%Customer Bank Name%">
+                </div>
+                <div class="col-6">
+                  <input class="form-control" name="bank-branch" maxlength="100" placeholder="Bank Branch" type="text" value="%Customer Bank Branch%">
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Submit Button -->
+          <div class="mt-4">
+            <button class="btn btn-lg btn-primary w-100" type="submit">Submit Customer Details</button>
+          </div>
+          <!--CUSTOMER_PROFILE_FORM_END-->
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap 5.3.3 JS Bundle (Includes Popper) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
