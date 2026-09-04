@@ -865,33 +865,63 @@ Returns a list of widget outputs."
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-hhub-transaction (name &optional params &body body)
-  "Policy Enforcement Point. If permission granted and URI matches, evaluate BODY.
-   Otherwise, redirect and abort the request."
-  `(let* ((transaction (get-ht-val ,name (hhub-get-cached-transactions-ht)))
-          (transaction-uri (when transaction (slot-value transaction 'uri)))
-          (uri (cdr (assoc "uri" ,params :test 'equal)))
-          (urimatch-p (and transaction-uri uri (uri-prefix-boundary-p transaction-uri uri)))
-          (returnlist (has-permission transaction ,params))
-          (returnvalue (nth 0 returnlist))
-          (exceptionstr (nth 1 returnlist))
-          (redirecturl (format nil "/hhub/permissiondenied?message=~A"
-                               (hunchentoot:url-encode (or exceptionstr "Permission Denied")))))
-     (logiamhere (format nil "URI from app is ~A and uri in DB is ~A" uri transaction-uri))
-     
-     (unless transaction
-       (error 'hhub-abac-transaction-error
-              :errstring (format nil "Did not find transaction ~A." ,name)))
-     (when (and transaction (null transaction-uri))
-       (logiamhere (format nil "Transaction ~A has no URI defined." ,name))
-       (setf urimatch-p nil))
-     (if (and returnvalue urimatch-p)
-         (progn ,@body)   ; returns multiple values
-         (progn
-           (logiamhere (format nil "Permission denied for transaction ~A. Error: ~A "
-                               (slot-value transaction 'trans-func) exceptionstr))
-           (hunchentoot:redirect redirecturl)
-           ;; Force abort – this must not return
-           (hunchentoot:abort-request-handler))))))  ; or abort-request
+    "Policy Enforcement Point. If permission granted and URI matches, evaluate BODY.
+     Otherwise, redirect and abort the request.
+     URI anomalies raise hhub-abac-uri-* conditions; they are caught here and
+     converted into a permission-denied redirect (fail-closed deny), so this
+     macro never returns normally on a deny."
+    (let ((g-transaction   (gensym "TRANSACTION"))
+          (g-transaction-uri (gensym "TRANSACTION-URI"))
+          (g-uri           (gensym "URI"))
+          (g-urimatch-p    (gensym "URIMATCH-P"))
+          (g-returnlist    (gensym "RETURNLIST"))
+          (g-returnvalue   (gensym "RETURNVALUE"))
+          (g-exceptionstr  (gensym "EXCEPTIONSTR"))
+          (g-redirecturl   (gensym "REDIRECTURL")))
+      `(let* ((,g-transaction (get-ht-val ,name (hhub-get-cached-transactions-ht)))
+              (,g-transaction-uri (when ,g-transaction (slot-value ,g-transaction 'uri)))
+              (,g-uri (cdr (assoc "uri" ,params :test 'equal)))
+              (,g-urimatch-p (and ,g-transaction-uri ,g-uri
+                                  (uri-prefix-boundary-p ,g-transaction-uri ,g-uri)))
+              (,g-returnlist (has-permission ,g-transaction ,params))
+              (,g-returnvalue (nth 0 ,g-returnlist))
+              (,g-exceptionstr (nth 1 ,g-returnlist))
+              (,g-redirecturl (format nil "/hhub/permissiondenied?message=~A"
+                                      (hunchentoot:url-encode (or ,g-exceptionstr "Permission Denied")))))
+        ;; (logiamhere (format nil "URI from app is ~A and uri in DB is ~A" ,g-uri ,g-transaction-uri))
+         (unless ,g-transaction
+           (error 'hhub-abac-transaction-error
+                  :errstring (format nil "Did not find transaction ~A." ,name)))
+         ;; URI verification – raise the precise condition, then deny (fail-closed).
+         (handler-case
+             (progn
+               (when (null ,g-transaction-uri)
+                 (error 'hhub-abac-uri-missing-error
+                        :errstring (format nil "Transaction ~A has no URI defined." ,name)
+                        :db-uri nil
+                        :request-uri ,g-uri))
+               (unless ,g-uri
+                 (error 'hhub-abac-uri-absent-error
+                        :errstring (format nil "Transaction ~A request carried no URI." ,name)
+                        :db-uri ,g-transaction-uri
+                        :request-uri nil))
+               (unless ,g-urimatch-p
+                 (error 'hhub-abac-uri-mismatch-error
+                        :errstring (format nil "Transaction ~A URI mismatch: database '~A' vs browser '~A'."
+                                           ,name ,g-transaction-uri ,g-uri)
+                        :db-uri ,g-transaction-uri
+                        :request-uri ,g-uri)))
+           (hhub-abac-uri-error (c)
+             (logiamhere (format nil "ABAC URI failure for ~A: ~A" ,name (getExceptionStr c)))
+             (hunchentoot:redirect ,g-redirecturl)
+             (hunchentoot:abort-request-handler)))
+         (if ,g-returnvalue
+             (progn ,@body)   ; returns multiple values
+             (progn
+               (logiamhere (format nil "Permission denied for transaction ~A. Error: ~A "
+                                   (slot-value ,g-transaction 'trans-func) ,g-exceptionstr))
+               (hunchentoot:redirect ,g-redirecturl)
+               (hunchentoot:abort-request-handler)))))))
 
 ; Policy Enforcement Point for HHUB
 (eval-when (:compile-toplevel :load-toplevel :execute)
