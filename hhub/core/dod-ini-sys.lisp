@@ -154,6 +154,9 @@
 ;; warehouse template
 (defvar *NST-WAREHOUSE-DETAILS-PAGE* "/home/ubuntu/ninestores/hhub/warehouse/templates/warehousedetailspage.html")
 (defvar *NST-WAREHOUSE-TEMPLATES* nil)
+;; vendor templates
+(defvar *NST-VENDOR-PROFILE-PAGE* "/home/ubuntu/ninestores/hhub/vendor/templates/vendorprofile.html")
+(defvar *NST-VENDOR-TEMPLATES* nil)
 
 
 
@@ -240,6 +243,7 @@ Database type: Supported type is ':odbc'"
     (setf *NST-EMAIL-TEMPLATES* (nst-load-email-templates))
     (setf *NST-CUSTOMER-TEMPLATES* (nst-load-customer-templates))
     (setq *NST-WAREHOUSE-TEMPLATES* (nst-load-warehouse-templates))
+    (setf *NST-VENDOR-TEMPLATES* (nst-load-vendor-templates))
     (setf *NST-VENDOR-TABLES-FOR-AGENTIC-AI* (nst-load-vendor-tables-structure-for-agentic-ai))
     (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
     (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
@@ -254,6 +258,7 @@ Database type: Supported type is ':odbc'"
     (init-shipping-zones)
     (init-warehouse-data)
     (init-customer-profile-data)
+    (init-vendor-profile-data)
     (setf *NSTSENDORDEREMAILACTOR* (make-instance 'nst-actor
 						  :name "Send Order Email Actor"
 						  :behavior #'send-order-email-behavior
@@ -591,6 +596,23 @@ Database type: Supported type is ':odbc'"
   (multiple-value-bind (warehousedetailspage) (funcall *NST-WAREHOUSE-TEMPLATES*)
     (case templatenum
       (1 warehousedetailspage))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;VENDOR PROFILE TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun nst-load-vendor-templates ()
+  :documentation "Load the vendor profile templates at startup"
+  (let* ((vendorprofilepage (hhub-read-file *NST-VENDOR-PROFILE-PAGE*)))
+    (function (lambda ()
+      (values
+       (function (lambda () vendorprofilepage)))))))
+
+(defun nst-get-cached-vendor-template-func (&key templatenum)
+  :documentation "returns the function responsible for vendor HTML template. Call the returning function to get the HTML."
+  (multiple-value-bind (vendorprofilepage) (funcall *NST-VENDOR-TEMPLATES*)
+    (case templatenum
+      (1 vendorprofilepage))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
