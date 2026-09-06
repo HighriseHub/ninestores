@@ -740,31 +740,101 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (with-mvc-redirect-ui #'create-model-for-vendorupdateaction #'create-widgets-for-genericredirect)))
 
 (defun create-model-for-vendorupdateaction ()
-  (let* ((name (hunchentoot:parameter "name"))
-	 (address (hunchentoot:parameter "address"))
-	 (phone (hunchentoot:parameter "phone"))
-	 (zipcode (hunchentoot:parameter "zipcode"))
-	 (state (hunchentoot:parameter "state"))
-	 (gstnumber (hunchentoot:parameter "gstnumber"))
-	 (email (hunchentoot:parameter "email"))
-	 (vendor (get-login-vendor))
-	 (prodimageparams (hunchentoot:post-parameter "picturepath"))
-	 (tempfilewithpath (first prodimageparams))
-	 (file-name (if tempfilewithpath (process-file prodimageparams *HHUBRESOURCESDIR*)))
-	 (redirecturl "/hhub/dodvendprofile"))
-
-    (logiamhere (format nil "picturepath is ~A" (hunchentoot:post-parameters*)))
-    (setf (slot-value vendor 'name) name)
-    (setf (slot-value vendor 'address) address)
-    (setf (slot-value vendor 'phone) phone)
-    (setf (slot-value vendor 'state) state)
-    (setf (slot-value vendor 'zipcode) zipcode)
-    (setf (slot-value vendor 'gstnumber) gstnumber)
-    (setf (slot-value vendor 'email) email)
-    (if tempfilewithpath (setf (slot-value vendor 'picture-path) (format nil "/img/~A"  file-name)))
-    (update-vendor-details vendor)
-    (function (lambda ()
-      (values redirecturl)))))
+  "Model for the vendor profile update action. Reads every posted field of
+   vendorprofile.html (parameter names kept verbatim from the template, plus
+   the four dropdowns injected by create-model-for-vendor-profile-page),
+   applies them as an update to the logged-in vendor, persists via
+   update-vendor-details, and returns (function (lambda () redirecturl)) - the
+   sole value create-widgets-for-genericredirect consumes."
+  (flet ((parse-int-or-0 (s)
+	   "Parse S as an integer, returning 0 if S is nil or empty."
+	   (if (and s (string/= s ""))
+	       (parse-integer s)
+	       0)))
+    (let* ((vendor (get-login-vendor))
+	   ;; --- names below are the name= attributes of vendorprofile.html ---
+	   ;; Basic Info
+	   (name (hunchentoot:parameter "name"))
+	   (email (hunchentoot:parameter "email"))
+	   (phone (hunchentoot:parameter "phone"))
+	   (address (hunchentoot:parameter "address"))
+	   (city (hunchentoot:parameter "city"))
+	   (state (hunchentoot:parameter "state"))
+	   (zipcode (hunchentoot:parameter "zipcode"))
+	   (country (hunchentoot:parameter "country"))
+	   (activeflag (hunchentoot:parameter "activeflag"))
+	   ;; Company Details
+	   (legal-name (hunchentoot:parameter "legal-name"))
+	   (trade-name (hunchentoot:parameter "trade-name"))
+	   (pan-number (hunchentoot:parameter "pan-number"))
+	   (fy-start-month (parse-int-or-0 (hunchentoot:parameter "fy-start-month")))
+	   ;; GST & Tax
+	   (gstnumber (hunchentoot:parameter "gstnumber"))
+	   (gst-state-code (hunchentoot:parameter "gst-state-code"))
+	   ;; Contact Person
+	   (firstname (hunchentoot:parameter "firstname"))
+	   (lastname (hunchentoot:parameter "lastname"))
+	   (salutation (hunchentoot:parameter "salutation"))
+	   (birthdate (let ((ds (hunchentoot:parameter "birthdate")))
+			(when (and ds (string/= ds ""))
+			  (get-dateobj-from-string-yyyymmdd ds))))
+	   (title (hunchentoot:parameter "title"))
+	   ;; Payment Gateway
+	   (payment-api-key (hunchentoot:parameter "payment-api-key"))
+	   (payment-api-salt (hunchentoot:parameter "payment-api-salt"))
+	   (upi-id (hunchentoot:parameter "upi-id"))
+	   ;; Dropdowns (selects injected by create-model-for-vendor-profile-page)
+	   (gstregistrationtype (hunchentoot:parameter "gstregistrationtype"))
+	   (gstfilingfrequency (hunchentoot:parameter "gstfilingfrequency"))
+	   (paymentgatewaymode (hunchentoot:parameter "paymentgatewaymode"))
+	   (approvalstatus (hunchentoot:parameter "approvalstatus"))
+	   ;; Optional picture upload (only posted by the legacy Contact
+	   ;; Information modal; the tabbed profile form has no file input)
+	   (prodimageparams (hunchentoot:post-parameter "picturepath"))
+	   (tempfilewithpath (first prodimageparams))
+	   (file-name (if tempfilewithpath (process-file prodimageparams *HHUBRESOURCESDIR*)))
+	   ;; plist of every mutable slot posted by the form
+	   (update-args (list 'name name
+			      'email email
+			      'phone phone
+			      'address address
+			      'city city
+			      'state state
+			      'zipcode zipcode
+			      'country country
+			      'active-flag activeflag
+			      'legal-name legal-name
+			      'trade-name trade-name
+			      'pan-number pan-number
+			      'fy-start-month fy-start-month
+			      'gstnumber gstnumber
+			      'gst-state-code gst-state-code
+			      'firstname firstname
+			      'lastname lastname
+			      'salutation salutation
+			      'birthdate birthdate
+			      'title title
+			      'payment-api-key payment-api-key
+			      'payment-api-salt payment-api-salt
+			      'upi-id upi-id
+			      'gst-registration-type gstregistrationtype
+			      'gst-filing-frequency gstfilingfrequency
+			      'payment-gateway-mode paymentgatewaymode
+			      'approval-status approvalstatus))
+	   (redirecturl "/hhub/dodvendprofile"))
+      (with-nst-error-handler
+	  (progn
+	    ;; update only the posted slots; picture-path only when a file arrived
+	    (loop for (slot value) on update-args by #'cddr do
+		  (setf (slot-value vendor slot) value))
+	    (if tempfilewithpath
+		(setf (slot-value vendor 'picture-path)
+		      (format nil "/img/~A" file-name)))
+	    (update-vendor-details vendor))
+	'hhub-business-function-error)
+      ;; Return ONLY the redirect URL - the sole value create-widgets-for-
+      ;; genericredirect consumes to emit the browser redirect.
+      (function (lambda () redirecturl)))))
 
 
 (defun modal.vendor-update-UPI-payment-settings-page ()
@@ -998,13 +1068,23 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
   
 
-(defun dod-controller-vendor-order-cancel ()
- (with-vend-session-check
+(defun com-hhub-transaction-vendor-order-cancel ()
+  (with-vend-session-check
+    (with-mvc-redirect-ui #'create-model-for-vendorordercancel #'create-widgets-for-genericredirect)))
+
+(defun create-model-for-vendorordercancel ()
   (let* ((id (hunchentoot:parameter "id"))
-	(order (get-order-by-id id (get-login-vendor-company)))
-	(order-id (slot-value order 'row-id)))
-    (cancel-order-by-vendor (get-vendor-order-instance order-id (get-login-vendor)))
-    (hunchentoot:redirect "/hhub/dodvendindex?context=pendingorders"))))
+	 (company-instance (hunchentoot:session-value :login-vendor-company))
+	 (order-instance (get-order-by-id id company-instance))
+	 (vendor (get-login-vendor))
+	 (redirecturl "/hhub/dodvendindex?context=pendingorders")
+	 (params nil))
+    (setf params (acons "uri" (hunchentoot:request-uri*) params))
+    (setf params (acons "company" company-instance params))
+    (with-hhub-transaction "com-hhub-transaction-vendor-order-cancel" params
+      (set-order-cancelled-by-vendor vendor order-instance company-instance))
+    (function (lambda ()
+      (values redirecturl)))))
 
 
 (defun dod-controller-vendor-revenue ()
@@ -1071,7 +1151,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	     (:div :class "text-center py-5 text-muted"
 		   (:i :class "fa-solid fa-inbox fa-3x mb-3")
 		   (:p :class "mb-0" "No completed orders so far today.")))
-	    (cl-who:str (display-as-tiles todaysorders 'vendor-order-card "order-box")))))))
+	    (cl-who:str (display-as-tiles todaysorders 'vendor-order-card "col-md-6 col-lg-4 col-xl-3")))))))
 
 
  
@@ -1540,23 +1620,23 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    ;;<!-- Title -->
 		    (:h1 :class "text-2xl font-bold mb-2" "Welcome to Nine Stores")
 		    (:p :class "text-gray-300 mb-6" "Vendor OTP Login Portal")
-		    (with-catch-submit-event "idform-vendsignin"
+		     (with-catch-submit-event "idform-vendsignin"
 		      (:form :id "vendsigninwithotp" :method "POST" :action "hhubvendloginotpstep" :class "space-y-5"
-			     (:div
-			      (:input :type "number"
-				      :id "phone"
-				      :name "phone"
-				      :placeholder "Enter RMN. Ex: 9999999990"
-				      :required "true"
-				      :class "w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder-gray-300 text-white"))
+			     (:div :class "space-y-5"
+				   (:input :type "number"
+					   :id "phone"
+					   :name "phone"
+					   :placeholder "Enter RMN. Ex: 9999999990"
+					   :required "true"
+					   :class "w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder-gray-300 text-white"))
 			     (:button :type "submit"
 				      :class "w-full py-3 bg-gradient-to-r from-[#38bdf8] to-[#3b82f6] hover:opacity-90 rounded-lg text-white font-semibold text-lg shadow-md transition"
 				      "Get OTP")))
-			  ;;<!-- Divider -->
-			  (:div :class "my-6 border-t border-white/20")
-			  ;;<!-- Alternative login -->
-			  
-			  ;;<!-- Footer -->
+		     ;;<!-- Divider -->
+		     (:div :class "my-6 border-t border-white/20")
+		     ;;<!-- Alternative login -->
+		     
+		     ;;<!-- Footer -->
 		     (:footer :class "mt-8 text-xs text-gray-400" "&copy 2026 Nine Stores. All rights reserved.")))))
     (clsql:sql-database-data-error (condition)
       (when (equal (clsql:sql-error-error-id condition) 2013)
@@ -1564,6 +1644,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
           (stop-das)
           (start-das)
           (hunchentoot:redirect "/hhub/vendor-login.html"))))))
+
 
 
 
@@ -1793,6 +1874,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		       (with-html-div-row
 			 (with-html-div-col-6
 			   (with-catch-submit-event "idvendorprofilesubmitevents"  
+			     (:a :class "list-group-item list-group-item-action" :href "nstvendprofilepage" "Vendor Profile")
 			     (:a :class "list-group-item list-group-item-action" :href "dodvendortenants" "My Groups")
 			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendupdate-modal")  :href "#"  "Contact Information")
 			     (modal-dialog-v2 (format nil "dodvendupdate-modal") "Update Vendor" (modal.vendor-update-details)) 
@@ -2222,14 +2304,21 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   
 
 (defun dod-controller-vend-login ()
-  (let  ((phone (hunchentoot:parameter "phone"))
-	 (password (hunchentoot:parameter "password")))
-    (unless (and  ( or (null phone) (zerop (length phone)))
-		  (or (null password) (zerop (length password))))
-      (if (equal (dod-vend-login :phone  phone :password  password) NIL) 
-	  (hunchentoot:redirect "/hhub/vendor-login.html")
-	  ;else
-	  (hunchentoot:redirect "/hhub/dodvendindex?context=home")))))
+  (let ((uri (with-mvc-redirect-ui #'create-model-for-vendlogin #'create-widgets-for-genericredirect)))
+    (hunchentoot:redirect uri)))
+  
+  
+
+(defun create-model-for-vendlogin ()
+  (let ((phone (hunchentoot:parameter "phone"))
+        (password (hunchentoot:parameter "password"))
+        (redirectlocation "/hhub/hhubvendloginv2"))
+    (unless (and (or (null phone) (zerop (length phone)))
+                 (or (null password) (zerop (length password))))
+      (when (dod-vend-login :phone phone :password password)
+        (setf redirectlocation "/hhub/dodvendindex?context=home")))
+    (function (lambda ()
+      (values redirectlocation)))))
 
 
 (defun dod-controller-vend-login-otpstep ()
@@ -2274,17 +2363,32 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					  [= [:approved-flag] "Y"]
 					  [= [:approval-status] "APPROVED"]
 					  [= [:deleted-state] "N"]]
-				   :caching nil :flatp t)))
+					  :caching nil :flatp t)))
 	     (pwd (if dbvendor (slot-value dbvendor 'password)))
 	     (salt (if dbvendor (slot-value dbvendor 'salt)))
 	     (password-verified (if dbvendor  (check-password password salt pwd)))
 	     (vendor-company (if dbvendor  (get-vendor-company dbvendor))))
-					;(log (if password-verified (hunchentoot:log-message* :info (format nil  "phone : ~A password : ~A" phone password)))))
-	(when (and dbvendor
-		   password-verified
-		   (null (hunchentoot:session-value :login-vendor-name))) ;; vendor should not be logged-in in the first place.
-	  (set-vendor-session-params  vendor-company dbvendor)))
-    ;; handle the exception
+	;;(logiamhere (format nil  "db vendor is ~A phone : ~A password : ~A and password verified is ~A db password is ~A" dbvendor phone password password-verified pwd))
+	(cond
+	  ;; Vendor is already logged-in in this web session: no-op.
+	  ((hunchentoot:session-value :login-vendor-name)
+	   nil)
+	  ;; Credentials valid and vendor active: establish the session.
+	  ((and dbvendor password-verified)
+	   (set-vendor-session-params  vendor-company dbvendor))
+	  ;; Login failed: audit the cause server-side only. OWASP - the
+	  ;; client-facing response stays generic and no secrets are logged.
+	  (t
+	   (with-open-file (stream *HHUBBUSINESSFUNCTIONSLOGFILE*
+				   :direction :output
+				   :if-exists :append
+				   :if-does-not-exist :create)
+	     (format stream "~&[~A] [WARN] vendor-login-failed phone=~A reason=~A~%"
+		     (mysql-now)
+		     phone
+		     (if dbvendor "password-mismatch" "vendor-not-found-or-disabled")))
+	   nil)))
+    ;;handle the exception
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2006 ) 
 	  (progn
@@ -2700,10 +2804,18 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
                (render-vendor-dashboard-home order-count))
               
               ((equal context "pendingorders") 
-               (render-pending-orders dodorders order-count))
+               (let ((viewmode (dod-get-view-mode :vendor-pending-orders-view-mode)))
+                 (when (hunchentoot:parameter "orderview")
+                   (setf viewmode (hunchentoot:parameter "orderview"))
+                   (dod-set-view-mode :vendor-pending-orders-view-mode viewmode))
+                 (render-pending-orders dodorders order-count viewmode)))
               
               ((equal context "completedorders") 
-               (render-completed-orders))
+               (let ((viewmode (dod-get-view-mode :vendor-completed-orders-view-mode)))
+                 (when (hunchentoot:parameter "orderview")
+                   (setf viewmode (hunchentoot:parameter "orderview"))
+                   (dod-set-view-mode :vendor-completed-orders-view-mode viewmode))
+                 (render-completed-orders viewmode)))
               
               (t
                ;; Default fallback
@@ -2742,9 +2854,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
                        :name "btnprint" 
                        :onclick "javascript:window.print();" "Print"))))))
 
-(defun render-pending-orders (dodorders order-count)
-  "Render the pending orders view with a clean action bar."
-  (cl-who:with-html-output (*standard-output* nil)
+(defun render-pending-orders (dodorders order-count mode)
+  "Render the pending orders view with a clean action bar and a tile/table toggle."
+  (let ((order-table-header '("Order ID" "Customer" "Address" "Store Pickup" "Action")))
+    (cl-who:with-html-output (*standard-output* nil)
     ;; Card-style header with actions
     (:div :class "card mb-3 shadow-sm"
           (:div :class "card-body py-2"
@@ -2753,6 +2866,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
                             (:h5 :class "card-title mb-0 me-2" "Pending Orders")
                             (:span :class "badge bg-primary" (cl-who:str order-count)))
                       (:div :class "d-flex flex-wrap gap-2"
+                            (cl-who:str (dod-view-mode-toggle-links mode "dodvendindex?context=pendingorders"))
                             (:a :class "btn btn-outline-primary btn-sm" 
                                 :href "dodrefreshpendingorders" 
                                 :title "Refresh Orders"
@@ -2770,23 +2884,33 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
                                 (cl-who:str " Export"))))))
     
     ;; Orders display
-    (cl-who:str (display-as-tiles dodorders 'vendor-order-card "order-box"))))
+    (cl-who:str (display-as-tiles-or-table mode dodorders 'vendor-order-card
+                                           "col-md-6 col-lg-4 col-xl-3"
+                                           order-table-header 'vendor-order-row)))))
 
 
-(defun render-completed-orders ()
-  "Render the completed orders view."
+(defun render-completed-orders (mode)
+  "Render the completed orders view with a tile/table toggle."
   (let* ((vorders (dod-get-cached-completed-orders))
-         (lenorders (length vorders)))
+         (lenorders (length vorders))
+         (order-table-header '("Order ID" "Customer" "Address" "Store Pickup" "Action")))
     (cl-who:with-html-output (*standard-output* nil)
-      (cl-who:str "Completed orders")
-      (:span :class "badge" (cl-who:str lenorders))
-      (when (> lenorders 0)
-        (cl-who:htm
-         (:a :class "btn btn-primary btn-xs" :role "button" 
-             :href "dodvenexpexl?type=completedorders" 
-             "Export To Excel")))
+      (:div :class "d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2"
+            (:div :class "d-flex align-items-center"
+                  (:h5 :class "card-title mb-0 me-2" "Completed Orders")
+                  (:span :class "badge bg-primary" (cl-who:str lenorders)))
+            (:div :class "d-flex flex-wrap gap-2"
+                  (cl-who:str (dod-view-mode-toggle-links mode "dodvendindex?context=completedorders"))
+                  (when (> lenorders 0)
+                    (cl-who:htm
+                     (:a :class "btn btn-primary btn-sm" :role "button"
+                         :href "dodvenexpexl?type=completedorders"
+                         (:i :class "fa-solid fa-file-excel")
+                         (cl-who:str " Export"))))))
       (:hr)
-      (cl-who:str (display-as-tiles vorders 'vendor-order-card "order-box")))))
+      (cl-who:str (display-as-tiles-or-table mode vorders 'vendor-order-card
+                                             "col-md-6 col-lg-4 col-xl-3"
+                                             order-table-header 'vendor-order-row)))))
 
 (defun render-vendor-dashboard-home (order-count)
   "Render the home dashboard view with cards using Font Awesome icons."
@@ -3129,3 +3253,198 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol cgstamt cgst)))
 							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol igstamt igst)))
 							(:td  :height "12px" (cl-who:str (format nil "~A ~$" currsymbol (* totalitemval  prd-qty)))))))) (if (not (typep data 'list)) (list data) data))))))))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; VENDOR PROFILE (tabbed) — MVC page
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; VENDOR PROFILE dropdown value hash tables — same pattern as the customer
+;; profile dropdowns in dod-ui-cus.lisp: one defvar + one init function per
+;; dropdown.  Keys are the enum values stored in dod_vend_profile (see
+;; dod-dal-ven.lisp) mapped to human labels.
+(defvar vendor-gstregistrationtype-ht (make-hash-table :test 'equal))
+(defvar vendor-gstfilingfrequency-ht (make-hash-table :test 'equal))
+(defvar vendor-paymentgatewaymode-ht (make-hash-table :test 'equal))
+(defvar vendor-approvalstatus-ht (make-hash-table :test 'equal))
+
+(defun init-vendor-gstregistrationtype-ht ()
+  (setf (gethash "REGULAR" vendor-gstregistrationtype-ht) "Regular")
+  (setf (gethash "COMPOSITION" vendor-gstregistrationtype-ht) "Composition")
+  (setf (gethash "SEZ" vendor-gstregistrationtype-ht) "SEZ")
+  (setf (gethash "CASUAL" vendor-gstregistrationtype-ht) "Casual Taxable Person")
+  (setf (gethash "ISD" vendor-gstregistrationtype-ht) "Input Service Distributor")
+  (setf (gethash "UNREGISTERED" vendor-gstregistrationtype-ht) "Unregistered"))
+
+(defun init-vendor-gstfilingfrequency-ht ()
+  (setf (gethash "MONTHLY" vendor-gstfilingfrequency-ht) "Monthly")
+  (setf (gethash "QUARTERLY" vendor-gstfilingfrequency-ht) "Quarterly")
+  (setf (gethash "ANNUAL" vendor-gstfilingfrequency-ht) "Annual"))
+
+(defun init-vendor-paymentgatewaymode-ht ()
+  ;; payment-gateway-mode is stored lowercase ("test"/"live") — see
+  ;; payment-gateway-mode-options in this file.
+  (setf (gethash "test" vendor-paymentgatewaymode-ht) "Test")
+  (setf (gethash "live" vendor-paymentgatewaymode-ht) "Live"))
+
+(defun init-vendor-approvalstatus-ht ()
+  ;; approval-status values actually written by the codebase (dod-bl-ven.lisp).
+  (setf (gethash "PENDING" vendor-approvalstatus-ht) "Pending")
+  (setf (gethash "APPROVED" vendor-approvalstatus-ht) "Approved")
+  (setf (gethash "REJECTED" vendor-approvalstatus-ht) "Rejected"))
+
+(defun init-vendor-profile-data ()
+  (init-vendor-gstregistrationtype-ht)
+  (init-vendor-gstfilingfrequency-ht)
+  (init-vendor-paymentgatewaymode-ht)
+  (init-vendor-approvalstatus-ht))
+
+
+;; Every slot of dod-vend-profile (dod-dal-ven.lisp), mapped to the
+;; %Vendor ...% placeholder of the same name in vendorprofile.html.
+;; Placeholders not present in the template are harmless no-ops (the
+;; regex-replace-all simply finds nothing) but keep the map complete.
+(defparameter *vendor-profile-field-map*
+  '((row-id                       . "%Vendor ID%")
+    (name                         . "%Vendor Name%")
+    (address                      . "%Vendor Address%")
+    (phone                        . "%Vendor Phone%")
+    (email                        . "%Vendor Email%")
+    (firstname                    . "%Vendor First Name%")
+    (lastname                     . "%Vendor Last Name%")
+    (salutation                   . "%Vendor Salutation%")
+    (title                        . "%Vendor Title%")
+    (birthdate                    . "%Vendor Birth Date%")
+    (picture-path                 . "%Vendor Picture Path%")
+    (city                         . "%Vendor City%")
+    (state                        . "%Vendor State%")
+    (country                      . "%Vendor Country%")
+    (zipcode                      . "%Vendor Zipcode%")
+    (gstnumber                    . "%Vendor GST Number%")
+    (password                     . "%Vendor Password%")
+    (salt                         . "%Vendor Salt%")
+    (payment-gateway-mode         . "%Vendor Payment Gateway Mode%")
+    (payment-api-key              . "%Vendor Payment API Key%")
+    (payment-api-salt             . "%Vendor Payment API Salt%")
+    (active-flag                  . "%Vendor Active Flag%")
+    (suspend-flag                 . "%Vendor Suspend Flag%")
+    (upi-id                       . "%Vendor UPI ID%")
+    (approved-flag                . "%Vendor Approved Flag%")
+    (approval-status              . "%Vendor Approval Status%")
+    (approved-by                  . "%Vendor Approved By%")
+    (push-notify-subs-flag        . "%Vendor Push Notify Subs Flag%")
+    (email-add-verified           . "%Vendor Email Add Verified%")
+    (shipping-enabled             . "%Vendor Shipping Enabled%")
+    (deleted-state                . "%Vendor Deleted State%")
+    (invoice-settings             . "%Vendor Invoice Settings%")
+    (legal-name                   . "%Vendor Legal Name%")
+    (trade-name                   . "%Vendor Trade Name%")
+    (pan-number                   . "%Vendor PAN Number%")
+    (gst-state-code               . "%Vendor GST State Code%")
+    (gst-registration-type        . "%Vendor GST Registration Type%")
+    (gst-filing-frequency         . "%Vendor GST Filing Frequency%")
+    (fy-start-month               . "%Vendor FY Start Month%")
+    (tenant-id                    . "%Vendor Tenant ID%")
+    (company                      . "%Vendor Company%")))
+
+
+(defun com-nst-transaction-vendor-profile-page ()
+  (with-vend-session-check
+    (with-mvc-ui-page "Update vendor profile"
+                      #'create-model-for-vendor-profile-page
+                      #'create-widgets-for-vendor-profile-page
+      :role :vendor)))
+
+(defun create-model-for-vendor-profile-page ()
+  "Model for the tabbed Update Vendor Profile page. Mirrors
+   create-model-for-customer-profile-page: load the cached vendorprofile
+   template (templatenum 1), extract the marker-delimited form fragment,
+   then walk *vendor-profile-field-map* replacing every placeholder —
+   the four dropdown placeholders get <select> HTML, everything else gets
+   the stringified slot value. The subject is the logged-in vendor
+   ('my profile' page), so there is no id parameter and no
+   create-vs-edit decision — it is always an update."
+  (let* ((vendor (get-login-vendor))
+         (action "hhubvendupdateaction")
+         (vendorprofilepagetempl (funcall (nst-get-cached-vendor-template-func :templatenum 1)))
+         (form-snippet (extract-html-between-markets
+                        vendorprofilepagetempl
+                        "<!--VENDOR_PROFILE_FORM_BEGIN-->"
+                        "<!--VENDOR_PROFILE_FORM_END-->")))
+    (unless form-snippet
+      (error "Could not find the <!--VENDOR_PROFILE_FORM_BEGIN--> / <!--VENDOR_PROFILE_FORM_END--> markers in the vendor profile template."))
+
+    ;; Populate the form fields with the logged-in vendor's data.
+    (dolist (pair *vendor-profile-field-map*)
+      (let* ((slot (car pair))
+             (placeholder (cdr pair))
+             (value (and vendor (slot-value vendor slot))))
+        (cond
+          ((equal placeholder "%Vendor GST Registration Type%")
+           ;; GST registration type: inject the dropdown, not the raw value.
+           (let ((dropdown-html
+                   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "gstregistrationtype" vendor-gstregistrationtype-ht value)))))
+             (setf form-snippet
+                   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))))
+          ((equal placeholder "%Vendor GST Filing Frequency%")
+           ;; GST filing frequency: inject the dropdown, not the raw value.
+           (let ((dropdown-html
+                   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "gstfilingfrequency" vendor-gstfilingfrequency-ht value)))))
+             (setf form-snippet
+                   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))))
+          ((equal placeholder "%Vendor Payment Gateway Mode%")
+           ;; Payment gateway mode: inject the dropdown, not the raw value.
+           (let ((dropdown-html
+                   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "paymentgatewaymode" vendor-paymentgatewaymode-ht value)))))
+             (setf form-snippet
+                   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))))
+          ((equal placeholder "%Vendor Approval Status%")
+           ;; Approval status: inject the dropdown, not the raw value.
+           (let ((dropdown-html
+                   (with-output-to-string (stream)
+                     (let ((*standard-output* stream))
+                       (with-html-dropdown "approvalstatus" vendor-approvalstatus-ht value)))))
+             (setf form-snippet
+                   (cl-ppcre:regex-replace-all placeholder form-snippet dropdown-html))))
+          (t
+           ;; All other fields: inject the raw stringified value.
+           (setf form-snippet
+                 (cl-ppcre:regex-replace-all
+                  placeholder
+                  form-snippet
+                  (if value (princ-to-string value) "")))))))
+    ;; Return the cleaned-up form fragment plus the action token so the
+    ;; widget layer can wrap it in the <form> without repeating the
+    ;; action decision logic.
+    (function (lambda ()
+      (values form-snippet action)))))
+
+(defun create-widgets-for-vendor-profile-page (modelfunc)
+  ;; The model hands us the form-content fragment and the action it should
+  ;; POST to.  Wrap the fragment with with-html-form-having-submit-event so
+  ;; the form submission is wired up via parenscript-generated frontend JS.
+  (multiple-value-bind (form-snippet action) (funcall modelfunc)
+    (let ((widget1 (function (lambda ()
+                  (cl-who:with-html-output (*standard-output* nil)
+                    (with-html-form-having-submit-event "vendorprofileform" action
+                      (cl-who:str form-snippet))))))
+
+	  (widget2 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(:script :type "text/javascript"
+			         (cl-who:str
+			          (parenscript:ps
+			            (parenscript:chain ($ "document")
+			                           (ready (lambda ()
+			                                    (let ((vendor-form
+			                                            (or (parenscript:chain document (get-element-by-id "idvendorprofileform"))
+			                                                (parenscript:chain document (query-selector "form[name=\"vendorprofileform\"]")))))
+			                                      (enable-tab-aware-form-validation vendor-form)))))))))))))
+      (list widget1 widget2))))

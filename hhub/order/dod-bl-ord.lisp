@@ -45,6 +45,33 @@
 	  ;; Deduct the money from the wallet. 
 	  (if (equal payment-mode "PRE") (deduct-wallet-balance total wallet))))))
 
+
+
+(defun set-order-cancelled-by-vendor (vendor order-instance company-instance)
+    :documentation "Cancel the given vendor's portion and the whole customer order (status VCN)."
+  (let* ((vendor-order (get-vendor-order-instance (slot-value order-instance 'row-id) vendor))
+	 (vendor-order-items (get-order-items-for-vendor-by-order-id order-instance vendor)))
+    (if (equal (slot-value (get-company order-instance) 'name)
+	       (slot-value company-instance 'name))
+	(progn
+	  ;; cancel this vendor's order items
+	  (mapcar (lambda (voitem)
+		    (progn
+		      (setf (slot-value voitem 'status) "VCN")
+		      (setf (slot-value voitem 'fulfilled) "N")
+		      (update-order-item voitem))) vendor-order-items)
+	  ;; cancel the vendor_order row (no shipped-date write)
+	  (if vendor-order
+	      (progn
+		(setf (slot-value vendor-order 'status) "VCN")
+		(setf (slot-value vendor-order 'fulfilled) "N")
+		(update-order vendor-order)))
+	  ;; cancel the whole customer order immediately
+	  (setf (slot-value order-instance 'order-fulfilled) "N")
+	  (setf (slot-value order-instance 'status) "VCN")
+	  (setf (slot-value order-instance 'is-cancelled) "Y")
+	  (update-order order-instance)
+	  (dod-reset-order-functions vendor company-instance)))))
     
     
 
@@ -96,13 +123,15 @@
   (let* ((tenant-id (slot-value company 'row-id))
 	 (strfromdate (get-date-string-mysql (clsql-sys:date- (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays))))
 	 (strtodate (get-date-string-mysql (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays))))
-	 (vendor-id (slot-value vendor-instance 'row-id)))
+	 (vendor-id (slot-value vendor-instance 'row-id))
+	 (status (if (equal fulfilled "N") "PEN" "CMP")))
 	 (clsql:select [order-id] :from  'dod-vendor-orders :where
 		       [and [= [:tenant-id] tenant-id]
 		       [between [:created] strfromdate strtodate ]
 		       [= [:vendor-id] vendor-id]
 		       [= [:deleted-state] "N"]
-		       [= [:fulfilled] fulfilled]]  :order-by '( ([row-id] :desc)) 
+		       [= [:fulfilled] fulfilled]
+		       [= [:status] status]]  :order-by '( ([row-id] :desc)) 
 		       :caching nil :flatp t)))
 
 
@@ -110,13 +139,15 @@
   (let* ((tenant-id (slot-value company 'row-id))
 	 (strfromdate (get-date-string-mysql (clsql-sys:date- (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays))))
 	 (strtodate (get-date-string-mysql (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays))))
-	 (vendor-id (slot-value vendor-instance 'row-id)))
+	 (vendor-id (slot-value vendor-instance 'row-id))
+	 (status (if (equal fulfilled "N") "PEN" "CMP")))
 	 (clsql:select  'dod-vendor-orders :where
 			[and [= [:tenant-id] tenant-id]
 			[between [:created] strfromdate strtodate ]
 			[= [:vendor-id] vendor-id]
 			[= [:deleted-state] "N"]
-			[= [:fulfilled] fulfilled]] :limit rowcount :order-by '( ([row-id] :desc)) 
+			[= [:fulfilled] fulfilled]
+			[= [:status] status]] :limit rowcount :order-by '( ([row-id] :desc)) 
 			:caching nil :flatp t)))
     
 
@@ -124,13 +155,15 @@
 
 (defun get-orders-for-vendor-by-shipped-date (vendor-instance shipped-date company &optional (fulfilled "N"))
   (let* ((tenant-id (slot-value company 'row-id))
-	 (vendor-id (slot-value vendor-instance 'row-id)))
+	 (vendor-id (slot-value vendor-instance 'row-id))
+	 (status (if (equal fulfilled "N") "PEN" "CMP")))
 
 	   (clsql:select 'dod-vendor-orders :where
 	    [and [= [:tenant-id] tenant-id]
 		  [= [:vendor-id] vendor-id]
 		  [= [:shipped-date] shipped-date]
-		  [= [:fulfilled] fulfilled]] 
+		  [= [:fulfilled] fulfilled]
+		  [= [:status] status]] 
 			  :caching nil :flatp t)))
 
 

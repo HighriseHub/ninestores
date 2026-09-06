@@ -974,6 +974,61 @@ individual tiles. It also supports search functionality by including the searchr
 		    (cl-who:htm
 		     (:div :class tile-css-class (funcall displayfunc item))))  listdata))))
 
+;;; ------------------------------------------------------------------
+;;; Tile <-> Table view-mode helpers. These let a page render the same
+;;; dataset as Bootstrap "all-products" tiles or as a striped table, and
+;;; let the end user switch between them. The choice is persisted in the
+;;; session under a caller-supplied key so it survives page navigation.
+;;; Usage pattern:
+;;;   (let ((mode (dod-get-view-mode :my-view-key)))
+;;;     (dod-view-mode-toggle-links mode "/mybasepath?foo=1")
+;;;     (display-as-tiles-or-table mode listdata #'tile-fn "col-md-6 col-lg-4 col-xl-3"
+;;;                                header-list #'row-fn))
+;;; A controller that wants to honour a link-driven switch just reads the
+;;; request parameter (default name "orderview") and calls
+;;; (dod-set-view-mode :my-view-key <param>) before rendering.
+;;; ------------------------------------------------------------------
+
+(defun dod-get-view-mode (session-key &optional (default "tile"))
+  "Return the persisted tile/table preference for SESSION-KEY, or DEFAULT
+when unset/invalid. Accepted modes are the strings \"tile\" and \"table\"."
+  (let ((mode (hunchentoot:session-value session-key)))
+    (if (member mode '("tile" "table") :test #'string=) mode default)))
+
+(defun dod-set-view-mode (session-key mode)
+  "Persist MODE (\"tile\" or \"table\") for SESSION-KEY. Invalid modes fall
+back to \"tile\"."
+  (setf (hunchentoot:session-value session-key)
+        (if (member mode '("tile" "table") :test #'string=) mode "tile")))
+
+(defun display-as-tiles-or-table (mode listdata tile-display-func tile-css-class
+                                  table-header row-display-func &rest row-args)
+  "Render LISTDATA as tiles (MODE \"tile\") or as a table (MODE \"table\") so
+callers can offer one dataset in both layouts. TILE-DISPLAY-FUNC renders one
+tile, TILE-CSS-CLASS sizes it inside the all-products flex container, and the
+table view is built by display-as-table using TABLE-HEADER and
+ROW-DISPLAY-FUNC (ROW-ARGS are passed through). Returns the HTML string."
+  (if (string= mode "table")
+      (apply #'display-as-table table-header listdata row-display-func row-args)
+      (display-as-tiles listdata tile-display-func tile-css-class)))
+
+(defun dod-view-mode-toggle-links (current-mode base-href &optional (view-param "orderview"))
+  "Return a Bootstrap button-group with Tiles/Table links that switch to
+CURRENT-MODE's counterpart. Each link appends VIEW-PARAM=<mode> to BASE-HREF
+(the server reads that parameter and persists the choice via
+dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
+  (let ((sep (if (find #\? base-href) "&" "?")))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      (:div :class "btn-group btn-group-sm" :role "group" :aria-label "Toggle view"
+            (:a :class (if (string= current-mode "tile")
+                           "btn btn-outline-primary active" "btn btn-outline-primary")
+                :href (format nil "~A~A~A=tile" base-href sep view-param)
+                (:i :class "fa-solid fa-grip") (cl-who:str " Tiles"))
+            (:a :class (if (string= current-mode "table")
+                           "btn btn-outline-primary active" "btn btn-outline-primary")
+                :href (format nil "~A~A~A=table" base-href sep view-param)
+                (:i :class "fa-solid fa-table-list") (cl-who:str " Table"))))))
+
 ;; This macro will be used for the MVC pattern on the UI display of pages. We need
 ;; to pass the model generating and view generating functions and specify for which persona this request is for.
 ;; currently we support customer and vendor roles.
