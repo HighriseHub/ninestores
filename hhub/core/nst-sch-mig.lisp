@@ -70,6 +70,7 @@
     ("22032026-insert-seed-data-to-ai-tables"    migrate-2026March-insert-seed-data-to-ai-tables    "Insert seed data to ai tables.")
     ("06052026-create-view-customer-inward-invoices"   migrate-2026May-create-customer-inward-invoices-view    "Create a view which shows customer inward invoices.")
     ("25082026-insert-warehouse-policy-and-transactions"   migrate-2026Aug-insert-warehouse-policy-and-transactions   "Insert DOD_AUTH_POLICY + DOD_BUS_TRANSACTION seed rows for warehouse CRUD endpoints.")
+    ("01092026-insert-vendor-order-cancel-policy-and-transaction"   migrate-2026Sep-insert-vendor-order-cancel-policy-and-transaction   "Insert DOD_AUTH_POLICY + DOD_BUS_TRANSACTION seed rows for the vendor order-cancel endpoint.")
     ))
 
 
