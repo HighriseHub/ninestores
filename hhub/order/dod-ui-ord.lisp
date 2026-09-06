@@ -179,14 +179,11 @@
       (:td :height "10px"
 	   (mapcar (lambda (order)
 		     (when order
-		       (let ((order-id (slot-value order 'row-id)))
+		       (let ((order-id (slot-value order 'order-id)))
 			 (cl-who:htm
 			  (:span :class "badge"
-				 (:a :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendorderdetails~A-modal" order-id) :href "#"
-				     (:span :class "label label-info" (cl-who:str order-id))))
-			  (modal-dialog-v2 (format nil "hhubvendorderdetails~A-modal" order-id)
-					   "Vendor Order Details"
-					   (modal.vendor-order-details order (get-login-vendor-company)))))))
+				 (:a :href (format nil "/hhub/vorderdetailspage?id=~A" order-id)
+				      (:span :class "label label-info" (cl-who:str order-id))))))))
 		   orders)))))
 
 (defun ui-list-vendor-orders-by-customers (ordlist)
@@ -273,22 +270,25 @@
 ; This is a pure function. 
 (defun vendor-order-card (vorder-instance)
   (let* ((customer (get-customer vorder-instance))
-	 (company (get-company vorder-instance))
 	 (order-id (slot-value vorder-instance 'order-id))
-	 (name (if customer (slot-value customer 'name)))
+	 (name (if customer (slot-value customer 'name) "N/A"))
 	 (storepickupenabled (if (equal (slot-value vorder-instance 'storepickupenabled) "Y") T NIL))
-	 (address (if customer (slot-value customer 'address))))
+	 (address (if customer (slot-value customer 'address) "N/A")))
     (cl-who:with-html-output (*standard-output* nil)
-      (with-html-div-row
-	    (with-html-div-col-8  (cl-who:str name)))
-      (with-html-div-row
-	    (with-html-div-col-8 (cl-who:str (if (> (length address) 20)  (subseq (slot-value customer 'address) 0 20) address))))
-      (with-html-div-row
-	    (with-html-div-col-8
-		  (:a :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendorderdetails~A-modal"  order-id)  :href "#"  (:span :class "label label-info" (format nil "~A" (cl-who:str order-id))))
-		  (modal-dialog-v2 (format nil "hhubvendorderdetails~A-modal" order-id) "Vendor Order Details" (modal.vendor-order-details vorder-instance company))
-		  (if storepickupenabled
-		      (cl-who:htm (:a :data-toggle "tooltip" :title "Store Pickup" :href "#" (:i :class "fa-solid fa-person-walking-luggage")))))))))
+      (with-html-card
+          (:title (format nil "Order ~A" order-id)
+           :card-classes '("card" "h-100" "shadow-sm")
+           :body-classes '("card-body" "text-center" "py-3"))
+        (cl-who:htm
+         (:i :class "fa-solid fa-shopping-bag fa-2x mb-2 text-primary")
+         (:h6 :class "fw-semibold mb-1" (cl-who:str name))
+         (:p :class "text-muted small mb-2" (cl-who:str address))
+         (if storepickupenabled
+             (cl-who:htm (:i :class "fa-solid fa-person-walking-luggage small mb-2 text-primary" :title "Store Pickup")))
+         (:div
+           (:a :href (format nil "/hhub/vorderdetailspage?id=~A" order-id)
+               :class "btn btn-sm btn-primary"
+               (:span :class "label label-info" (cl-who:str order-id)))))))))
 
 
 ;; Row renderer for the vendor orders table.  Mirrors display-warehouse-row:
