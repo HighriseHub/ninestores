@@ -369,5 +369,285 @@
   (domain->response-list warehouselist ctx))
 
 
+;;; ===========================================================================
+;;; RELOCATED LEGACY HELPERS (moved from dod-bl-wrh.lisp)
+;;; The nst-* verbs above call several of these directly (select-warehouse-by-id,
+;;; select-warehouse-by-gstin, generate-warehouse-uuid/-short-code,
+;;; copyWarehouse-domaintodb/-dbtodomain). They live here now that dod-bl-wrh.lisp
+;;; is retired.
+;;; ===========================================================================
+
+(defparameter *valid-gst-state-codes*
+  '("01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12" "13"
+    "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "26" "27"
+    "28" "29" "30" "31" "32" "33" "34" "35" "36" "37" "38")
+  "GST jurisdiction state codes. Verify against the current GSTN
+   master list before relying on this in production — codes are
+   occasionally added (new UTs) or reclassified.")
+
+(defun valid-indian-state-code-p (code)
+  (and (stringp code) (member code *valid-gst-state-codes* :test #'string=)))
+
+
+;;; ---------------------------------------------------------------------------
+;;; QUERY FUNCTIONS
+;;; ---------------------------------------------------------------------------
+
+(defun select-warehouse-by-id (id tenant-id)
+  "Select warehouse by row-id"
+  (car (clsql:select 'dod-warehouse :where 
+                     [and 
+		      [= [:tenant-id] tenant-id]
+		      [= [:row-id] id]
+                      [= [:deleted-state] "N"]]
+                     :caching *dod-database-caching* :flatp t)))
+
+(defun select-warehouse-by-name (wname tenant-id)
+  "Select warehouse by name"
+  (car (clsql:select 'dod-warehouse :where
+                     [and 
+                      [= [:w-name] wname]
+                      [= [:tenant-id] tenant-id]
+                      [= [:deleted-state] "N"]]
+                     :caching *dod-database-caching* :flatp t)))
+
+(defun select-warehouse-by-code (warehouse-code tenant-id)
+  "Select warehouse by business code"
+  (car (clsql:select 'dod-warehouse 
+                     :where [and
+                             [= [:warehouse-code] warehouse-code]
+                             [= [:tenant-id] tenant-id]
+                             [= [:deleted-state] "N"]]
+                     :flatp t)))
+
+(defun select-warehouse-by-uuid (warehouse-uuid tenant-id)
+  "Select warehouse by UUID"
+  (car (clsql:select 'dod-warehouse 
+                     :where [and
+                             [= [:warehouse-uuid] warehouse-uuid]
+                             [= [:tenant-id] tenant-id]
+                             [= [:deleted-state] "N"]]
+                     :flatp t)))
+
+(defun select-warehouse-by-gstin (gstin)
+  "Select warehouse by GSTIN"
+  (car (clsql:select 'dod-warehouse :where
+                     [and 
+                      [= [:warehouse-gstin] gstin]
+                      [= [:deleted-state] "N"]]
+                     :caching *dod-database-caching* :flatp t)))
+
+(defun select-matching-warehouses (wname-like tenant-id)
+  "Select warehouses matching partial name"
+  (clsql:select 'dod-warehouse :where
+                [and 
+                 [like [:w-name] (format nil "%~a%" wname-like)]
+                 [= [:tenant-id] tenant-id]
+                 [= [:deleted-state] "N"]]
+                :limit 200
+                :caching *dod-database-caching* :flatp t))
+
+(defun select-warehouses-by-city (city tenant-id)
+  "Select warehouses by city"
+  (clsql:select 'dod-warehouse :where
+                [and 
+                 [= [:w-city] city]
+                 [= [:tenant-id] tenant-id]
+                 [= [:deleted-state] "N"]]
+                :limit 200
+                :caching *dod-database-caching* :flatp t))
+
+(defun select-warehouses-by-state-code (state-code tenant-id)
+  "Select warehouses by state code"
+  (clsql:select 'dod-warehouse :where
+                [and 
+                 [= [:state-code] state-code]
+                 [= [:tenant-id] tenant-id]
+                 [= [:deleted-state] "N"]]
+                :caching *dod-database-caching* :flatp t))
+
+(defun select-primary-warehouse (tenant-id)
+  "Select primary warehouse location"
+  (car (clsql:select 'dod-warehouse :where
+                     [and
+                      [= [:tenant-id] tenant-id]
+                      [= [:is-primary-location] 1]
+                      [= [:deleted-state] "N"]]
+                     :caching *dod-database-caching* :flatp t)))
+
+(defun select-all-warehouses (tenant-id)
+  "Select all warehouses for a tenant"
+  (clsql:select 'dod-warehouse :where
+                [and
+                 [= [:tenant-id] tenant-id]
+                 [= [:deleted-state] "N"]]
+                :limit 200
+                :caching *dod-database-caching* :flatp t))
+
+(defun select-vendor-warehouses (vendor-id tenant-id)
+  "Select all warehouses owned by a vendor"
+  (clsql:select 'dod-warehouse :where
+                [and
+                 [= [:tenant-id] tenant-id]
+                 [= [:owner-entity-id] vendor-id]
+                 [= [:owner-entity-type] "SELLER"]
+                 [= [:deleted-state] "N"]]
+                :limit 200
+                :caching *dod-database-caching* :flatp t))
+
+(defun select-warehouses-by-ownership (ownership-type owner-entity-type owner-entity-id tenant-id)
+  "Select warehouses by ownership criteria"
+  (clsql:select 'dod-warehouse :where
+                [and
+                 [= [:ownership-type] ownership-type]
+                 [= [:owner-entity-type] owner-entity-type]
+                 [= [:owner-entity-id] owner-entity-id]
+                 [= [:tenant-id] tenant-id]
+                 [= [:deleted-state] "N"]]
+                :caching *dod-database-caching* :flatp t))
+
+(defun get-active-warehouses (tenant-id)
+  "Get all active warehouses for a tenant"
+  (clsql:select 'dod-warehouse :where
+                [and
+                 [= [:tenant-id] tenant-id]
+                 [= [:active-flag] "Y"]
+                 [= [:deleted-state] "N"]]
+                :caching *dod-database-caching* :flatp t))
+
+;;; ---------------------------------------------------------------------------
+;;; CODE GENERATION FUNCTIONS
+;;; ---------------------------------------------------------------------------
+
+(defun generate-warehouse-uuid ()
+  "Generate UUID for warehouse"
+  (format nil "~A" (uuid:make-v4-uuid)))
+
+(defun generate-warehouse-short-code ()
+  "Generate short alphanumeric code: WH-XXXXXXXX"
+  (let* ((uuid (uuid:make-v4-uuid))
+         (uuid-str (format nil "~A" uuid))
+         (short-id (subseq uuid-str 0 8)))
+    (format nil "WH-~A" (string-upcase short-id))))
+
+;;; ---------------------------------------------------------------------------
+;;; DOMAIN <-> DB COPY HELPERS
+;;; ---------------------------------------------------------------------------
+
+(defun copyWarehouse-domaintodb (source destination)
+  "Copy warehouse domain object to database object with ownership fields"
+  (let ((company (slot-value source 'company)))
+    (with-slots (w-name w-addr1 w-addr2 w-pin w-city w-state w-country 
+                 w-manager w-phone w-alt-phone w-email active-flag deleted-state
+                 ownership-type owner-entity-type owner-entity-id
+                 operator-entity-type operator-entity-id legal-entity-type
+                 warehouse-gstin gstin-status legal-name is-primary-location
+                 state-code registration-type warehouse-type warehouse-purpose
+                 default-transporter-id default-transporter-name eway-bill-enabled
+                 latitude longitude valuation-method hsn-wise-stock pan-number 
+                 warehouse-uuid warehouse-code tenant-id) destination
+
+ 
+      ;; Basic fields
+      (setf w-name (slot-value source 'wname))
+      (setf w-addr1 (slot-value source 'waddr1))
+      (setf w-addr2 (slot-value source 'waddr2))
+      (setf w-pin (slot-value source 'wpin))
+      (setf w-city (slot-value source 'wcity))
+      (setf w-state (slot-value source 'wstate))
+      (setf w-country (slot-value source 'wcountry))
+      (setf w-manager (slot-value source 'wmanager))
+      (setf w-phone (slot-value source 'wphone))
+      (setf w-alt-phone (slot-value source 'waltphone))
+      (setf w-email (slot-value source 'wemail))
+      (setf active-flag (slot-value source 'activeflag))
+      (setf deleted-state "N")
+      
+      ;; Ownership fields
+      (setf ownership-type (slot-value source 'ownership-type))
+      (setf owner-entity-type (slot-value source 'owner-entity-type))
+      (setf owner-entity-id (slot-value source 'owner-entity-id))
+      (setf operator-entity-type (slot-value source 'operator-entity-type))
+      (setf operator-entity-id (slot-value source 'operator-entity-id))
+      (setf legal-entity-type (slot-value source 'legal-entity-type))
+      
+      ;; GST and Advanced Fields
+      (setf warehouse-gstin (slot-value source 'warehouse-gstin))
+      (setf gstin-status (slot-value source 'gstin-status))
+      (setf legal-name (slot-value source 'legal-name))
+      (setf is-primary-location (slot-value source 'is-primary-location))
+      (setf state-code (slot-value source 'state-code))
+      (setf registration-type (slot-value source 'registration-type))
+      (setf warehouse-type (slot-value source 'warehouse-type))
+      (setf warehouse-purpose (slot-value source 'warehouse-purpose))
+      (setf default-transporter-id (slot-value source 'default-transporter-id))
+      (setf default-transporter-name (slot-value source 'default-transporter-name))
+      (setf eway-bill-enabled (slot-value source 'eway-bill-enabled))
+      (setf latitude (slot-value source 'latitude))
+      (setf longitude (slot-value source 'longitude))
+      (setf valuation-method (slot-value source 'valuation-method))
+      (setf hsn-wise-stock (slot-value source 'hsn-wise-stock))
+      (setf pan-number (slot-value source 'pan-number))
+      (setf warehouse-uuid (slot-value source 'warehouse-uuid))
+      (setf warehouse-code (slot-value source 'warehouse-code))
+      (setf tenant-id (slot-value company 'row-id))
+      destination)))
+
+(defun copyWarehouse-dbtodomain (source destination)
+  "Copy database object to warehouse domain object with ownership fields"
+  (with-slots (row-id wname waddr1 waddr2 wpin wcity wstate wcountry 
+               wmanager wphone waltphone wemail activeflag
+               ownership-type owner-entity-type owner-entity-id
+               operator-entity-type operator-entity-id legal-entity-type
+               warehouse-gstin gstin-status legal-name is-primary-location
+               state-code registration-type warehouse-type warehouse-purpose
+               default-transporter-id default-transporter-name eway-bill-enabled
+               latitude longitude valuation-method hsn-wise-stock pan-number 
+               warehouse-uuid warehouse-code) destination
+    ;; Basic fields
+    (setf row-id (slot-value source 'row-id))
+    (setf wname (slot-value source 'w-name))
+    (setf waddr1 (slot-value source 'w-addr1))
+    (setf waddr2 (slot-value source 'w-addr2))
+    (setf wpin (slot-value source 'w-pin))
+    (setf wcity (slot-value source 'w-city))
+    (setf wstate (slot-value source 'w-state))
+    (setf wcountry (slot-value source 'w-country))
+    (setf wmanager (slot-value source 'w-manager))
+    (setf wphone (slot-value source 'w-phone))
+    (setf waltphone (slot-value source 'w-alt-phone))
+    (setf wemail (slot-value source 'w-email))
+    (setf activeflag (slot-value source 'active-flag))
+    
+    ;; Ownership fields
+    (setf ownership-type (slot-value source 'ownership-type))
+    (setf owner-entity-type (slot-value source 'owner-entity-type))
+    (setf owner-entity-id (slot-value source 'owner-entity-id))
+    (setf operator-entity-type (slot-value source 'operator-entity-type))
+    (setf operator-entity-id (slot-value source 'operator-entity-id))
+    (setf legal-entity-type (slot-value source 'legal-entity-type))
+    
+    ;; GST and Advanced Fields
+    (setf warehouse-gstin (slot-value source 'warehouse-gstin))
+    (setf gstin-status (slot-value source 'gstin-status))
+    (setf legal-name (slot-value source 'legal-name))
+    (setf is-primary-location (slot-value source 'is-primary-location))
+    (setf state-code (slot-value source 'state-code))
+    (setf registration-type (slot-value source 'registration-type))
+    (setf warehouse-type (slot-value source 'warehouse-type))
+    (setf warehouse-purpose (slot-value source 'warehouse-purpose))
+    (setf default-transporter-id (slot-value source 'default-transporter-id))
+    (setf default-transporter-name (slot-value source 'default-transporter-name))
+    (setf eway-bill-enabled (slot-value source 'eway-bill-enabled))
+    (setf latitude (slot-value source 'latitude))
+    (setf longitude (slot-value source 'longitude))
+    (setf valuation-method (slot-value source 'valuation-method))
+    (setf hsn-wise-stock (slot-value source 'hsn-wise-stock))
+    (setf pan-number (slot-value source 'pan-number))
+    (setf warehouse-uuid (slot-value source 'warehouse-uuid))
+    (setf warehouse-code (slot-value source 'warehouse-code))
+    destination))
+
+
 
 
