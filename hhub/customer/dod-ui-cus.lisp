@@ -636,9 +636,9 @@ Only shows sections based on availability flags and customer type."
 (defun create-model-for-customer-update-action ()
   "Model for the customer profile update action. Reads every posted field of
    customerprofile.html (parameter names kept verbatim from the template),
-   applies them as a partial update to the logged-in customer, persists via
-   update-customer, and returns (function (lambda () redirecturl)) - the sole
-   value create-widgets-for-genericredirect consumes."
+   applies them as a partial update to the logged-in customer, persists via the
+   gana verb (!update 'nst-customer), and returns (function (lambda ()
+   redirecturl)) - the sole value create-widgets-for-genericredirect consumes."
   (flet ((parse-int-or-0 (s)
            "Parse S as an integer, returning 0 if S is nil or empty."
            (if (and s (string/= s ""))
@@ -650,6 +650,15 @@ Only shows sections based on availability flags and customer type."
                (float (with-input-from-string (in s) (read in)))
                0.0)))
     (let* ((customer (get-login-customer))
+           ;; ctx is a domain-ctx (the gana kāraka passenger), NOT the
+           ;; conflodis call-context. tenant = hosting company from the
+           ;; customer session, scoping the dod_cust_profile tenant.
+           (ctx (make-domain-ctx :actor "CUSTOMER"
+                                 :tenant (get-login-customer-company)
+                                 :channel "ONLINE"
+                                 :recipient customer
+                                 :source "CUSTOMER"))
+           (row-id (slot-value customer 'row-id))
            ;; --- names below are the name= attributes of customerprofile.html ---
            (name (hunchentoot:parameter "name"))
            (phone (hunchentoot:parameter "phone"))
@@ -705,56 +714,64 @@ Only shows sections based on availability flags and customer type."
            (kycstatus (hunchentoot:parameter "kycstatus"))
 
            ;; plist of every mutable slot, mirroring the warehouse update-args
-           (update-args (list 'name name
-                              'phone phone
-                              'email email
-                              'address address
-                              'zipcode zipcode
-                              'active-flag activeflag
-                              'legal-company-name legal-company-name
-                              'industry industry
-                              'employee-count employee-count
-                              'annual-turnover annual-turnover
-                              'business-established-date business-established-date
-                              'msme-number msme-number
-                              'gstin gstin
-                              'pan-number pan-number
-                              'tan-number tan-number
-                              'is-tax-exempt is-tax-exempt
-                              'tax-exemption-cert tax-exemption-cert
-                              'payment-terms paymentterms
-                              'credit-days credit-days
-                              'credit-limit credit-limit
-                              'primary-contact-name primary-contact-name
-                              'primary-contact-phone primary-contact-phone
-                              'primary-contact-email primary-contact-email
-                              'primary-contact-designation primary-contact-designation
-                              'accounts-contact-name accounts-contact-name
-                              'accounts-contact-phone accounts-contact-phone
-                              'accounts-contact-email accounts-contact-email
-                              'registered-address registered-address
-                              'registered-city registered-city
-                              'registered-state registered-state
-                              'registered-zipcode registered-zipcode
-                              'billing-address billing-address
-                              'shipping-address shipping-address
-                              'bank-account-holder-name bank-account-holder-name
-                              'bank-account-number bank-account-number
-                              'bank-ifsc-code bank-ifsc-code
-                              'bank-name bank-name
-                              'bank-branch bank-branch
-                              'business-type businesstype
-                              'gst-customer-type customertype
-                              'gst-registration-type gstregistrationtype
-                              'kyc-status kycstatus))
+           (update-args (list :name name
+			      :phone phone
+                              :email email
+                              :address address
+                              :zipcode zipcode
+                              :active-flag activeflag
+                              :legal-company-name legal-company-name
+                              :industry industry
+                              :employee-count employee-count
+                              :annual-turnover annual-turnover
+                              :business-established-date business-established-date
+                              :msme-number msme-number
+                              :gstin gstin
+                              :pan-number pan-number
+                              :tan-number tan-number
+                              :is-tax-exempt is-tax-exempt
+                              :tax-exemption-cert tax-exemption-cert
+                              :payment-terms paymentterms
+                              :credit-days credit-days
+                              :credit-limit credit-limit
+                              :primary-contact-name primary-contact-name
+                              :primary-contact-phone primary-contact-phone
+                              :primary-contact-email primary-contact-email
+                              :primary-contact-designation primary-contact-designation
+                              :accounts-contact-name accounts-contact-name
+                              :accounts-contact-phone accounts-contact-phone
+                              :accounts-contact-email accounts-contact-email
+                              :registered-address registered-address
+                              :registered-city registered-city
+                              :registered-state registered-state
+                              :registered-zipcode registered-zipcode
+                              :billing-address billing-address
+                              :shipping-address shipping-address
+                              :bank-account-holder-name bank-account-holder-name
+                              :bank-account-number bank-account-number
+                              :bank-ifsc-code bank-ifsc-code
+                              :bank-name bank-name
+                              :bank-branch bank-branch
+                              :business-type businesstype
+                              :gst-customer-type customertype
+                              :gst-registration-type gstregistrationtype
+                              :kyc-status kycstatus))
            (redirecturl "/hhub/dodcustprofile"))
-      (with-nst-error-handler
-          (progn
-            ;; partial update: only the posted slots change
-            (loop for (slot value) on update-args by #'cddr do
-                  (setf (slot-value customer slot) value))
-            (update-customer customer))
+      (with-nst-debugger
+          ;; !update re-hydrates the row by id+tenant and applies the posted
+          ;; slots as CLOS reinitialize-initargs (genuine partial update),
+          ;; then persists via nst-copy-customer-domaintodb + clsql update.
+          (apply #'!update 'nst-customer (write-to-string row-id) ctx update-args)
         'hhub-business-function-error)
+      ;; Refresh the session login customer straight from the DB (mirroring the
+      ;; fetch in dod-cust-login) so subsequent reads see the values just
+      ;; written, not the pre-update object cached at login time.
+      (let ((fresh (nst-select-customer-by-id row-id
+                                              (slot-value customer 'tenant-id))))
+        (when fresh
+          (setf (hunchentoot:session-value :login-customer) fresh)
+          (setf (hunchentoot:session-value :login-customer-name)
+                (slot-value fresh 'name))))
       ;; Return ONLY the redirect URL - the sole value create-widgets-for-
       ;; genericredirect consumes to emit the browser redirect.
       (function (lambda () redirecturl)))))
@@ -3810,9 +3827,6 @@ Only shows sections based on availability flags and customer type."
     (name                         . "%Customer Name%")
     (address                      . "%Customer Address%")
     (phone                        . "%Customer Phone%")
-    (username                     . "%Customer Username%")
-    (password                     . "%Customer Password%")
-    (salt                         . "%Customer Salt%")
     (email                        . "%Customer Email%")
     (firstname                    . "%Customer First Name%")
     (lastname                     . "%Customer Last Name%")
@@ -3825,8 +3839,6 @@ Only shows sections based on availability flags and customer type."
     (state                        . "%Customer State%")
     (country                      . "%Customer Country%")
     (zipcode                      . "%Customer Zipcode%")
-    (created                      . "%Customer Created%")
-    (updated                      . "%Customer Updated%")
     (deleted-state                . "%Customer Deleted State%")
     (approved-flag                . "%Customer Approved Flag%")
     (approval-status              . "%Customer Approval Status%")
@@ -3883,8 +3895,7 @@ Only shows sections based on availability flags and customer type."
     (total-orders                 . "%Customer Total Orders%")
     (total-spent                  . "%Customer Total Spent%")
     (loyalty-points               . "%Customer Loyalty Points%")
-    (tenant-id                    . "%Customer Tenant ID%")
-    (kyc-verifier                 . "%Customer KYC Verifier%")))
+    (tenant-id                    . "%Customer Tenant ID%")))
     
 
 (defun com-nst-transaction-customer-profile-page ()
@@ -3903,8 +3914,12 @@ Only shows sections based on availability flags and customer type."
    the stringified slot value. The subject is the logged-in customer
    ('my profile' page), so unlike the warehouse there is no id parameter
    and no create-vs-edit decision — it is always an update."
-  (let* ((customer (get-login-customer))
-         (action "hhubcustupdateaction")
+  (let* ((action "hhubcustupdateaction")
+         (company (get-login-customer-company))
+         (ctx (make-domain-ctx :actor "CUSTOMER" :tenant company
+                               :channel "ONLINE" :source "CUSTOMER"))
+         (customer (fetch 'nst-customer
+                          (write-to-string (get-login-customer-id)) ctx))
          (customerprofilepagetempl (funcall (nst-get-cached-customer-template-func :templatenum 2)))
          (form-snippet (extract-html-between-markets
                         customerprofilepagetempl
