@@ -104,7 +104,9 @@
          (company (get-login-vendor-company))
          (ctx (make-domain-ctx :actor "VENDOR" :tenant company :channel "ONLINE"
                                 :recipient "VENDOR" :source "VENDOR"))
-         (warehouselist (enumerate 'nst-whs ctx))
+         ;; inbound ferry: request model -> request->dispatch 'enumerate -> nst-whs
+         (warehouserequest (make-instance 'WarehouseRequestModel))
+         (warehouselist (request->dispatch warehouserequest 'enumerate 'nst-whs ctx))
          (responselist (domain->response-list warehouselist ctx))
          (params nil))
     (setf params (acons "uri" (hunchentoot:request-uri*) params))

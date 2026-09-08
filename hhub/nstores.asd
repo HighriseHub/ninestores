@@ -95,13 +95,15 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "account/dod-ui-cmp")
    
    ;; Customer
-   (:file "customer/dod-dal-cus")
-   (:file "customer/dod-bl-cus")
+   ;; NOTE: nst-dal-Customer owns the dod-cust-profile / dod-cust-wallet ORM
+   ;; view-classes and address classes (relocated from retired dod-dal-cus).
+   ;; nst-bl-Customer now also carries the functions of the retired
+   ;; dod-bl-cus, and dod-ui-cus calls those — so it must load first.
+   (:file "customer/nst-dal-Customer")
+   (:file "customer/nst-bl-Customer")
    (:file "customer/dod-ui-cus")
    (:file "customer/nst-ui-cuswall")
    (:file "customer/nst-ui-prodetpag")
-   (:file "customer/nst-dal-Customer")
-   (:file "customer/nst-bl-Customer")
    (:file "customer/nst-ui-Customer")
    ;; Email
    (:file "email/templates/registration")
@@ -185,9 +187,6 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "vendor/dod-ui-ven")
    
    ;; Warehouse
-   (:file "warehouse/dod-dal-wrh")
-   (:file "warehouse/dod-bl-wrh")
-   (:file "warehouse/dod-ui-wrh")
    (:file "warehouse/nst-dal-warehouse")
    (:file "warehouse/nst-bl-warehouse")
    (:file "warehouse/nst-ui-warehouse")

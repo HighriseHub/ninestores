@@ -175,9 +175,7 @@
      "account/dod-ui-cmp.lisp"
      
      ;; Customer
-     "customer/dod-dal-cus.lisp"
      "customer/nst-dal-Customer.lisp"
-     "customer/dod-bl-cus.lisp"
      "customer/nst-bl-Customer.lisp"
      "customer/dod-ui-cus.lisp"
      "customer/nst-ui-Customer.lisp"
@@ -240,9 +238,6 @@
      "shipping/dod-ui-osh.lisp"
      
      ;; Warehouse
-     "warehouse/dod-dal-wrh.lisp"
-     "warehouse/dod-bl-wrh.lisp"
-     "warehouse/dod-ui-wrh.lisp"
      "warehouse/nst-dal-warehouse.lisp"
      "warehouse/nst-bl-warehouse.lisp"
      "warehouse/nst-ui-warehouse.lisp"
