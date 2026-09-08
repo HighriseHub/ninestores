@@ -83,7 +83,7 @@
     structural rather than conventional."))
 
 (defclass nst-request-model (nst-boundary-object)
-  ((params :initarg :params :accessor params))
+  ((params :initarg :params :accessor params :initform nil))
   (:documentation
    "Raw inbound parameters, still shaped by the transport (Layer 2/3
     from the communication-modes discussion). Never touches proc.GANA.
