@@ -819,26 +819,6 @@ Returns a list of widget outputs."
 	(if weseti (format t "~2,'0d:~2,'0d"
 			   (nth 0  weseti)(nth 1 weseti)))))
 
-(defun print-vendor-web-session-timeout ()
-  (with-vend-session-check 
-    (let ((weseti (get-vendor-web-session-timeout)))
-      (if weseti (format t "~2,'0d:~2,'0d"
-			 (nth 0  weseti)(nth 1 weseti))))))
-
-
-(defun get-web-session-timeout ()
-  (multiple-value-bind
-	  (seconds minute hour)
-	(decode-universal-time (+ (get-universal-time) (hunchentoot:session-max-time hunchentoot:*session*)))
-      ;;(logiamhere (format nil "Session max time is ~A" (hunchentoot:session-max-time hunchentoot:*session*)))
-      (list hour minute seconds)))
-
-(defun get-vendor-web-session-timeout ()
-    (multiple-value-bind
-	(seconds minute hour)
-	(decode-universal-time (+ (getloginvendorsessionstarttime) (hunchentoot:session-max-time hunchentoot:*session*)))
-	(list hour minute seconds)))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-cust-session-check (&body body)
     `(if hunchentoot:*session* ,@body 
@@ -862,6 +842,26 @@ Returns a list of widget outputs."
     `(if hunchentoot:*session* ,@body 
 					;else 
 	 (hunchentoot:redirect *HHUBCADLOGINPAGEURL*))))
+
+(defun print-vendor-web-session-timeout ()
+  (with-vend-session-check 
+    (let ((weseti (get-vendor-web-session-timeout)))
+      (if weseti (format t "~2,'0d:~2,'0d"
+			 (nth 0  weseti)(nth 1 weseti))))))
+
+
+(defun get-web-session-timeout ()
+  (multiple-value-bind
+	  (seconds minute hour)
+	(decode-universal-time (+ (get-universal-time) (hunchentoot:session-max-time hunchentoot:*session*)))
+      ;;(logiamhere (format nil "Session max time is ~A" (hunchentoot:session-max-time hunchentoot:*session*)))
+      (list hour minute seconds)))
+
+(defun get-vendor-web-session-timeout ()
+    (multiple-value-bind
+	(seconds minute hour)
+	(decode-universal-time (+ (getloginvendorsessionstarttime) (hunchentoot:session-max-time hunchentoot:*session*)))
+	(list hour minute seconds)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-hhub-transaction (name &optional params &body body)
