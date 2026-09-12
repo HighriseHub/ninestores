@@ -2495,11 +2495,16 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 (defun resetvendorsessions (sessionkey)
+  "Drops the vendor session identified by SESSIONKEY (web session + business
+   record). Currently uncalled. NOTE: this removes the session WITHOUT telling
+   the client, which is correct only when the session belongs to some other
+   device; if a caller ever resets the CALLER'S OWN session, it should call
+   hunchentoot:remove-session directly so that client is told its cookie died."
   (let* ((bcontext (getBusinessContext *HHUBBUSINESSSERVER* "vendorsite"))
 	 (bsessions-ht (businesssessions-ht bcontext))
 	 (bvendorsession (gethash sessionkey bsessions-ht))
 	 (vendorwebsession (slot-value bvendorsession 'vwebsession)))
-    (if vendorwebsession (hunchentoot:remove-session vendorwebsession))  
+    (hhub-remove-other-websession vendorwebsession)
     (deleteBusinessSession bcontext sessionkey)))
 
 (defun enforcevendorsession (sessionkey bcontext maxvendorsallowed)
@@ -2508,7 +2513,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (currentwebsession (slot-value bvendorsession 'vwebsession))
 	 (vendor (slot-value bvendorsession 'vendor))
 	 (sessionlist '())
-	 (keylist '()))
+	 (keylist '())
+	 (stalekeys '()))
     (maphash (lambda (k v)
 	       (let ((prevvendorid (slot-value v 'vendor-id))
 		     (prevwebsession (slot-value v 'vwebsession))
@@ -2517,16 +2523,42 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		 (when (and
 			(not (equal k sessionkey)) ;; There are 2 separate sessions from same user. 
 			(= prevvendorid loginvendorid)) ;; Same user is login again.
-		   (logiamhere (format nil "Vendor is ~A. key is ~A. Websession is ~A" vendorname k prevwebsession))
-		   (setf sessionlist (append sessionlist (list v)))
-		   (setf keylist (append keylist (list k)))))) bsessions-ht)
+		   (cond
+		     ;; GHOST: the web session behind this record is gone (expired,
+		     ;; GC'd, or removed by an earlier eviction) but the business
+		     ;; record survives. It must NOT count toward the login quota —
+		     ;; otherwise ghosts evict LIVE devices. Purge it, but only
+		     ;; AFTER the walk: mutating the table mid-maphash is unsafe.
+		     ((not (hhub-websession-live-p prevwebsession))
+		      (push k stalekeys))
+		     (t
+		      (logiamhere (format nil "Vendor is ~A. key is ~A. Websession is ~A" vendorname k prevwebsession))
+		      (setf sessionlist (append sessionlist (list v)))
+		      (setf keylist (append keylist (list k)))))))) bsessions-ht)
+    (dolist (stalekey stalekeys)
+      (logiamhere (format nil "Purging dead vendor session record ~A (web session expired or already removed)" stalekey))
+      (deleteBusinessSession bcontext stalekey))
+    ;; OLDEST DEVICE LOSES. A maphash walk is hash order, so picking nth 0 evicted
+    ;; whichever session the hash happened to yield first — observed evicting
+    ;; sessions seconds after they were created while a 10-minute-old session
+    ;; survived three rounds. Order the candidates by login time instead.
+    (let ((pairs (loop for v in sessionlist
+                       for k in keylist
+                       collect (cons (hhub-websession-start (slot-value v 'vwebsession))
+                                     (cons v k)))))
+      (setf pairs (sort pairs #'< :key #'car))
+      (setf sessionlist (mapcar #'cadr pairs))
+      (setf keylist (mapcar #'cddr pairs)))
     ;; If there are exactly 1 item in the list that means that user has logged in previouly. 
     (when (>= (length sessionlist) maxvendorsallowed)
       (let* ((sessiontoremove (nth 0 sessionlist))
 	     (websession (slot-value sessiontoremove 'vwebsession))
 	     (firstkey (nth 0 keylist)))
 	(logiamhere (format nil "logging off vendor websession ~A" websession))
-	(hunchentoot:remove-session websession)
+	;; The evicted session belongs to ANOTHER device, so remove it WITHOUT
+	;; writing "hunchentoot-session=deleted" into THIS reply — that header
+	;; would clobber the cookie start-session just issued for the caller.
+	(hhub-remove-other-websession websession)
 	(deleteBusinessSession bcontext firstkey)))
     (logiamhere (format nil "After logging off current session is ~A" currentwebsession))))
 

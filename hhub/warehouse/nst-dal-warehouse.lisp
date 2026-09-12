@@ -2,6 +2,36 @@
 (in-package :nstores)
 
 (defclass nst-whs (nst-domain-entity)   ; NOT (business-object nst-domain-entity)
+  ;; ═══════════════════════════════════════════════════════════════════════════
+  ;; INITFORMS MIRROR THE DDL (installation/upgrades/nst-dbu-warehouse.lisp).
+  ;;
+  ;; WHY THEY EXIST: without an initform a slot is UNBOUND until a caller
+  ;; supplies it, and copyWarehouse-domaintodb reads every field with a plain
+  ;; (slot-value source 'x) — so a caller that omits any field aborted with
+  ;; UNBOUND-SLOT. The internal web form happens to post all 40 fields; an API
+  ;; client sends three. Worse, making the copier tolerant alone would not fix
+  ;; it: CLSQL's update-records-from-instance emits EVERY storable slot, so a
+  ;; nil would be written as an explicit NULL — bypassing the column DEFAULT and
+  ;; failing outright on the NOT NULL ... DEFAULT columns (OWNERSHIP_TYPE,
+  ;; OWNER_ENTITY_TYPE, LEGAL_ENTITY_TYPE).
+  ;;
+  ;; So each default below is the SCHEMA's default, copied deliberately:
+  ;;   * "Y"/"N"/0/1  → DELETED_STATE 'N', ACTIVE_FLAG 'Y', IS_PRIMARY_LOCATION
+  ;;     '0', EWAY_BILL_ENABLED '1', HSN_WISE_STOCK '0'
+  ;;   * enums        → OWNERSHIP_TYPE 'SELLER_OWNED', OWNER_ENTITY_TYPE 'SELLER',
+  ;;     LEGAL_ENTITY_TYPE 'SELLER', GSTIN_STATUS 'ACTIVE',
+  ;;     REGISTRATION_TYPE 'REGULAR', WAREHOUSE_TYPE 'OWN',
+  ;;     WAREHOUSE_PURPOSE 'SALES', VALUATION_METHOD 'FIFO'
+  ;;   * OWNER_ENTITY_ID is NOT NULL with NO default, so 0 is the class's own
+  ;;     choice — matching what the web form's parse-int-or-0 already sends.
+  ;; NIL means "column is nullable": the value may legitimately be absent, and
+  ;; the two NOT NULL fields left nil (W_NAME, WAREHOUSE_GSTIN) are refused by
+  ;; the database with the column named, which is the honest place for that rule.
+  ;;
+  ;; row-id and company deliberately keep NO initform: row-id is bound by
+  ;; bind-generated-row-id after the INSERT, and company must fail loudly when a
+  ;; caller forgets it (the API covers that case with :inject-company).
+  ;; ═══════════════════════════════════════════════════════════════════════════
   ((row-id
     :initarg :row-id
     :accessor row-id)
@@ -9,146 +39,196 @@
    (warehouse-uuid
     :accessor warehouse-uuid
     :initarg :warehouse-uuid
-    :documentation "System UUID for internal/API use")
+    :initform nil
+    :documentation "System UUID for internal/API use — generated in make")
    (warehouse-code
     :accessor warehouse-code
     :initarg :warehouse-code
-    :documentation "Business-friendly code (e.g., MH-MUM-WH-001)")
+    :initform nil
+    :documentation "Business-friendly code (e.g., WH-EB70DB91) — generated in make")
    ;; BASIC INFO
    (wname
     :initarg :wname
-    :accessor wname)
+    :accessor wname
+    :initform nil
+    :documentation "W_NAME — NOT NULL: the database refuses a warehouse without a name")
    (waddr1
     :initarg :waddr1
-    :accessor waddr1)
+    :accessor waddr1
+    :initform nil)
    (waddr2
     :initarg :waddr2
-    :accessor waddr2)
+    :accessor waddr2
+    :initform nil)
    (wpin
     :initarg :wpin
-    :accessor wpin)
+    :accessor wpin
+    :initform nil)
    (wcity
     :initarg :wcity
-    :accessor wcity)
+    :accessor wcity
+    :initform nil)
    (wstate
     :initarg :wstate
-    :accessor wstate)
+    :accessor wstate
+    :initform nil)
    (wcountry
     :initarg :wcountry
-    :accessor wcountry)
+    :accessor wcountry
+    :initform nil)
    (wmanager
     :initarg :wmanager
-    :accessor wmanager)
+    :accessor wmanager
+    :initform nil)
    (wphone
     :initarg :wphone
-    :accessor wphone)
+    :accessor wphone
+    :initform nil)
    (waltphone
     :initarg :waltphone
-    :accessor waltphone)
+    :accessor waltphone
+    :initform nil)
    (wemail
     :initarg :wemail
-    :accessor wemail)
+    :accessor wemail
+    :initform nil)
    
    ;; AUDIT FIELDS
    (activeflag
     :initarg :activeflag
-    :accessor activeflag)
+    :accessor activeflag
+    :initform "Y"
+    :documentation "ACTIVE_FLAG DEFAULT 'Y'")
    
    ;; OWNERSHIP MODEL
    (ownership-type
     :initarg :ownership-type
     :accessor ownership-type
-    :documentation "SELLER_OWNED, BUYER_OWNED, THIRD_PARTY, PLATFORM_OWNED, BONDED, CONTRACT_MFG")
+    :initform "SELLER_OWNED"
+    :documentation "SELLER_OWNED, BUYER_OWNED, THIRD_PARTY, PLATFORM_OWNED, BONDED, CONTRACT_MFG — DDL default SELLER_OWNED")
    
    (owner-entity-type
     :initarg :owner-entity-type
     :accessor owner-entity-type
-    :documentation "SELLER, BUYER, PLATFORM, THIRD_PARTY_LOGISTICS, GOVERNMENT")
+    :initform "SELLER"
+    :documentation "SELLER, BUYER, PLATFORM, THIRD_PARTY_LOGISTICS, GOVERNMENT — DDL default SELLER")
    
    (owner-entity-id
     :initarg :owner-entity-id
     :accessor owner-entity-id
-    :documentation "FK to owner entity")
+    :initform 0
+    :documentation "FK to owner entity. NOT NULL with no DDL default, so 0 = unset — the same value the web form's parse-int-or-0 sends")
 
    (vendor
     :initarg :vendor
     :accessor vendor
+    :initform nil
     :documentation "By default the vendor is the owner of this warehouse")
    
    (operator-entity-type
     :initarg :operator-entity-type
     :accessor operator-entity-type
-    :documentation "SELLER, BUYER, PLATFORM, THIRD_PARTY_LOGISTICS")
+    :initform nil
+    :documentation "SELLER, BUYER, PLATFORM, THIRD_PARTY_LOGISTICS — nullable in the DDL")
    
    (operator-entity-id
     :initarg :operator-entity-id
     :accessor operator-entity-id
+    :initform nil
     :documentation "FK to operator entity")
    
    (legal-entity-type
     :initarg :legal-entity-type
     :accessor legal-entity-type
-    :documentation "SELLER, BUYER, PLATFORM, THIRD_PARTY_LOGISTICS")
+    :initform "SELLER"
+    :documentation "SELLER, BUYER, PLATFORM, THIRD_PARTY_LOGISTICS — DDL default SELLER")
    
    ;; GST COMPLIANCE
    (warehouse-gstin
     :initarg :warehouse-gstin
-    :accessor warehouse-gstin)
+    :accessor warehouse-gstin
+    :initform nil
+    :documentation "NOT NULL: part of uk_gstin_name_tenant — the identity ?exists checks")
    (gstin-status
     :initarg :gstin-status
-    :accessor gstin-status)
+    :accessor gstin-status
+    :initform "ACTIVE"
+    :documentation "ACTIVE, CANCELLED, SUSPENDED — DDL default ACTIVE")
    (legal-name
     :initarg :legal-name
-    :accessor legal-name)
+    :accessor legal-name
+    :initform nil)
    (is-primary-location
     :initarg :is-primary-location
-    :accessor is-primary-location)
+    :accessor is-primary-location
+    :initform 0
+    :documentation "DDL default 0")
    (state-code
     :initarg :state-code
-    :accessor state-code)
+    :accessor state-code
+    :initform nil
+    :documentation "NOT NULL: GST jurisdiction state code")
    (registration-type
     :initarg :registration-type
-    :accessor registration-type)
+    :accessor registration-type
+    :initform "REGULAR"
+    :documentation "DDL default REGULAR")
    (pan-number
     :initarg :pan-number
-    :accessor pan-number)
+    :accessor pan-number
+    :initform nil)
    
    ;; WAREHOUSE CLASSIFICATION
    (warehouse-type
     :initarg :warehouse-type
-    :accessor warehouse-type)
+    :accessor warehouse-type
+    :initform "OWN"
+    :documentation "DDL default OWN")
    (warehouse-purpose
     :initarg :warehouse-purpose
-    :accessor warehouse-purpose)
+    :accessor warehouse-purpose
+    :initform "SALES"
+    :documentation "DDL default SALES")
    
    ;; LOGISTICS
    (default-transporter-id
     :initarg :default-transporter-id
-    :accessor default-transporter-id)
+    :accessor default-transporter-id
+    :initform nil)
    (default-transporter-name
     :initarg :default-transporter-name
-    :accessor default-transporter-name)
+    :accessor default-transporter-name
+    :initform nil)
    (eway-bill-enabled
     :initarg :eway-bill-enabled
-    :accessor eway-bill-enabled)
+    :accessor eway-bill-enabled
+    :initform 1
+    :documentation "DDL default 1")
    
    ;; LOCATION
    (latitude
     :initarg :latitude
-    :accessor latitude)
+    :accessor latitude
+    :initform nil)
    (longitude
     :initarg :longitude
-    :accessor longitude)
+    :accessor longitude
+    :initform nil)
    
    ;; INVENTORY MANAGEMENT
    (valuation-method
     :initarg :valuation-method
-    :accessor valuation-method)
+    :accessor valuation-method
+    :initform "FIFO"
+    :documentation "FIFO, LIFO, WEIGHTED_AVG — DDL default FIFO")
    (hsn-wise-stock
     :initarg :hsn-wise-stock
-    :accessor hsn-wise-stock)
+    :accessor hsn-wise-stock
+    :initform 0
+    :documentation "DDL default 0")
    
-   ;; TENANT
+   ;; TENANT — no initform on purpose: it must fail loudly if a caller forgets
+   ;; it (the API injects the session company; the web form passes it).
    (company
     :initarg :company
     :accessor company))
@@ -159,10 +239,13 @@
     decision. id/tenant-id/created-at/updated-at/deleted-state are all
     inherited from nst-domain-entity — do not redeclare them here.
 
-    Remaining DOD_WAREHOUSE columns (registration-type, purpose,
-    default-transporter, lat/long, valuation-method, hsn-wise-stock,
-    pan-number, addr1/addr2) deliberately NOT added yet — add one at
-    a time, per column, when a real verb needs it."))
+    Every DOD_WAREHOUSE field this class declares now carries an initform, one
+    per column, matching the schema default (or NIL where the column is
+    nullable). That is what lets a partial caller — the JSON API today, any
+    future importer — create a row that is identical to what the database would
+    have defaulted, instead of aborting in copyWarehouse-domaintodb on the first
+    unbound slot. Add new columns here WITH their DDL default, or the class
+    drifts from the schema again."))
 
 
 (defclass WarehouseRequestModel (nst-request-model)

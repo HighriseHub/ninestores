@@ -86,6 +86,8 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "core/nst-dal-pincodes")
    (:file "core/nst-bl-pincodes")
    (:file "core/nst-bl-adhara")
+   (:file "core/nst-bl-conflodis2")   ; Ring-2/3 route-action dispatcher. AFTER adhara: it uses domain-ctx/make-domain-ctx, request->dispatch, domain->response.
+   (:file "core/nst-bl-apidefs2")     ; Ring-4 JSON API boundary over the action routes (one /api/v1 dispatcher + register-api-route).
    (:file "core/dod-ui-site")
 
 
@@ -146,6 +148,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "products/dod-bl-prd")
    (:file "products/dod-ui-gst")
    (:file "products/dod-ui-prd")
+   (:file "products/nst-bl-prdapi")   ; Route-action verbs + action routes for nst-prd (needs conflodis2 + dod-bl-prd).
    
    ;; Shipping
    (:file "shipping/dod-dal-osh")
@@ -189,6 +192,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    ;; Warehouse
    (:file "warehouse/nst-dal-warehouse")
    (:file "warehouse/nst-bl-warehouse")
+   (:file "warehouse/nst-bl-whsapi")   ; Route-action verbs + action routes for nst-whs (needs conflodis2 + nst-bl-warehouse).
    (:file "warehouse/nst-ui-warehouse")
    
    ;; Web Push Notification

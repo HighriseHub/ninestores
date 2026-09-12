@@ -50,17 +50,21 @@
 ;;; not in the boundary tree.
 
 (defclass nst-entity-nil (nst-domain-entity)
-  ((reason :initform "Not Found" :accessor entity-reason))
+  ;; :initarg :reason is REQUIRED: domain verbs construct sentinels with
+  ;; (make-instance 'nst-entity-nil :tenant-id … :reason "…"), and without the
+  ;; initarg SBCL rejects it as an invalid initialization argument — turning
+  ;; every "not found" into an error instead of a :F fact.
+  ((reason :initform "Not Found" :initarg :reason :accessor entity-reason))
   (:documentation "Belnap :F sentinel. A domain fact: this entity does not exist."))
 
 (defclass nst-entity-unknown (nst-domain-entity)
-  ((reason :initform "Unknown — boundary call inconclusive" :accessor entity-reason))
+  ((reason :initform "Unknown — boundary call inconclusive" :initarg :reason :accessor entity-reason))
   (:documentation
    "Belnap :U sentinel. [LEGAL: callers MUST treat this as 'cannot proceed',
     never as 'assume false' or 'assume true'.]"))
 
 (defclass nst-entity-contradiction (nst-domain-entity)
-  ((reason :initform "Conflicting data" :accessor entity-reason))
+  ((reason :initform "Conflicting data" :initarg :reason :accessor entity-reason))
   (:documentation "Belnap :C sentinel. Two sources disagree — human review required."))
 
 
@@ -568,12 +572,22 @@
    "!state प्रत्यय — entity is an EXISTING instance here, not a class
     symbol. GUARDRAIL 2 still holds: entity first, ctx before &rest."))
 
-(defgeneric ?exists (entity-class lookup-value ctx)
+(defgeneric ?exists (entity-class lookup-value ctx &key &allow-other-keys)
   (:documentation
    "प्रत्यभिज्ञा प्रत्यय — existence check, Belnap-returning (:T/:F/
     :U/:C). lookup-value's meaning is entity-specific and documented
     per method — usually the primary id, but for uniqueness checks
-    (GSTIN, phone, email) it is whatever field must be unique."))
+    (GSTIN, phone, email) it is whatever field must be unique.
+
+    &KEY &ALLOW-OTHER-KEYS is here for exactly that reason: an entity whose
+    uniqueness is a TUPLE needs extra lookup values (nst-whs checks
+    (GSTIN, W_NAME, TENANT) — the tuple its uk_gstin_name_tenant really
+    enforces — and declares &key WNAME). CLOS congruence then requires EVERY
+    method to accept &key/&rest: a method with a bare (entity-class value ctx)
+    lambda list is REJECTED with 'differ in whether they accept &REST or &KEY'.
+    So a new ?exists method must carry at least &key &allow-other-keys even if it
+    uses no keywords. The alternative (a GF with &rest but no &key) was measured
+    and is worse: it accepts a keyed method but rejects permissive ones."))
 
 (defgeneric delete! (entity row-id ctx)
   (:documentation
