@@ -843,6 +843,79 @@ Returns a list of widget outputs."
 					;else 
 	 (hunchentoot:redirect *HHUBCADLOGINPAGEURL*))))
 
+;;; ─── Web-session liveness and eviction ──────────────────────────────────────
+;;;
+;;; A business-session record (VendorSessionObject / UserSessionObject in the
+;;; vendorsite / compadminsite BusinessContext) can OUTLIVE the hunchentoot
+;;; session it wraps: the web session expires after SESSION-MAX-TIME, is
+;;; dropped by a session-gc pass, or is removed by enforce-*-session. Nothing
+;;; prunes the business record, so a dead record keeps sitting in the hashtable
+;;; — and because the login-limit checks count RECORDS, ghosts consume the
+;;; vendor's quota and live devices get evicted in their place.
+
+(defun hhub-websession-live-p (websession)
+  "Is WEBSESSION still usable? NIL for a missing, foreign, expired OR already
+   dropped object. Two ways a session dies, and both must be caught:
+     1. it ages out — the session's own clock, the same predicate
+        hunchentoot:session-gc applies when it drops sessions;
+     2. it is removed while still young — an explicit remove-session, or
+        hunchentoot rejecting a presented cookie as a fake identifier. Such a
+        session is not 'old' but is no longer in the acceptor's session DB, so
+        membership is checked too.
+   Both checks use exported hunchentoot API only."
+  (and websession
+       (typep websession 'hunchentoot:session)
+       (not (hunchentoot:session-too-old-p websession))
+       (let ((id (hunchentoot:session-id websession)))
+         (and id
+              (or ;; *acceptor* is defvar-UNBOUND outside a request. If we cannot
+                  ;; consult the session DB, fall back to the clock alone rather
+                  ;; than declaring a possibly-live session dead.
+                  (not (boundp 'hunchentoot:*acceptor*))
+                  (null hunchentoot:*acceptor*)
+                  (eq websession
+                      (cdr (assoc id (hunchentoot:session-db hunchentoot:*acceptor*)
+                                  :test #'=))))))))
+
+(defun hhub-websession-start (websession)
+  "Login time of WEBSESSION as universal time, or MOST-POSITIVE-FIXNUM when it
+   is unavailable — an unusable record must never outrank a real session when
+   candidates are ordered for eviction."
+  (or (and (typep websession 'hunchentoot:session)
+           (hunchentoot:session-start websession))
+      most-positive-fixnum))
+
+(defun hhub-remove-other-websession (websession)
+  "Remove SOMEONE ELSE'S web session WITHOUT touching this reply.
+   hunchentoot:remove-session always writes
+   `Set-Cookie: <session-cookie-name>=deleted' into the CURRENT reply
+   (*reply*). When the session being evicted belongs to another client — the
+   normal case for the login-limit enforcement below — that header is delivered
+   to whoever happened to trigger the eviction, and since it carries the same
+   cookie name as the cookie start-session just issued for that caller, the
+   client applies it and destroys the very session it was just given: the new
+   login is unusable while the evicted device learns nothing. The session is
+   still removed from hunchentoot's session database (acceptor-remove-session +
+   session-db removal both run); only the misdirected header is discarded.
+   Call hunchentoot:remove-session directly when the current client genuinely
+   should be told its own cookie is dead."
+  (when websession
+    (let ((hunchentoot:*reply* (make-instance 'hunchentoot:reply)))
+      (hunchentoot:remove-session websession))))
+
+(defun response-id-string (value)
+  "Identifier fields leave a boundary response as JSON STRINGS — one id
+   convention for every entity, so a client never has to know that
+   WarehouseResponseModel.rowId is a string while ownerEntityId is an int.
+   An id is opaque: stringifying removes the temptation to do integer
+   comparisons and keeps the wire shape stable if ids later become codes or
+   UUIDs (nst-whs already carries warehouse-uuid / warehouse-code).
+   NIL (genuinely absent) stays NIL → JSON null; it must NOT become the string
+   \"NIL\", because absence is information, not an identifier."
+  (if (null value)
+      nil
+      (format nil "~A" value)))
+
 (defun print-vendor-web-session-timeout ()
   (with-vend-session-check 
     (let ((weseti (get-vendor-web-session-timeout)))
