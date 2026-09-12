@@ -540,7 +540,12 @@
 ;;; tenant (see dod-bl-cus.lisp duplicate-customerp), so this also feeds the
 ;;; make :before uniqueness guard below — the warehouse GSTIN pattern.
 ;;; ---------------------------------------------------------------------------
-(defmethod ?exists ((entity-class (eql 'nst-customer)) (phone string) (ctx domain-ctx))
+(defmethod ?exists ((entity-class (eql 'nst-customer)) (phone string) (ctx domain-ctx)
+                    &key &allow-other-keys)
+  "&key &allow-other-keys only satisfies CLOS congruence: the ?exists generic
+   function now accepts keywords (nst-whs declares &key WNAME for its
+   (GSTIN, name, tenant) identity), and a method with a bare lambda list is
+   rejected against it. This method needs no keywords of its own."
   (with-db-call
     (nst-select-customer-by-phone phone (slot-value (domain-ctx-tenant ctx) 'row-id))))
 
