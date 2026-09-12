@@ -137,6 +137,8 @@
      "core/nst-dal-pincodes.lisp" 
      "core/nst-bl-pincodes.lisp" ;; All India pincodes
      "core/nst-bl-adhara.lisp"
+     "core/nst-bl-conflodis2.lisp" ;; Ring-2/3 route-action dispatcher. AFTER adhara: it uses domain-ctx/make-domain-ctx, request->dispatch, domain->response.
+     "core/nst-bl-apidefs2.lisp" ;; Ring-4 JSON API boundary over the action routes (one /api/v1 dispatcher + register-api-route).
      ;; Core UI Layer
      "core/dod-ui-site.lisp"
      "core/dod-ui-attr.lisp"
@@ -191,6 +193,7 @@
      "products/dod-bl-gst.lisp"
      "products/dod-ui-gst.lisp"
      "products/nst-bl-prodapi.lisp"
+     "products/nst-bl-prdapi.lisp"     ;; Route-action verbs + action routes for nst-prd (needs conflodis2 + dod-bl-prd).
      
      ;; Sysuser
      "sysuser/dod-dal-usr.lisp"
@@ -240,6 +243,7 @@
      ;; Warehouse
      "warehouse/nst-dal-warehouse.lisp"
      "warehouse/nst-bl-warehouse.lisp"
+     "warehouse/nst-bl-whsapi.lisp" ;; Route-action verbs + action routes for nst-whs (needs conflodis2 + nst-bl-warehouse).
      "warehouse/nst-ui-warehouse.lisp"
      
      ;; Invoices
@@ -270,6 +274,15 @@
     (let* ((fullpath (concatenate 'string *hhub-root* file))
            (fasl-path (compile-file-pathname fullpath))
            (*captured-warnings* nil))
+      
+      ;; Incremental: skip when the fasl is newer than its source.
+      ;; clean-and-compile deletes every fasl first, so it always rebuilds.
+      (when (and (probe-file fasl-path)
+                 (probe-file fullpath)
+                 (> (file-write-date fasl-path) (file-write-date fullpath)))
+        (log-message "INFO" "Up to date, skipping: ~A" file)
+        (incf (compilation-stats-skipped stats))
+        (return-from compile-single-file t))
       
       (log-message "INFO" "Processing: ~A" file)
       
