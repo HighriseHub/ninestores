@@ -45,7 +45,8 @@
 	 (busersession (gethash sessionkey bsessions-ht))
 	 (user (slot-value busersession 'user))
 	 (sessionlist '())
-	 (keylist '()))
+	 (keylist '())
+	 (stalekeys '()))
     (maphash (lambda (k v)
 	       (let ((prevuserid (slot-value v 'user-id))
 		     (prevwebsession (slot-value v 'uwebsession))
@@ -54,15 +55,39 @@
 		 (when (and
 			(not (equal k sessionkey)) ;; There are 2 separate sessions from same user. 
 			(= prevuserid loginuserid)) ;; Same user is login again.
-		   (logiamhere (format nil "User is ~A. key is ~A. Websession is ~A" username k prevwebsession))
-		   (setf sessionlist (append sessionlist (list v)))
-		   (setf keylist (append keylist (list k)))))) bsessions-ht)
+		   (cond
+		     ;; GHOST: web session gone, business record still present. It
+		     ;; must not consume the login quota and cause a LIVE device to
+		     ;; be evicted. Purge it after the walk (no mid-maphash
+		     ;; mutation of the table).
+		     ((not (hhub-websession-live-p prevwebsession))
+		      (push k stalekeys))
+		     (t
+		      (logiamhere (format nil "User is ~A. key is ~A. Websession is ~A" username k prevwebsession))
+		      (setf sessionlist (append sessionlist (list v)))
+		      (setf keylist (append keylist (list k)))))))) bsessions-ht)
+    (dolist (stalekey stalekeys)
+      (logiamhere (format nil "Purging dead user session record ~A (web session expired or already removed)" stalekey))
+      (deleteBusinessSession bcontext stalekey))
+    ;; OLDEST DEVICE LOSES — see the long note in enforcevendorsession: a maphash
+    ;; walk is hash order, so nth 0 was an arbitrary victim rather than the
+    ;; oldest login.
+    (let ((pairs (loop for v in sessionlist
+                       for k in keylist
+                       collect (cons (hhub-websession-start (slot-value v 'uwebsession))
+                                     (cons v k)))))
+      (setf pairs (sort pairs #'< :key #'car))
+      (setf sessionlist (mapcar #'cadr pairs))
+      (setf keylist (mapcar #'cddr pairs)))
     ;; If there are exactly 1 item in the list that means that user has logged in previouly. 
     (when (>= (length sessionlist) maxusersallowed)
       (let* ((sessiontoremove (nth 0 sessionlist))
 	     (websession (slot-value sessiontoremove 'uwebsession))
 	     (firstkey (nth 0 keylist)))
-	(hunchentoot:remove-session websession)
+	;; Another device's session: remove it WITHOUT the misdirected
+	;; "hunchentoot-session=deleted" header that would clobber THIS
+	;; caller's freshly issued cookie.
+	(hhub-remove-other-websession websession)
 	(deleteBusinessSession bcontext firstkey)))
     (logiamhere (format nil "there are ~d items in session list " (length sessionlist)))))
 
