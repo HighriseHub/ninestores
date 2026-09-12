@@ -884,6 +884,15 @@
 
 (setq hunchentoot:*dispatch-table*
     (list
+	;***************** PUBLIC API (conflodis2 action routes) ********************
+	;; ONE handler for every /api/v1/... endpoint — the endpoint table is
+	;; register-api-route bindings in the domain's own file (see
+	;; core/nst-bl-apidefs2.lisp; URL convention in core/nstoresapi.html).
+	;; The /hhub prefix is deliberate: nginx proxies `location /hhub/` straight
+	;; through but rewrites every other URI to /hhub/$1, so only a path that
+	;; already carries the prefix reaches the acceptor unchanged.
+	(hunchentoot:create-regex-dispatcher "^/hhub/api/v1/" 'com-hhub-api-dispatch)
+
 	;***************** SUPERADMIN/OPERATOR RELATED ********************
      
 	(hunchentoot:create-regex-dispatcher "^/hhub/sadminhome" 'com-hhub-transaction-sadmin-home)
