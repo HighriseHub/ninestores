@@ -20,33 +20,81 @@
    write the wrong string for any multi-word value."
   (substitute #\_ #\- (string kw)))
 
-;;; ?exists — checked by GSTIN, the [LEGAL] uniqueness this entity needs.
-(defmethod ?exists ((entity-class (eql 'nst-whs)) (gstin string) (ctx domain-ctx))
-  (with-db-call                                   ; existing macro
-    (select-warehouse-by-gstin gstin)))
+;;; ?exists — the identity the DB actually enforces.
+;;;
+;;; DOD_WAREHOUSE's unique key is uk_gstin_name_tenant
+;;; (WAREHOUSE_GSTIN, W_NAME, TENANT_ID) — NOT GSTIN alone, and NOT including
+;;; DELETED_STATE (see installation/upgrades/nst-dbu-warehouse.lisp). Everything
+;;; below follows those two facts:
+;;;   * the pre-check must match the tuple, or it predicts the wrong thing;
+;;;   * a softly-deleted row keeps holding its identity forever, so "was
+;;;     deleted" and "may be re-created" are different questions.
+(defmethod ?exists ((entity-class (eql 'nst-whs)) (gstin string) (ctx domain-ctx)
+                    &key wname)
+  "Is the warehouse identity (GSTIN, WNAME, TENANT) already taken?
+   Belnap answer, because the honest one is not yes/no:
+     :F  free — nothing holds the identity
+     :T  a LIVE warehouse holds it (a fact of existence)
+     :C  a SOFT-DELETED row holds it: two of our own rules disagree — the row
+         is present in DOD_WAREHOUSE and occupies uk_gstin_name_tenant, while
+         नियम-2 makes DELETED_STATE='Y' rows invisible to every verb, so no
+         warehouse is there. Callers must escalate (human/409), never read this
+         as free: the INSERT would fail on the unique key.
+     :U  the DB could not be consulted — must NOT be treated as :F.
+   Without WNAME the identity cannot be formed (W_NAME is part of the key), so
+   this falls back to the historical GSTIN-only, live-rows-only check."
+  (let ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)))
+    (if (null wname)
+        (with-db-call (select-warehouse-by-gstin gstin)
+                      "nst-whs/?exists (gstin only, no name supplied)")
+        (let ((knowledge (with-db-call
+                             (select-warehouse-by-identity gstin wname tenant-id
+                                                           :include-deleted t)
+                           "nst-whs/?exists (gstin, name, tenant)")))
+          (cond
+            ;; Free, unknown, or the (impossible under a unique key) multi-row
+            ;; :C — all pass through as the DB reported them.
+            ((not (eq (bo-knowledge-truth knowledge) :T)) knowledge)
+            ((string= (deleted-state (bo-knowledge-payload knowledge)) "Y")
+             ;; Identity held by a row the domain considers gone. Merge the two
+             ;; facts under the knowledge order: :T (it is there) ⊔ :F (no
+             ;; warehouse there) = :C, provenance showing WHICH rules collided.
+             (bo-merge knowledge
+                       (make-bo-knowledge
+                        :truth :F
+                        :payload nil
+                        :provenance "नियम-2: DELETED_STATE='Y' rows are invisible to every verb")))
+            (t knowledge))))))
 
-;;; make :before — GSTIN uniqueness, Section 6's [LEGAL] example,
-;;; now checking the CORRECTLY named initarg and the CORRECTLY cased
-;;; Belnap value.
+;;; make :before — refuse BEFORE the INSERT is attempted, on the identity the
+;;; unique key really enforces. Only :F (confirmed free) may create: :U is not
+;;; "probably free", and :C is a question for a human.
 (defmethod make :before ((entity-class (eql 'nst-whs)) (ctx domain-ctx)
                           &rest initargs)
   (let ((gstin (getf initargs :warehouse-gstin)))   ; was :wgstin
     (when gstin
-      (let ((check (?exists 'nst-whs gstin ctx)))
-        (unless (eq (bo-knowledge-truth check) :F)   ; was :f — real bug, fixed
-          (error "GSTIN ~A: uniqueness check returned ~A, not confirmed-
-                  available (:F). Refusing to create. [LEGAL: Section 122
-                  CGST Act — duplicate GSTIN registration]"
-                 gstin (bo-knowledge-truth check)))))))
-;;; Devil's advocate: DOD_WAREHOUSE.WAREHOUSE_GSTIN already carries a
-;;; DB-level UNIQUE constraint (confirmed in the original schema — "UNI"
-;;; key). This :before check is defense-in-depth, not the sole guard —
-;;; it turns a raw SQL constraint-violation into a clean, LEGAL-cited
-;;; domain error BEFORE the INSERT is attempted. It does NOT close the
-;;; TOCTOU gap (two concurrent creates with the same GSTIN could both
-;;; pass this check before either commits) — the DB constraint is what
-;;; actually prevents the duplicate in that race; this exists for the
-;;; common case's clean error message, not as the only safety net.
+      (let* ((wname (getf initargs :wname))
+             (check (?exists 'nst-whs gstin ctx :wname wname))
+             (truth (bo-knowledge-truth check)))
+        (case truth
+          (:F nil)                     ; confirmed free — proceed
+          (:T (error "GSTIN ~A + name ~S: a LIVE warehouse already holds this identity (uk_gstin_name_tenant). Refusing to create. [LEGAL: Section 122 CGST Act — duplicate GSTIN registration]"
+                     gstin wname))
+          (:C (error "GSTIN ~A + name ~S: the identity is held by a SOFT-DELETED warehouse — the row is still in DOD_WAREHOUSE (uk_gstin_name_tenant includes no DELETED_STATE) while नियम-2 makes it invisible to every verb. Human decision needed: undelete it, or create under a different name. Refusing to create."
+                     gstin wname))
+          (otherwise
+           (error "GSTIN ~A: uniqueness check returned ~A, not confirmed-available (:F). Refusing to create. [LEGAL: Section 122 CGST Act — duplicate GSTIN registration]"
+                  gstin truth)))))))
+;;; Devil's advocate, CORRECTED against the real DDL
+;;; (installation/upgrades/nst-dbu-warehouse.lisp): WAREHOUSE_GSTIN does NOT
+;;; carry a single-column UNIQUE key. The DB enforces
+;;; uk_gstin_name_tenant (WAREHOUSE_GSTIN, W_NAME, TENANT_ID) — so a duplicate
+;;; GSTIN is only blocked when the name AND tenant also match, while a
+;;; soft-deleted row keeps its slot because DELETED_STATE is not part of the
+;;; key. The :before check above deliberately mirrors that tuple; it is
+;;; defense-in-depth for the clean, LEGAL-cited error, and it does NOT close the
+;;; TOCTOU gap (two concurrent creates of the same tuple could both pass before
+;;; either commits) — the unique key is what actually prevents that race.
 
 ;;; make primary method — REVISED against real doCreate.
 (defmethod make ((entity-class (eql 'nst-whs)) (ctx domain-ctx) &rest initargs)
@@ -315,9 +363,17 @@
 
 (defmethod render-json ((r WarehouseResponseModel) (ctx domain-ctx))
   "Single warehouse → JSON alist (caller or a list method applies
-   json:encode-json-to-string). Match all fields from RenderJSON."
+   json:encode-json-to-string). Match all fields from RenderJSON.
+
+   ID CONVENTION: every identifier crosses as a JSON string via
+   response-id-string (see dod-ui-utl.lisp). rowId already arrives from the DB
+   as a string, but ownerEntityId/operatorEntityId come from integer columns and
+   operatorEntityId is NIL when unset — without normalisation one response mixed
+   \"47\", 0 and null for the same kind of value. warehouseUuid / warehouseCode /
+   defaultTransporterId are strings by construction and are passed through
+   unchanged."
   (list 
-   (cons "rowId" (row-id r))
+   (cons "rowId" (response-id-string (row-id r)))
    (cons "warehouseUuid" (warehouse-uuid r))
    (cons "warehouseCode" (warehouse-code r))
    (cons "name" (wname r))
@@ -335,9 +391,9 @@
    ;; Ownership fields
    (cons "ownershipType" (ownership-type r))
    (cons "ownerEntityType" (owner-entity-type r))
-   (cons "ownerEntityId" (owner-entity-id r))
+   (cons "ownerEntityId" (response-id-string (owner-entity-id r)))
    (cons "operatorEntityType" (operator-entity-type r))
-   (cons "operatorEntityId" (operator-entity-id r))
+   (cons "operatorEntityId" (response-id-string (operator-entity-id r)))
    (cons "legalEntityType" (legal-entity-type r))
    ;; GST and Advanced Fields
    (cons "warehouseGstin" (warehouse-gstin r))
@@ -430,11 +486,38 @@
                      :flatp t)))
 
 (defun select-warehouse-by-gstin (gstin)
-  "Select warehouse by GSTIN"
+  "Select warehouse by GSTIN (live rows only).
+   NOTE: this is NOT the uniqueness the database enforces — see
+   select-warehouse-by-identity — and it deliberately has no TENANT filter, so
+   it must never back a read the API serves."
   (car (clsql:select 'dod-warehouse :where
                      [and 
                       [= [:warehouse-gstin] gstin]
                       [= [:deleted-state] "N"]]
+                     :caching *dod-database-caching* :flatp t)))
+
+(defun select-warehouse-by-identity (gstin wname tenant-id &key include-deleted)
+  "Select by the tuple DOD_WAREHOUSE actually makes unique:
+   (WAREHOUSE_GSTIN, W_NAME, TENANT_ID) — uk_gstin_name_tenant in
+   installation/upgrades/nst-dbu-warehouse.lisp.
+
+   INCLUDE-DELETED decides which question is being asked:
+     NIL — 'is there a warehouse here?' (live rows, what every verb may see)
+     T   — 'is this identity taken?' (what the unique key enforces, because
+           DELETED_STATE is NOT part of the key, so a soft-deleted row keeps
+           the identity reserved forever).
+
+   Returns at most one row: the unique key guarantees the tuple appears once,
+   deleted or not."
+  (car (clsql:select 'dod-warehouse
+                     :where (if include-deleted
+                                [and [= [:warehouse-gstin] gstin]
+                                     [= [:w-name] wname]
+                                     [= [:tenant-id] tenant-id]]
+                                [and [= [:warehouse-gstin] gstin]
+                                     [= [:w-name] wname]
+                                     [= [:tenant-id] tenant-id]
+                                     [= [:deleted-state] "N"]])
                      :caching *dod-database-caching* :flatp t)))
 
 (defun select-matching-warehouses (wname-like tenant-id)
