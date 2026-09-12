@@ -374,7 +374,24 @@
 (defun bind-generated-row-id (entity dbobj)
   "The ONLY copy-back from a freshly-inserted dbobj to its domain
    entity. Every make method calls this — not an inline slot-value
-   setf — so the narrowing is enforced at one call site, not N."
+   setf — so the narrowing is enforced at one call site, not N.
+
+   It binds TWO things, because callers need both:
+     ID      — nst-domain-entity's canonical string id (always present).
+     ROW-ID  — the database's integer primary key, bound ONLY for classes that
+               declare such a slot. Domain verbs address rows by it (rm-row-id,
+               !update, delete!) and the reverse ferry reads it in
+               domain->response — so a created entity that never got it fails on
+               the way OUT even though the INSERT succeeded. That was the
+               warehouse create API's 500 (UNBOUND-SLOT ROW-ID raised inside
+               domain->response): the web form only redirects after a create, so
+               nothing had ever read row-id on a freshly-made entity.
+
+   SLOT-EXISTS-P guards the second setf because ROW-ID is not part of
+   nst-domain-entity: every entity has ID, only some have ROW-ID. The return
+   value is unchanged (the string id), so existing callers see no difference."
+  (when (slot-exists-p entity 'row-id)
+    (setf (slot-value entity 'row-id) (slot-value dbobj 'row-id)))
   (setf (slot-value entity 'id) (write-to-string (slot-value dbobj 'row-id))))
 
 
