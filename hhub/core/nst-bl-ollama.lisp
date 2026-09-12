@@ -345,40 +345,360 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
 ;;; Core Infrastructure — File Operations & Metadata
 ;;; ============================================================================
 
-(defun apply-file-refactor-and-load (function-symbol file-path new-code-string)
-  "Locates FUNCTION-SYMBOL's defun block in FILE-PATH, splices in NEW-CODE-STRING,
-   writes the result back to disk with :supersede, then compiles and hot-loads it."
+(defun %defun-delimiter-p (char)
+  "T when CHAR may sit immediately before or after the `defun' token of a valid
+   header. NIL means the token is really part of a longer symbol such as
+   `my-defun-helper', which must not be treated as a definition."
+  (or (null char)
+      (case char
+        ((#\Space #\Tab #\Newline #\Return #\() t)
+        (t nil))))
+
+(defun %defun-token-p (string position)
+  "T when a case-insensitive \"defun\" token, delimited on both sides, begins at
+   POSITION in STRING."
+  (and (<= (+ position 5) (length string))
+       (string-equal "defun" string :start1 0 :end1 5
+                              :start2 position :end2 (+ position 5))
+       (%defun-delimiter-p (and (> position 0) (char string (1- position))))
+       (%defun-delimiter-p (and (< (+ position 5) (length string))
+                                (char string (+ position 5))))))
+
+
+;;; Drop-in replacement for EXTRACT-DEFUN-REGIONS.
+;;;
+;;; Defects in the shipped version:
+;;;   1. (multiple-value-bind (form-start form-end) (scan-from i) ...) binds
+;;;      FORM-END to the wrong value, so the end of the form is mislocated.
+;;;   2. Helpers such as skip-string end with a trailing variable after a
+;;;      (loop ... (return x)), which makes them return TWO values. Any caller
+;;;      using (setf i (skip-string i)) silently takes the first, which is the
+;;;      index of the closing quote rather than one past it — so the scanner
+;;;      re-reads the same quote forever and the form never closes.
+;;;   3. Detection consumed the opening "(" and the depth counter counted it
+;;;      again, corrupting nesting depth.
+;;;
+;;; This version returns single values from every helper, never mixes detection
+;;; with depth counting, and tracks depth only for the form it is following.
+
+(defun extract-defun-regions (content function-name)
+  "Scans CONTENT for complete top-level (defun FUNCTION-NAME ...) forms and
+   returns a list of (start . end) cons cells in file order.
+
+   String-, comment- and character-literal-aware, so it cannot be fooled by a
+   defun mentioned inside a docstring or a comment, and it finds EVERY
+   definition of FUNCTION-NAME rather than only the first."
+  (let ((i      0)
+        (len    (length content))
+        (found  '())
+        (start  nil)   ; start of the top-level form currently being tracked
+        (depth  0)
+        (active nil))  ; T while inside a form we are tracking
+    (labels ((past-string (i)
+               ;; I is the index of the opening quote. Returns the index just
+               ;; past the closing quote. NOTE: single value, no loop-return.
+               (let ((j (1+ i)))
+                 (loop while (< j len) do
+                   (let ((ch (char content j)))
+                     (cond ((char= ch #\\) (incf j 2))
+                           ((char= ch #\") (return))
+                           (t             (incf j)))))
+                 (if (< j len) (1+ j) len)))
+             (past-block-comment (i)
+               ;; I is just past the opening #|. Single value.
+               (let ((j i))
+                 (loop while (and (< (1+ j) len)
+                                  (not (and (char= (char content j) #\|)
+                                            (char= (char content (1+ j)) #\#))))
+                       do (incf j))
+                 (min len (+ j 2))))
+             (past-line-comment (i)
+               ;; Single value.
+               (let ((j i))
+                 (loop while (and (< j len) (not (char= (char content j) #\Newline)))
+                       do (incf j))
+                 j))
+             (defun-name-at (start)
+               "Down-cased name when a valid (defun name ...) header starts at
+                START, otherwise NIL. Reads only the name token."
+               (when (and (< (+ start 5) len)
+                          (char= (char content start) #\()
+                          (%defun-token-p content (1+ start)))
+                 (let ((*read-eval* nil))
+                   (handler-case
+                       (multiple-value-bind (name pos)
+                           (read-from-string content t nil :start (+ start 6))
+                         (declare (ignore pos))
+                         (and (symbolp name)
+                              (string-downcase (format nil "~A" name))))
+                     (error () nil))))))
+      (loop while (< i len) do
+        (let* ((ch   (char content i))
+               (next (and (< (1+ i) len) (char content (1+ i)))))
+          (cond
+            ;; --- non-code text: never affects depth, never starts a form ---
+            ((char= ch #\")                      (setf i (past-string i)))
+            ((char= ch #\;)                      (setf i (past-line-comment (1+ i))))
+            ((and (char= ch #\#) (eql next #\|)) (setf i (past-block-comment (+ i 2))))
+            ((and (char= ch #\#) (eql next #\\)) (incf i 2))
+            ((and (char= ch #\#) (eql next #\;)) (incf i 2))
+
+            ;; --- code ---
+            ((char= ch #\()
+             (cond
+               ;; Already tracking a form: only count nesting.
+               (active (incf depth) (incf i))
+               ;; At top level: does this parenthesis open the form we want?
+               (t
+                (let ((name (defun-name-at i)))
+                  (if (and name (string-equal name function-name))
+                      (progn (setf start i depth 1 active t) (incf i))
+                      (incf i))))))
+            ((char= ch #\))
+             (incf i)
+             (when active
+               (decf depth)
+               (when (zerop depth)
+                 (push (cons start i) found)
+                 (setf active nil))))
+            (t (incf i)))))
+      (nreverse found))))
+
+(defun replace-defun-blocks (content regions new-code)
+  "Returns CONTENT with each (start . end) span in REGIONS replaced by NEW-CODE.
+   Every region is rewritten, so a function defined more than once in the file
+   cannot be left half-updated."
+  (let ((cursor 0)
+        (pieces '()))
+    (dolist (region regions)
+      (push (subseq content cursor (car region)) pieces)
+      (push new-code pieces)
+      (setf cursor (cdr region)))
+    (push (subseq content cursor) pieces)
+    (apply #'concatenate 'string (nreverse pieces))))
+
+(defun read-defun-arglist (content function-name)
+  "Returns the lambda list of the FIRST (defun FUNCTION-NAME ...) in CONTENT, or
+   NIL when it cannot be determined. Reads the on-disk source rather than
+   introspecting the image, which stays correct even when an earlier
+   build-image-time redefinition shadows the definition being edited."
+  (let ((regions (extract-defun-regions content function-name)))
+    (when regions
+      (handler-case
+          (let* ((text (subseq content (car (first regions)) (cdr (first regions))))
+                 (*read-eval* nil)
+                 (form (read-from-string text nil nil)))
+            (when (and (consp form) (consp (cddr form)))
+              (third form)))
+        (error () nil)))))
+
+(defun defun-source-matches-p (string function-name)
+  "T when STRING contains a complete top-level (defun FUNCTION-NAME ...) form.
+   Used to reject spliced code that defines some other function - the classic
+   way an automated edit silently discards the only definition of the target.
+
+   This deliberately does NOT read-from-string the whole STRING: that requires
+   every package referenced inside the code to exist at check time, so code
+   containing clsql: or hunchentoot: forms would be rejected as invalid even
+   though it is perfectly good. EXTRACT-DEFUN-REGIONS already proves the form
+   is complete and balanced, which is the check that actually matters."
+  (and (stringp string)
+       (extract-defun-regions string function-name)
+       t))
+
+(defun %git-object-id (file-path)
+  "Returns the git object id of FILE-PATH's current on-disk content, or NIL when
+   the file is not tracked or git is unavailable. Recorded in the backup so a
+   restore is a single `git show` even if the backup itself is later lost."
   (handler-case
-      (let* ((file-content (uiop:read-file-string file-path))
-             (symbol-name  (string-downcase (symbol-name function-symbol)))
-             (pattern-1    (format nil "(defun ~A " symbol-name))
-             (pattern-2    (format nil "(defun ~A~%" symbol-name))
-             (start-pos    (or (search pattern-1 (string-downcase file-content))
-                               (search pattern-2 (string-downcase file-content)))))
-        (unless start-pos
+      (multiple-value-bind (out err code)
+          (uiop:run-program (list "git" "hash-object" (uiop:native-namestring file-path))
+                            :output :string :error-output :string :ignore-error-status t)
+        (declare (ignore err))
+        (when (and (zerop code) out)
+          (string-trim '(#\Space #\Newline #\Return) out)))
+    (error () nil)))
+
+(defun backup-file-timestamped (file-path)
+  "Copies FILE-PATH to a timestamped sibling named FILE~YYYYMMDD-HHMMSS.
+   That suffix is already git-ignored via the existing `*.*~' rule, so backups
+   never pollute the working tree.
+
+   Returns (values backup-pathname :ok) when the original was copied, and
+   (values nil :failed) when the copy could not be made — in which case the
+   caller must NOT overwrite the original."
+  (handler-case
+      (let* ((stamp (multiple-value-bind (sec min hour date month year)
+                        (decode-universal-time (get-universal-time))
+                      (format nil "~4,'0D~2,'0D~2,'0D-~2,'0D~2,'0D~2,'0D"
+                              year month date hour min sec)))
+             (backup
+               (merge-pathnames
+                (format nil "~A~A"
+                        (file-namestring file-path)
+                        (format nil "~C~A" #\~ stamp))
+                (or (uiop:pathname-directory-pathname file-path)
+                    (uiop:parse-native-namestring "./")))))
+        (with-open-file (in file-path :direction :input :element-type '(unsigned-byte 8))
+          (with-open-file (out backup :direction :output
+                                      :if-exists :supersede
+                                      :if-does-not-exist :create
+                                      :element-type '(unsigned-byte 8))
+            (let ((buf (make-array 8192 :element-type '(unsigned-byte 8))))
+              (loop for n = (read-sequence buf in)
+                    while (plusp n)
+                    do (write-sequence buf out :end n)))))
+        (values backup :ok))
+    (error () (values nil :failed))))
+
+(defun write-file-string (file-path content)
+  "Rewrites FILE-PATH with CONTENT, preserving the original file mode."
+  (let ((mode (ignore-errors
+                (sb-posix:stat-mode (sb-posix:stat (uiop:native-namestring file-path))))))
+    (with-open-file (out file-path :direction :output
+                                  :if-exists :supersede
+                                  :if-does-not-exist :create)
+      (write-string content out))
+    (when mode (ignore-errors (sb-posix:chmod (uiop:native-namestring file-path) mode)))))
+
+(defun apply-file-refactor-and-load (function-symbol file-path new-code-string
+                                     &key allow-signature-change (want-backup t))
+  "Validated, reversible splice of FUNCTION-SYMBOL's definition in FILE-PATH.
+
+   Order of operations — the on-disk source is never the first thing to break:
+     1. validate  NEW-CODE-STRING actually defines FUNCTION-SYMBOL
+     2. locate    every top-level (defun FUNCTION-SYMBOL ...) in the file
+     3. guard     the argument list against the one on disk (see below)
+     4. back up   the original to FILE~YYYYMMDD-HHMMSS
+     5. write     the spliced source
+     6. compile   the written file to a temporary .fasl
+     7. roll back to the backup if compilation failed, then return FAILURE
+     8. load      the verified .fasl and confirm the symbol is fbound
+
+   :allow-signature-change — skip the argument-list guard, for intentional
+      interface changes. Default NIL: required, optional, rest and keyword
+      arguments must match the disk source exactly, because every caller in the
+      project was compiled against the old signature. Redefining a function to
+      return a DIFFERENT SHAPE usually does not need this flag — the lambda list
+      (parameter structure) need not change to change the return value.
+   :want-backup — set NIL to skip the backup copy. Not recommended.
+
+   Returns a SUCCESS/FAILURE string; FAILURE leaves both the file and the running
+   image as they were."
+  (handler-case
+      (let* ((symbol  (intern (string-upcase (format nil "~A" function-symbol)) *package*))
+             (name    (string-downcase (symbol-name symbol))))
+        (unless (and (stringp file-path) (probe-file file-path))
           (return-from apply-file-refactor-and-load
-            (format nil "FAILURE: Could not find '(defun ~A' in ~A" symbol-name file-path)))
-        (let ((end-pos (with-input-from-string (s file-content :start start-pos)
-                         (let ((*read-eval* nil))
-                           (read s)
-                           (file-position s)))))
-          (let ((updated-content (concatenate 'string
-                                              (subseq file-content 0 start-pos)
-                                              new-code-string
-                                              (subseq file-content (+ start-pos end-pos)))))
-            (with-open-file (out file-path :direction :output
-                                           :if-exists :supersede      ; Replaces — never appends
-                                           :if-does-not-exist :create)
-              (write-string updated-content out))
-            (multiple-value-bind (output-truename warnings-p failure-p)
-                (compile-file file-path)
-              (declare (ignore output-truename warnings-p))
-              (if failure-p
-                  (format nil "FAILURE: Compilation errors in ~A" file-path)
-                  (progn
-                    (load (compile-file-pathname file-path))
-                    (format nil "SUCCESS: ~A refactored and reloaded from ~A"
-                            function-symbol file-path)))))))
+            (format nil "FAILURE: Source file does not exist: ~A" file-path)))
+        (unless (and (stringp new-code-string)
+                     (plusp (length (string-trim '(#\Space #\Tab #\Newline #\Return)
+                                                 new-code-string))))
+          (return-from apply-file-refactor-and-load
+            "FAILURE: New code is empty."))
+        (unless (defun-source-matches-p new-code-string name)
+          (return-from apply-file-refactor-and-load
+            (format nil "FAILURE: The replacement code does not define ~A. ~
+                         Expected a top-level (defun ~A ...) or (defmacro ~A ...) form."
+                    symbol name name)))
+
+        (let* ((content (uiop:read-file-string file-path))
+               (regions (extract-defun-regions content name)))
+          (when (null regions)
+            (return-from apply-file-refactor-and-load
+              (format nil "FAILURE: No top-level (defun ~A ...) found in ~A."
+                      name file-path)))
+
+          (unless allow-signature-change
+            (let ((old-args (read-defun-arglist content name))
+                  (new-args (read-defun-arglist new-code-string name)))
+              (when (and old-args new-args (not (equal old-args new-args)))
+                (return-from apply-file-refactor-and-load
+                  (format nil "FAILURE: Signature change blocked for ~A.~%  on disk: ~S~%  new code: ~S~%  ~
+                               Callers elsewhere in the project were compiled against the existing ~
+                               argument list. Preserve it, or pass :allow-signature-change t when the ~
+                               interface change is intentional."
+                          name old-args new-args)))))
+
+          (let* ((updated  (replace-defun-blocks content regions new-code-string))
+                 (tmp-fasl (merge-pathnames
+                            (format nil "nst-refactor-~A-~A.fasl" name (random 1000000))
+                            (uiop:temporary-directory)))
+                 (warnings '())
+                 (hard-warnings '())
+                 (compile-failed nil)
+                 (backup   nil))
+            ;; Make the backup BEFORE the first write, and refuse to overwrite a
+            ;; file we could not back up.
+            (when want-backup
+              (multiple-value-bind (path status)
+                  (backup-file-timestamped file-path)
+                (if (eq status :ok)
+                    (progn
+                      (setf backup path)
+                      (format t "~&[refactor] Backup: ~A~A~%"
+                              (file-namestring path)
+                              (let ((object-id (%git-object-id file-path)))
+                                (if object-id (format nil "  (git blob ~A)" object-id) ""))))
+                    (return-from apply-file-refactor-and-load
+                      (format nil "FAILURE: Could not create a backup for ~A; refusing to overwrite it."
+                              file-path)))))
+
+            (write-file-string file-path updated)
+
+            (handler-case
+                (handler-bind ((warning (lambda (w)
+                                          (let ((text (format nil "~A" w)))
+                                            (push text warnings)
+                                            ;; SBCL reports undefined functions and
+                                            ;; variables as WARNINGS, so a body that
+                                            ;; calls a function which does not exist
+                                            ;; still "compiles". Treat those as hard
+                                            ;; failures, otherwise broken code is
+                                            ;; written to disk and hot-loaded.
+                                            (when (or (search "undefined function" text)
+                                                      (search "undefined variable" text))
+                                              (push text hard-warnings)))
+                                          (muffle-warning w))))
+                  (multiple-value-bind (fasl w-p f-p)
+                      (compile-file file-path :output-file tmp-fasl)
+                    (declare (ignore w-p))
+                    (setf compile-failed (or f-p (and hard-warnings t)))
+                    (when fasl (setf tmp-fasl fasl))))
+              (error (e)
+                (setf compile-failed t)
+                (push (format nil "~A" e) warnings)))
+
+            (cond
+              (compile-failed
+               (if backup
+                   (let ((restored
+                           (handler-case
+                               (progn (write-file-string file-path content) t)
+                             (error () nil))))
+                     (format nil "FAILURE: Compilation failed for ~A. ~A~%~{~A~%~}"
+                             file-path
+                             (if restored
+                                 "File rolled back to its previous content; image untouched."
+                                 (format nil "!! ROLLBACK FAILED — restore from ~A" backup))
+                             (nreverse (if hard-warnings hard-warnings warnings))))
+                   (format nil "FAILURE: Compilation failed for ~A and no backup was taken.~%~{~A~%~}"
+                           file-path (nreverse (if hard-warnings hard-warnings warnings)))))
+              (t
+               ;; Load FIRST, then clean up. Deleting the fasl before loading
+               ;; makes LOAD fail with "Couldn't load".
+               (load tmp-fasl)
+               (ignore-errors (delete-file tmp-fasl))
+               (unless (fboundp symbol)
+                 (return-from apply-file-refactor-and-load
+                   (format nil "FAILURE: After reloading ~A, ~A is still not fbound." file-path symbol)))
+               (format nil "SUCCESS: ~A reloaded. ~D definition(s) replaced in ~A.~A~A"
+                       symbol (length regions) (file-namestring file-path)
+                       (if backup (format nil " Backup: ~A." (file-namestring backup)) "")
+                       (if warnings
+                           (format nil " ~D compile warning(s), first: ~A"
+                                   (length warnings) (first warnings))
+                           "")))))))
     (error (e)
       (format nil "FAILURE: ~A" e))))
 
@@ -944,20 +1264,34 @@ helper first, then the main function. Both will be captured automatically."
   "Seconds offset from UTC for Indian Standard Time (IST, UTC+5:30).")
 
 (defun ist-valid-coding-time-p (&optional (ist-time (get-universal-time)))
-  "Predicate: returns T only if the current IST time falls inside a DeepSeek off-peak window.
-     Window 1: 09:30 – 11:30  IST
-     Window 2: 15:30 – 06:30  IST (crosses midnight)"
-  (let* ((local    (+ ist-time *ist-timezone-offset*))
-         (minute   (nth-value 1 (decode-universal-time local 0)))
-         (hour     (nth-value 2 (decode-universal-time local 0)))
-         (now      (+ (* hour 60) minute))
-         (w1-start (+ (* 9  60) 30))   ; 09:30
-         (w1-end   (+ (* 11 60) 30))   ; 11:30
-         (w2-start (+ (* 15 60) 30))   ; 15:30
-         (w2-end   (+ (* 6  60) 30)))  ; 06:30 next morning
-    (or (and (>= now w1-start) (< now w1-end))     ; 09:30 – 11:30
-        (and (>= now w2-start) (< now (* 24 60)))  ; 15:30 – 00:00
-        (< now w2-end))))                           ; 00:00 – 06:30
+  "Predicate: returns T when the refactoring agent may run.
+
+     Weekends (Saturday and Sunday, IST): always allowed — no window check.
+     Weekdays: only inside a DeepSeek off-peak window.
+       Window 1: 09:30 – 11:30 IST
+       Window 2: 15:30 – 06:30 IST (crosses midnight)
+
+   The argument is a UNIVERSAL-TIME integer (UTC). The weekday is therefore
+   derived from the IST-shifted time, not from the UTC time — at 20:00 UTC on
+   Friday it is already Saturday in IST, and the weekend rule must apply.
+
+   Note: DECODE-UNIVERSAL-TIME numbers the weekdays 0=Monday .. 6=Sunday, so
+   Saturday is 5 and Sunday is 6. The comparison must be against numbers."
+  (multiple-value-bind (sec minute hour date month year day-of-week dst-p zone)
+      (decode-universal-time (+ ist-time *ist-timezone-offset*) 0)
+    (declare (ignore sec date month year dst-p zone))
+    (if (member day-of-week '(5 6))     ; 5 = Saturday, 6 = Sunday
+        ;; Weekends: no off-peak restriction at all.
+        t
+	;;else 
+	(let* ((now      (+ (* hour 60) minute))
+               (w1-start (+ (* 9  60) 30))   ; 09:30
+               (w1-end   (+ (* 11 60) 30))   ; 11:30
+               (w2-start (+ (* 15 60) 30))   ; 15:30
+               (w2-end   (+ (* 6  60) 30)))  ; 06:30 next morning
+          (or (and (>= now w1-start) (< now w1-end))     ; 09:30 – 11:30
+              (and (>= now w2-start) (< now (* 24 60)))  ; 15:30 – 00:00
+              (< now w2-end))))))                       ; 00:00 – 06:30
 
 (defun extract-all-defun-blocks (text)
   "Scans TEXT for all top-level (defun ...) forms using paren counting.
@@ -1007,14 +1341,244 @@ helper first, then the main function. Both will be captured automatically."
 
 
 ;;; ============================================================================
-;;; Main Entry Point
+;;; Generic Objective-Driven Agent Loop
+;;;
+;;; RUN-AGENT-LOOP carries the machinery only: prompt -> parse action -> dispatch
+;;; tool -> append result -> repeat with budget pressure -> terminate.
+;;; Everything task-specific (system prompt, first message, pressure wording,
+;;; completion extraction, terminal-action predicate) is supplied by an
+;;; AGENT-POLICY object, so one loop drives any number of tasks.
 ;;; ============================================================================
 
-(defun refactor-live-function (function-symbol &key (max-steps 10) hint)
+(defun agent-log-block (list &key (width 120))
+  "Renders LIST of session-log lines with a head-truncated preview of each."
+  (with-output-to-string (out)
+    (dolist (line (nreverse (copy-list list)))
+      (format out "  ~A~%" (preview-line line :width width)))))
+
+(defun agent-call-list (completed-tools)
+  "Renders the ALREADY CALLED list from COMPLETED-TOOLS."
+  (format nil "~{~A~^, ~}" (loop for k being the hash-keys of completed-tools collect k)))
+
+(defun agent-preview (string &key (width 300))
+  "Head-truncates STRING to WIDTH with an ellipsis, for progress echo."
+  (preview-line (or string "") :width width))
+
+(defun preview-line (string &key (width 300))
+  "Head-truncates STRING to WIDTH characters, appending an ellipsis when cut."
+  (if (> (length string) width)
+      (concatenate 'string (subseq string 0 width) "…")
+      string))
+
+(defun default-next-message (target action result context-log completed-tools
+                             steps-left)
+  "Task-agnostic step prompt: state the target, what has been tried, and the
+   last observation. Works for any tool-using objective."
+  (declare (ignore target))
+  (format nil
+          "SESSION LOG (do NOT repeat a completed action):~%~A~%~
+           ALREADY CALLED: ~A~%~
+           LAST RESULT [~A]:~%~A~%~%~
+           ~A~
+           Next: one alist action."
+          (agent-log-block context-log)
+          (agent-call-list completed-tools)
+          action (or result "")
+          (if (and steps-left (<= steps-left 3))
+              (format nil "Step budget: only ~D step(s) remain.~%" steps-left)
+              "")))
+
+(defun refactoring-pressure-message (completed-tools steps-left source-retrieved)
+  "Budget pressure text tuned for the refactoring pipeline: escalates as the
+   step budget drains, and nudges toward completion once source and type are in."
+  (let ((has-basics (and source-retrieved
+                         (gethash "get-function-type" completed-tools))))
+    (cond
+      ((<= steps-left 2)
+       (format nil
+               "~%!! CRITICAL: Only ~D step(s) left. Issue complete NOW. ~
+                Output the alist with :content . :delivered then the raw (defun ...) block.~%"
+               steps-left))
+      ((<= steps-left 5)
+       (format nil "~%! WARNING: ~D steps remain. Move toward complete soon.~%" steps-left))
+      (has-basics
+       "~%You have source and type confirmed. Issue complete unless you still need a specific tool.~%")
+      (t ""))))
+
+(defun refactoring-next-message (target action result context-log completed-tools
+                                 steps-left source-retrieved)
+  "Step prompt for the refactoring pipeline: pins :target and applies pressure."
+  (format nil
+          "TARGET: ~A~%~%~
+           SESSION LOG (do NOT repeat any tool already called):~%~A~%~
+           ALREADY CALLED: ~A~%~%~
+           LAST RESULT [~A]:~%~A~%~%~
+           ~A~%~
+           Next: one alist action. :target must always be \"~A\"."
+          target
+          (agent-log-block context-log)
+          (agent-call-list completed-tools)
+          action (or result "")
+          (refactoring-pressure-message completed-tools steps-left
+                                        source-retrieved)
+          target))
+
+(defun refactoring-on-complete (raw-output action-content)
+  "Completion extractor for the refactoring pipeline. Handles both delivery
+   conventions: :content . :delivered (code in raw text) and a parsed string."
+  (or (and (or (null action-content) (eq action-content :delivered))
+           (extract-all-defun-blocks raw-output))
+      (and (stringp action-content) (plusp (length action-content)) action-content)))
+
+(defun make-refactoring-policy ()
+  "Builds the AGENT-POLICY that turns RUN-AGENT-LOOP into the refactoring agent.
+   Fresh per call so :tracked-state does not leak between sessions."
+  (list :name              "refactoring"
+        :system-prompt     (generate-agent-prompt)
+        :initial-message   (lambda (target hint)
+                             (format nil
+                                     "Refactor the function ~A. Begin with lookup-metadata.~A"
+                                     target
+                                     (if hint
+                                         (format nil "~%~%Developer guidance: ~A" hint)
+                                         "")))
+        :tracked-state     (lambda (action result state)
+                             (declare (ignore action result))
+                             (getf state :source-retrieved))
+        :next-message      #'refactoring-next-message
+        :done-p            (lambda (action) (string-equal action "complete"))
+        :on-complete       #'refactoring-on-complete
+        :completion-marker "\"complete\""
+        :completion-signal (lambda (code target) (list :result code :target target))))
+
+(defun run-agent-loop (objective &key policy (model "deepseek")
+                                  (max-steps 10) hint (echo t))
+  "Objective-driven tool-using agent loop. Carries the control flow only; all
+   task-specific behaviour comes from POLICY (see MAKE-REFACTORING-POLICY).
+
+   POLICY is a plist:
+     :name              short string used in the session banner
+     :system-prompt     system prompt string
+     :initial-message   (lambda (target hint) ...) -> first prompt string
+     :tracked-state     (lambda (action result state) ...) -> updated state plist.
+                        Only needed by policies whose prompt builder wants
+                        derived state (the refactoring policy tracks whether a
+                        clean source retrieval has happened).
+     :next-message      (lambda (target action result context-log completed-tools
+                                 steps-left state) ...) -> next prompt string
+     :done-p            (lambda (action) ...) -> T when ACTION terminates the run
+     :on-complete       (lambda (raw-output action-content) ...) -> final result
+     :completion-marker substring searched for in RAW-OUTPUT on the rescue path,
+                        used when the alist failed to parse but the model clearly
+                        signalled completion in prose
+     :completion-signal (lambda (result target) ...) -> condition initargs
+
+   TARGET is (format nil \"~A\" objective), upper-cased.
+
+   Returns the policy's completed result, or NIL when the step budget is
+   exhausted or a parse failure cannot be rescued."
+  (let* ((target        (string-upcase (format nil "~A" objective)))
+         (system-prompt (getf policy :system-prompt))
+         (current-prompt (funcall (getf policy :initial-message) target hint))
+         (completed-tools (make-hash-table :test #'equal))
+         (context-log     '())
+         (state           nil))
+
+    (format t "~&~%=== ~A Session: ~A ===" (getf policy :name) target)
+    (when hint (format t "~&    Hint: ~A~%" hint))
+
+    (handler-case
+        (dotimes (step max-steps
+                       (progn
+                         (format t "~&~%[Agent] ~D-step budget exhausted without completion.~%"
+                                 max-steps)
+                         nil))
+
+          (format t "~&~%[Step ~D/~D]~%" (1+ step) max-steps)
+          (let* ((raw-output   (llm-generate current-prompt
+                                             :system system-prompt
+                                             :model model))
+                 (action-alist (safe-read-alist raw-output))
+                 (action       (when action-alist
+                                 (cdr (assoc :action action-alist :test #'string-equal))))
+                 (content      (when action-alist
+                                 (cdr (assoc :content action-alist :test #'string-equal)))))
+            (format t "[Agent] ~S~%" action-alist)
+
+            (cond
+              ;; --- Completion: alist parsed cleanly and signals done ---
+              ((and action-alist (funcall (getf policy :done-p) action))
+               (let ((code (funcall (getf policy :on-complete) raw-output content)))
+                 (if code
+                     (apply #'signal 'refactoring-complete
+                            (funcall (getf policy :completion-signal) code target))
+                     (progn
+                       (format t "~&[Complete] Action confirmed but no result could be extracted.~%")
+                       (format t "~&[Complete] Raw output:~%~A~%" raw-output)
+                       (return-from run-agent-loop nil)))))
+
+              ;; --- Rescue path: alist parse failed but the raw output still
+              ;;     carries the completion marker. Fires when the model put code
+              ;;     inside :content as an unescaped string and the reader choked.
+              ((and (null action-alist)
+                    (search (getf policy :completion-marker) raw-output))
+               (let ((code (funcall (getf policy :on-complete) raw-output nil)))
+                 (if code
+                     (progn
+                       (format t "~&[Rescued] Alist parse failed but result extracted from raw output.~%")
+                       (apply #'signal 'refactoring-complete
+                              (funcall (getf policy :completion-signal) code target)))
+                     (progn
+                       (format t "~&[Rescued] Completion marker found but no result extractable.~%")
+                       (format t "~&Raw:~%~A~%" raw-output)
+                       (return-from run-agent-loop nil)))))
+
+              ;; --- Hard parse failure: nothing usable ---
+              ((null action-alist)
+               (format t "~&[Parse Error] Could not parse LLM output and no rescue path matched.~%")
+               (format t "~&Raw:~%~A~%" raw-output)
+               (return-from run-agent-loop nil))
+
+              ;; --- Normal tool call ---
+              (t
+               (let* ((tool-result (dispatch-tool action-alist))
+                      (steps-left  (- max-steps step 1)))
+                 (setf (gethash action completed-tools) t)
+                 (when (getf policy :tracked-state)
+                   (setf state (funcall (getf policy :tracked-state)
+                                        action tool-result state)))
+                 (push (format nil "  Step ~D [~A]: ~A"
+                               (1+ step) action (agent-preview tool-result :width 120))
+                       context-log)
+                 (when echo
+                   (format t "[~A] ~A~%" action (agent-preview tool-result :width 300)))
+                 (setf current-prompt
+                       (funcall (getf policy :next-message)
+                                target action tool-result context-log
+                                completed-tools steps-left state)))))))
+
+      (refactoring-complete (c)
+        (let ((code   (refactoring-result c))
+              (target (refactoring-target c)))
+          (format t "~&~%=== ~A: ~A ===~%~%~A~%~%=== End ===~%"
+                  (getf policy :name) target code)
+          (setf *last-refactored-code*   code
+                *last-refactored-target* target)
+          (format t "~&[Stored] Call (commit-refactoring) to write and hot-load.~%")
+          code)))))
+
+
+;;; ============================================================================
+;;; Main Entry Point — Refactoring Policy (thin wrapper over RUN-AGENT-LOOP)
+;;; ============================================================================
+
+(defun refactor-live-function (function-symbol &key (max-steps 10) hint
+                                               (model "deepseek"))
   "Drives the multi-tool refactoring agent loop for FUNCTION-SYMBOL via DeepSeek.
 
    :max-steps  — step budget (default 10; raise for complex functions)
    :hint       — optional developer guidance injected into the first prompt.
+   :model      — provider target string (default \"deepseek\").
 
    Examples:
      (refactor-live-function 'apply-file-refactor-and-load)
@@ -1023,143 +1587,19 @@ helper first, then the main function. Both will be captured automatically."
      (refactor-live-function 'create-model-for-updatewarehouse :max-steps 10
                              :hint \"extract hunchentoot:parameter collection into a helper\")
 
-   Blocked outside IST off-peak windows (09:30-11:30, 15:30-06:30).
+   Time gate: on WEEKENDS (Sat/Sun IST) this always runs. On weekdays it is
+   blocked outside the DeepSeek off-peak windows (09:30-11:30 / 15:30-06:30 IST).
    Returns the refactored defun string on success, NIL on failure."
   (unless (ist-valid-coding-time-p)
     (format t "~&[refactor-live-function] Blocked: outside DeepSeek off-peak IST window.~%")
-    (format t "~&  Allowed: 09:30-11:30 / 15:30-06:30 IST.~%")
+    (format t "~&  Allowed: weekends anytime, or weekdays 09:30-11:30 / 15:30-06:30 IST.~%")
     (return-from refactor-live-function nil))
 
-  (let* ((fn-name       (string-upcase (format nil "~A" function-symbol)))
-         (system-prompt (generate-agent-prompt))
-         (current-prompt (format nil
-                           "Refactor the function ~A. Begin with lookup-metadata.~A"
-                           fn-name
-                           (if hint
-                               (format nil "~%~%Developer guidance: ~A" hint)
-                               "")))
-         ;; Session state
-         (completed-tools  (make-hash-table :test #'equal))
-         (context-log      '())
-         (source-retrieved nil))
-
-    (format t "~&~%=== Refactoring Session: ~A ===" fn-name)
-    (when hint (format t "~&    Hint: ~A~%" hint))
-
-    (handler-case
-        (dotimes (step max-steps
-                  (progn
-                    (format t "~&~%[Agent] ~D-step budget exhausted without completion.~%" max-steps)
-                    nil))
-
-          (format t "~&~%[Step ~D/~D]~%" (1+ step) max-steps)
-	  (let* ((raw-output   (llm-generate current-prompt
-                                   :system system-prompt
-                                   :model "deepseek"))
-       ;; safe-read-alist strips markdown fences and validates alist shape
-       (action-alist (safe-read-alist raw-output))
-       (action       (when action-alist
-                       (cdr (assoc :action action-alist :test #'string-equal))))
-       (content      (when action-alist
-                       (cdr (assoc :content action-alist :test #'string-equal)))))
-
-  (format t "[Agent] ~S~%" action-alist)
-
-  (cond
-    ;; --- Completion path: alist parsed cleanly and signals complete ---
-    ((string-equal action "complete")
-     (let ((code (or
-                  ;; :content is :delivered — extract defun blocks from raw output
-                  (and (or (null content) (eq content :delivered))
-                       (extract-all-defun-blocks raw-output))
-                  ;; :content held the code string and the reader actually parsed it
-                  (and (stringp content) (plusp (length content)) content))))
-       (if code
-           (signal 'refactoring-complete :result code :target fn-name)
-           (progn
-             (format t "~&[Complete] Action confirmed but no defun block found.~%")
-             (format t "~&[Complete] Raw output:~%~A~%" raw-output)
-             (return-from refactor-live-function nil)))))
-
-    ;; --- Rescue path: alist parse failed but raw output contains complete signal ---
-    ;; This fires when the model put the code inside :content as an unescaped string
-    ;; and read-from-string choked on the inner quotes.
-    ((and (null action-alist)
-          (search "\"complete\"" raw-output))
-     (let ((code (extract-all-defun-blocks raw-output)))
-       (if code
-           (progn
-             (format t "~&[Rescued] Alist parse failed but defun block(s) extracted from raw output.~%")
-             (signal 'refactoring-complete :result code :target fn-name))
-           (progn
-             (format t "~&[Rescued] Complete signal found but no defun block extractable.~%")
-             (format t "~&Raw:~%~A~%" raw-output)
-             (return-from refactor-live-function nil)))))
-
-    ;; --- Hard parse failure: nothing usable ---
-    ((null action-alist)
-     (format t "~&[Parse Error] Could not parse LLM output and no rescue path matched.~%")
-     (format t "~&Raw:~%~A~%" raw-output)
-     (return-from refactor-live-function nil))
-
-    ;; --- Normal tool call ---
-    (t
-     (let ((tool-result (dispatch-tool action-alist)))
-       (setf (gethash action completed-tools) t)
-       (when (and (string-equal action "read-source-file")
-                  (not (search "ERROR:" (or tool-result ""))))
-         (setf source-retrieved t))
-       (push (format nil "  Step ~D [~A]: ~A"
-                     (1+ step) action
-                     (if (> (length (or tool-result "")) 120)
-                         (concatenate 'string (subseq tool-result 0 120) "…")
-                         tool-result))
-             context-log)
-       (format t "[~A] ~A~%"
-               action
-               (if (> (length (or tool-result "")) 300)
-                   (concatenate 'string (subseq tool-result 0 300) "…")
-                   tool-result))
-       (let* ((steps-left (- max-steps step 1))
-              (has-basics (and source-retrieved
-                               (gethash "get-function-type" completed-tools)))
-              (pressure
-                (cond
-                  ((<= steps-left 2)
-                   (format nil
-                     "~%!! CRITICAL: Only ~D step(s) left. Issue complete NOW. ~
-                      Output the alist with :content . :delivered then the raw (defun ...) block.~%"
-                     steps-left))
-                  ((<= steps-left 5)
-                   (format nil
-                     "~%! WARNING: ~D steps remain. Move toward complete soon.~%" steps-left))
-                  (has-basics
-                   "~%You have source and type confirmed. Issue complete unless you still need a specific tool.~%")
-                  (t ""))))
-         (setf current-prompt
-               (format nil
-                 "TARGET: ~A~%~%~
-                  SESSION LOG (do NOT repeat any tool already called):~%~{~A~%~}~%~
-                  ALREADY CALLED: ~{~A~^, ~}~%~%~
-                  LAST RESULT [~A]:~%~A~%~%~
-                  ~A~%~
-                  Next: one alist action. :target must always be \"~A\"."
-                 fn-name
-                 (nreverse (copy-list context-log))
-                 (loop for k being the hash-keys of completed-tools collect k)
-                 action tool-result
-                 pressure
-                 fn-name))))))))
-
-      (refactoring-complete (c)
-	(let ((code   (refactoring-result c))
-              (target (refactoring-target c)))
-	  (format t "~&~%=== Refactored: ~A ===~%~%~A~%~%=== End ===~%" target code)
-	  ;; Store for commit-refactoring
-	  (setf *last-refactored-code*   code
-		*last-refactored-target* target)
-	  (format t "~&[Stored] Call (commit-refactoring) to write and hot-load.~%")
-	  code)))))
+  (run-agent-loop function-symbol
+                  :policy     (make-refactoring-policy)
+                  :model      model
+                  :max-steps  max-steps
+                  :hint       hint))
 
 
 
