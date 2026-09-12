@@ -606,9 +606,13 @@
 (defun com-hhub-transaction-update-warehouse-action ()
   "Handler for updating a warehouse via the proc.bhandara !update verb.
 
-   Uses the gana (NST) path directly — !update 'nst-whs — instead of
-   the legacy Context Flow Dispatcher (dispatch-route :warehouse/update →
-   WarehouseAdapter/WarehouseService.doUpdate).
+   Dispatched through the conflodis2 route-action layer: the inbound
+   action symbol 'route-warehouse-update resolves to the
+   route-warehouse-update action verb, which launches the Tier-1 ferry
+   !update ∘ nst-whs. Neither this handler nor the action verb builds a
+   domain-ctx — the dispatcher supplies the कारक from the session.
+   The legacy Context Flow Dispatcher (dispatch-route :warehouse/update →
+   WarehouseAdapter/WarehouseService.doUpdate) is not involved.
 
    row-id arrives as HTTP param \"id\" (the edit page's URL carries
    ?id=<row>; same key used by fetch for pre-population). All other
@@ -634,10 +638,10 @@
          (company (get-login-vendor-company))
          (vendor (get-login-vendor))
 
-         ;; ctx is a domain-ctx (the gana kāraka passenger struct), NOT
-         ;; the conflodis call-context. tenant = vendor session company.
-         (ctx (make-domain-ctx :actor "VENDOR" :tenant company
-                               :channel "ONLINE" :recipient vendor :source "VENDOR"))
+         ;; No domain-ctx is built here any more: the dispatcher (conflodis2)
+         ;; constructs the कारक passenger from the session on every dispatch —
+         ;; see (dispatch-route2 'route-warehouse-update …) below. Building a
+         ;; second ctx here would be a competing source of अधिकरण (नियम-1).
 
          (wname (hunchentoot:parameter "wname"))
          (waddr1 (hunchentoot:parameter "waddr1"))
@@ -724,9 +728,30 @@
          (params nil))
     (setf params (acons "uri" (hunchentoot:request-uri*) params))
     (with-hhub-transaction "com-hhub-transaction-update-warehouse-action" params
-      (with-nst-error-handler 
-          (apply #'!update 'nst-whs id ctx update-args)
-	'hhub-business-function-error))  ; perform the update
+      (with-nst-error-handler
+          ;; Ring-2/3 action dispatch. The inbound ACTION symbol selects the
+          ;; route-warehouse-update verb (warehouse/nst-bl-whsapi.lisp), which
+          ;; itself launches the Tier-1 ferry — request->dispatch !update
+          ;; 'nst-whs. This handler no longer calls the domain verb directly.
+          ;;
+          ;; कारक come from the dispatcher: अधिकरण (tenant) is the SESSION
+          ;; login company via make-action-domain-ctx (नियम-1) — :tenant-id in
+          ;; the payload below is stripped by extract-domain-initargs and is
+          ;; deliberately NOT supplied here. :recipient/:source ride in the
+          ;; payload (संप्रदान/अपादान are not tenant-scoped).
+          ;;
+          ;; :RAW T — the dispatcher returns the response model(s) instead of
+          ;; rendering; this handler only needs the side effect, and the sole
+          ;; value it returns is the redirect function below.
+          (dispatch-route2 'route-warehouse-update
+                           (list* :row-id id
+                                  :recipient vendor
+                                  :source "VENDOR"
+                                  update-args)
+                           :trans-func-name "com-hhub-transaction-update-warehouse-action"
+                           :request-uri (hunchentoot:request-uri*)
+                           :raw t)
+        'hhub-business-function-error))  ; perform the update
         
     ;; Return ONLY the redirect URL — the sole value create-widgets-for-
     ;; genericredirect consumes to emit the browser redirect.
