@@ -238,7 +238,7 @@
     :type (string 256)
     :initarg :state)
    (country
-    :accessor city
+    :accessor country
     :type (string 256)
     :initarg :country)
    (zipcode
