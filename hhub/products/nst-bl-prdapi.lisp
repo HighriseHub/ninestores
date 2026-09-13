@@ -133,30 +133,15 @@
 ;;; exactly like route-ping.
 
 (defun route-product-create (request ctx)
-  "कर्म = nst-prd. The PRODUCT_CODE uniqueness laws ride in nst-prd's own
-   ?exists / make :before (dod-bl-prd.lisp) — the ferry does not re-check them.
+  "कर्म = nst-prd. The PRODUCT_CODE identity laws — including the
+   soft-deleted-holder :C — ride in the verb's own `make :around`
+   (dod-bl-prd.lisp), so the API, the internal website and any REPL caller all get
+   the same four-valued answer.
 
-   ONE exception, because it is not a legality question but an epistemic one: an
-   identity held by a SOFT-DELETED row. PRODUCT_CODE's unique index carries no
-   DELETED_STATE, so a deleted product keeps its code reserved forever, while
-   नियम-2 makes that row invisible to every verb. The client's 'create this' and
-   the world's 'the code is taken, by a row marked deleted' disagree → Belnap :C.
-
-   Returning the contradiction HERE is what turns that disagreement into a 409
-   with a reason a human can act on. Letting it fall through to make :before
-   would raise an error, which the unfinished taxonomy renders as a 500 — with
-   the difference between 'duplicate' and 'deleted, undelete it' visible only in
-   the log."
-  (let* ((payload (params request))
-         (code (prd-param payload :product-code))
-         (check (when (and code (stringp code))
-                  (?exists 'nst-prd code ctx))))
-    (if (and check (eq (bo-knowledge-truth check) :C))
-        (make-instance 'nst-entity-contradiction
-                       :tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)
-                       :reason (format nil "PRODUCT_CODE ~A is held by a SOFT-DELETED product: the row is still in DOD_PRD_MASTER and the unique index on PRODUCT_CODE includes no DELETED_STATE, while नियम-2 makes it invisible to every verb. Human decision needed: undelete that product, or create this one under a different code."
-                                       code))
-        (request->dispatch request 'make 'nst-prd ctx))))
+   THIS VERB USED TO DO THE :C PRE-CHECK ITSELF, which meant only the HTTP path saw
+   a 409 for a soft-deleted code holder while every other caller still raised and
+   got a 500. The law belongs to the प्रत्यय, not to the transport."
+  (request->dispatch request 'make 'nst-prd ctx))
 
 (defun route-product-fetch (request ctx)
   "कर्म = nst-prd. Reads :row-id from params (rm-row-id). Returns an nst-prd or

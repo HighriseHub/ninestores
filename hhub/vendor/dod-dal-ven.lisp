@@ -205,6 +205,19 @@
     :type (string 30)
     :initarg :phone)
 
+   ;; USERNAME is NOT NULL with NO column default, and this class had no slot for
+   ;; it — so with STRICT_TRANS_TABLES on (verified: MySQL 8.0.46) EVERY INSERT
+   ;; through this view-class failed with
+   ;;   ERROR 1364: Field 'USERNAME' doesn't have a default value
+   ;; because clsql:update-records-from-instance emits only the slots the
+   ;; view-class declares. The column is in no unique key, and the login path
+   ;; matches PHONE, so nothing enforces that two vendors differ here.
+   (username
+    :accessor username
+    :DB-CONSTRAINTS :NOT-NULL
+    :type (string 30)
+    :initarg :username)
+
    (email
     :accessor email
     :type (string 255)
@@ -217,6 +230,13 @@
     :accessor lastname
     :type (string 50)
     :initarg :lastname)
+   ;; FULLNAME was absent from this class for the same reason as USERNAME (it is
+   ;; nullable, so it broke nothing — but a slot that does not exist cannot be
+   ;; read back either, so every full-row copy lost it).
+   (fullname
+    :accessor fullname
+    :type (string 50)
+    :initarg :fullname)
    (salutation
     :accessor salutation
     :type (string 10)
@@ -238,7 +258,7 @@
     :type (string 256)
     :initarg :state)
    (country
-    :accessor city
+    :accessor country
     :type (string 256)
     :initarg :country)
    (zipcode

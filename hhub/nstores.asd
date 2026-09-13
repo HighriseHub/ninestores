@@ -182,9 +182,11 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "vendor/dod-dal-vad")
    (:file "vendor/dod-dal-ven")
    (:file "vendor/dod-dal-vpm")
+   (:file "vendor/nst-dal-vnd")   ; nst-vnd domain class (needs adhara, loaded earlier).
    (:file "vendor/dod-bl-vas")
    (:file "vendor/dod-bl-vad")
    (:file "vendor/dod-bl-ven")
+   (:file "vendor/nst-bl-vnd")    ; Tier-1 प्रत्यय for nst-vnd (needs dod-dal-ven + adhara).
    (:file "vendor/dod-bl-vpm")
    (:file "vendor/dod-ui-vad")
    (:file "vendor/dod-ui-ven")

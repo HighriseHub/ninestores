@@ -66,35 +66,65 @@
                         :provenance "नियम-2: DELETED_STATE='Y' rows are invisible to every verb")))
             (t knowledge))))))
 
-;;; make :before — refuse BEFORE the INSERT is attempted, on the identity the
-;;; unique key really enforces. Only :F (confirmed free) may create: :U is not
-;;; "probably free", and :C is a question for a human.
-(defmethod make :before ((entity-class (eql 'nst-whs)) (ctx domain-ctx)
-                          &rest initargs)
-  (let ((gstin (getf initargs :warehouse-gstin)))   ; was :wgstin
-    (when gstin
-      (let* ((wname (getf initargs :wname))
-             (check (?exists 'nst-whs gstin ctx :wname wname))
-             (truth (bo-knowledge-truth check)))
-        (case truth
-          (:F nil)                     ; confirmed free — proceed
-          (:T (error "GSTIN ~A + name ~S: a LIVE warehouse already holds this identity (uk_gstin_name_tenant). Refusing to create. [LEGAL: Section 122 CGST Act — duplicate GSTIN registration]"
-                     gstin wname))
-          (:C (error "GSTIN ~A + name ~S: the identity is held by a SOFT-DELETED warehouse — the row is still in DOD_WAREHOUSE (uk_gstin_name_tenant includes no DELETED_STATE) while नियम-2 makes it invisible to every verb. Human decision needed: undelete it, or create under a different name. Refusing to create."
-                     gstin wname))
-          (otherwise
-           (error "GSTIN ~A: uniqueness check returned ~A, not confirmed-available (:F). Refusing to create. [LEGAL: Section 122 CGST Act — duplicate GSTIN registration]"
-                  gstin truth)))))))
+;;; make :around — REFUSE BEFORE THE INSERT, and say WHY in four-valued terms.
+;;;
+;;; WAS a :before method that RAISED on :T/:C/:U. A :before method cannot return a
+;;; value (its result is discarded), so raising was the only way it could refuse —
+;;; and every refusal then reached the boundary as a 500, indistinguishable from a
+;;; crash. An :around method CAN return, so the same check now yields the domain's
+;;; own answer:
+;;;
+;;;   ?exists :F  → confirmed free → proceed with the INSERT (:T, or the DB's own
+;;;                 verdict if the race is lost)
+;;;   ?exists :T  → a LIVE warehouse holds the identity. The request contradicts
+;;;                 existing state → nst-entity-contradiction → 409
+;;;   ?exists :C  → a SOFT-DELETED row holds it (see below) → contradiction → 409
+;;;   ?exists :U  → the check could not answer → nst-entity-unknown → 503. :U is
+;;;                 NOT "probably free": creating on an unconfirmed identity is
+;;;                 exactly how a duplicate gets written.
+;;;
+;;; MOVED HERE FROM THE ROUTE. route-warehouse-create used to pre-check for :C and
+;;; build the contradiction itself, so only the HTTP API got the right answer while
+;;; the internal website and any REPL caller still crashed. The law belongs to the
+;;; verb, so every caller gets it now — that is the whole point of प्रत्यय owning
+;;; its own legality.
+;;;
+;;; THE :C CASE is the one that makes this four-valued rather than two: DOD_WAREHOUSE
+;;; keeps the row and uk_gstin_name_tenant contains no DELETED_STATE, so the
+;;; identity IS taken; while नियम-2 makes DELETED_STATE='Y' rows invisible to every
+;;; verb, so no warehouse is there. Two of our own rules disagree, and 'present'
+;;; and 'absent' are both wrong answers.
+;;;
 ;;; Devil's advocate, CORRECTED against the real DDL
-;;; (installation/upgrades/nst-dbu-warehouse.lisp): WAREHOUSE_GSTIN does NOT
-;;; carry a single-column UNIQUE key. The DB enforces
-;;; uk_gstin_name_tenant (WAREHOUSE_GSTIN, W_NAME, TENANT_ID) — so a duplicate
-;;; GSTIN is only blocked when the name AND tenant also match, while a
-;;; soft-deleted row keeps its slot because DELETED_STATE is not part of the
-;;; key. The :before check above deliberately mirrors that tuple; it is
-;;; defense-in-depth for the clean, LEGAL-cited error, and it does NOT close the
-;;; TOCTOU gap (two concurrent creates of the same tuple could both pass before
-;;; either commits) — the unique key is what actually prevents that race.
+;;; (installation/upgrades/nst-dbu-warehouse.lisp): WAREHOUSE_GSTIN does NOT carry a
+;;; single-column UNIQUE key. The DB enforces uk_gstin_name_tenant (WAREHOUSE_GSTIN,
+;;; W_NAME, TENANT_ID) — a duplicate GSTIN is only blocked when the name AND tenant
+;;; also match, and a soft-deleted row keeps its slot because DELETED_STATE is not
+;;; part of the key. The check below mirrors that tuple; it does NOT close the TOCTOU
+;;; gap (two concurrent creates of the same tuple can both pass before either
+;;; commits) — the unique key prevents that, and the :F case in the primary method
+;;; below is what reports it when it happens.
+(defmethod make :around ((entity-class (eql 'nst-whs)) (ctx domain-ctx)
+                         &rest initargs)
+  (let ((gstin (getf initargs :warehouse-gstin)))   ; was :wgstin
+    (if (null gstin)
+        (call-next-method)                 ; no identity supplied — nothing to check
+        (let* ((wname (getf initargs :wname))
+               (check (?exists 'nst-whs gstin ctx :wname wname)))
+          (case (bo-knowledge-truth check)
+            (:F (call-next-method))        ; confirmed free — proceed
+            (:T (make-instance 'nst-entity-contradiction
+                               :tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)
+                               :reason (format nil "GSTIN ~A + name ~S: a LIVE warehouse already holds this identity (uk_gstin_name_tenant). The create contradicts existing state, so it is neither done nor impossible. [LEGAL: Section 122 CGST Act — duplicate GSTIN registration]"
+                                               gstin wname)))
+            (otherwise
+             ;; :C and :U both come through here; domain-sentinel-from-knowledge maps
+             ;; them to the contradiction / unknown sentinel and carries the
+             ;; provenance, which is where नियम-2's explanation lives.
+             (domain-sentinel-from-knowledge
+              check ctx
+              :reason (format nil "GSTIN ~A + name ~S: the uniqueness check on uk_gstin_name_tenant did not come back free"
+                              gstin wname))))))))
 
 ;;; make primary method — REVISED against real doCreate.
 (defmethod make ((entity-class (eql 'nst-whs)) (ctx domain-ctx) &rest initargs)
@@ -112,11 +142,22 @@
       (case (bo-knowledge-truth knowledge)
         (:T (bind-generated-row-id entity (bo-knowledge-payload knowledge))
             entity)
-        (:F (error "GSTIN ~A rejected at DB write — Section 122 CGST Act \
-                     (uniqueness race lost after :before check passed)"
-                    (warehouse-gstin entity)))
-        (:U (error 'hhub-database-error :errstring "Warehouse create failed — see log"))
-        (:C (error "Unreachable: no :pre-flight form supplied to with-nst-db-create \
+        (:F ;; The unique key rejected the row: the identity was taken between the
+            ;; :around check and this INSERT (a lost race, not a client mistake).
+            ;; Same domain fact as the :T case above, so the same answer: :C → 409.
+            (make-instance 'nst-entity-contradiction
+                           :tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)
+                           :reason (format nil "GSTIN ~A: rejected at the database — the identity was taken between the uniqueness check and the INSERT (uniqueness race lost). [LEGAL: Section 122 CGST Act]"
+                                           (warehouse-gstin entity))))
+        (:U ;; The boundary failed. NOT a refusal and NOT a no — we do not know
+            ;; whether the row was written. → 503, never 404.
+            (domain-sentinel-from-knowledge
+             knowledge ctx
+             :reason "Warehouse create: the database call did not answer — the row may or may not have been written, so this is unknown, not failed"))
+        (:C ;; Unreachable without a :pre-flight form, which this call does not
+            ;; supply. A :C here means the macro contract changed under us — a
+            ;; programming error, so it stays an error.
+            (error "Unreachable: no :pre-flight form supplied to with-nst-db-create \
                      in this call — a :C here means the macro contract changed \
                      without this method being updated"))
         (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-create"
@@ -124,18 +165,61 @@
 
 
 ;;; fetch — returns a real nst-whs OR a Belnap-inspectable sentinel,
-;;; never a bare CL nil (Section 6's fetch contract). Unchanged from
-;;; the original draft — doCreate gave no new evidence about fetch,
-;;; so nothing here was revised.
+;;; never a bare CL nil (Section 6's fetch contract).
+;;;
+;;; REVISED 2026-09-13 — this method used to test `(if bk …)` on the
+;;; bo-knowledge OBJECT, which is truthy whatever the answer, so both :F (no such
+;;; row) and :U (the boundary could not answer) fell into the "found" branch and
+;;; copywarehouse-dbtodomain dereferenced a NIL payload. The API answered 500 for
+;;; both, and the two states were INDISTINGUISHABLE — which is exactly the
+;;; collapse the four-valued layer exists to prevent. It now inspects the truth,
+;;; so the four states reach the boundary as four different answers:
+;;;
+;;;   :T → the entity            → 200
+;;;   :F → nst-entity-nil        → 404   "there is no such warehouse"
+;;;   :U → nst-entity-unknown    → 503   "I could not find out" — NOT 404
+;;;   :C → nst-entity-contradiction → 409
+;;;
+;;; The id is parsed through warehouse-row-id-from-string FIRST, so a
+;;; non-numeric id is an absence fact (:F → 404) rather than a boundary failure:
+;;; without that guard `(parse-integer "abc")` raises, with-db-call catches it as
+;;; :U, and the client would be told 503 for what is really a malformed request.
+
+(defun warehouse-row-id-from-string (id)
+  "Row-ids arrive as STRINGS: apidefs2 passes path params through unchanged, and
+   every id crosses the API boundary as a JSON string. Returns the integer
+   row-id, or NIL when the string cannot address a row at all — /warehouse/abc
+   asks for something that cannot exist, which is a not-found fact, not a 500.
+
+   Mirrors product-row-id-from-string in products/dod-bl-prd.lisp. Two copies is
+   deliberate for now (one per entity, next to the verb that needs it); promote
+   to a shared helper in adhara when a third entity needs the same guard."
+  (when (stringp id)
+    (handler-case (parse-integer id :junk-allowed nil)
+      (error () nil))))
+
 (defmethod fetch ((entity-class (eql 'nst-whs)) (id string) (ctx domain-ctx))
-  (let ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
-	(bk (with-db-call (select-warehouse-by-id (parse-integer id) (slot-value (domain-ctx-tenant ctx) 'row-id)))))
-    (if bk
-        (let ((entity (make-instance 'nst-whs :tenant-id tenant-id))
-	      (dbobj (bo-knowledge-payload bk)))
-          (copywarehouse-dbtodomain dbobj entity)   ; ⚠ still unverified —
-          entity)                                    ; same honest-unknown
-        (make-instance 'nst-entity-nil :tenant-id tenant-id))))
+  (let* ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
+         (row-id (warehouse-row-id-from-string id)))
+    (if (null row-id)
+        (make-instance 'nst-entity-nil
+                       :tenant-id tenant-id
+                       :reason (format nil "~S does not address a warehouse row (row-ids are integers)" id))
+        (let ((knowledge (with-db-call (select-warehouse-by-id row-id tenant-id)
+                                       "nst-whs/fetch (row-id, session tenant)")))
+          ;; ONE conversion, in adhara — not a hand-rolled case per verb.
+          (domain-result-from-knowledge
+           knowledge ctx
+           :hydrate (lambda (dbobj)
+                      (let ((entity (make-instance 'nst-whs :tenant-id tenant-id)))
+                        (copywarehouse-dbtodomain dbobj entity)
+                        entity))
+           ;; Per-state wording, so a :U is never phrased as "not found".
+           :reason (lambda (truth)
+                     (case truth
+                       (:F (format nil "Warehouse row-id ~A not found in this tenant" row-id))
+                       (:U (format nil "Warehouse row-id ~A: the database call did not answer — whether the row exists is unknown" row-id))
+                       (:C (format nil "Warehouse row-id ~A returned more than one row — the primary key is not holding" row-id)))))))))
 
 (defmethod delete! ((entity-class (eql 'nst-whs)) (row-id string) (ctx domain-ctx))
   (let* ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
@@ -154,31 +238,51 @@
                            dbobj)))
          (case (bo-knowledge-truth knowledge)
            (:T t)
-           (:U (error 'hhub-database-error
-                       :errstring (format nil "Warehouse delete failed, row-id ~A" row-id)))
+           (:U ;; The soft-delete did not complete and we cannot say whether the
+               ;; row was touched. That is ignorance, not a refusal → nst-entity-unknown
+               ;; → 503. It used to raise, which the boundary reported as a 500 —
+               ;; indistinguishable from a crash, and from "no such warehouse".
+               (domain-sentinel-from-knowledge
+                knowledge ctx
+                :reason (format nil "Warehouse delete, row-id ~A: the database call did not answer — whether the row was soft-deleted is unknown" row-id)))
+           (:F ;; Unreachable: with-nst-db-delete was called without :pre-flight, so
+               ;; :F cannot be produced. A :F here is a programming error.
+               (error "Unreachable: with-nst-db-delete without :pre-flight cannot return :F (row-id ~A)" row-id))
            (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge)))))))))
 
 (defmethod !update ((entity-class (eql 'nst-whs)) (row-id string) (ctx domain-ctx)
                      &rest update-args)
   (let* ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
-	(dbobj (select-warehouse-by-id (parse-integer row-id) tenant-id)))
-    (if (null dbobj)
+	 (rid (warehouse-row-id-from-string row-id)))
+    (if (null rid)
         (make-instance 'nst-entity-nil :tenant-id tenant-id
-                        :reason (format nil "Warehouse row-id ~A not found" row-id))
-	;;else 
-	(let ((entity (make-instance 'nst-whs :tenant-id tenant-id)))
-	  (copyWarehouse-dbtodomain dbobj entity) ;; hydrate current state
-          (apply #'reinitialize-instance entity update-args)  ;; CLOS partial-update —
-	  ;; only supplied initargs change
-	  (copyWarehouse-domaintodb entity dbobj)
-          (let ((knowledge (with-nst-db-update (:source "nst-whs/!update")
-                             (clsql:update-records-from-instance dbobj)
-                              dbobj)))
-            (case (bo-knowledge-truth knowledge)
-              (:T entity)
-              (:U (error 'hhub-database-error
-                          :errstring (format nil "Warehouse update failed, row-id ~A" row-id)))
-              (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge)))))))))
+                       :reason (format nil "~S does not address a warehouse row (row-ids are integers)" row-id))
+        (let ((dbobj (select-warehouse-by-id rid tenant-id)))
+          (if (null dbobj)
+              (make-instance 'nst-entity-nil :tenant-id tenant-id
+                             :reason (format nil "Warehouse row-id ~A not found in this tenant (or already deleted)" row-id))
+              ;;else 
+              (let ((entity (make-instance 'nst-whs :tenant-id tenant-id)))
+                (copyWarehouse-dbtodomain dbobj entity) ;; hydrate current state
+                (apply #'reinitialize-instance entity update-args)  ;; CLOS partial-update —
+                ;; only supplied initargs change
+                (copyWarehouse-domaintodb entity dbobj)
+                (let ((knowledge (with-nst-db-update (:source "nst-whs/!update")
+                                    (clsql:update-records-from-instance dbobj)
+                                    dbobj)))
+                  (case (bo-knowledge-truth knowledge)
+                    (:T entity)
+                    (:U ;; The write did not complete and the row's state is
+                        ;; unknown → 503, not a 500 and NOT 404: the warehouse
+                        ;; exists, we simply cannot report what happened to it.
+                        (domain-sentinel-from-knowledge
+                         knowledge ctx
+                         :reason (format nil "Warehouse update, row-id ~A: the database call did not answer — the row's current state is unknown" row-id)))
+                    (:F ;; Unreachable: with-nst-db-update was called without
+                        ;; :pre-flight, so :F cannot be produced (the row was
+                        ;; already confirmed by the SELECT above).
+                        (error "Unreachable: with-nst-db-update without :pre-flight cannot return :F (row-id ~A)" row-id))
+                    (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge)))))))))))
 
 (defun validate-sort-args (sort-by sort-dir)
   (let ((col (cdr (assoc sort-by *whs-sort-whitelist*))))
@@ -252,9 +356,20 @@
                       entity))
                   (bo-knowledge-payload knowledge)))
       (:F '())
-      (:U (error 'hhub-database-error :errstring "Warehouse enumerate failed — see log"))
-      (:C (error "PK duplication in enumerate results, tenant ~A — data integrity issue, investigate DOD_WAREHOUSE directly"
-                 tenant-id))
+      (:U ;; The catalogue could not be read → nst-entity-unknown → 503. NOTE the
+          ;; type change this causes: enumerate normally returns a LIST, so a
+          ;; caller must inspect the result rather than assuming one (the
+          ;; dispatcher handles both — action->response sends a non-list through
+          ;; domain->response). That is the price of not claiming an empty
+          ;; catalogue when we simply could not read it.
+          (domain-sentinel-from-knowledge
+           knowledge ctx
+           :reason (format nil "Warehouse enumerate, tenant ~A: the database call did not answer — the catalogue contents are unknown" tenant-id)))
+      (:C ;; Duplicate PKs in the result set — a data-integrity signal, not a query
+          ;; error. A human has to look; → 409.
+          (domain-sentinel-from-knowledge
+           knowledge ctx
+           :reason (format nil "Warehouse enumerate, tenant ~A: the result set contained duplicate primary keys — data integrity issue, investigate DOD_WAREHOUSE directly" tenant-id)))
       (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge))))))
 
 

@@ -258,17 +258,58 @@
 				    :caching nil :flatp t)))
 
 
-(defun reset-vendor-password (vendor)
-  (let* ((confirmpassword (hhub-random-password 8))
-	 (salt (createciphersalt))
-	 (encryptedpass (check&encrypt confirmpassword confirmpassword salt)))
-	  
-    (setf (slot-value vendor 'password) encryptedpass)
-    (setf (slot-value vendor 'salt) salt) 
-    ; Whenever we reset the vendor password, we activate the vendor, as he is in-activated when this process started. 
-    (setf (slot-value vendor 'active-flag) "Y") 
-    (update-vendor-details  vendor )
-    confirmpassword)) ; return the newly generated password. 
+(defun reset-vendor-password (vendor &optional password)
+  "Reset the password on VENDOR, persist it, and return it.
+
+   PASSWORD is optional. When supplied it is used as the new password and must
+   satisfy the policy below; when NIL a random one is generated at the minimum
+   permitted length.
+
+   Policy (OWASP ASVS 2.1 style): 8 to 12 characters, and at least one lowercase
+   letter, one uppercase letter, one digit and one special character. The policy
+   is checked BEFORE anything is written, so a rejected password leaves the
+   vendor record untouched. Signalling an error rather than returning NIL keeps a
+   weak password from being mistaken for a successful reset.
+
+   VENDOR is left activated: ACTIVE-FLAG is set to \"Y\" and the record is
+   persisted through UPDATE-VENDOR-DETAILS, which is the path to the database."
+  (let ((min-length 8)
+        (max-length 12))
+    ;; NIL when the candidate is acceptable, otherwise a string saying why not.
+    (labels ((policy-failure (candidate)
+               (let ((special "!@#$%^&*()-_=+[]{};:,.?/"))
+                 (cond
+                   ((not (stringp candidate))
+                    "the password is not a string")
+                   ((< (length candidate) min-length)
+                    (format nil "the password is shorter than ~D characters" min-length))
+                   ((> (length candidate) max-length)
+                    (format nil "the password is longer than ~D characters" max-length))
+                   ((null (find-if #'lower-case-p candidate))
+                    "the password needs at least one lowercase letter")
+                   ((null (find-if #'upper-case-p candidate))
+                    "the password needs at least one uppercase letter")
+                   ((null (find-if #'digit-char-p candidate))
+                    "the password needs at least one digit")
+                   ((null (find-if (lambda (c) (find c special)) candidate))
+                    "the password needs at least one special character")
+                   (t nil)))))
+      (let* ((new-password (if password
+                               (let ((failure (policy-failure password)))
+                                 (when failure
+                                   (error "Vendor password rejected: ~A" failure))
+                                 password)
+                               (hhub-random-password min-length)))
+             (salt (createciphersalt))
+             (encrypted-password (check&encrypt new-password new-password salt)))
+        (unless encrypted-password
+          (error "Could not encrypt the new vendor password; vendor left unchanged."))
+        (setf (slot-value vendor 'password) encrypted-password)
+        (setf (slot-value vendor 'salt) salt)
+        ;; Resetting the password reactivates a vendor that was deactivated.
+        (setf (slot-value vendor 'active-flag) "Y")
+        (update-vendor-details vendor)
+        new-password))))
 
 
 
