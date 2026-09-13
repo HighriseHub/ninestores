@@ -91,36 +91,81 @@
 ;;; a warehouse IS one entity, with no aggregate to assemble.
 
 (defun route-warehouse-create (request ctx)
-  "कर्म = nst-whs. The GSTIN uniqueness laws ride in nst-whs's own ?exists /
-   make :before (nst-bl-warehouse.lisp) — the ferry does not re-check them here.
+  "कर्म = nst-whs. The GSTIN identity laws — including the soft-deleted-holder
+   :C — ride in the verb's own `make :around` (nst-bl-warehouse.lisp), so the API,
+   the internal website and any REPL caller all get the same four-valued answer.
 
-   ONE exception, because it is not a legality question but an epistemic one:
-   an identity held by a SOFT-DELETED row. DOD_WAREHOUSE keeps the row and
-   uk_gstin_name_tenant contains no DELETED_STATE, so the row still reserves
-   (GSTIN, name, tenant) while नियम-2 makes it invisible to every verb. The
-   client's 'create this' and the world's 'it is already there, marked deleted'
-   disagree → Belnap :C, and :C must reach a human, not a stack trace: the
-   INSERT would otherwise fail on the unique key and surface as a misleading
-   'uniqueness race lost after :before check passed' error.
-
-   Returning nst-entity-contradiction is enough — the dispatcher's reverse ferry
-   renders it 409 with a conflict body, and the API log records it."
-  (let* ((payload (params request))
-         (gstin (getf payload :warehouse-gstin))
-         (wname (getf payload :wname))
-         (check (when (and gstin wname)
-                  (?exists 'nst-whs gstin ctx :wname wname))))
-    (if (and check (eq (bo-knowledge-truth check) :C))
-        (make-instance 'nst-entity-contradiction
-                       :tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)
-                       :reason (format nil "Warehouse identity GSTIN ~A / name ~S is held by a soft-deleted row: it still occupies uk_gstin_name_tenant in DOD_WAREHOUSE, but DELETED_STATE='Y' makes it invisible to every verb (नियम-2). Undelete that warehouse, or create this one under a different name."
-                                       gstin wname))
-        (request->dispatch request 'make 'nst-whs ctx))))
+   THIS VERB USED TO DO THE :C PRE-CHECK ITSELF. That meant only the HTTP path
+   saw a 409 for a soft-deleted identity holder, while every other caller still
+   raised and got a 500. Moving it into the verb removed a duplicate
+   implementation AND fixed the non-HTTP callers — the law belongs to the
+   प्रत्यय, not to the transport."
+  (request->dispatch request 'make 'nst-whs ctx))
 
 (defun route-warehouse-fetch (request ctx)
   "कर्म = nst-whs. Reads :row-id from params (rm-row-id). Returns an nst-whs
-   or nst-entity-nil — never a bare CL nil (Section 6 fetch contract)."
+   or a Belnap sentinel — never a bare CL nil (Section 6 fetch contract)."
   (request->dispatch request 'fetch 'nst-whs ctx))
+
+(defun route-warehouse-fetch-identity (request ctx)
+  "कर्म = nst-whs, addressed by its IDENTITY rather than its row-id.
+
+   WHY THIS VERB EXISTS — it is the READ that can legitimately answer :C, and
+   that is the whole point of exposing it. The warehouse's identity is the tuple
+   (GSTIN, W_NAME, TENANT_ID) — uk_gstin_name_tenant. Three of the four Belnap
+   states fall out of it, and one of them cannot be reached any other way:
+
+     :T  a LIVE warehouse holds the identity                  → 200 + the entity
+     :F  nothing holds it                                     → 404
+     :C  a SOFT-DELETED row holds it. The row is still in DOD_WAREHOUSE and the
+         unique key includes no DELETED_STATE, so the identity IS taken; while
+         नियम-2 makes DELETED_STATE='Y' rows invisible to every verb, so no
+         warehouse is there. Two of the domain's own rules disagree, and the
+         honest answer is neither 'present' nor 'absent' → 409
+     :U  the boundary could not answer                        → 503
+
+   THE :C CASE IS NOT CONTRIVED AND NOT A MULTI-ROW QUERY. Note carefully: a
+   query returning MANY rows is :T with a list, not :C — with-db-call only says
+   :C when the form returns multiple VALUES (core/nst-mult-logic.lisp). This
+   :C is produced by bo-merge resolving :T ⊔ :F = :C inside ?exists, i.e. by two
+   of our own rules disagreeing about the same identity. It is the SAME fact the
+   CREATE path proves (route-warehouse-create returns the contradiction before
+   attempting the INSERT); this verb reaches it through a read.
+
+   GSTIN ALONE IS NOT AN IDENTITY in this schema — one GSTIN legitimately maps to
+   many warehouses (37 live rows share 27AABCU9603R1ZM in the demo tenant), so
+   both parts of the tuple are REQUIRED. Asking by GSTIN alone would be a
+   one-to-many query whose honest answer is a list, not a contradiction, and
+   that is why it is refused here rather than guessed at."
+  (let* ((payload (params request))
+         (gstin (whs-param payload :warehouse-gstin))
+         (wname (whs-param payload :wname))
+         (tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)))
+    (unless (and (stringp gstin) (plusp (length gstin))
+                 (stringp wname) (plusp (length wname)))
+      ;; A malformed identity read is a CLIENT error (400), not a 500: the caller
+      ;; must supply both halves of the tuple. api-client-error is the API
+      ;; layer's condition; using it here is a deliberate, minimal coupling so
+      ;; the status is right. The proper long-term home for domain validation
+      ;; conditions is adhara (nst-bl-apidefs2-CONTEXT.md §9.1).
+      (error 'api-client-error
+             :message "warehouse-fetch-identity requires both warehouse-gstin and wname: the warehouse identity is the tuple (GSTIN, W_NAME, TENANT_ID), and GSTIN alone is not unique in this schema."))
+    (let ((knowledge (?exists 'nst-whs gstin ctx :wname wname)))
+      ;; ONE conversion, in adhara — the same call fetch and every other verb uses.
+      ;; This verb predates it and used to hand-roll the four cases; the hand-rolled
+      ;; version is exactly what the shared converter exists to remove, because a
+      ;; per-verb copy is a per-verb chance to phrase a :U as "not found".
+      (domain-result-from-knowledge
+       knowledge ctx
+       :hydrate (lambda (dbobj)
+                  (let ((entity (make-instance 'nst-whs :tenant-id tenant-id)))
+                    (copywarehouse-dbtodomain dbobj entity)
+                    entity))
+       :reason (lambda (truth)
+                 (case truth
+                   (:F (format nil "No live warehouse holds the identity GSTIN ~A / name ~S in this tenant" gstin wname))
+                   (:U (format nil "Could not resolve the identity GSTIN ~A / name ~S — the database call did not answer" gstin wname))
+                   (:C (format nil "The identity GSTIN ~A / name ~S is held by a SOFT-DELETED warehouse: the row is still in DOD_WAREHOUSE (uk_gstin_name_tenant includes no DELETED_STATE), while नियम-2 makes it invisible to every verb. 'It is there' and 'there is no such warehouse' are both true, so this is neither present nor absent. Human decision needed: undelete it, or read it by row-id." gstin wname))))))))
 
 (defun route-warehouse-update (request ctx)
   "कर्म = nst-whs. Partial update (CLOS reinitialize-instance): only the
@@ -167,6 +212,17 @@
                        :action-verb 'route-warehouse-fetch
                        :request-class 'WarehouseRequestModel
                        :description "Fetch one warehouse by :row-id (or nst-entity-nil)."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(warehouse-admin warehouse-operator admin)
+                       :feature-flags '(warehouse-domain)
+                       :audit-level :read
+                       :tags '(warehouse api v1))
+
+(register-action-route 'route-warehouse-fetch-identity
+                       :action-verb 'route-warehouse-fetch-identity
+                       :request-class 'WarehouseRequestModel
+                       :description "Fetch one warehouse by its IDENTITY (warehouse-gstin + wname, scoped to the session tenant). Four-valued: 200 when a live warehouse holds it, 404 when nothing does, 409 when a soft-deleted row holds it, 503 when the boundary could not answer."
                        :output-type :json
                        :channel :http
                        :required-roles '(warehouse-admin warehouse-operator admin)
@@ -360,13 +416,21 @@
                     :inject-company t
                     :description "Create a warehouse for the authenticated tenant. Body: JSON object of nst-whs field names. GSTIN must be unique; the row-id, uuid and short code are generated by the domain.")
 
+(register-api-route 'route-warehouse-fetch-identity
+                    :method :get
+                    :path "/hhub/api/v1/warehouse/by-identity"
+                    :success-status 200
+                    :auth-scope :session
+                    :description "Fetch a warehouse by IDENTITY. Query params: warehouse-gstin AND wname (both required — GSTIN alone is not unique). 200 live / 404 free / 409 held by a soft-deleted row / 503 boundary failure.
+                                  ROUTE ORDER: this literal segment and /warehouse/{id} have the same segment count, so before find-api-route ranked literal segments above parameters this endpoint would have been shadowed by {id} and read 'by-identity' as a row-id. It is also the live regression test for that ranking.")
+
 (register-api-route 'route-warehouse-fetch
                     :method :get
                     :path "/hhub/api/v1/warehouse/{id}"
                     :path-params '(("id" . :row-id))
                     :success-status 200
                     :auth-scope :session
-                    :description "Fetch one warehouse by numeric row-id. 404 when the row does not exist or belongs to another tenant.")
+                    :description "Fetch one warehouse by numeric row-id. 404 when the row does not exist, belongs to another tenant, or is soft-deleted. 503 (not 404) when the database could not be reached — absence and ignorance are different answers.")
 
 (register-api-route 'route-warehouse-delete
                     :method :delete
