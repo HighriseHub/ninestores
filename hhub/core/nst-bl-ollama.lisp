@@ -562,7 +562,8 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
     (when mode (ignore-errors (sb-posix:chmod (uiop:native-namestring file-path) mode)))))
 
 (defun apply-file-refactor-and-load (function-symbol file-path new-code-string
-                                     &key allow-signature-change (want-backup t))
+                                     &key allow-signature-change (want-backup t)
+                                          dry-run)
   "Validated, reversible splice of FUNCTION-SYMBOL's definition in FILE-PATH.
 
    Order of operations — the on-disk source is never the first thing to break:
@@ -582,12 +583,17 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
       return a DIFFERENT SHAPE usually does not need this flag — the lambda list
       (parameter structure) need not change to change the return value.
    :want-backup — set NIL to skip the backup copy. Not recommended.
+   :dry-run — validate the splice and compile it, then stop. Nothing is written
+      and nothing is loaded; returns VALIDATION PASSED / VALIDATION FAILED.
+      This is what the agent's validate-refactoring tool uses, so the model can
+      prove its code compiles without the file being touched.
 
    Returns a SUCCESS/FAILURE string; FAILURE leaves both the file and the running
    image as they were."
   (handler-case
-      (let* ((symbol  (intern (string-upcase (format nil "~A" function-symbol)) *package*))
-             (name    (string-downcase (symbol-name symbol))))
+      (let* ((symbol (intern (string-upcase (format nil "~A" function-symbol)) *package*))
+             (name   (string-downcase (symbol-name symbol))))
+        ;; --- 1. guards ------------------------------------------------------
         (unless (and (stringp file-path) (probe-file file-path))
           (return-from apply-file-refactor-and-load
             (format nil "FAILURE: Source file does not exist: ~A" file-path)))
@@ -604,11 +610,13 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
 
         (let* ((content (uiop:read-file-string file-path))
                (regions (extract-defun-regions content name)))
+          ;; --- 2. locate ----------------------------------------------------
           (when (null regions)
             (return-from apply-file-refactor-and-load
               (format nil "FAILURE: No top-level (defun ~A ...) found in ~A."
                       name file-path)))
 
+          ;; --- 3. signature guard -------------------------------------------
           (unless allow-signature-change
             (let ((old-args (read-defun-arglist content name))
                   (new-args (read-defun-arglist new-code-string name)))
@@ -620,6 +628,12 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
                                interface change is intentional."
                           name old-args new-args)))))
 
+          ;; --- :dry-run — validate and compile only, touch nothing ----------
+          (when dry-run
+            (return-from apply-file-refactor-and-load
+              (validate-refactoring-splice name content regions new-code-string)))
+
+          ;; --- 4-8. write, compile, roll back, load -------------------------
           (let* ((updated  (replace-defun-blocks content regions new-code-string))
                  (tmp-fasl (merge-pathnames
                             (format nil "nst-refactor-~A-~A.fasl" name (random 1000000))
@@ -627,7 +641,7 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
                  (warnings '())
                  (hard-warnings '())
                  (compile-failed nil)
-                 (backup   nil))
+                 (backup nil))
             ;; Make the backup BEFORE the first write, and refuse to overwrite a
             ;; file we could not back up.
             (when want-backup
@@ -643,7 +657,6 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
                     (return-from apply-file-refactor-and-load
                       (format nil "FAILURE: Could not create a backup for ~A; refusing to overwrite it."
                               file-path)))))
-
             (write-file-string file-path updated)
 
             (handler-case
@@ -671,19 +684,19 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
 
             (cond
               (compile-failed
-               (if backup
-                   (let ((restored
-                           (handler-case
-                               (progn (write-file-string file-path content) t)
-                             (error () nil))))
-                     (format nil "FAILURE: Compilation failed for ~A. ~A~%~{~A~%~}"
-                             file-path
-                             (if restored
-                                 "File rolled back to its previous content; image untouched."
-                                 (format nil "!! ROLLBACK FAILED — restore from ~A" backup))
-                             (nreverse (if hard-warnings hard-warnings warnings))))
-                   (format nil "FAILURE: Compilation failed for ~A and no backup was taken.~%~{~A~%~}"
-                           file-path (nreverse (if hard-warnings hard-warnings warnings)))))
+               (let ((reasons (nreverse (if hard-warnings hard-warnings warnings))))
+                 (if backup
+                     (let ((restored (handler-case
+                                         (progn (write-file-string file-path content) t)
+                                       (error () nil))))
+                       (format nil "FAILURE: Compilation failed for ~A. ~A~%~{~A~%~}"
+                               file-path
+                               (if restored
+                                   "File rolled back to its previous content; image untouched."
+                                   (format nil "!! ROLLBACK FAILED — restore from ~A" backup))
+                               reasons))
+                     (format nil "FAILURE: Compilation failed for ~A and no backup was taken.~%~{~A~%~}"
+                             file-path reasons))))
               (t
                ;; Load FIRST, then clean up. Deleting the fasl before loading
                ;; makes LOAD fail with "Couldn't load".
@@ -691,7 +704,8 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
                (ignore-errors (delete-file tmp-fasl))
                (unless (fboundp symbol)
                  (return-from apply-file-refactor-and-load
-                   (format nil "FAILURE: After reloading ~A, ~A is still not fbound." file-path symbol)))
+                   (format nil "FAILURE: After reloading ~A, ~A is still not fbound."
+                           file-path symbol)))
                (format nil "SUCCESS: ~A reloaded. ~D definition(s) replaced in ~A.~A~A"
                        symbol (length regions) (file-namestring file-path)
                        (if backup (format nil " Backup: ~A." (file-namestring backup)) "")
@@ -701,6 +715,148 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
                            "")))))))
     (error (e)
       (format nil "FAILURE: ~A" e))))
+
+(defun %body-call-symbols (form)
+  "Returns the value of (values (calls . bindings)) for the top-level FORMS of
+   FORM: CALLS is the set of symbols appearing in operator position (including
+   inside setf places), BINDINGS is the set of symbols introduced by a lambda
+   list, let, let* or multiple-value-bind.
+
+   Only strings, numbers and quoted literals are skipped. No form is treated as
+   special syntax, because in this project the side effects that matter are
+   written that way — (setf (slot-value v 'pass) x), (clsql:update-records-from-
+   instance v) — and hand-rolled 'special form' lists silently miss them."
+  (let ((calls '())
+        (bindings '()))
+    (labels ((walk (x)
+               (cond ((stringp x) nil)
+                     ((numberp x) nil)
+                     ((null x) nil)
+                     ((consp x)
+                      (let ((op (car x)))
+                        (cond
+                          ;; lambda list: the parameters are not calls
+                          ((eq op 'lambda)
+                           (pushnew 'lambda calls)
+                           (dolist (sub (cddr x)) (walk sub)))
+                          ;; let / let*: walk only the init forms, never the
+                          ;; variable names, or every binding reads as a call
+                          ((member op '(let let* multiple-value-bind))
+                           (pushnew op calls)
+                           (dolist (b (cadr x))
+                             (when (consp b)
+                               (pushnew (car b) bindings)
+                               (dolist (init (cdr b)) (walk init))))
+                           (dolist (sub (cddr x)) (walk sub)))
+                          (t
+                           (when (and (symbolp op) (not (member op '(quote function))))
+                             (pushnew op calls))
+                           (when (eq op 'setf)
+                             ;; (setf (slot-value v 'pass) x): the place operator
+                             ;; is a real call, but its arguments are not.
+                             (loop for (place value) on (cdr x) by #'cddr do
+                               (if (consp place)
+                                   (progn (when (symbolp (car place)) (pushnew (car place) calls))
+                                          (when (eq (car place) 'slot-value)
+                                            (dolist (s (cddr place)) (walk s))))
+                                   (walk place))
+                               (walk value)))
+                           (unless (eq op 'setf)
+                             (dolist (sub x) (walk sub)))))))
+                     (t nil))))
+      (walk form))
+    (values calls bindings)))
+
+(defun preservation-report (old-source new-source name)
+  "Compares the calls made by the old definition of NAME with the calls made by
+   its replacement, and returns a warning string when the new code has dropped
+   calls the old code made — or NIL when nothing is missing.
+
+   Only CALLS are compared; local bindings are ignored, so a rename of a let
+   variable does not trigger it. This is the check that catches the most damaging
+   failure mode: a refactor that reads well and compiles cleanly while quietly
+   deleting side effects such as database writes and field assignments."
+  (declare (ignore name))
+  (let* ((old-form (handler-case
+                       (let ((*read-eval* nil) (*package* *package*))
+                         (read-from-string old-source nil nil))
+                     (error () nil)))
+         (new-form (handler-case
+                       (let ((*read-eval* nil) (*package* *package*))
+                         (read-from-string new-source nil nil))
+                     (error () nil))))
+    (when (and (consp old-form) (consp new-form))
+      (let* ((old-calls (handler-case (nth-value 0 (%body-call-symbols old-form)) (error () nil)))
+             (new-calls (handler-case (nth-value 0 (%body-call-symbols new-form)) (error () nil)))
+             ;; Calls the old code made that the new code no longer makes, minus
+             ;; anything the new code binds locally (helper lambdas etc.) and
+             ;; minus built-in special forms, which are not the side effects a
+             ;; reader would recognise as lost behaviour.
+             (dropped   (when (and old-calls new-calls)
+                          (remove-if (lambda (s)
+                                       (or (member s new-calls)
+                                           (member s '(%let %let* let let* lambda setf
+                                                       progn if when unless cond and or
+                                                       multiple-value-bind multiple-value-setq
+                                                       declare the values)
+                                                   :test #'string-equal)))
+                                     old-calls))))
+        (when dropped
+          (format nil "WARNING: the replacement no longer calls ~{~A~^, ~}. ~
+                       If that was not deliberate, the refactor has dropped side ~
+                       effects (database writes, field assignments) and the ~
+                       original behaviour is gone."
+                  (mapcar (lambda (s) (string-downcase (format nil "~A" s))) dropped))))))) 
+
+(defun validate-refactoring-splice (name content regions new-code-string)
+  "Dry-run helper for APPLY-FILE-REFACTOR-AND-LOAD. Writes the spliced source to a
+   temporary file, compiles it, and reports the result. The real file is never
+   touched and nothing is loaded, so the developer keeps the decision of when the
+   change lands."
+  (let* ((spliced  (replace-defun-blocks content regions new-code-string))
+         (tmp      (merge-pathnames
+                    (format nil "nst-validate-~A-~A.lisp" name (random 1000000))
+                    (uiop:temporary-directory)))
+         (tmp-fasl (merge-pathnames
+                    (format nil "nst-validate-~A-~A.fasl" name (random 1000000))
+                    (uiop:temporary-directory)))
+         (warnings '())
+         (hard '()))
+    (unwind-protect
+         (progn
+           (with-open-file (out tmp :direction :output :if-exists :supersede
+                                    :if-does-not-exist :create)
+             (write-string spliced out))
+           (handler-case
+               (handler-bind ((warning (lambda (w)
+                                         (let ((text (format nil "~A" w)))
+                                           (push text warnings)
+                                           (when (or (search "undefined function" text)
+                                                     (search "undefined variable" text))
+                                             (push text hard)))
+                                         (muffle-warning w))))
+                 (compile-file tmp :output-file tmp-fasl))
+             (error (e) (push (format nil "~A" e) hard)))
+           (cond
+             (hard
+              (format nil "VALIDATION FAILED for ~A. ~D definition(s) would be replaced. ~
+                           Nothing was written.~%~{~A~%~}~%Fix these before completing."
+                      name (length regions) (nreverse hard)))
+             (t
+              (let* ((old-defs (mapcar (lambda (r) (subseq content (car r) (cdr r))) regions))
+                     (old-text (format nil "~{~A~%~}" old-defs))
+                     (preserve (preservation-report old-text new-code-string name)))
+                (format nil "VALIDATION PASSED for ~A. ~D definition(s) would be replaced, and the ~
+                             spliced source compiles~A. Nothing was written — the developer will ~
+                             call commit-refactoring to apply it.~@[~%~%~A~%~]~%End the session ~
+                             with the complete action now."
+                        name (length regions)
+                        (if warnings
+                            (format nil " with ~D warning(s) to note" (length warnings))
+                            " cleanly")
+                        preserve)))))
+      (ignore-errors (delete-file tmp))
+      (ignore-errors (delete-file tmp-fasl)))))
 
 (defun commit-refactoring (&optional function-symbol)
   "Writes *last-refactored-code* to disk and hot-loads it into the image.
@@ -770,9 +926,13 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
           (with-open-file (stream file-path :direction :input :external-format :utf-8)
             (file-position stream (1- position))
             (let* ((*read-eval* nil)
+                   ;; Read and print in the project package, so symbols come back
+                   ;; bare instead of fully qualified as COMMON-LISP-USER::FOO.
+                   (*package* *package*)
                    (parsed-form (read stream)))
               (with-output-to-string (out)
-                (let ((*print-case* :downcase))
+                (let ((*print-case* :downcase)
+                      (*package* *package*))
                   (format out "~S" parsed-form)))))
           (format nil "ERROR: File path ~A does not exist." file-path))
     (error (e)
@@ -1157,8 +1317,12 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
          (error (e)
            (format nil "ERROR reading value of '~A': ~A" variable-name e)))))))
 
+;;; NOTE: this tool writes to disk and hot-loads, so it is deliberately NOT
+;;; offered to the agent (see the pipeline in GENERATE-AGENT-PROMPT). The
+;;; developer applies a refactor by calling COMMIT-REFACTORING. Kept callable
+;;; for manual use and for policies that explicitly opt into writing.
 (define-tool save-and-compile (function-name new-code)
-  "Writes the refactored code for FUNCTION-NAME to its source file and hot-loads it into the running image. Call this as the second-to-last step, immediately before complete. Pass the full refactored (defun ...) block(s) as :content."
+  "Writes the refactored code for FUNCTION-NAME to its source file and hot-loads it into the running image. Only call this if you are explicitly asked to write to disk; normally the developer calls commit-refactoring instead."
   (let ((sym (intern (string-upcase (format nil "~A" function-name)) *package*)))
     (multiple-value-bind (meta foundp) (tool-find-function-metadata sym)
       (cond
@@ -1172,6 +1336,26 @@ PHASE 3 — COMPLETE  (after Phase 2 returns the full source text)
          (format nil "ERROR: :content is empty. Pass the full (defun ...) block as :content."))
         (t
          (apply-file-refactor-and-load sym (getf meta :file-path) new-code))))))
+
+(define-tool validate-refactoring (function-name new-code)
+  "Checks that NEW-CODE is a valid replacement for FUNCTION-NAME: verifies the
+   splice point exists, that the argument list is unchanged, and that the spliced
+   file COMPILES. Nothing is written to disk and nothing is hot-loaded, so this is
+   always safe. Use this instead of save-and-compile, then conclude with complete."
+  (let ((sym (intern (string-upcase (format nil "~A" function-name)) *package*)))
+    (multiple-value-bind (meta foundp) (tool-find-function-metadata sym)
+      (cond
+        ((not foundp)
+         (format nil "ERROR: '~A' not found in project index." function-name))
+        ((null (getf meta :file-path))
+         (format nil "ERROR: No file path in metadata for '~A'." function-name))
+        ((or (null new-code)
+             (not (stringp new-code))
+             (zerop (length (string-trim " " new-code))))
+         (format nil "ERROR: :content is empty. Pass the full (defun ...) block as :content."))
+        (t
+         (apply-file-refactor-and-load sym (getf meta :file-path) new-code
+                                       :dry-run t))))))
 ;;; ============================================================================
 ;;; Agent Loop Infrastructure
 ;;; ============================================================================
@@ -1189,6 +1373,13 @@ OUTPUT FORMAT (every turn — exact shape):
 ((:action . \"tool-name\") (:target . \"value\") (:content . nil) (:reason . \"rationale\"))
 
 CRITICAL RULES — NEVER VIOLATE:
+  0. PRESERVE BEHAVIOUR. The replacement must still perform every side effect the
+     original performed: every setf and slot-value assignment, every database
+     call such as clsql:update-records-from-instance, every encryption, hashing
+     or salt-generation call. A refactor that drops these is NOT a refactor, even
+     if it compiles cleanly and looks tidier. If the developer's hint asks for a
+     change that would remove one of them, keep the side effect and raise the
+     conflict in your :reason field instead of silently deleting it.
   1. The :target field ALWAYS contains the ORIGINAL function symbol name from the user.
      It NEVER changes for the entire session. NEVER copy words from a tool result into :target.
   2. Tool results are INFORMATIONAL CONTEXT ONLY. If a result says \"FUNCTION: ...\" or
@@ -1201,11 +1392,26 @@ MANDATORY PIPELINE:
   Turn 2:     read-source-file   — always second. Retrieve the complete source.
                                    NEVER repeat this call once source is retrieved.
   Turn 3+:    OPTIONAL TOOLS     — call any subset below based on what you discover.
-  Turn N-1:   save-and-compile     — write and hot-load the refactored code before signalling done.
+  Turn N-1:   validate-refactoring — check your work before finishing. Optional but
+                                     strongly recommended.
                                      :target  -> the function symbol name
-                                     :content -> the COMPLETE raw (defun ...) block(s), no quoting
-  Final turn: complete             — signal the session is done.
+                                     :content -> the COMPLETE refactored (defun ...)
+                                     block(s) as ONE escaped string, backslash-escaping
+                                     every quote character inside it.
+                                     It verifies the splice point, the argument list,
+                                     and that the file compiles. It writes NOTHING.
+                                     If the code has many quotes, skip this turn and
+                                     just finish with complete below — the two-part
+                                     complete turn carries raw code and needs no
+                                     escaping, which is easier to get right.
+                                     NEVER write raw unescaped Lisp inside :content:
+                                     the reader fails with \"end of file\" and the
+                                     whole session is lost.
+  Final turn: complete             — signal the session is done. This is the ONLY
+                                     terminal action and it ends the loop.
                                      :content -> :delivered
+                                     Put the raw defun block(s) on the next line, as
+                                     described in COMPLETION below.
  
 DECISION GUIDE FOR OPTIONAL TOOLS:
   Always call  get-function-type        — macros and generic functions need different strategies.
@@ -1224,6 +1430,11 @@ DECISION GUIDE FOR OPTIONAL TOOLS:
  
 AVAILABLE TOOLS:
 ~{~A~%~}
+YOU NEVER WRITE TO DISK:
+  The developer reviews your work and applies it by calling commit-refactoring.
+  Never call save-and-compile and never claim the file has been changed. Your job
+  is to produce the code and end the session; landing it is the developer's call.
+
 COMPLETION — TWO-PART FORMAT, MANDATORY:
 Do NOT embed the refactored code as a string inside the alist :content field.
 Lisp code contains double-quotes that cannot be reliably escaped inside a string.
@@ -1299,19 +1510,26 @@ helper first, then the main function. Both will be captured automatically."
    reader fails. Returns a single string with all blocks, or NIL if none found."
   (let ((blocks '())
         (pos     0)
+        ;; Capture the project package BEFORE any WITH-STANDARD-IO-SYNTAX:
+        ;; that macro rebinds *package* to CL-USER internally, so a binding of
+        ;; (*package* *package*) inside its body would capture CL-USER and
+        ;; qualify every symbol as COMMON-LISP-USER::FOO.
+        (pkg     *package*)
         (lower   (string-downcase text)))
     (loop
       (let ((start (search "(defun " lower :start2 pos)))
         (unless start (return))
         (let ((block
-                ;; Prefer the Lisp reader for clean pretty-printed output
+                ;; Prefer the Lisp reader for clean pretty-printed output.
                 (or (handler-case
                         (let ((form (with-standard-io-syntax
-                                      (let ((*read-eval* nil))
+                                      (let ((*read-eval* nil)
+                                            (*package* pkg))
                                         (read-from-string text nil :eof :start start)))))
                           (unless (eq form :eof)
                             (with-output-to-string (out)
-                              (let ((*print-case* :downcase))
+                              (let ((*print-case* :downcase)
+                                    (*package* pkg))
                                 (pprint form out)))))
                       (error () nil))
                     ;; Fallback: count parens manually — handles unescaped chars in strings
@@ -1449,6 +1667,9 @@ helper first, then the main function. Both will be captured automatically."
         :done-p            (lambda (action) (string-equal action "complete"))
         :on-complete       #'refactoring-on-complete
         :completion-marker "\"complete\""
+        ;; No :terminal-actions. The agent never lands the change itself: the
+        ;; developer reviews the result and calls (commit-refactoring) to write
+        ;; it to disk and hot-load it.
         :completion-signal (lambda (code target) (list :result code :target target))))
 
 (defun run-agent-loop (objective &key policy (model "deepseek")
@@ -1552,6 +1773,10 @@ helper first, then the main function. Both will be captured automatically."
                        context-log)
                  (when echo
                    (format t "[~A] ~A~%" action (agent-preview tool-result :width 300)))
+
+                 ;; No tool ends the session implicitly. Even a tool that writes
+                 ;; to disk only advances the conversation — the developer
+                 ;; decides when the change is committed, via commit-refactoring.
                  (setf current-prompt
                        (funcall (getf policy :next-message)
                                 target action tool-result context-log
@@ -1564,7 +1789,8 @@ helper first, then the main function. Both will be captured automatically."
                   (getf policy :name) target code)
           (setf *last-refactored-code*   code
                 *last-refactored-target* target)
-          (format t "~&[Stored] Call (commit-refactoring) to write and hot-load.~%")
+          (format t "~&[Stored] NOTHING has been written. Review the code above, then call~%")
+          (format t "~&         (commit-refactoring)   to write it to disk and hot-load it.~%")
           code)))))
 
 
