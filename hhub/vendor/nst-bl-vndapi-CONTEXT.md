@@ -326,11 +326,18 @@ a new vendor function ever seems to do nothing, check for this first.
 
 ## 10. How to resume tomorrow
 
-**Order matters.** Do not write the routes first.
+**The agreed order is: API DESIGN first, then TESTS.** That order is sound, and it is
+worth being explicit about why — the test suite is not the polish step, it is the FIRST
+TIME ANY OF THIS CODE RUNS. No vendor verb has ever executed. Writing the routes and
+then the suite is the products sequence, and it worked there; the thing that made it
+work was treating the suite as the execution, not as an afterthought.
+
+### Step 0 — one form, before anything else
+
+Not a stage, a precondition. Proves the tree you are about to build on actually loaded.
 
 ```lisp
-;; 1. Load, and prove the class is really there. A reload, NOT a restart —
-;;    a restart calls reset-session-secret and kills every session.
+;; A reload, NOT a restart — a restart calls reset-session-secret and kills sessions.
 (asdf:load-system :nstores)
 (find-class 'nst-vnd)                     ; expect #<STANDARD-CLASS NST-VND>
 (length (closer-mop:class-slots (find-class 'nst-vnd)))   ; expect 46
@@ -340,20 +347,53 @@ a new vendor function ever seems to do nothing, check for this first.
 ;; "^   (name" grep undercounts by one on each class. Count :initarg instead.
 ```
 
-```lisp
-;; 2. CALL the read verbs before writing any route. These have never run.
-(?exists 'nst-vnd "9999999990" ctx)       ; expect :T — that phone IS in tenant 2
-(fetch 'nst-vnd "1" ctx)                  ; expect one nst-vnd
-(enumerate 'nst-vnd ctx :limit 2)         ; expect a list of 2
-```
+If `nst-bl-vnd.lisp` fails to compile, fix that first — everything below assumes it did.
 
-Then, in order:
+### Step 1 — API design
 
-3. Write `vendor/nst-bl-vndapi.lisp` (routes + bindings), modelled on
-   `products/nst-bl-prdapi.lisp`.
-4. Delete or reduce `vendor/nst-bl-vendapi.lisp` first — see §7.4.
-5. Write `test/smoke-vendor-api.sh`, including the `:C` fixture that does not yet exist.
-6. Fix the 4xx taxonomy (§7.2) — it is now three vendor paths plus the warehouse's.
+1. **Write `vendor/nst-bl-vndapi.lisp`** — the `route-vendor-*` verbs, their
+   `register-action-route` entries, and the `register-api-route` bindings, modelled on
+   `products/nst-bl-prdapi.lisp` and `warehouse/nst-bl-whsapi.lisp`.
+2. **Settle the URL prefix while designing it.** Products uses
+   `/hhub/api/v1/catalog/products`, warehouse `/hhub/api/v1/warehouse`. A
+   `/hhub/api/v1/vendor/vendors` is redundant; pick deliberately rather than by
+   default, because the path is the one part of this surface that is expensive to
+   change once a client exists.
+3. **Decide who may call what.** `make` sets a vendor's PASSWORD, and `!update` can
+   write `approved-flag`/`approval-status`/`suspend-flag` — the columns the login
+   contract reads, so a caller can lock a vendor out of its own login. §6.9 records
+   this; the binding layer is where it gets answered (`:inject-company`, credential
+   requirements, which verbs are exposed at all).
+4. **Delete or reduce `vendor/nst-bl-vendapi.lisp` BEFORE the new file lands** — see
+   §7.4. `vendapi` and `vndapi` differ by one letter and the stale file is inert.
+5. **Carry NO `:inject-company`** on vendor routes: the tenant is enforced by
+   construction inside `make`/`!update`, the same reasoning as products, and doing it
+   in the domain does not depend on the leftmost-initarg rule.
+
+### Step 2 — Tests
+
+6. **Write `test/smoke-vendor-api.sh`**, following `test/smoke-warehouse-api.sh` —
+   read-only by default, `--write` for the mutating verbs, exit 2 for setup failure so
+   "the API was never tested" is distinguishable from "the API is broken".
+7. **It needs a fixture that does not exist yet: a soft-deleted vendor.** All 15 live
+   rows are `deleted_state='N'`, so the `:C` path has nothing to trigger it. Create it
+   with `--write` (or insert and soft-delete one), then assert that re-creating that
+   phone in that tenant answers **409, not 201 and not 500** — and that the same phone
+   is still **free in another tenant**, which is the per-tenant reservation UC_Vendor
+   implies and the one thing that distinguishes this entity from products.
+8. **Include the Belnap section.** All four truth values, with `:F` exercised through
+   four triggers (absent id, cross-tenant id, soft-deleted id, absurd id), and the
+   anti-collapse assertions: a miss must be 404 and NOT 503; a contradiction must be
+   409 and NOT 200 or 404.
+9. **Expect these three paths to answer 500 where 400 is right** — the required-field
+   guard, the `!update` secret refusal, and a bad `?sort-by=`. That is the known
+   taxonomy gap (§7.2), not a new bug. Assert them as `KNOWN` rather than `FAIL`, the
+   way the warehouse suite does, so a real regression stands out.
+
+### Step 3 — then, and only then
+
+10. **Fix the 4xx taxonomy (§7.2)** — it is now three vendor paths plus the warehouse's
+    `validate-sort-args`. The tests from step 2 are what tell you the fix worked.
 
 **The database credentials** are in `core/dod-ini-sys.lisp` (`hhubdb`, user
 `hhubuser`). **The files worth reading first**, beyond this one:
@@ -361,6 +401,9 @@ Then, in order:
 `products/nst-bl-prdapi.lisp`, `core/nst-bl-adhara.lisp` §1/§5b/§6, and
 `test/smoke-warehouse-api.sh` for the test pattern including its Belnap section.
 
-**And the standing rule this project keeps re-learning:** compilation is not evidence.
-Both bugs the products work found on 2026-09-13 were only reachable by RUNNING the code,
-and both sat on the same call chain. Call the verbs as soon as they are claimed to work.
+**And the standing rule this project keeps re-learning:** compile-time success is not
+evidence. Both bugs the products work found on 2026-09-13 were only reachable by RUNNING
+the code, and both sat on the same call chain — a selector returning a list where its
+siblings returned one row, and a knowledge object whose provenance was a string where
+the class documents a list. Neither is a compile error, neither is caught by a
+structural check, and neither is reachable on the read-only path.
