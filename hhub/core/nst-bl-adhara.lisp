@@ -532,6 +532,146 @@
 
 
 ;;; ═══════════════════════════════════════════════════════════════════════
+;;; nst-bl-adhara.lisp — SECTION 5b: knowledge → domain result
+;;; ═══════════════════════════════════════════════════════════════════════
+;;;
+;;; WHY THIS EXISTS. The four truth values are carried by TWO types in this tree:
+;;;
+;;;   bo-knowledge          — what the CRUD macros in nst-mult-logic.lisp return
+;;;                           (with-db-call, with-nst-db-create/update/delete/
+;;;                           read-all). Every प्रत्यय method gets one.
+;;;   nst-entity-nil/-unknown/-contradiction
+;;;                         — Tree 1 domain results, the only things the reverse
+;;;                           ferry (domain->response) can carry out.
+;;;
+;;; Nothing converted between them, so each verb hand-rolled the mapping — and,
+;;; before this section existed, most verbs did not make the conversion at all:
+;;; they RAISED on :U and :C, turning "I could not find out" and "my own rules
+;;; disagree" into a 500 indistinguishable from a crash. The distinction Belnap
+;;; exists to preserve was being discarded at exactly the point it mattered.
+;;;
+;;; The conversion is ONE rule, stated once:
+;;;
+;;;   :T → the caller's own result (the payload is the answer)
+;;;   :F → nst-entity-nil             (a domain FACT: it is not there)
+;;;   :U → nst-entity-unknown         (ignorance — must never read as :F)
+;;;   :C → nst-entity-contradiction   (our sources disagree — a human decides)
+;;;
+;;; THE REASON STRING CARRIES THE PROVENANCE. bo-knowledge provenance is where
+;;; the *why* lives — e.g. नियम-2's "DELETED_STATE='Y' rows are invisible to
+;;; every verb" — and it is the only thing that distinguishes a :C caused by a
+;;; soft-deleted identity holder from any other contradiction. Dropping it would
+;;; leave a 409 with nothing actionable in it.
+
+(defun knowledge-provenance-text (knowledge)
+  "The provenance of KNOWLEDGE as one readable string, for a sentinel reason."
+  (let ((p (bo-knowledge-provenance knowledge)))
+    (cond ((null p) "no provenance recorded")
+          ((listp p) (format nil "~{~A~^ | ~}" p))
+          (t (format nil "~A" p)))))
+
+(defun knowledge-reason-for (truth reason provenance)
+  "The reason string for a non-:T sentinel.
+
+   REASON is either a STRING (used for every non-:T state) or a FUNCTION of one
+   argument — the truth keyword — returning a string. The function form exists
+   because one message usually does NOT fit all three states: for fetch, \":F —
+   row-id 999 not found in this tenant\" is right, while the same words in front
+   of a :U would claim we looked and found nothing when in fact we could not look
+   at all. That is the exact confusion this whole section exists to remove, so the
+   converter refuses to make it on the caller's behalf.
+
+   The PROVENANCE is always appended: it is where the *why* lives (e.g. नियम-2's
+   explanation of a soft-deleted identity holder), and a 409 with no provenance is
+   a 409 nobody can act on."
+  (let ((head (cond ((null reason) nil)
+                    ((stringp reason) reason)
+                    ((functionp reason) (funcall reason truth))
+                    (t (error "knowledge-reason-for: :reason must be a string or a function of the truth, got ~S" reason)))))
+    (if (and head (plusp (length head)))
+        (format nil "~A — ~A" head provenance)
+        provenance)))
+
+(defun domain-sentinel-from-knowledge (knowledge ctx &key reason)
+  "The THREE non-:T states of KNOWLEDGE → the matching Tree-1 sentinel.
+
+   This is the primitive, and it deliberately refuses :T: a :T is a domain FACT,
+   not a failure, and only the calling verb knows what to do with the payload
+   (hydrate it into an entity, or — for make — treat it as a conflict). Callers
+   that want :T handled for them should use domain-result-from-knowledge.
+
+   Signals on :T and on any unrecognized truth, rather than inventing a sentinel:
+   a verb that reaches here with :T has a control-flow bug, and 404/503/409 would
+   all be lies."
+  (let ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
+        (truth (bo-knowledge-truth knowledge))
+        (why (knowledge-provenance-text knowledge)))
+    (case truth
+      (:F (make-instance 'nst-entity-nil
+                         :tenant-id tenant-id
+                         :reason (knowledge-reason-for :F reason why)))
+      (:U (make-instance 'nst-entity-unknown
+                         :tenant-id tenant-id
+                         :reason (format nil "The boundary could not answer: ~A"
+                                         (knowledge-reason-for :U reason why))))
+      (:C (make-instance 'nst-entity-contradiction
+                         :tenant-id tenant-id
+                         :reason (knowledge-reason-for :C reason why)))
+      (:T (error "domain-sentinel-from-knowledge: truth is :T — that is a fact, not a failure. Handle :T at the call site (or use domain-result-from-knowledge)."))
+      (otherwise (error "domain-sentinel-from-knowledge: unrecognized bo-knowledge-truth ~A (provenance: ~A)"
+                        truth why)))))
+
+(defun domain-result-from-knowledge (knowledge ctx &key hydrate reason)
+  "The FULL four-state conversion of KNOWLEDGE into a Tree-1 domain result.
+
+   HYDRATE is a one-argument function (the bo-knowledge payload → a domain entity)
+   and is REQUIRED when the truth is :T. It is not given a default on purpose:
+   silently substituting a sentinel for a payload the caller forgot to hydrate
+   would turn a programming error into a plausible-looking 404.
+
+   The three failing truths go through domain-sentinel-from-knowledge, so the
+   mapping rule lives in exactly one place. See the section header for why this
+   exists at all."
+  (if (eq (bo-knowledge-truth knowledge) :T)
+      (if hydrate
+          (funcall hydrate (bo-knowledge-payload knowledge))
+          (error "domain-result-from-knowledge: truth is :T but no :hydrate function was supplied — the payload is a DB object, not a domain entity, and a verb must not fabricate a sentinel for it."))
+      (domain-sentinel-from-knowledge knowledge ctx :reason reason)))
+
+(defun domain-result-truth (result)
+  "The four-valued truth of a Tree-1 domain result — the INVERSE of
+   domain-result-from-knowledge, and the missing piece that makes a COMPOUND verb
+   possible.
+
+   Why it is needed: a प्रत्यय answers with an entity or a sentinel, never with a
+   bo-knowledge. So a verb that sequences several प्रत्यय calls —
+   order->invoice, approve->order — holds RESULTS, and results must be reduced to
+   truths before they can be composed with bo-conjoin (nst-bl-beltrusys.lisp).
+   Without this, conjoin is only reachable from code that calls the CRUD macros
+   directly, which is not where compound verbs live.
+
+   The round trip is exact for the three sentinels and for a real entity:
+   domain-result-from-knowledge ∘ domain-result-truth is the identity on them.
+
+   NIL IS AMBIGUOUS IN COMMON LISP — nil IS the empty list — so this cannot tell
+   'a verb returned bare NIL' from 'a verb returned an empty collection'. It reads
+   NIL as :F (absence), which is what every sentinel-returning verb means by it.
+   The consequence to know: an EMPTY enumerate (which returns '()) reads as :F, not
+   as a successful empty list. That is inherent to the language, and it is one more
+   reason the verb contract should require explicit sentinels (see the review note
+   about action->response laundering a bare nil into a 404)."
+  (cond
+    ((typep result 'nst-entity-nil)           +false+)
+    ((typep result 'nst-entity-unknown)       +unknown+)
+    ((typep result 'nst-entity-contradiction) +contradiction+)
+    ((typep result 'nst-domain-entity)        +true+)   ; the :T case: a real entity
+    ((null result)                            +false+)  ; see the NIL note above
+    ((listp result)                           +true+)   ; a collection result
+    ((eq result t)                            +true+)   ; the delete! ack
+    (t (error "domain-result-truth: ~S is not a domain result — expected an nst-domain-entity, a Belnap sentinel, a collection, or T." result))))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════
 ;;; nst-bl-adhara.lisp — SECTION 6: Universal प्रत्यय
 ;;; ═══════════════════════════════════════════════════════════════════════
 
