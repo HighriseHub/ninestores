@@ -385,9 +385,32 @@
 
 
 (defun hhub-random-password (length)
-  (with-output-to-string (stream)
-    (let ((*print-base* 36))
-      (loop repeat length do (princ (random 36) stream)))))       
+  "Returns a random password of LENGTH characters.
+
+   Draws from an alphabet that includes lowercase, uppercase, digits and symbols.
+   The previous base-36 alphabet could never produce an uppercase letter or a
+   symbol, so a generated password could never satisfy an OWASP character-class
+   rule. One character from each class is placed first and the result is then
+   shuffled, so the minimum complexity is guaranteed and not positionally fixed."
+  (let ((lower   "abcdefghijklmnopqrstuvwxyz")
+        (upper   "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        (digits  "0123456789")
+        (special "!@#$%^&*()-_=+[]{};:,.?/"))
+    (let ((all (concatenate 'string lower upper digits special)))
+      (labels ((draw (charset n)
+                 (let ((size (length charset)))
+                   (with-output-to-string (out)
+                     (loop repeat n do (princ (char charset (random size)) out))))))
+        (let ((chars (coerce (concatenate 'string
+                                          (draw lower 1) (draw upper 1)
+                                          (draw digits 1) (draw special 1)
+                                          (draw all (max 0 (- length 4))))
+                             'list)))
+          (loop for i from (1- (length chars)) downto 1 do
+            (let ((j (random (1+ i))))
+              (rotatef (nth i chars) (nth j chars))))
+          ;; Exactly LENGTH characters, even when LENGTH < 4.
+          (coerce (subseq chars 0 (min length (length chars))) 'string))))))
 
 
 (defun hhub-read-file (filename)
