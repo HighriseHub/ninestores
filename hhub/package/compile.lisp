@@ -218,6 +218,7 @@
      "vendor/dod-dal-vas.lisp"
      "vendor/dod-dal-vad.lisp"
      "vendor/dod-dal-ven.lisp"
+     "vendor/nst-dal-vnd.lisp"     ;; nst-vnd domain class (needs adhara, loaded earlier).
      "vendor/dod-bl-vad.lisp"
      "vendor/dod-bl-ven.lisp"
      "vendor/dod-bl-vas.lisp"
