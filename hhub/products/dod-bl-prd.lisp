@@ -649,19 +649,28 @@
    tenant's row beyond the collision itself.
 
    :INCLUDE-DELETED T returns the row whatever its DELETED_STATE, which is what
-   makes the soft-delete contradiction detectable — see ?exists."
-  (if include-deleted
-      (clsql:select 'dod-prd-master
-                    :where [= [:product-code] product-code]
-                    :caching *dod-database-caching* :flatp t)
-      ;; The `:deleted-state "N"` reading relies on the view-class's
-      ;; :void-value "N", which is how this schema's nullable char(1) flags are
-      ;; mapped (NULL ↔ "N") — the same convention every other selector here
-      ;; already uses.
-      (clsql:select 'dod-prd-master
-                    :where [and [= [:deleted-state] "N"]
-                                [= [:product-code] product-code]]
-                    :caching *dod-database-caching* :flatp t)))
+   makes the soft-delete contradiction detectable — see ?exists.
+
+   Returns ONE ROW OR NIL, like every other by-identity selector in this file
+   (select-product-by-id, select-product-pricing-by-id, …): the CAR is taken
+   here. That is not cosmetic — with-db-call hands its payload to ?exists, which
+   reads a SLOT off it, so returning the raw clsql:select list made ?exists call
+   slot-value on a CONS and turned the intended 409 into a 500
+   (\"the slot DELETED-STATE is missing from the object\"). Kept as CAR rather
+   than fixed at the call site because the function is NAMED 'by-code', singular,
+   and the caller should not have to know which shape its siblings return."
+  (car (if include-deleted
+           (clsql:select 'dod-prd-master
+                         :where [= [:product-code] product-code]
+                         :caching *dod-database-caching* :flatp t)
+           ;; The `:deleted-state \"N\"` reading relies on the view-class's
+           ;; :void-value \"N\", which is how this schema's nullable char(1) flags are
+           ;; mapped (NULL ↔ \"N\") — the same convention every other selector here
+           ;; already uses.
+           (clsql:select 'dod-prd-master
+                         :where [and [= [:deleted-state] "N"]
+                                     [= [:product-code] product-code]]
+                         :caching *dod-database-caching* :flatp t))))
 
 (defmethod ?exists ((entity-class (eql 'nst-prd)) (product-code string)
                     (ctx domain-ctx) &key &allow-other-keys)
@@ -702,22 +711,45 @@
                   :provenance "नियम-2: DELETED_STATE='Y' rows are invisible to every verb")))
       (t knowledge))))
 
-(defmethod make :before ((entity-class (eql 'nst-prd)) (ctx domain-ctx) &rest initargs)
+(defmethod make :around ((entity-class (eql 'nst-prd)) (ctx domain-ctx) &rest initargs)
   "Refuse BEFORE the INSERT is attempted. Only a CONFIRMED-FREE identity passes:
    :U is not 'probably free', and :C is a question for a human.
 
    Skips silently when no :product-code was supplied, because make generates one
-   in that case and a freshly generated code cannot pre-exist."
+   in that case and a freshly generated code cannot pre-exist.
+
+   WAS A :before METHOD THAT RAISED — see the warehouse twin for the full
+   reasoning. A :before method cannot return a value, so raising was its only way
+   to refuse, and every refusal reached the boundary as a 500 (indistinguishable
+   from a crash, and from \"not found\"). An :around method can return, so the
+   check now yields the domain's own four-valued answer:
+
+     ?exists :F → confirmed free → proceed with the INSERT
+     ?exists :T → a LIVE product holds the code  → contradiction → 409
+     ?exists :C → a SOFT-DELETED product holds it → contradiction → 409
+     ?exists :U → could not check                → unknown       → 503
+
+   :U IS NOT 'PROBABLY FREE'. Creating on an unconfirmed code is how a duplicate
+   gets written; the unique key would then reject it and the client would be told
+   something misleading about a race instead of 'we could not check'."
   (let ((code (getf initargs :product-code)))
-    (when code
-      (let* ((check (?exists 'nst-prd code ctx))
-             (truth (bo-knowledge-truth check)))
-        (case truth
-          (:F nil)                                  ; confirmed free — proceed
-          (:T (error "PRODUCT_CODE ~A: a LIVE product already holds this code. Refusing to create." code))
-          (:C (error "PRODUCT_CODE ~A: the code is held by a SOFT-DELETED product. The row is still in DOD_PRD_MASTER and the unique index on PRODUCT_CODE includes no DELETED_STATE, while नियम-2 makes it invisible to every verb. Human decision needed: undelete that product, or create this one under a different code. Refusing to create." code))
-          (otherwise
-           (error "PRODUCT_CODE ~A: uniqueness check returned ~A, not confirmed-available (:F). Refusing to create." code truth)))))))
+    (if (null code)
+        (call-next-method)                     ; nothing to pre-check
+        (let ((check (?exists 'nst-prd code ctx)))
+          (case (bo-knowledge-truth check)
+            (:F (call-next-method))            ; confirmed free — proceed
+            (:T (make-instance 'nst-entity-contradiction
+                               :tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)
+                               :reason (format nil "PRODUCT_CODE ~A: a LIVE product already holds this code. The create contradicts existing state, so it is neither done nor impossible." code)))
+            (otherwise
+             ;; :C and :U → contradiction / unknown, with the provenance carried
+             ;; through (that is where नियम-2's explanation lives).
+             (domain-sentinel-from-knowledge
+              check ctx
+              :reason (lambda (truth)
+                        (case truth
+                          (:C (format nil "PRODUCT_CODE ~A is held by a SOFT-DELETED product: the row is still in DOD_PRD_MASTER and the unique index on PRODUCT_CODE includes no DELETED_STATE, while नियम-2 makes it invisible to every verb. Human decision needed: undelete that product, or create this one under a different code." code))
+                          (otherwise (format nil "PRODUCT_CODE ~A: the uniqueness check did not come back free" code)))))))))))
 
 (defmethod make ((entity-class (eql 'nst-prd)) (ctx domain-ctx) &rest initargs)
   "सृजन प्रत्यय — create one product.
@@ -770,9 +802,20 @@
       (case (bo-knowledge-truth knowledge)
         (:T (bind-generated-row-id entity (bo-knowledge-payload knowledge))
             entity)
-        (:F (error "PRODUCT_CODE ~A rejected at the database — the unique key already holds it (uniqueness race lost after the :before check passed)." (product-code entity)))
-        (:U (error 'hhub-database-error :errstring "Product create failed — see log"))
-        (:C (error "Unreachable: no :pre-flight form was supplied to with-nst-db-create in this call — a :C here means the macro contract changed without this method being updated"))
+        (:F ;; The unique key rejected the row: the code was taken between the
+            ;; :around check and this INSERT (a lost race, not a client mistake).
+            ;; Same domain fact as the :T case there → the same answer: :C → 409.
+            (make-instance 'nst-entity-contradiction
+                           :tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)
+                           :reason (format nil "PRODUCT_CODE ~A rejected at the database — the unique key already holds it (uniqueness race lost after the :around check passed)." (product-code entity))))
+        (:U ;; The boundary failed: NOT a refusal, and we do not know whether the
+            ;; row was written. → 503, never 404 and never a misleading 500.
+            (domain-sentinel-from-knowledge
+             knowledge ctx
+             :reason "Product create: the database call did not answer — the row may or may not have been written, so this is unknown, not failed"))
+        (:C ;; Unreachable without a :pre-flight form, which this call does not
+            ;; supply — a programming error if it ever appears.
+            (error "Unreachable: no :pre-flight form was supplied to with-nst-db-create in this call — a :C here means the macro contract changed without this method being updated"))
         (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-create" (bo-knowledge-truth knowledge)))))))
 
 
@@ -824,22 +867,19 @@
                        :reason (format nil "~S does not address a product row (row-ids are integers)" id))
         (let ((knowledge (with-db-call (select-product-by-id row-id company)
                                        "nst-prd/fetch (row-id, session tenant)")))
-          (case (bo-knowledge-truth knowledge)
-            (:T (let ((entity (make-instance 'nst-prd :tenant-id tenant-id)))
-                  (copyProduct-dbtodomain (bo-knowledge-payload knowledge) entity)
-                  (setf (prd-company entity) company)   ; see the header, correction 2
-                  entity))
-            (:F (make-instance 'nst-entity-nil
-                               :tenant-id tenant-id
-                               :reason (format nil "Product row-id ~A not found in this tenant" row-id)))
-            (:U (make-instance 'nst-entity-unknown
-                               :tenant-id tenant-id
-                               :reason (format nil "Could not read product row-id ~A — the database call did not answer" row-id)))
-            (:C (make-instance 'nst-entity-contradiction
-                               :tenant-id tenant-id
-                               :reason (format nil "Product row-id ~A returned more than one row — the primary key is not holding" row-id)))
-            (otherwise (error "Unrecognized bo-knowledge-truth ~A from nst-prd/fetch"
-                              (bo-knowledge-truth knowledge))))))))
+          ;; ONE conversion, in adhara — not a hand-rolled case per verb.
+          (domain-result-from-knowledge
+           knowledge ctx
+           :hydrate (lambda (dbobj)
+                      (let ((entity (make-instance 'nst-prd :tenant-id tenant-id)))
+                        (copyProduct-dbtodomain dbobj entity)
+                        (setf (prd-company entity) company)   ; see the header, correction 2
+                        entity))
+           :reason (lambda (truth)
+                     (case truth
+                       (:F (format nil "Product row-id ~A not found in this tenant" row-id))
+                       (:U (format nil "Product row-id ~A: the database call did not answer — whether the row exists is unknown" row-id))
+                       (:C (format nil "Product row-id ~A returned more than one row — the primary key is not holding" row-id)))))))))
 
 (defmethod !update ((entity-class (eql 'nst-prd)) (row-id string) (ctx domain-ctx)
                     &rest update-args)
@@ -890,8 +930,16 @@
                                     dbobj)))
                   (case (bo-knowledge-truth knowledge)
                     (:T entity)
-                    (:U (error 'hhub-database-error
-                               :errstring (format nil "Product update failed, row-id ~A" row-id)))
+                    (:U ;; The write did not complete and the row's state is
+                        ;; unknown → 503, not a 500 and NOT 404: the product
+                        ;; exists, we simply cannot report what happened to it.
+                        (domain-sentinel-from-knowledge
+                         knowledge ctx
+                         :reason (format nil "Product update, row-id ~A: the database call did not answer — the row's current state is unknown" row-id)))
+                    (:F ;; Unreachable: with-nst-db-update was called without
+                        ;; :pre-flight, and the row was already confirmed by the
+                        ;; SELECT above, so :F cannot be produced.
+                        (error "Unreachable: with-nst-db-update without :pre-flight cannot return :F (row-id ~A)" row-id))
                     (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-update"
                                       (bo-knowledge-truth knowledge)))))))))))
 
@@ -933,8 +981,15 @@
                                   dbobj)))
                 (case (bo-knowledge-truth knowledge)
                   (:T t)
-                  (:U (error 'hhub-database-error
-                             :errstring (format nil "Product delete failed, row-id ~A" row-id)))
+                  (:U ;; The soft-delete did not complete and we cannot say whether
+                      ;; the row was touched → 503 (unknown), not a 500 — which is
+                      ;; indistinguishable from a crash and from "no such product".
+                      (domain-sentinel-from-knowledge
+                       knowledge ctx
+                       :reason (format nil "Product delete, row-id ~A: the database call did not answer — whether the row was soft-deleted is unknown" row-id)))
+                  (:F ;; Unreachable: with-nst-db-delete was called without
+                      ;; :pre-flight, so :F cannot be produced.
+                      (error "Unreachable: with-nst-db-delete without :pre-flight cannot return :F (row-id ~A)" row-id))
                   (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-delete"
                                     (bo-knowledge-truth knowledge))))))))))
 
@@ -1143,8 +1198,17 @@
                       entity))
                   (bo-knowledge-payload knowledge)))
       (:F '())                                  ; empty catalog — a success, not 404
-      (:U (error 'hhub-database-error :errstring "Product enumerate failed — see log"))
-      (:C (error "PK duplication in product enumerate results, tenant ~A — data integrity issue, investigate DOD_PRD_MASTER directly" tenant-id))
+      (:U ;; The catalogue could not be read → 503. NOTE the type change: enumerate
+          ;; normally returns a LIST, so a caller must inspect the result rather
+          ;; than assume one (the dispatcher handles both). That is the price of
+          ;; not claiming an empty catalogue when we could not read it.
+          (domain-sentinel-from-knowledge
+           knowledge ctx
+           :reason (format nil "Product enumerate, tenant ~A: the database call did not answer — the catalogue contents are unknown" tenant-id)))
+      (:C ;; Duplicate PKs in the result set — data integrity, a human must look → 409.
+          (domain-sentinel-from-knowledge
+           knowledge ctx
+           :reason (format nil "Product enumerate, tenant ~A: the result set contained duplicate primary keys — data integrity issue, investigate DOD_PRD_MASTER directly" tenant-id)))
       (otherwise (error "Unrecognized bo-knowledge-truth ~A from nst-prd/enumerate"
                         (bo-knowledge-truth knowledge))))))
 
