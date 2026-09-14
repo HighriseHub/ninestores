@@ -769,9 +769,9 @@
     (when status          (push (vnd-status-clause status) clauses))
     (when approval-status (push [= [:approval-status] (string-upcase (string approval-status))] clauses))
     (when (and name-like (stringp name-like) (plusp (length (string-trim " " name-like))))
-      ;; escape-like-wildcards is defined in warehouse/nst-bl-warehouse.lisp and
-      ;; resolved at call time — reused rather than copied so the LIKE-escaping rule
-      ;; keeps ONE implementation.
+      ;; escape-like-wildcards lives in core/dod-bl-utl.lisp (asd line 62), which
+      ;; loads BEFORE this file, so it resolves at compile time. Reused rather than
+      ;; copied so the LIKE-escaping rule keeps ONE implementation.
       (push [like [:name] (format nil "%~A%" (escape-like-wildcards name-like))] clauses))
     (when (and city (stringp city) (plusp (length (string-trim " " city))))
       (push [like [:city] (format nil "%~A%" (escape-like-wildcards city))] clauses))
@@ -929,10 +929,11 @@
 
 (defun vnd-flag->boolean (value)
   "Delegates to prd-flag->boolean in products/dod-bl-prd.lisp rather than repeating
-   the Y/N → boolean rule, per the reuse discipline recorded for escape-like-wildcards
-   (products CONTEXT §8.8): one implementation of a rule, even when it lives in a
-   sibling entity's file. The name is kept so vendor code does not read as though it
-   were product code; the shared implementation should eventually move to core."
+   the Y/N → boolean rule, per the reuse discipline that escape-like-wildcards now
+   follows too: one implementation of a rule, even when it lives in a sibling
+   entity's file. The name is kept so vendor code does not read as though it were
+   product code; the shared implementation should eventually move to core, the way
+   escape-like-wildcards just did."
   (prd-flag->boolean value))
 
 (defmethod render-json ((r VendorResponseModel) (ctx domain-ctx))

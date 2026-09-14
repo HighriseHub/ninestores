@@ -413,6 +413,43 @@
           (coerce (subseq chars 0 (min length (length chars))) 'string))))))
 
 
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; LIKE-pattern escaping
+;;;
+;;; MOVED HERE from warehouse/nst-bl-warehouse.lisp. It was a WAREHOUSE file
+;;; exporting a generic SQL-escaping rule, and by the time the vendor layer was
+;;; written THREE entity layers called it — warehouse, products AND vendor. Two of
+;;; those load BEFORE nst-bl-warehouse.lisp, so each compiled with
+;;;
+;;;   caught STYLE-WARNING: undefined function: ESCAPE-LIKE-WILDCARDS
+;;;
+;;; and the warning trained readers to skim past that line — which is how a real
+;;; undefined-variable defect survived review in vendor/nst-bl-vnd.lisp on
+;;; 2026-09-14. A benign warning sitting next to a fatal one is a hazard in itself.
+;;;
+;;; core/dod-bl-utl.lisp is at nstores.asd line 62, ahead of products (148), the
+;;; vendor block (181+) and warehouse (196), so every caller now sees the real
+;;; definition at compile time and the warning is gone for all three.
+;;;
+;;; It is deliberately NOT a method on any entity: the escaping rule is one rule,
+;;; and the `name-like` / `city` filters of every entity share it. A fourth entity
+;;; should call this, not copy it.
+;;; ═══════════════════════════════════════════════════════════════════════════
+
+(defun escape-like-wildcards (str)
+  "Escapes MySQL LIKE metachars so name-like input is treated literally.
+
+   STR may be NIL, in which case NIL is returned. The backslash MUST be escaped
+   first — escaping it after % or _ would double-escape the backslashes those two
+   insert and corrupt the pattern."
+  (when str
+    (let ((result str))
+      (setf result (cl-ppcre:regex-replace-all "\\\\" result "\\\\\\\\"))
+      (setf result (cl-ppcre:regex-replace-all "%" result "\\\\%"))
+      (setf result (cl-ppcre:regex-replace-all "_" result "\\\\_"))
+      result)))
+
+
 (defun hhub-read-file (filename)
  :documentation "Reads a file and returns a string"
   (with-open-file (stream filename)
