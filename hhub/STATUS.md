@@ -126,14 +126,23 @@ app loads from `/home/hunchentoot/.cache/…`, so that fasl does not reach it. �
 | | verify |
 |---|---|
 | `hhub/products/nst-bl-prdapi-CONTEXT.md` is mode 600 `hunchentoot` → `git add -A` fails on it | `ls -l hhub/products/nst-bl-prdapi-CONTEXT.md` |
-| `hhub/vendor/nst-bl-vendapi.lisp` is stale, inert, and one letter from the live `nst-bl-vndapi.lisp` | `grep -c register-outbound-route hhub/vendor/nst-bl-vendapi.lisp` |
+| `hhub/vendor/nst-bl-vendapi.lisp` is stale, inert, and one letter from the live `hhub/vendor/nst-bl-vndapi.lisp` | `grep -c register-outbound-route hhub/vendor/nst-bl-vendapi.lisp` |
 
 ## Where the depth lives — read on demand only
 
-| File | For |
-|---|---|
-| `hhub/vendor/nst-bl-vndapi-CONTEXT.md` | the vendor API: decisions, schema, §11 render-json, §12 this session |
-| `hhub/products/nst-bl-prdapi-CONTEXT.md` | the reference implementation and the Belnap findings |
-| `hhub/core/nst-bl-apidefs2-CONTEXT.md` | Ring-4 conventions |
-| `test/smoke-warehouse-api.sh` | the test pattern, incl. the Belnap section |
-| `core/nst-bl-adhara.lisp` §1/§5b/§6 | sentinels, the knowledge→result converters, the प्रत्यय contracts |
+**Paths are relative to the repository root (`ninestores/`), same as the refresh block.**
+The code lives under `hhub/`.
+
+| File | In git? | For |
+|---|---|---|
+| `hhub/vendor/nst-bl-vndapi-CONTEXT.md` | ✅ tracked | the vendor API: decisions, schema, §11 render-json, §12 this session |
+| `hhub/products/nst-bl-prdapi-CONTEXT.md` | ⚠️ **untracked, mode 600** | the reference implementation and the Belnap findings |
+| `hhub/core/nst-bl-apidefs2-CONTEXT.md` | ⚠️ **untracked, mode 600** | Ring-4 conventions |
+| `hhub/core/nst-bl-conflodis2-DESIGN.md` | ⚠️ **untracked, mode 600** | the Tier-2/3 dispatcher design |
+| `hhub/test/smoke-warehouse-api.sh` | ✅ tracked | the test pattern, incl. the Belnap section |
+| `hhub/core/nst-bl-adhara.lisp` | ✅ tracked | sentinels, the knowledge→result converters, the प्रत्यय contracts |
+
+**⚠️ THREE OF THE SIX EXIST ONLY ON THIS MACHINE.** They are untracked *and* mode 600
+`hunchentoot`, so even here they need a `chmod` before `ubuntu` can read them, and a
+fresh clone has none of them. Until they are committed, this file's own pointers are
+not portable · `verify: git ls-files --error-unmatch <path>`
