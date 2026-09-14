@@ -1123,10 +1123,10 @@
     (when catg-id   (push [= [:catg-id] catg-id] clauses))
     (when vendor-id (push [= [:vendor-id] vendor-id] clauses))
     (when (and name-like (stringp name-like) (plusp (length (string-trim " " name-like))))
-      ;; escape-like-wildcards is defined in warehouse/nst-bl-warehouse.lisp,
-      ;; which loads AFTER this file. Resolved at call time, so the order is
-      ;; harmless — and reused rather than copied so the escaping rule has ONE
-      ;; implementation.
+      ;; escape-like-wildcards now lives in core/dod-bl-utl.lisp (asd line 62),
+      ;; which loads BEFORE this file, so it resolves at compile time. It used to
+      ;; be defined in warehouse/nst-bl-warehouse.lisp and every caller here
+      ;; compiled with an "undefined function" style-warning.
       (push [like [:prd-name] (format nil "%~A%" (escape-like-wildcards name-like))] clauses))
     (when min-price (push [>= [:current-price] min-price] clauses))
     (when max-price (push [<= [:current-price] max-price] clauses))

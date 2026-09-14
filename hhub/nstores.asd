@@ -187,6 +187,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "vendor/dod-bl-vad")
    (:file "vendor/dod-bl-ven")
    (:file "vendor/nst-bl-vnd")    ; Tier-1 प्रत्यय for nst-vnd (needs dod-dal-ven + adhara).
+   (:file "vendor/nst-bl-vndapi") ; Route-action verbs + action routes + API bindings for nst-vnd (needs conflodis2 + apidefs2 + nst-bl-vnd).
    (:file "vendor/dod-bl-vpm")
    (:file "vendor/dod-ui-vad")
    (:file "vendor/dod-ui-ven")

@@ -136,15 +136,27 @@
    caller constructs the nst-vnd with :tenant-id from the domain-ctx (so नियम-1 has
    something to check) and re-attaches the company object itself when a later write
    needs it — because copyVendor-domaintodb derives TENANT_ID from that slot, and an
-   entity hydrated here and passed to !update would otherwise write a NIL tenant."
-  (with-slots (row-id name address phone username email firstname lastname fullname
-               salutation title birthdate city state country zipcode
-               gstnumber picture-path password salt
+   entity hydrated here and passed to !update would otherwise write a NIL tenant.
+
+   THE with-slots LIST BELOW IS THE DESTINATION'S SLOT NAMES — nst-vnd's, which are
+   the vnd-prefixed ones — while every (slot-value source ...) reads dod-vend-profile's
+   PLAIN names. The two sides genuinely differ (see the header, decision 3), and
+   getting this list wrong is not a style problem: a name in the list that the
+   destination does not have makes the matching (setf ...) a FREE VARIABLE. It
+   compiles, because CL only warns, and dies at runtime. The trap is that the names
+   which happen to coincide on both sides (firstname, password, gstnumber) keep
+   working, so a partial mismatch looks fine until the vnd- prefixed fields are
+   touched."
+  (with-slots (row-id vnd-phone vnd-name username password salt
+               firstname lastname fullname salutation vnd-title birthdate
+               vnd-address vnd-city vnd-state vnd-country vnd-zipcode
+               vnd-picture-path vnd-email
                payment-gateway-mode payment-api-key payment-api-salt upi-id
                active-flag suspend-flag approved-flag approval-status approved-by
                push-notify-subs-flag email-add-verified shipping-enabled
-               invoice-settings legal-name trade-name pan-number gst-state-code
-               gst-registration-type gst-filing-frequency fy-start-month)
+               gstnumber legal-name trade-name pan-number gst-state-code
+               gst-registration-type gst-filing-frequency fy-start-month
+               invoice-settings)
       destination
     (setf row-id            (slot-value source 'row-id))
     ;; IDENTITY + CREDENTIALS. password/salt ARE copied onto the domain entity —
@@ -757,9 +769,9 @@
     (when status          (push (vnd-status-clause status) clauses))
     (when approval-status (push [= [:approval-status] (string-upcase (string approval-status))] clauses))
     (when (and name-like (stringp name-like) (plusp (length (string-trim " " name-like))))
-      ;; escape-like-wildcards is defined in warehouse/nst-bl-warehouse.lisp and
-      ;; resolved at call time — reused rather than copied so the LIKE-escaping rule
-      ;; keeps ONE implementation.
+      ;; escape-like-wildcards lives in core/dod-bl-utl.lisp (asd line 62), which
+      ;; loads BEFORE this file, so it resolves at compile time. Reused rather than
+      ;; copied so the LIKE-escaping rule keeps ONE implementation.
       (push [like [:name] (format nil "%~A%" (escape-like-wildcards name-like))] clauses))
     (when (and city (stringp city) (plusp (length (string-trim " " city))))
       (push [like [:city] (format nil "%~A%" (escape-like-wildcards city))] clauses))
@@ -917,10 +929,11 @@
 
 (defun vnd-flag->boolean (value)
   "Delegates to prd-flag->boolean in products/dod-bl-prd.lisp rather than repeating
-   the Y/N → boolean rule, per the reuse discipline recorded for escape-like-wildcards
-   (products CONTEXT §8.8): one implementation of a rule, even when it lives in a
-   sibling entity's file. The name is kept so vendor code does not read as though it
-   were product code; the shared implementation should eventually move to core."
+   the Y/N → boolean rule, per the reuse discipline that escape-like-wildcards now
+   follows too: one implementation of a rule, even when it lives in a sibling
+   entity's file. The name is kept so vendor code does not read as though it were
+   product code; the shared implementation should eventually move to core, the way
+   escape-like-wildcards just did."
   (prd-flag->boolean value))
 
 (defmethod render-json ((r VendorResponseModel) (ctx domain-ctx))

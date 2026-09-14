@@ -292,17 +292,12 @@
       (error "enumerate: sort-dir must be :asc or :desc, got ~A" sort-dir))
     (values col sort-dir)))
 
-(defun escape-like-wildcards (str)
-  "Escapes MySQL LIKE metachars so name-like input is treated literally."
-  (when str
-    (let ((result str))
-      ;; Escape backslash first (must be first)
-      (setf result (cl-ppcre:regex-replace-all "\\\\" result "\\\\\\\\"))
-      ;; Escape percent sign
-      (setf result (cl-ppcre:regex-replace-all "%" result "\\\\%"))
-      ;; Escape underscore
-      (setf result (cl-ppcre:regex-replace-all "_" result "\\\\_"))
-      result)))
+;; escape-like-wildcards MOVED to core/dod-bl-utl.lisp — see the note there. It is
+;; a generic SQL-escaping rule that warehouse, products and vendor all call, and
+;; two of those load before this file, so every caller compiled with an
+;; "undefined function" style-warning. It is still called from
+;; build-warehouse-filter-clauses below, and resolves to the core definition,
+;; which now loads first.
 
 
 (defun build-warehouse-filter-clauses (tenant-id &key warehouse-type state-code city

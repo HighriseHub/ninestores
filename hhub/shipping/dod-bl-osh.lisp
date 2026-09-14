@@ -118,7 +118,23 @@ defaultshippingmethod))
 (defun get-zonename-from-pincode (pincode vendor company)
   (let* ((shipzones (get-ship-zones-for-vendor vendor company)))
     (car (remove nil (mapcar (lambda (shipzone)
-			       (let ((zipcodes (read-from-string (slot-value shipzone 'zipcoderangecsv))))
+			       ;; SECURITY: *read-eval* MUST stay nil here. ZIPCODERANGECSV is
+			       ;; a varchar(1024) written by the vendor shipping-zone form
+			       ;; (dod-ui-ven.lisp, create-vendor-ship-zone) and read back on a
+			       ;; CUSTOMER checkout (dod-ui-cus.lisp, get-shipping-rate). The
+			       ;; default reader EVALUATES #. — so without this binding a vendor
+			       ;; could store "#.(...)" in a zone and have it executed in this
+			       ;; image the next time any customer entered a pincode. The ollama
+			       ;; tooling guards this; the shipping path did not.
+			       ;; The reader stays because the stored values are Lisp lists of
+			       ;; REGEX FRAGMENTS, not just digit prefixes: live rows contain
+			       ;; "(577* 560001 ...)", "(0)", "()" and an embedded newline, and
+			       ;; each token is used as (format nil "^~A" token). A naive
+			       ;; splitter would change matching. Replacing the reader with a
+			       ;; real tokeniser is a follow-up that needs a test over all 20
+			       ;; live rows.
+			       (let ((zipcodes (let ((*read-eval* nil))
+						 (read-from-string (slot-value shipzone 'zipcoderangecsv)))))
 				 (when zipcodes
 				   (car (remove nil (mapcar (lambda (zipcode)
 							      (when (> (cl-ppcre:count-matches (format nil "^~A" zipcode) pincode) 0)
