@@ -513,3 +513,189 @@ same reason.
 
 **Either way the generic function stays.** Deleting it would silently break ten
 methods rather than removing them.
+
+---
+
+## 12. SESSION 2026-09-14 — status, findings, and the shipping/payment design
+
+### 12.1 Where the vendor API stands (end of 2026-09-14)
+
+**Seven commits, all unpushed** (`ahead 7` of
+`origin/cus/feat/tax123-order-with-taxes`):
+
+| Commit | What |
+|---|---|
+| `9b1cd12` | the vendor API CONTEXT file |
+| `a689bdc` | resumption order set to API design → tests |
+| `4196972` | **fix**: `copyVendor-dbtodomain` declared the VIEW-CLASS slots while its destination is `nst-vnd` — ten `vnd-` fields were free variables |
+| `07a5066` | `escape-like-wildcards` moved to `core/dod-bl-utl.lisp` (it was in a warehouse file, called by three entity layers, two of which load earlier) |
+| `5ae87cb` | the `render-json` decision recorded (§11) |
+| `50ac635` | **the vendor profile API surface** — 5 verbs, 5 action routes, 5 bindings |
+| `5ba1f70` | **SECURITY**: `*read-eval* nil` on the shipping-zone read |
+
+**Built and committed:** `vendor/nst-dal-vnd.lisp` (nst-vnd + boundary models),
+`vendor/nst-bl-vnd.lisp` (6 प्रत्यय + copiers + reverse ferry),
+`vendor/nst-bl-vndapi.lisp` (routes + bindings), plus the `dod-vend-profile`
+`username`/`fullname` slots in `vendor/dod-dal-ven.lisp`.
+
+**What is genuinely verified:** the live schema; that `USERNAME` blocked every INSERT
+until the slot was added (error 1364, reproduced); column coverage 44/44; the response
+model's secret exclusion; the 1:1 map from response slots → `domain->response` →
+`render-json` (35/35/35); structure of every new file (top-level form count, depth 0);
+and the `read-eval` guard (proven — see §12.2).
+
+**What is NOT verified — the headline.** **No vendor verb has ever been called.**
+`?exists`, `make`, `fetch`, `!update`, `delete!` and `enumerate` have never run
+against a database. Nothing has been fetched, written or rendered.
+
+### 12.2 🚨 THE `read-from-string` CLASS — a second, larger RCE family
+
+Found while designing shipping. **This is not one bug, it is a pattern**, and it is
+still only partly fixed.
+
+The tree uses `read-from-string` as a **deserialiser for structured data held in text
+columns**. `read-from-string` invokes the reader, and `*read-eval*` defaults to `T`, so
+`#.` is **evaluated**.
+
+| Site | Data | Written by | Status |
+|---|---|---|---|
+| `shipping/dod-bl-osh.lisp:137` `zipcoderangecsv` | vendor | vendor UI | ✅ **FIXED `5ba1f70`** |
+| `shipping/dod-bl-osh.lisp:74-80` `RATETABLECSV` — **7 calls** | vendor | vendor UI | ❌ **OPEN** |
+| `vendor/dod-ui-ven.lisp:2429` `invoice-settings`, executed **at login** | vendor | vendor UI | ❌ **OPEN** |
+| `vendor/dod-ui-ven.lisp:2457` the session copy of it | — | — | ❌ **OPEN** |
+| `core/dod-ui-utl.lisp:113` **`safe-read-from-string`** — 18 call sites | vendor | products/invoice UI | ❌ **OPEN** |
+
+**`safe-read-from-string` IS NOT SAFE.** It wraps `read-from-string` in a
+`handler-case` that catches PARSE ERRORS and never binds `*read-eval*`. Proven:
+
+```
+(safe-read-from-string "#.(+ 40 2)")  =>  42
+```
+
+The name is worse than useless — it is actively misleading at 18 call sites, all on
+`images-str` image columns.
+
+**Why this is a BLOCKER for the vendor work, not a side-quest:** two of the open sites
+are columns this API writes.
+
+* **`RATETABLECSV` is the shipping rate table.** `nst-vnd-ship`, the entity §12.3
+  designs, writes it. A CSV cell containing `#.(...)` executes on the next checkout.
+* **`invoice-settings` is already writable through the `nst-vnd` `!update` that
+  `50ac635` shipped.** It is not in `*vendor-update-forbidden-fields*`, so the vendor
+  API ALREADY exposes a column that `dod-ui-ven.lisp:2429` evaluates at that vendor's
+  next login.
+
+**The fix, and why it is small:** binding `*read-eval* nil` inside
+`safe-read-from-string` repairs **18 call sites in one edit**, and cannot break
+legitimate data — no real value contains `#.`. Then three direct sites (the 7 rate-table
+reads, and both `invoice-settings` reads).
+
+**A warning about the guard, learned the hard way this session:** keep the reader, do
+not replace it with a naive splitter. The stored values are lists of **REGEX FRAGMENTS**,
+not digit prefixes — live rows contain `(577* 560001 …)`, `(0)`, `()`, and an embedded
+newline — and each token is used as `(format nil "^~A" token)`. A splitter silently
+changes which zones match. Replacing the reader is a follow-up needing a test over all
+20 live rows.
+
+### 12.3 The shipping + payment design — SETTLED, not yet built
+
+**Entities.** Two are SINGLETONS per vendor; the DB enforces neither.
+
+| Entity | Table | Rows | Shape |
+|---|---|---|---|
+| `nst-vnd` *(exists)* | `DOD_VEND_PROFILE` | 15 | credentials, `shipping_enabled`, `upi_id` |
+| `nst-vnd-ship` | `DOD_SHIPPING_METHODS` | 6 | shipping config (below) |
+| `nst-vnd-shipzone` | `DOD_VENDOR_SHIP_ZONES` | 20 | `zonename`, `zipcoderangecsv` — a COLLECTION |
+| `nst-vnd-pay` | `DOD_VPAYMENT_METHODS` | 5 | **5 flags only** |
+
+**`DOD_SHIPPING_METHODS` — the vendor's shipping configuration:**
+
+| Concept | Column |
+|---|---|
+| FREE (above a threshold) | `FREESHIPENABLED` + `MINORDERAMT` `decimal(7,2)` |
+| per ORDER vs per LINE ITEM | `FLATRATETYPE` = **`ORD`** \| **`ITM`**, with `FLATRATEPRICE` |
+| weight × zone matrix | `TABLERATESHIPENABLED` + `RATETABLECSV` |
+| external partner | `EXTSHIPENABLED` + `shippartnerkey` / `shippartnersecret` (**SECRETS**) |
+| store pickup | `STOREPICKUPENABLED` |
+| default | `defaultshippingmethod` = `FSH` \| `FRS` \| `TRS`, **NULL on 1 of 6 rows** |
+
+`ORD` charges `FLATRATEPRICE` once; `ITM` charges it × item count (`dod-ui-cus.lisp:2922`).
+`RATETABLECSV` is a `MIN,MAX,ZONE-A…ZONE-E` matrix read via `cl-csv`. **Its column names
+ARE rows in `DOD_VENDOR_SHIP_ZONES`** — deleting or renaming a zone silently corrupts
+every weight band, and nothing enforces the link. That is the most valuable law this
+API could add.
+
+**`DOD_VPAYMENT_METHODS` holds FLAGS ONLY** — `codenabled`, `upienabled`,
+`payprovidersenabled`, `walletenabled`, `paylaterenabled`.
+
+**THE CREDENTIALS ARE ALREADY ON `nst-vnd`** — `PAYMENT_API_KEY`, `PAYMENT_API_SALT`,
+`PAYMENT_GATEWAY_MODE`, `UPI_ID`. Confirmed by the user and by the live table. So
+`vendor/payment/gateway` and `vendor/payment/upi` are largely `!update` on `nst-vnd`,
+and `DOD_VPAYMENT_PROVIDERS` (0 rows, referenced **nowhere** in the Lisp tree) is NOT
+needed. They are already excluded from `VendorResponseModel`.
+
+**Decisions taken (user-confirmed):**
+
+1. **Singletons are 0-or-1 collections keyed by row-id**, with `?exists` on
+   `(vendor-id, tenant)` and a `make` that refuses a duplicate. The standard six
+   प्रत्यय work unchanged; `enumerate` returns 0 or 1 rows.
+2. **The vendor row is authoritative** for gateway credentials.
+3. **Vendor identity goes on the existing `actor` slot of `domain-ctx`.** Confirmed
+   as viable: **`domain-ctx-actor` is read NOWHERE in the tree** — zero consumers — so
+   reusing it costs nothing. The session does hold `:login-vendor` (the vendor OBJECT)
+   and `:login-vendor-id` (the integer); `conflodis2-actor` currently ignores both and
+   returns `:login-user` / `:login-user-role-name`.
+   **Why this matters:** without it, `vendor-id` would come from the request, and
+   **vendor X could read/write vendor Y's config inside the same tenant** — intra-tenant
+   BOLA, which tenant scoping does NOT cover. The legacy UI dodges this by calling
+   `(get-login-vendor)` from the hunchentoot session inside its controllers; route verbs
+   are Tier-2 and must not do that.
+4. **The secret lockout SPLITS** (decided, **not yet implemented**):
+   `*vendor-update-forbidden-fields*` becomes `(:password :salt)` only. The
+   `payment-*` fields become updatable — they are vendor-configurable and the web form
+   writes them today. `password`/`salt` stay refused: letting a generic field update
+   rotate the LOGIN credential without the current one is an account-takeover
+   primitive, not a config edit.
+
+5. **`shipping_enabled` lives on the VENDOR row**, not on `DOD_SHIPPING_METHODS`
+   (confirmed: `dod-ui-ven.lisp` does `(setf (slot-value vendor 'shipping-enabled) …)`).
+   Saving shipping config is therefore a cross-entity write.
+
+### 12.4 The image state — check this before trusting anything
+
+A load DID succeed on 2026-09-14 at 17:20-17:21, resolving the morning abort
+(§8.1): `vendor/nst-bl-vnd.fasl` and `warehouse/nst-bl-warehouse.fasl` are both in the
+app's ASDF cache now, and the warehouse entries were stale since Sep 13 07:57 before
+that.
+
+**BUT `vendor/nst-bl-vndapi.fasl` exists ONLY beside its source** (written 17:22:51,
+after the load) and has **0 entries in the app's cache**. Per §8.1 the app loads from
+
+```
+/home/hunchentoot/.cache/common-lisp/sbcl-2.6.8-linux-x64/home/ubuntu/ninestores/hhub/
+```
+
+so a fasl beside the source does not reach the image. **The vendor routes are therefore
+very likely NOT registered.** Verify before trusting any endpoint:
+
+```lisp
+(list-api-routes)      ; expect 5 warehouse + 5 product + 5 vendor rows
+(list-action-routes)   ; expect route-vendor-* among them
+```
+
+### 12.5 Next steps, in order
+
+1. **The `read-from-string` sweep** (§12.2) — the `safe-read-from-string` one-liner
+   (18 sites) plus the three direct sites. **Do this BEFORE building shipping**, because
+   `nst-vnd-ship` writes `RATETABLECSV`.
+2. **Verify the image** (§12.4) — `(asdf:load-system :nstores)` and `(list-api-routes)`,
+   then CALL the read verbs (`?exists`/`fetch`/`enumerate`). They have never run.
+3. **Build `nst-vnd-ship` + `nst-vnd-shipzone`** (§12.3).
+4. **Build `nst-vnd-pay`** — flags only.
+5. **Implement the lockout split** (§12.3 decision 4).
+6. **Put the vendor on `domain-ctx`'s `actor`** before any vendor-scoped route binds.
+7. Then the 4xx taxonomy (§7.2), then tests (§10 step 2).
+
+**And the standing rule:** compile-time success is not evidence. Today added two
+proofs — a copier that compiled with ten warnings and would have failed on the first
+fetch, and a helper named `safe` that executes arbitrary code.
