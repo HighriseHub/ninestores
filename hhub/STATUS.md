@@ -31,7 +31,10 @@ done
 printf "%-22s read-eval guards: %-3s safe-read-from-string CALLERS: %s\n" core/dod-ui-utl \
   "$(grep -c 'read-eval' hhub/core/dod-ui-utl.lisp)" \
   "$(grep -rn 'safe-read-from-string' --include=*.lisp hhub/ | grep -v 'defun safe-read-from-string' | wc -l)"
-mysql -h localhost -u hhubuser -p'Welcome$123' hhubdb -N -B -e \
+# Credentials are read from their one home, hhub/core/dod-ini-sys.lisp — never
+# copied into this file. Keep it that way: one source of truth for a secret.
+DBPASS=$(grep -oP "(?<=crm-database-password\* \")[^\"]+" hhub/core/dod-ini-sys.lisp)
+mysql -h localhost -u hhubuser -p"$DBPASS" hhubdb -N -B -e \
   "SELECT CONCAT('DOD_VEND_PROFILE columns: ', COUNT(*)) FROM information_schema.columns
    WHERE table_schema='hhubdb' AND table_name='DOD_VEND_PROFILE';" 2>/dev/null
 ```
