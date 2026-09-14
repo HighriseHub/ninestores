@@ -136,15 +136,27 @@
    caller constructs the nst-vnd with :tenant-id from the domain-ctx (so नियम-1 has
    something to check) and re-attaches the company object itself when a later write
    needs it — because copyVendor-domaintodb derives TENANT_ID from that slot, and an
-   entity hydrated here and passed to !update would otherwise write a NIL tenant."
-  (with-slots (row-id name address phone username email firstname lastname fullname
-               salutation title birthdate city state country zipcode
-               gstnumber picture-path password salt
+   entity hydrated here and passed to !update would otherwise write a NIL tenant.
+
+   THE with-slots LIST BELOW IS THE DESTINATION'S SLOT NAMES — nst-vnd's, which are
+   the vnd-prefixed ones — while every (slot-value source ...) reads dod-vend-profile's
+   PLAIN names. The two sides genuinely differ (see the header, decision 3), and
+   getting this list wrong is not a style problem: a name in the list that the
+   destination does not have makes the matching (setf ...) a FREE VARIABLE. It
+   compiles, because CL only warns, and dies at runtime. The trap is that the names
+   which happen to coincide on both sides (firstname, password, gstnumber) keep
+   working, so a partial mismatch looks fine until the vnd- prefixed fields are
+   touched."
+  (with-slots (row-id vnd-phone vnd-name username password salt
+               firstname lastname fullname salutation vnd-title birthdate
+               vnd-address vnd-city vnd-state vnd-country vnd-zipcode
+               vnd-picture-path vnd-email
                payment-gateway-mode payment-api-key payment-api-salt upi-id
                active-flag suspend-flag approved-flag approval-status approved-by
                push-notify-subs-flag email-add-verified shipping-enabled
-               invoice-settings legal-name trade-name pan-number gst-state-code
-               gst-registration-type gst-filing-frequency fy-start-month)
+               gstnumber legal-name trade-name pan-number gst-state-code
+               gst-registration-type gst-filing-frequency fy-start-month
+               invoice-settings)
       destination
     (setf row-id            (slot-value source 'row-id))
     ;; IDENTITY + CREDENTIALS. password/salt ARE copied onto the domain entity —
