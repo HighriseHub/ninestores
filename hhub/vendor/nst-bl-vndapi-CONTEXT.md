@@ -544,6 +544,18 @@ model's secret exclusion; the 1:1 map from response slots → `domain->response`
 `render-json` (35/35/35); structure of every new file (top-level form count, depth 0);
 and the `read-eval` guard (proven — see §12.2).
 
+The 1364 reproduction, since STATUS.md points here for it — run against the live
+database and ROLLED BACK, so it proves the refusal without writing anything. It is
+also what proved `dod-vend-profile` could not insert at all before the slot was added:
+
+```sql
+START TRANSACTION;
+INSERT INTO DOD_VEND_PROFILE (NAME,ADDRESS,PHONE,PASSWORD,TENANT_ID)
+  VALUES ('ZZTMP','ZZTMP','0000000000','x',2);
+ROLLBACK;
+-- ERROR 1364 (HY000): Field 'USERNAME' doesn't have a default value
+```
+
 **What is NOT verified — the headline.** **No vendor verb has ever been called.**
 `?exists`, `make`, `fetch`, `!update`, `delete!` and `enumerate` have never run
 against a database. Nothing has been fetched, written or rendered.
