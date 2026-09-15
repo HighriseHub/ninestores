@@ -79,7 +79,6 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "customer/nst-bl-custapi")
    (:file "invoice/nst-bl-invapi")
    (:file "products/nst-bl-prodapi")
-   (:file "vendor/nst-bl-vendapi")
    (:file "core/nst-ui-prosymloo")
    (:file "core/nst-bl-funloodat")
    (:file "core/nst-bl-ollama")
@@ -183,11 +182,14 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "vendor/dod-dal-ven")
    (:file "vendor/dod-dal-vpm")
    (:file "vendor/nst-dal-vnd")   ; nst-vnd domain class (needs adhara, loaded earlier).
+   (:file "vendor/nst-dal-vndvpm"); nst-vnd-vpm domain class + boundary models (needs adhara).
    (:file "vendor/dod-bl-vas")
    (:file "vendor/dod-bl-vad")
    (:file "vendor/dod-bl-ven")
    (:file "vendor/nst-bl-vnd")    ; Tier-1 प्रत्यय for nst-vnd (needs dod-dal-ven + adhara).
    (:file "vendor/nst-bl-vndapi") ; Route-action verbs + action routes + API bindings for nst-vnd (needs conflodis2 + apidefs2 + nst-bl-vnd).
+   (:file "vendor/nst-bl-vndvpm"); Tier-1 प्रत्यय for nst-vnd-vpm (needs dod-dal-vpm + nst-bl-vnd + adhara).
+   (:file "vendor/nst-bl-vndvpmapi"); Action routes + API bindings for nst-vnd-vpm (needs conflodis2 + apidefs2 + nst-bl-vndvpm).
    (:file "vendor/dod-bl-vpm")
    (:file "vendor/dod-ui-vad")
    (:file "vendor/dod-ui-ven")
