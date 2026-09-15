@@ -1,6 +1,6 @@
 # STATUS.md — nstores architecture migration
 
-**Read this first, every session. Budget: ~2k tokens — it is currently ~1.7k (7,000 chars).**
+**Read this first, every session. Budget: 9,000 chars — currently at the ceiling.**
 
 This is a **checklist**, not a history. Deep rationale lives in the CONTEXT files at the
 bottom and is read **on demand**. If this file starts growing like them, it has failed —
@@ -8,6 +8,9 @@ one CONTEXT file is ~10k tokens, so this must stay a fraction of that.
 
 **Discipline:** every factual line carries a `verify:` command. No command ⇒ the claim
 does not belong here. When a fact changes, **edit the line** — do not append a new one.
+
+**Working protocol** (process — no `verify:`): write code and hand it over; no harnesses,
+no stub rigs; `compile-file` for syntax; the owner reports compile failures.
 
 ---
 
@@ -68,6 +71,7 @@ that executes arbitrary code.
 | `USERNAME` NOT NULL + no default ⇒ **every** INSERT failed (error 1364) | re-run the INSERT in the CONTEXT §12.1 — it returns `ERROR 1364` |
 | Response ↔ ferry ↔ JSON is 1:1; the 6 secrets are absent (35/35) | `grep -c '(cons "' hhub/vendor/nst-bl-vnd.lisp` |
 | The `read-eval` guard blocks the payload and parses all 20 live zone rows identically | `grep -n read-eval hhub/shipping/dod-bl-osh.lisp` |
+| `nst-bl-vendapi.lisp` DELETED — CONTEXT §7.4/§10.4 done, do not re-do | `test ! -e hhub/vendor/nst-bl-vendapi.lisp && echo GONE` |
 
 ## 🚨 BLOCKER 1 — the `read-from-string` sweep is INCOMPLETE
 
@@ -126,7 +130,6 @@ app loads from `/home/hunchentoot/.cache/…`, so that fasl does not reach it. �
 | | verify |
 |---|---|
 | `hhub/products/nst-bl-prdapi-CONTEXT.md` is mode 600 `hunchentoot` → `git add -A` fails on it | `ls -l hhub/products/nst-bl-prdapi-CONTEXT.md` |
-| `hhub/vendor/nst-bl-vendapi.lisp` is stale, inert, and one letter from the live `hhub/vendor/nst-bl-vndapi.lisp` | `grep -c register-outbound-route hhub/vendor/nst-bl-vendapi.lisp` |
 
 ## Where the depth lives — read on demand only
 
