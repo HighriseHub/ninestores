@@ -219,6 +219,7 @@
      "vendor/dod-dal-vad.lisp"
      "vendor/dod-dal-ven.lisp"
      "vendor/nst-dal-vnd.lisp"     ;; nst-vnd domain class (needs adhara, loaded earlier).
+     "vendor/nst-dal-vndvpm.lisp"  ;; nst-vnd-vpm domain class + boundary models (needs adhara).
      "vendor/dod-bl-vad.lisp"
      "vendor/dod-bl-ven.lisp"
      "vendor/nst-bl-vnd.lisp"      ;; Tier-1 प्रत्यय for nst-vnd (needs dod-dal-ven + adhara).
@@ -228,6 +229,8 @@
      "vendor/dod-ui-ven.lisp"
      "vendor/dod-dal-vpm.lisp"
      "vendor/dod-bl-vpm.lisp"
+     "vendor/nst-bl-vndvpm.lisp"   ;; Tier-1 प्रत्यय for nst-vnd-vpm (needs dod-dal-vpm + nst-bl-vnd).
+     "vendor/nst-bl-vndvpmapi.lisp";; Action routes + API bindings for nst-vnd-vpm.
      
      ;; Webpushnotify
      "webpushnotify/dod-dal-push.lisp"
