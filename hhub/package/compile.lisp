@@ -228,7 +228,6 @@
      "vendor/dod-ui-ven.lisp"
      "vendor/dod-dal-vpm.lisp"
      "vendor/dod-bl-vpm.lisp"
-     "vendor/nst-bl-vendapi.lisp"
      
      ;; Webpushnotify
      "webpushnotify/dod-dal-push.lisp"

@@ -79,7 +79,6 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "customer/nst-bl-custapi")
    (:file "invoice/nst-bl-invapi")
    (:file "products/nst-bl-prodapi")
-   (:file "vendor/nst-bl-vendapi")
    (:file "core/nst-ui-prosymloo")
    (:file "core/nst-bl-funloodat")
    (:file "core/nst-bl-ollama")
