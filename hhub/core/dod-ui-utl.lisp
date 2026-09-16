@@ -345,6 +345,14 @@ Returns a list of widget outputs."
 
 
 
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-table (table-class headercolumns border &body body)
+    `(cl-who:with-html-output-to-string (*standard-output* nil)
+		   (:table :class ,table-class :width "100%" :border ,border :align "center" :cellpadding "0" :cellspacing "0" :style "padding: 0; margin: 0;"
+			   (:tr
+			    (mapcar (lambda (headercolumn)
+				      (cl-who:htm (:th (cl-who:str headercolumn)))) ,headercolumns)) ,@body))))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun display-csv-as-html-table (csvstringwithheader)
     (let* ((data (cl-csv:read-csv csvstringwithheader))
@@ -1399,15 +1407,6 @@ dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
        (:div :class ,panel-class
 	     (:div :class "panel-heading" ,panel-header-text)
 	     (:div :class "panel-body" ,@body)))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-table (table-class headercolumns border &body body)
-    `(cl-who:with-html-output-to-string (*standard-output* nil)
-		   (:table :class ,table-class :width "100%" :border ,border :align "center" :cellpadding "0" :cellspacing "0" :style "padding: 0; margin: 0;"
-			   (:tr
-			    (mapcar (lambda (headercolumn)
-				      (cl-who:htm (:th (cl-who:str headercolumn)))) ,headercolumns)) ,@body))))
-  
 
 (defun copy-hash-table (hash-table)
   (let ((ht (make-hash-table 
