@@ -279,7 +279,8 @@
      "test/hhub-tst-webpush.lisp"
      "test/hhub-tst-sms.lisp"
      "test/nst-tst-warehouse.lisp"
-     "test/hhub-tst-vpm.lisp"))
+     "test/hhub-tst-vpm.lisp"
+     "test/nst-tst-mult-logic.lisp"))
   
   ;;; Core Compilation Functions
   (defun compile-single-file (file stats &optional optimize-code)
