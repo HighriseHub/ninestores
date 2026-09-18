@@ -215,64 +215,27 @@ Database type: Supported type is ':odbc'"
 	  (setf *dod-database-caching* NIL))))
 
 
+;;; START-DAS / STOP-DAS now delegate to the revertible lifecycle in
+;;; core/nst-server-context.lisp: START-NST-SERVER registers every subsystem's
+;;; startup beside its own inverse, and STOP-NST-SERVER is the reverse walk of
+;;; that one stack. The two bodies that used to live here are the source of
+;;; START-NST-SERVER (dod-ini-sys.lisp:218 at the time of the port) and
+;;; STOP-NST-SERVER (:295); keeping them would mean two live lifecycles in one
+;;; image, which is what this delegation removes.
+;;;
+;;; The names stay, because the in-process restart path uses them: on MySQL
+;;; error 2013 the UI calls (stop-das) (start-das) to reconnect, in
+;;; dod-ui-utl, dod-ui-cus, dod-ui-cad, dod-ui-sys and dod-ui-ven.
+;;;
+;;; The declaim is here because nst-server-context.lisp loads LAST (it depends
+;;; on the whole tree), so these are forward references from this file.
+
+(declaim (ftype (function (&optional t t) t) start-nst-server)
+         (ftype (function () t) stop-nst-server))
+
 (defun start-das (&optional (withssl nil) (debug-mode T))
-  :documentation "Start ninestores server with or without ssl. If withssl is T, then start the hunchentoot server with ssl settings"
-  (setf *dod-debug-mode* debug-mode)
-  (setf *random-state* (make-random-state t))
-  ;; # this initializes the global random state by
-  ;;   "some means" (e.g. current time.)
-  (setf *http-server* (make-instance 'hunchentoot:easy-acceptor :port 4244 :document-root #p"~/ninestores/"))
-  (setf (hunchentoot:acceptor-access-log-destination *http-server*)   #p"~/hhublogs/ninestores-access.log")
-  (setf (hunchentoot:acceptor-message-log-destination *http-server*) #p"~/hhublogs/ninestores-messages.log")
-  ;;Support double quotes for parenscript. 
-  ;;CL-WHO leaves it up to you to escape HTML attributes.
-  ;;One way to make sure that quoted strings in inline JavaScript
-  ;;work inside HTML attributes is to use double quotes for HTML attributes and single quotes for JavaScript strings. 
-  (setq cl-who:*attribute-quote-char* #\")
-  (progn
-    (init-hhubplatform)
-    (if withssl  (init-httpserver-withssl))
-    (if withssl  (hunchentoot:start *ssl-http-server*) (hunchentoot:start *http-server*) )
-    (hunchentoot:reset-session-secret)
-    (crm-db-connect :servername *crm-database-server* :strdb *crm-database-name* :strusr *crm-database-user*  :strpwd *crm-database-password* :strdbtype :mysql)
-    (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* (hhub-gen-globally-cached-lists-functions))
-    (setf *NST-CORE-TEMPLATES* (nst-load-core-templates))
-    (setf *NST-INVOICE-TEMPLATES* (nst-load-invoice-templates))
-    (setf *NST-PRODUCT-TEMPLATES* (nst-load-product-templates))
-    (setf *NST-ORDER-TEMPLATES* (nst-load-order-templates))
-    (setf *NST-EMAIL-TEMPLATES* (nst-load-email-templates))
-    (setf *NST-CUSTOMER-TEMPLATES* (nst-load-customer-templates))
-    (setq *NST-WAREHOUSE-TEMPLATES* (nst-load-warehouse-templates))
-    (setf *NST-VENDOR-TEMPLATES* (nst-load-vendor-templates))
-    (setf *NST-VENDOR-TABLES-FOR-AGENTIC-AI* (nst-load-vendor-tables-structure-for-agentic-ai))
-    (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* (make-hash-table :test 'equal))
-    (setf *HHUBPENDINGUPIFUNCTIONS-HT* (make-hash-table :test 'equal))
-    (setf *HHUBBUSINESSSESSIONS-HT* (make-hash-table)) 
-    (hhub-init-business-functions)
-    (setf *HHUBBUSINESSSERVER* (initbusinessserver))
-    (setf *NSTGSTSTATECODES-HT* (init-gst-statecodes))
-    (setf *NSTUOM-HT* (get-system-UOM-map))
-    (setf *NST-ALL-INDIA-PINCODES* (get-all-india-pincodes-ht))
-    (init-gst-invoice-terms)
-    (setf *otp-store* (make-otp-store))
-    (init-shipping-zones)
-    (init-warehouse-data)
-    (init-customer-profile-data)
-    (init-vendor-profile-data)
-    (setf *NSTSENDORDEREMAILACTOR* (make-instance 'nst-actor
-						  :name "Send Order Email Actor"
-						  :behavior #'send-order-email-behavior
-						  :stateful t
-						  :state-clean-callback (function (lambda () ()))
-						  :initial-state 0))
-    (setf *NSTAWSS3FILEUPLOADACTOR* (make-instance 'nst-actor
-						  :name "AWS S3 Bucket File Upload Actor"
-						  :behavior #'async-upload-files-s3bucket-behavior
-						  :stateful t
-						  :state-clean-callback nil
-						  :initial-state (make-hash-table)))
-    (start-actor *NSTSENDORDEREMAILACTOR*)
-    (start-actor *NSTAWSS3FILEUPLOADACTOR*)))
+  :documentation "Start ninestores server with or without ssl. If withssl is T, then start the hunchentoot server with ssl settings. Delegates to START-NST-SERVER."
+  (start-nst-server withssl debug-mode))
 
 
 
@@ -293,29 +256,8 @@ Database type: Supported type is ':odbc'"
 
 
 (defun stop-das ()
-  (format t "******** Stopping SQL Recording *******~C"  #\linefeed)
-  (clsql:stop-sql-recording :type :both)
-  (format t "******** DB Disconnect ********~C" #\linefeed)
-  (clsql:disconnect)
-  (format t "******* Stopping HTTP Server *********~C"  #\linefeed)
-  (progn (if *ssl-http-server*  (hunchentoot:stop *ssl-http-server*) (hunchentoot:stop *http-server*))
-	 (setf *ssl-http-server* nil) 
-	 (setf *http-server* nil)
-	 (setf *HHUBGLOBALLYCACHEDLISTSFUNCTIONS* NIL)
-	 (setf *NST-INVOICE-TEMPLATES* NIL)
-	 (setf *NST-ORDER-TEMPLATES* NIL)
-	 (setf *NST-EMAIL-TEMPLATES* NIL)
-	 (setf *NST-CUSTOMER-TEMPLATES* NIL)
-	 (setf *HHUBGLOBALBUSINESSFUNCTIONS-HT* NIL)
-	 (setf *HHUBBUSINESSSESSIONS-HT* NIL)
-	 (deletebusinessserver)
-	 (destroy-actor *NSTSENDORDEREMAILACTOR*)
-	 (setf *NSTSENDORDEREMAILACTOR* nil)
-	 (destroy-actor *NSTAWSS3FILEUPLOADACTOR*)
-	 (setf *NSTAWSS3FILEUPLOADACTOR* nil)
-	 (setf *NST-ALL-INDIA-PINCODES* nil)
-	 ;; clear the OTP store
-	 (funcall *otp-store* :clear)))
+  :documentation "Stop ninestores server and revert every global START-DAS set. Delegates to STOP-NST-SERVER."
+  (stop-nst-server))
 
 
 ;;;;*********** Globally Cached lists and their accessor functions *********************************
