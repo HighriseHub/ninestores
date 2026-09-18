@@ -1721,8 +1721,8 @@ Only shows sections based on availability flags and customer type."
     
     (clsql:sql-database-data-error (condition)
       (when (equal (clsql:sql-error-error-id condition) 2006 )
-	(stop-das) 
-	(start-das)))))
+	(nst-db-refresh)
+	))))
 
 
 (defun dod-controller-customer-password-reset-action ()
@@ -1871,8 +1871,7 @@ Only shows sections based on availability flags and customer type."
 	
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-							       (stop-das) 
-							       (start-das)
+							       (nst-db-refresh)
 							       (hunchentoot:redirect "/hhub/hhubcustloginv2"))))))
 
 
@@ -1899,8 +1898,7 @@ Only shows sections based on availability flags and customer type."
 	      (hhub-html-page-footer))))))
 	(clsql:sql-database-data-error (condition)
 	  (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-								   (stop-das) 
-								   (start-das)
+								   (nst-db-refresh)
 								   (hunchentoot:redirect "/hhub/customer-login.html"))))))
 
 (defun dod-controller-customer-otploginpage ()
@@ -1944,8 +1942,7 @@ Only shows sections based on availability flags and customer type."
                 (:footer :class "mt-8 text-xs text-gray-400" "&copy 2026 Nine Stores. All rights reserved."))))
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-							       (stop-das) 
-							       (start-das)
+							       (nst-db-refresh)
 							       (hunchentoot:redirect "/hhub/customer-login.html"))))))
 
 (defun is-dod-cust-session-valid? ()
@@ -3644,8 +3641,7 @@ Only shows sections based on availability flags and customer type."
      (clsql:sql-database-data-error (condition)
        (if (equal (clsql:sql-error-error-id condition) 2013 )
 	   (progn
-	     (stop-das) 
-	     (start-das)
+	     (nst-db-refresh)
 	     ;; (clsql:reconnect :database *dod-db-instance*)
 	     (hunchentoot:redirect "/hhub/customer-login.html"))))))
     
@@ -3699,8 +3695,7 @@ Only shows sections based on availability flags and customer type."
    
       (clsql:sql-database-data-error (condition)
 	  (if (equal (clsql:sql-error-error-id condition) 2006 ) (progn
-								   (stop-das) 
-								   (start-das)
+								   (nst-db-refresh)
 								   ;;(clsql:reconnect :database *dod-db-instance*)
 								   (hunchentoot:redirect "/hhub/customer-login.html"))))))
 
@@ -3747,8 +3742,7 @@ Only shows sections based on availability flags and customer type."
     ;; Handle this condition
     (clsql:sql-database-data-error (condition)
       (when (equal (clsql:sql-error-error-id condition) 2006 )
-	(stop-das) 
-	(start-das)
+	(nst-db-refresh)
 	(hunchentoot:redirect "/hhub/customer-login.html")))))
 
 

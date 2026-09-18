@@ -209,5 +209,11 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "webpushnotify/dod-ui-push")
    
    ;; Misc
-   (:file "dod-sto-zip")))
+   (:file "dod-sto-zip")
+
+   ;; Server lifecycle (core). LAST on purpose: start-nst-server registers one effect per
+   ;; subsystem, so every loader it calls (dod-ini-sys, dod-bl-sys, dod-dal-sys, pincodes,
+   ;; otp) and every init-* it boots (customer, vendor, shipping, warehouse) must already
+   ;; be loaded. Wraps start-das/stop-das in core/dod-ini-sys; not yet the live entry point.
+   (:file "core/nst-server-context")))
 

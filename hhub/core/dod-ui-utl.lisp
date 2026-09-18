@@ -105,8 +105,7 @@ Returns a list of widget outputs."
 		(hhub-html-page-footer))))))
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-							       (stop-das) 
-							       (start-das)
+							       (nst-db-refresh)
 							       (hunchentoot:redirect "/hhub/hhubcustloginv2"))))))
 
 
