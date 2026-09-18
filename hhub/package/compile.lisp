@@ -267,6 +267,11 @@
      "invoice/nst-ui-cusinvreg.lisp"
      "invoice/nst-bl-invapi.lisp"
      
+     ;; Server lifecycle (core). Deliberately LAST of the production files: 
+     ;; start-nst-server registers one effect per subsystem, so every loader it calls 
+     ;; (dod-ini-sys, dod-bl-sys, dod-dal-sys, pincodes, otp) and every init-* it boots 
+     ;; (customer, vendor, shipping, warehouse) must already be compiled and loaded.
+     "core/nst-server-context.lisp"
      
      ;; UNIT TESTS
      "test/hhub-tst-upi.lisp"

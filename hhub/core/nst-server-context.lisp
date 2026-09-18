@@ -272,7 +272,7 @@ Call STOP-NST-SERVER to revert, in reverse registration order."
 
       (register-effect
        (lambda () (setf *HHUBBUSINESSSERVER* (initbusinessserver)))
-       (lambda () (deletebusinessserver) (setf *HHUBBUSINESSSERVER* nil))
+       (lambda () (deletebusinessserver))
        :name "Business server")
 
       ;; ── derived global data ──
