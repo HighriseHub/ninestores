@@ -1589,8 +1589,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			  (hhub-html-page-footer)))))))
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-							       (stop-das) 
-							       (start-das)
+							       (nst-db-refresh)
 							       (hunchentoot:redirect "/hhub/vendor-login.html"))))))
 
 
@@ -1641,8 +1640,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (clsql:sql-database-data-error (condition)
       (when (equal (clsql:sql-error-error-id condition) 2013)
         (progn
-          (stop-das)
-          (start-das)
+          (nst-db-refresh)
           (hunchentoot:redirect "/hhub/vendor-login.html"))))))
 
 
@@ -1670,8 +1668,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    (hhub-html-page-footer)))))))
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-							       (stop-das) 
-							       (start-das)
+							       (nst-db-refresh)
 							       (hunchentoot:redirect "/hhub/hhubvendloginv2"))))))
 
 
@@ -2352,8 +2349,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2006 ) 
 	  (progn
-	    (stop-das) 
-	    (start-das)
+	    (nst-db-refresh)
 	    (hunchentoot:redirect "/hhub/hhubvendloginv2"))))))
       
 (defun dod-vend-login (&key phone password )
@@ -2392,8 +2388,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2006 ) 
 	  (progn
-	    (stop-das) 
-	    (start-das)
+	    (nst-db-refresh)
 	    (hunchentoot:redirect "/hhub/hhubvendloginv2"))))))
 
 (defun dod-controller-vendor-switch-tenant ()

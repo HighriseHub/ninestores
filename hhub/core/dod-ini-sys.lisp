@@ -200,6 +200,30 @@ Database type: Supported type is ':odbc'"
      (clsql:connect `(,strdb)
 		    :database-type strdbtype))))
 
+(defun nst-db-refresh ()
+  "Re-establish the database connection after MySQL drops it while idle.
+
+Idle connections are dropped after a couple of hours, which surfaces as error 2006
+(\"server has gone away\") or 2013 (\"lost connection during query\") on the next
+statement — typically the `select 1' liveness probe at the top of a controller.
+
+This is deliberately NOT (stop-das) (start-das): the connection is the only thing that
+went stale, and rebuilding the other 28 subsystems would reload every template set,
+rebuild the business server, re-query all-India pincodes, destroy both actors and
+replace the OTP store — all on the request path.
+
+CLSQL DETAIL: clsql:reconnect closes the old handle and RETURNS A NEW database object.
+Every query in this codebase passes (… :database *dod-db-instance*), so the return value
+must be stored back — discarding it leaves the global pointing at a closed connection
+and the next query fails again. clsql:reconnect also repoints *DEFAULT-DATABASE*.
+
+The `select 1' at the end proves the new handle answers before the caller continues, so
+a caller that has already been told `reconnected' is never handed a dead connection."
+  (let ((db (clsql:reconnect :database *dod-db-instance* :force t)))
+    (setf *dod-db-instance* db)
+    (clsql:query "select 1" :flatp t :field-names nil :database db)
+    db))
+
 (defvar *http-server* nil)
 (defvar *ssl-http-server* nil)
 (defvar *dod-debug-mode* nil)

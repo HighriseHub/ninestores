@@ -307,8 +307,7 @@
     (clsql:sql-database-data-error (condition)
       (if (equal (clsql:sql-error-error-id condition) 2006 )
 	  (progn
-	    (stop-das) 
-	    (start-das)
+	    (nst-db-refresh)
 	    (hunchentoot:redirect "/hhub/cad-login.html"))))))
 
 ;;;;;;;;;;;; com-hhub-transaction-compadmin-home ;;;;;;;;;;;;;;;
