@@ -237,87 +237,16 @@
   (:BASE-TABLE dod_product_pricing))
 
 
-;;;;;;;;;;;; PRODUCT GST ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(clsql:def-view-class dod-product-gst ()
-  ((row-id
-    :db-kind :key
-    :db-constraints :not-null
-    :type integer
-    :initarg row-id)
-
-   (product-id
-    :accessor product-id
-    :DB-CONSTRAINTS :NOT-NULL
-    :TYPE integer
-    :INITARG :product-id)
-
-   (cgstrate
-    :initarg :cgstrate
-    :type float
-    :accessor cgstrate)
-   (sgstrate
-    :initarg :sgstrate
-    :type float
-    :accessor sgstrate)
-   (igst
-    :initarg :igstrate
-    :type float
-    :accessor igstrate)
-   (compcess
-    :initarg :compcess
-    :accessor compcess)
-
-   
-   (price
-    :type float
-    :initarg :price)
-
-   (discount
-    :type float
-    :initarg :discount)
-   
-   (currency
-    :type (string 3)
-    :void-value "INR"
-    :initarg :currency)
-
-   (start-date
-    :accessor start-date
-    :DB-CONSTRAINTS :NOT-NULL
-    :TYPE clsql:date
-    :initarg :start-date)
-   (end-date
-    :accessor end-date
-    :DB-CONSTRAINTS :NOT-NULL
-    :TYPE clsql:date
-    :initarg :end-date)
-      
-   (active-flag
-    :type (string 1)
-    :void-value "N"
-    :initarg :active-flag)
-
-
-   (deleted-state
-    :type (string 1)
-    :void-value "N"
-    :initarg :deleted-state)
-
-   (tenant-id
-    :type integer
-    :initarg :tenant-id)
-   (COMPANY
-    :ACCESSOR product-company
-    :DB-KIND :JOIN
-    :DB-INFO (:JOIN-CLASS dod-company
-	                  :HOME-KEY tenant-id
-                          :FOREIGN-KEY row-id
-                          :SET T)))
-
-   
-  (:BASE-TABLE dod_product_pricing))
-
-;;;;;;;;;;;;; END PRODUCT GST TABLE ;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;; PRODUCT GST — REMOVED ;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; dod-product-gst WAS DELETED HERE (2026-09-19). It was referenced
+;;; NOWHERE in this tree (verified by grep across every .lisp file), and it
+;;; could not have worked: its (:BASE-TABLE ...) was DOD_PRODUCT_PRICING — a
+;;; copy-paste of the pricing class directly above it, which is also why it
+;;; carried price / discount / start-date / end-date and the
+;;; (:JOIN-CLASS dod-company) company slot. No DOD_PRODUCT_GST table has ever
+;;; existed in hhubdb (SHOW TABLES LIKE '%PRODUCT_GST%' returns nothing).
+;;; The GST domain has its own classes in products/dod-dal-gst.lisp
+;;; (GSTHSNCodes and friends), which is where GST data is actually read.
 
 ; Product category
 
@@ -638,6 +567,289 @@
 
 
 ;;; ═══════════════════════════════════════════════════════════════════════════
+;;; nst-prd-pricing — the TIER entity (DOD_PRODUCT_PRICING)
+;;;
+;;; WHY A SECOND ENTITY rather than a slot on nst-prd: current_price /
+;;; current_discount are denormalised ON the master row, while these are the
+;;; dated price TIERS, keyed by PRODUCT_ID — a product has one current price and
+;;; many tiers. Unlike nst-vnd-shp's `zones`, a tier IS addressable on its own:
+;;; it has its own row-id, its own date window and its own lifecycle flags, so
+;;; it is an entity and not a value struct.
+;;;
+;;; WHAT THE LIVE TABLE ACTUALLY SAYS, measured 2026-09-19 over all 83 rows —
+;;; recorded because the dod-product-pricing view class above disagrees with the
+;;; DDL in three places:
+;;;
+;;;   * PRICE decimal(10,2) NOT NULL with NO column default. Live range 1.00 …
+;;;     10000.00, zero rows at 0 or NULL. No initform: a tier without a price is
+;;;     not a tier, and the database refuses it anyway.
+;;;
+;;;   * CURRENCY varchar(3) NULL, DDL default **'USD'** — but all 83 rows hold
+;;;     'INR', and the view class claims :void-value "INR". The "INR" below is a
+;;;     CLASS CHOICE that contradicts the DDL default; it matches the live data
+;;;     and the rest of the platform (get-account-currency), so it is kept — but
+;;;     do not read it as the schema's own default.
+;;;
+;;;   * ACTIVE_FLAG char(1) NULL, DDL default NULL, and the view class claims
+;;;     :void-value "N" — while ALL 83 live rows are 'Y' and every reader filters
+;;;     on 'Y'. Copying the view class's "N" would write tiers that are invisible
+;;;     to pricing lookups while looking present in the table. "Y" is a class
+;;;     choice, matching nst-vnd-shp's identical treatment of its active-flag.
+;;;
+;;;   * START_DATE / END_DATE are nullable `timestamp`, NOT the :type clsql:date
+;;;     :NOT-NULL the view class declares — the column type is the truth. Zero
+;;;     NULLs and zero reversed windows live, but the DDL allows both, so the
+;;;     window rule belongs to the verbs, not to these slots.
+;;;
+;;;   * PRODUCT_ID is NULLABLE in the DDL (MUL index) despite the view class's
+;;;     :NOT-NULL, and there is NO FOREIGN KEY constraint on this table — an
+;;;     orphan product-id is accepted by MySQL and must be refused in the domain.
+;;;
+;;;   * CREATED / UPDATED exist on the table but are NOT mapped by the view
+;;;     class, so the inherited created-at / updated-at will not round-trip
+;;;     through the copiers. Flagged rather than hidden.
+;;;
+;;; id / tenant-id / created-at / updated-at / deleted-state are INHERITED from
+;;; nst-domain-entity — they are never redeclared here.
+;;; ═══════════════════════════════════════════════════════════════════════════
+
+(defclass nst-prd-pricing (nst-domain-entity)  ; NOT (business-object nst-domain-entity)
+  (;; ROW — bound by bind-generated-row-id after the INSERT, never by a caller.
+   (row-id
+    :initarg :row-id
+    :accessor row-id)
+
+   ;; ── PARENT ──────────────────────────────────────────────────────────────
+   ;; No initform: a tier with no product must fail loudly. This is the column
+   ;; the collection law is keyed on, together with the inherited tenant-id.
+   ;; FK → DOD_PRD_MASTER.ROW_ID, and the database does NOT enforce it — the
+   ;; table declares no FOREIGN KEY — so the domain must refuse a product-id
+   ;; that does not resolve within the session tenant.
+   (product-id
+    :initarg :product-id
+    :accessor product-id
+    :documentation "FK → DOD_PRD_MASTER.ROW_ID. UNENFORCED by the database, and
+                    NULLABLE in the DDL despite :DB-CONSTRAINTS :NOT-NULL on the
+                    view class — the columns are the truth.")
+
+   ;; ── MONEY ───────────────────────────────────────────────────────────────
+   (price
+    :initarg :price
+    :accessor price
+    :documentation "decimal(10,2) NOT NULL, no column default. The tier price.
+                    No initform on purpose: the DB refuses a tier without one.")
+
+   (discount
+    :initarg :discount
+    :accessor discount
+    :initform nil
+    :documentation "decimal(5,2) nullable, DDL default 0.00. NIL —— not 0 —— is
+                    the honest absence, on nst-vnd's minorderamt reasoning: a
+                    discount of 0 is a real statement ('no discount'), while NIL
+                    says the column was never filled. All 83 live rows carry a
+                    value, so both are readable in practice.")
+
+   (currency
+    :initarg :currency
+    :accessor currency
+    :initform "INR"
+    :documentation "varchar(3) nullable. CLASS CHOICE \"INR\" — the DDL default is
+                    'USD' and the view class claims \"INR\"; all 83 live rows are
+                    'INR'. Neither the class nor the view class reflects the
+                    schema's own default.")
+
+   ;; ── THE WINDOW ──────────────────────────────────────────────────────────
+   ;; The date window IS the tier's meaning: the same product may carry several
+   ;; tiers, and which one applies is decided by today falling inside
+   ;; [start-date, end-date]. select-product-pricing-by-startdate already reads
+   ;; it that way. No initforms: a window with no start or no end is not a window.
+   (start-date
+    :initarg :start-date
+    :accessor start-date
+    :documentation "timestamp, NULLABLE in the DDL — the view class's
+                    :DB-CONSTRAINTS :NOT-NULL and :type clsql:date are a Lisp-side
+                    claim the column does not back. Inclusive lower bound.")
+
+   (end-date
+    :initarg :end-date
+    :accessor end-date
+    :documentation "timestamp, NULLABLE in the DDL. Inclusive upper bound. The
+                    DDL permits end-date < start-date (live data has none), so
+                    that rule belongs to the verbs.")
+
+   ;; ── STATUS ──────────────────────────────────────────────────────────────
+   (active-flag
+    :initarg :active-flag
+    :accessor active-flag
+    :initform "Y"
+    :documentation "char(1), NULLABLE, NO DDL DEFAULT. The \"Y\" here is a CLASS
+                    CHOICE, not a schema default — and it deliberately does NOT
+                    follow the view class above, whose :void-value is \"N\".
+                    All 83 live rows are 'Y' and the readers filter on 'Y', so a
+                    tier written as NULL or 'N' would be invisible to pricing
+                    while looking present in the table. deleted-state, tenant-id,
+                    created-at and updated-at are INHERITED from
+                    nst-domain-entity.")
+
+   ;; ── TENANT — no initform on purpose: it must fail loudly when a caller
+   ;; forgets it, rather than write a NULL tenant. Prefixed because `company` is
+   ;; already an accessor in this package (nst-vnd-shp) and nst-prd already
+   ;; solved the same clash with prd-company. NOTE this is the legacy company
+   ;; JOIN slot that sits beside the inherited tenant-id.
+   (prc-company
+    :initarg :company
+    :accessor prc-company))
+  (:documentation
+   "Price-tier domain entity. कर्म of the pricing verbs, and the second table
+    behind the product aggregate: nst-prd holds the current price, this holds
+    the dated tiers. A tier is addressable on its own row-id, so it is an entity
+    — not a value struct like nst-vnd-shp's `zones`."))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; nst-prd-catg — the CATEGORY entity (DOD_PRD_CATG)
+;;;
+;;; WHAT A CATEGORY IS, IN BUSINESS TERMS: the label a vendor files a product
+;;; under, so the storefront can group listings ("Groceries", "Apparel"). Every
+;;; tenant gets a "root" row it never shows and children beneath it.
+;;;
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; 🚨 LFT / RGT ARE A BROKEN NESTED SET — READ THIS BEFORE USING THEM
+;;;
+;;; The two columns look like the classic modified-preorder-tree encoding: a node
+;;; spans [lft, rgt], its descendants are the rows with lft > node.lft AND
+;;; rgt < node.rgt, and the root spans the whole tree. TWO THINGS ARE WRONG, and
+;;; both are measured, not inferred (2026-09-19, all 18 live rows):
+;;;
+;;;   1. THE INTERVALS OVERLAP ACROSS TENANTS. Every tenant's root is written at
+;;;      (lft 1, rgt 2) — see add-root-prdcatg, dod-bl-prd.lisp:391-393 — so the
+;;;      encoding is NOT tenant-scoped. Tenant 2 spans [1,22] and tenant 5 spans
+;;;      [1,2] at the same time, and a subtree query would return BOTH tenants'
+;;;      rows.
+;;;
+;;;   2. THE ROOT DOES NOT CONTAIN ITS OWN TENANT'S ROWS. 11 of the 18 live rows
+;;;      sit OUTSIDE their tenant's root interval: tenant 2's root is [1,22] but
+;;;      its rows reach rgt 34, and tenant 5's root is the single-row [1,2] while
+;;;      it has five children at lft 3 … 11.
+;;;
+;;; THE CAUSE IS IN THE MAINTENANCE SQL, and it is a cross-tenant write: the
+;;; shift statements in add-new-node-prdcatg / add-new-prdcatg-node-as-child
+;;; (dod-bl-prd.lisp:400-401, 418-419) read @myRight tenant-scoped but then run
+;;;
+;;;     UPDATE DOD_PRD_CATG SET rgt = rgt + 2 WHERE rgt > @myRight;
+;;;     UPDATE DOD_PRD_CATG SET lft = lft + 2 WHERE lft > @myRight;
+;;;
+;;; with NO tenant_id filter — so one tenant adding a category RENUMBERS EVERY
+;;; OTHER TENANT'S ROWS. delete-prd-catg (dod-bl-prd.lisp:428-438) is worse: its
+;;; DELETE ... WHERE lft BETWEEN @myLeft AND @myRight is unscoped too, so it can
+;;; delete another tenant's categories outright.
+;;;
+;;; WHAT THIS ENTITY THEREFORE DOES, AND DOES NOT: the slots exist because the
+;;; columns are NOT NULL — a row cannot be inserted without them — but NOTHING in
+;;; this domain may treat lft/rgt as a usable tree. In particular there is no
+;;; "descendants" or "subtree" verb, and there must not be one until the encoding
+;;; is repaired. Every existing category SELECTOR already ignores them
+;;; (get-prod-cat, select-prdcatg-by-company, -by-id, -by-name all filter on
+;;; tenant/deleted/active/name only), so the rest of the platform is flat-listed
+;;; in practice. That is the honest description of the current behaviour.
+;;;
+;;; A SECOND HAZARD, for anyone adding a create verb: those same functions build
+;;; their SQL with (format nil "… VALUES('~A', …)" name) — the category NAME is
+;;; INTERPOLATED, not bound. A name containing an apostrophe breaks the statement
+;;; and can inject. A create verb must bind or escape it; the existing helpers
+;;; cannot be reused as-is.
+;;;
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; WHAT THE LIVE TABLE SAYS (DOD_PRD_CATG, 18 rows, tenants 2 and 5)
+;;;
+;;;   CATG_NAME varchar(70) NULLABLE, despite the view class's :DB-CONSTRAINTS
+;;;     :NOT-NULL — the column is the truth.
+;;;   lft / rgt int NOT NULL with NO DEFAULT — hence the slots below and no
+;;;     initform: a category without them cannot be stored at all.
+;;;   CREATED timestamp NOT NULL default CURRENT_TIMESTAMP — NOT mapped by the
+;;;     dod-prd-catg view class, so the inherited created-at holds the time the
+;;;     OBJECT was built, not the row's timestamp. Same defect as
+;;;     DOD_PRODUCT_PRICING's CREATED/UPDATED; flagged, not papered over.
+;;;   DELETED_STATE / ACTIVE_FLAG char(1) NULLABLE, no DDL default; all 18 live
+;;;     rows are 'N' and 'Y' respectively, and every selector filters on exactly
+;;;     those two values — so a row written with NULL would be invisible.
+;;;   "root" is a REAL ROW, one per tenant, and every selector that faces a
+;;;     vendor EXCLUDES it by name ([<> [:catg-name] "root"]). It is not a
+;;;     sentinel and it has a row-id like any other.
+;;;
+;;; id / tenant-id / created-at / updated-at / deleted-state are INHERITED from
+;;; nst-domain-entity — they are never redeclared here.
+;;; ═══════════════════════════════════════════════════════════════════════════
+
+(defclass nst-prd-catg (nst-domain-entity)   ; NOT (business-object nst-domain-entity)
+  (;; ROW — bound by bind-generated-row-id after the INSERT, never by a caller.
+   (row-id
+    :initarg :row-id
+    :accessor row-id)
+
+   ;; ── LABEL ───────────────────────────────────────────────────────────────
+   (catg-name
+    :initarg :catg-name
+    :accessor catg-name
+    :initform nil
+    :documentation "varchar(70), NULLABLE in the live table (the view class's
+                    :DB-CONSTRAINTS :NOT-NULL is a Lisp-side claim the column
+                    does not back). The literal \"root\" is reserved: it names the
+                    one hidden per-tenant row that every vendor-facing selector
+                    filters out. A verb that lets a vendor create a category must
+                    refuse that name, or the vendor can hide the real root from
+                    the platform and adopt its identity.")
+
+   ;; ── THE TREE ENCODING — see the header. NOT a usable tree.
+   (lft
+    :initarg :lft
+    :accessor lft
+    :documentation "int NOT NULL, no column default. Left bound of the nested-set
+                    interval. 🚨 THE ENCODING IS BROKEN AND CROSS-TENANT — the
+                    intervals overlap between tenants and 11 of 18 live rows fall
+                    outside their own tenant's root. Carried because the column is
+                    NOT NULL and the copier must round-trip it; NOT to be used for
+                    traversal. See the header.")
+
+   (rgt
+    :initarg :rgt
+    :accessor rgt
+    :documentation "int NOT NULL, no column default. Right bound of the same
+                    broken interval. Never write it by hand: the maintenance SQL
+                    that shifts these columns is itself unscoped and corrupts
+                    other tenants. See the header.")
+
+   ;; ── STATUS ──────────────────────────────────────────────────────────────
+   (active-flag
+    :initarg :active-flag
+    :accessor active-flag
+    :initform "Y"
+    :documentation "char(1), NULLABLE, NO DDL DEFAULT. The \"Y\" here is a CLASS
+                    CHOICE matching all 18 live rows and the filter every category
+                    selector applies — a row written as NULL would be invisible to
+                    the storefront while looking present in the table. Deliberately
+                    NOT copied from the view class, whose :void-value is \"N\".")
+
+   ;; ── TENANT — no initform on purpose: it must fail loudly when a caller
+   ;; forgets it, rather than write a NULL tenant. The view class's company slot
+   ;; carries the SAME accessor (product-company) as dod-prd-master's, which is
+   ;; why this one is prefixed — nst-prd solved the identical clash with
+   ;; prd-company, and nst-vnd-shp with a bare `company`. NOTE this is the legacy
+   ;; company JOIN slot that sits beside the inherited tenant-id.
+   (catg-company
+    :initarg :company
+    :accessor catg-company))
+  (:documentation
+   "Product-category domain entity. कर्म of whatever category verbs are built on
+    it: the label a vendor files a product under.
+
+    ONE ENTITY, ONE TABLE — no aggregate is assembled on the way to the database,
+    the way a product is one entity. The parent/child structure lives in the
+    root's and the rows' lft/rgt columns, and 🚨 that encoding is BROKEN — see the
+    header before writing any verb that reads or writes it."))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════════
 ;;; Boundary models — Tree 2. The entity never crosses into Ring 4 itself;
 ;;; request->dispatch / domain->response are the only two crossings.
 ;;; ═══════════════════════════════════════════════════════════════════════════
@@ -755,5 +967,222 @@
     own अधिकरण, never something published back to a client, and the render-json
     method is the allowlist that enforces it (adhara's security contract:
     a field must be added to the render method per format before it can leak)."))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; Boundary models for nst-prd-pricing — Tree 2
+;;;
+;;; Both descend from nst-bl-adhara.lisp's boundary tree, NEVER from
+;;; nst-domain-entity — that inheritance is what adhara exists to prevent.
+;;;
+;;; This file is the DATA SHAPE ONLY. domain->response, render-json and the
+;;; copiers for these classes live with the प्रत्यय in
+;;; products/nst-bl-prdpricing.lisp, exactly as VndShipResponseModel's live in
+;;; nst-bl-vndshp.lisp rather than in nst-dal-vndshp.lisp.
+;;; ═══════════════════════════════════════════════════════════════════════════
+
+(defclass ProductPricingRequestModel (nst-request-model)
+  ()
+  (:documentation
+   "Inbound boundary object (Tree 2) for product-pricing operations.
+
+    Deliberately SLOTLESS, like ProductRequestModel, VendorRequestModel,
+    VpmRequestModel and VndShipRequestModel: it carries NO per-field typed slots.
+    All inbound data rides in the inherited `params` slot as a transport-shaped
+    plist, e.g. (:product-id \"42\" :price 199.00 :discount 5.00
+    :start-date \"01/04/2026\" :end-date \"30/06/2026\").
+
+    The ferry (request->dispatch / extract-domain-initargs in nst-bl-adhara.lisp)
+    reads (params rm) and MOP-filters that plist against whatever initargs
+    nst-prd-pricing actually declares — one universal translator, zero per-entity
+    mapping code, so a new column needs no change here.
+
+    WHY THAT MATTERS MORE HERE THAN USUALLY: the SAME request model has to serve
+    the single update (PUT /catalog/products/{id}/pricing) and the BULK update
+    (many rows in one request). A typed mirror would have to describe both shapes,
+    and the bulk case carries a LIST of row plists under one key. Slotless means
+    the ferry sees ordinary plist values either way, and it is the verbs in
+    nst-bl-prdpricing.lisp that interpret their contents.
+
+    :tenant-id, :company and the other *reserved-initargs* are STRIPPED by
+    extract-domain-initargs and are never accepted from a client — the tenant
+    comes from the credential alone (नियम-1). :product-id is legal here precisely
+    because it is the ADDRESS of the कर्म (which product's price this is), not the
+    अधिकरण; the verbs re-resolve it against the session tenant, so another
+    tenant's product-id yields 404 and never data."))
+
+(defclass ProductPricingResponseModel (nst-boundary-object)
+  ((row-id
+    :initarg :row-id
+    :accessor row-id)
+
+   ;; PARENT — published deliberately, see the note below
+   (product-id
+    :initarg :product-id
+    :accessor product-id)
+
+   ;; MONEY
+   (price
+    :initarg :price
+    :accessor price)
+   (discount
+    :initarg :discount
+    :accessor discount)
+   (currency
+    :initarg :currency
+    :accessor currency)
+
+   ;; THE WINDOW — the period the DISCOUNT runs, not a price schedule
+   (start-date
+    :initarg :start-date
+    :accessor start-date)
+   (end-date
+    :initarg :end-date
+    :accessor end-date)
+
+   ;; STATUS
+   (active-flag
+    :initarg :active-flag
+    :accessor active-flag))
+  (:documentation
+   "Outbound boundary object (Tree 2) for a product's pricing row. Populated by
+    domain->response in nst-bl-prdpricing.lisp.
+
+    EIGHT DECLARED slots. 🚨 class-slots WILL REPORT NINE: the ninth is the
+    inherited boundary `id` (a UUID from nst-boundary-object,
+    nst-bl-adhara.lisp:76). It is NOT a published field and render-json must never
+    emit it — the same trap VndShipResponseModel documents.
+
+    `product-id` IS PUBLISHED, and the divergence from VndShipResponseModel
+    (which hides its vendor-id) is deliberate rather than an oversight:
+
+      * it is the ADDRESS the client itself supplied — the pricing row is reached
+        as /catalog/products/{id}/pricing, so the field is already known to the
+        caller and conceals nothing;
+      * the BULK response needs it. A per-row report over many products is
+        unreadable if the rows cannot say which product each one belongs to, and
+        a positional answer would silently mis-attribute rows the moment the
+        request order and the result order differ;
+      * vendor-id is hidden there because it is the SESSION'S OWN vendor — the
+        one id a client never has to be told — whereas a product-id here is one of
+        many the caller owns. ProductResponseModel publishes vendorId and catgId
+        for the same reason.
+      Tenant scoping, not field secrecy, is what keeps another tenant's product
+      out of reach (OWASP API1:2023 BOLA): every verb re-resolves product-id
+      against the session company.
+
+    DELIBERATELY ABSENT, and these ARE the security boundary:
+
+      tenant-id          the कारक. Injected from the session, never a client
+                         field, and never published back.
+      prc-company        the tenant OBJECT. A boundary object has no business
+                         carrying a domain entity out of Tree 1.
+      created-at         database-maintained audit. Not a client field.
+      updated-at         🚨 HAS NO ROUND-TRIP: DOD_PRODUCT_PRICING carries real
+                         CREATED / UPDATED columns, but the dod-product-pricing
+                         view class maps NEITHER — so the entity's inherited slots
+                         hold the time the OBJECT was built (mysql-now), not the
+                         row's timestamps. Publishing that would publish a value
+                         that is not the database's, which is worse than omitting
+                         it. Wiring it properly means adding the two slots to the
+                         view class first.
+      deleted-state      the row is either returned or it is not. A soft-delete
+                         is expressed at the boundary as a 404, never as a field
+                         on a 200.
+
+    NOT A SLOT, and the reason is worth stating: there is no `windowActive` /
+    `discountExpired` field. That is a fact about TODAY, not about the row, and a
+    stored boolean would go stale the moment midnight passed. It is DERIVED at
+    render time from start-date/end-date by the one predicate the checkout uses
+    (prdpricing-window-contains-p, nst-bl-prdpricing.lisp) — the same reasoning
+    nst-prd's current-price/current-discount apply to the master row.
+
+    The reverse ferry copies dates as CLSQL date objects; converting them to the
+    wire format is render-json's job, not this class's."))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; Boundary models for nst-prd-catg — Tree 2
+;;;
+;;; Both descend from nst-bl-adhara.lisp's boundary tree, NEVER from
+;;; nst-domain-entity. This file is the DATA SHAPE ONLY; domain->response,
+;;; render-json and the copiers belong with the प्रत्यय.
+;;; ═══════════════════════════════════════════════════════════════════════════
+
+(defclass ProductCatgRequestModel (nst-request-model)
+  ()
+  (:documentation
+   "Inbound boundary object (Tree 2) for product-category operations.
+
+    Deliberately SLOTLESS, like every other request model in this tree: all
+    inbound data rides in the inherited `params` slot as a transport-shaped plist,
+    e.g. (:catg-name \"Groceries\" :row-id \"8\"), and the ferry's
+    extract-domain-initargs MOP-filters it against whatever initargs nst-prd-catg
+    declares — one universal translator, zero per-entity mapping code.
+
+    🚨 lft / rgt TRAVEL HERE LIKE ANY OTHER INITARG, AND THAT IS NOT AN
+    INVITATION TO SUPPLY THEM. nst-prd-catg declares those slots, so the MOP
+    filter will pass a client-supplied :lft straight through to the entity. The
+    tree encoding is broken and cross-tenant (see the entity's header) and a
+    create verb must STRIP both keys, exactly as the pricing verbs strip :row-id —
+    an address or an encoding is not a field of the कर्म. Until such a verb
+    strips them, a caller can write arbitrary interval bounds.
+
+    :tenant-id, :company and the other *reserved-initargs* are STRIPPED by
+    extract-domain-initargs and are never accepted from a client — the tenant
+    comes from the credential alone (नियम-1)."))
+
+(defclass ProductCatgResponseModel (nst-boundary-object)
+  ((row-id
+    :initarg :row-id
+    :accessor row-id)
+
+   ;; LABEL
+   (catg-name
+    :initarg :catg-name
+    :accessor catg-name)
+
+   ;; STATUS
+   (active-flag
+    :initarg :active-flag
+    :accessor active-flag))
+  (:documentation
+   "Outbound boundary object (Tree 2) for a product category. THREE declared
+    slots. 🚨 class-slots WILL REPORT FOUR: the fourth is the inherited boundary
+    `id` (a UUID from nst-boundary-object, nst-bl-adhara.lisp:76), which is NOT a
+    published field and must never be emitted.
+
+    🚨 THIS IS THE SMALLEST RESPONSE MODEL IN THE TREE ON PURPOSE: it is the
+    ALLOWLIST, and lft/rgt ARE DELIBERATELY ABSENT. Publishing a nested-set
+    interval that is already known to be corrupt and cross-tenant would hand every
+    client a field it might reasonably try to navigate by — and a subtree query
+    built on those numbers returns other tenants' categories. The encoding has no
+    slot to be copied into, so no later edit to render-json can leak it; that is
+    the structural failure-closed property the boundary models rely on.
+
+    WHEN lft/rgt BECOME PUBLISHABLE: only after the maintenance SQL in
+    dod-bl-prd.lisp:400-401 and :418-419 is tenant-scoped and the existing 18 rows
+    are renumbered into a consistent per-tenant forest. Adding the slots before
+    then would advertise a coordinate system the data does not honour.
+
+    DELIBERATELY ABSENT for the usual reasons:
+
+      tenant-id     the कारक. Injected from the session; never client-addressable
+                    and never published back.
+      catg-company  the tenant OBJECT. A boundary object has no business carrying
+                    a domain entity out of Tree 1.
+      created-at    database-maintained audit — and on THIS table it has no
+                    round-trip either: DOD_PRD_CATG.CREATED is NOT mapped by the
+                    dod-prd-catg view class, so the inherited slot holds the time
+                    the object was built, not the row's timestamp. Wiring it means
+                    adding the slot to the view class first.
+      updated-at    has NO COLUMN behind it at all on DOD_PRD_CATG.
+      deleted-state the row is either returned or it is not. A soft-delete is
+                    expressed at the boundary as a 404, never as a field on a 200.
+
+    There is also NO parentId field, and that is a consequence of the same
+    defect rather than a preference: the parent is knowable only from the
+    interval encoding, so a parentId computed today would sometimes name another
+    tenant's category or the wrong node."))
 
 
