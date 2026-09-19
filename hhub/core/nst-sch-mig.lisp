@@ -11,7 +11,6 @@
 
 (defparameter *migrations*
   '(("05082025-add-product-code"  migrate-2025May-add-product-code "Added human readable Product code to DOD_PRD_MASTER table")
-    ;; Add more migrations here
     ("09052025-add-price&discount-columns"  migrate-2025May-add-discount-column "Added current price and current discount to DOD_PRD_MASTER table")
     ("16062025-modify-dod_order-table"  migrate-2025Jun-dod-order-schema "Modify dod_order table add many columns, drop columns, add indexes and foreign keys")
     ("22082025-modify-dod_order_items-table"  migrate-2025Aug-OrderItem-upgrade "Modify dod_order_items table add many columns")
@@ -70,7 +69,12 @@
     ("22032026-insert-seed-data-to-ai-tables"    migrate-2026March-insert-seed-data-to-ai-tables    "Insert seed data to ai tables.")
     ("06052026-create-view-customer-inward-invoices"   migrate-2026May-create-customer-inward-invoices-view    "Create a view which shows customer inward invoices.")
     ("25082026-insert-warehouse-policy-and-transactions"   migrate-2026Aug-insert-warehouse-policy-and-transactions   "Insert DOD_AUTH_POLICY + DOD_BUS_TRANSACTION seed rows for warehouse CRUD endpoints.")
-    ("01092026-insert-vendor-order-cancel-policy-and-transaction"   migrate-2026Sep-insert-vendor-order-cancel-policy-and-transaction   "Insert DOD_AUTH_POLICY + DOD_BUS_TRANSACTION seed rows for the vendor order-cancel endpoint.")
+    ("01092026-insert-vendor-order-cancel-policy-and-tra"   migrate-2026Sep-insert-vendor-order-cancel-policy-and-transaction   "Insert DOD_AUTH_POLICY + DOD_BUS_TRANSACTION seed rows for the vendor order-cancel endpoint.")
+    ("19092026-insert-product-policy-and-transactions"   migrate-2026Sep-insert-product-api-policy-and-transactions   "Insert DOD_AUTH_POLICY + DOD_BUS_TRANSACTION seed rows for the catalog/product JSON API endpoints.")
+    ("19092026-insert-warehouse-api-policies"   migrate-2026Sep-insert-warehouse-api-policy-and-transactions   "Insert ABAC policy + transaction seed rows for the warehouse JSON API endpoints.")
+    ("19092026-insert-vndapi-policies"   migrate-2026Sep-insert-vndapi-policy-and-transactions   "Insert ABAC policy + transaction seed rows for the vendor profile JSON API endpoints.")
+    ("19092026-insert-vndshpapi-policies"   migrate-2026Sep-insert-vndshpapi-policy-and-transactions   "Insert ABAC policy + transaction seed rows for the vendor shipping JSON API endpoints.")
+    ("19092026-insert-vndvpmapi-policies"   migrate-2026Sep-insert-vndvpmapi-policy-and-transactions   "Insert ABAC policy + transaction seed rows for the vendor payment-methods JSON API endpoints.")
     ))
 
 
@@ -80,28 +84,131 @@
   (mapcar #'first
           (clsql:query "SELECT version FROM DOD_SCHEMA_MIGRATIONS ORDER BY row_id ASC" :field-names nil)))
 
+(defparameter *upgrade-files-directory* #p"/home/ubuntu/ninestores/installation/upgrades/"
+  "Where the one-shot migration files live.
+
+   THESE FILES ARE DELIBERATELY NOT IN nstores.asd. A migration function is needed
+   exactly once per database; loading 17 files into every image forever to serve a
+   once-per-database event is a bad trade, and they are history rather than system
+   logic. 59 of the 65 registered migrations live here and nowhere else — so this
+   directory is loaded ON DEMAND, via load-upgrade-files, immediately before
+   apply-migrations. Do not \"helpfully\" wire them into the asd; the running image
+   does not need them and a stray call to a one-shot migration is not desirable.")
+
+(defun upgrade-lisp-files (&optional (directory *upgrade-files-directory*))
+  "Every .lisp file in DIRECTORY, sorted. Sorted so the load order is deterministic
+   across runs; the files are independent of one another (each only needs the
+   helpers in this file), so the order does not otherwise matter."
+  (sort (remove-if-not (lambda (p) (string-equal (pathname-type p) "lisp"))
+                       (directory (merge-pathnames "*.lisp" directory)))
+        #'string< :key #'namestring))
+
+(defun upgrade-file-defining (function-name &optional (directory *upgrade-files-directory*))
+  "Which upgrade file defines FUNCTION-NAME, or NIL. Best-effort text search, called
+   only on the pre-flight failure path in apply-migrations — so the I/O is paid only
+   when something is already wrong."
+  (let ((needle (format nil "(defun ~A" (string-downcase (string function-name)))))
+    (loop for f in (upgrade-lisp-files directory)
+          when (handler-case
+                   (with-open-file (s f :external-format :utf-8)
+                     (loop for line = (read-line s nil nil)
+                           while line
+                           thereis (search needle (string-downcase line))))
+                 (error () nil))
+            return f)))
+
+(defun load-upgrade-files (&optional (directory *upgrade-files-directory*) (verbose t))
+  "Load every migration file in DIRECTORY into the running image.
+
+   CALLED BY apply-migrations ITSELF, so the two cannot get out of step: the
+   migration functions live in these files and nowhere else (59 of the 65), and a
+   run that starts without them can only report 'function undefined'. Pass
+   :VERBOSE NIL for the one-line summary without the per-file chatter.
+
+   Each file is loaded inside its own handler-case, so one unloadable file does not
+   stop the rest — the same per-item discipline apply-migrations uses. Returns two
+   values: the files loaded, and the (file . condition) pairs that failed.
+
+   *PACKAGE* is restored afterwards because every one of these files does
+   (in-package :nstores); CL's LOAD should undo that itself, but the caller's REPL
+   package is worth not depending on the implementation for."
+  (let ((files (upgrade-lisp-files directory))
+        (loaded '()) (failed '())
+        (pkg *package*))
+    (unwind-protect
+         (dolist (f files)
+           (handler-case
+               (progn (load f)
+                      (push f loaded)
+                      (when verbose (format t "  loaded ~A~%" (file-namestring f))))
+             (error (e)
+               (push (cons f e) failed)
+               (format *error-output* "  FAILED to load ~A: ~A~%" (file-namestring f) e))))
+      (setf *package* pkg))
+    (format t "~&upgrade files: ~D loaded~A~%"
+            (length loaded)
+            (if failed (format nil ", ~D FAILED" (length failed)) ""))
+    (values (nreverse loaded) (nreverse failed))))
+
 (defun apply-migrations (username password)
   (unwind-protect
        (progn
+         ;; LOAD THE MIGRATION FILES FIRST — the functions live in
+         ;; installation/upgrades/ and nowhere else (59 of the 65 registered), and
+         ;; they are deliberately NOT in nstores.asd. Doing it here rather than
+         ;; relying on the caller means the two cannot get out of step: a run can
+         ;; no longer start without the functions it is about to call.
+         (load-upgrade-files *upgrade-files-directory* nil)
          (crm-db-connect :servername *crm-database-server*
                          :strdb *crm-database-name*
                          :strusr username
                          :strpwd password
                          :strdbtype :mysql)
          (handler-case
-             (let ((applied (get-applied-migrations)))
+             (let* ((applied (get-applied-migrations))
+                    (pending (remove-if (lambda (mig)
+                                          (member (first mig) applied :test #'string=))
+                                        *migrations*))
+                    (unloaded (remove-if (lambda (mig) (fboundp (second mig))) pending)))
+               ;; PRE-FLIGHT: refuse BEFORE touching the database. A pending
+               ;; migration whose function was never loaded is not a database
+               ;; problem — it is a missing (load-upgrade-files) — and discovering
+               ;; that mid-run leaves a half-applied schema behind. Scoped to
+               ;; PENDING entries only: an already-applied migration is correctly
+               ;; skipped and must not demand a file that will never be called.
+               (when unloaded
+                 (error "REFUSING TO APPLY: ~D pending migration(s) have no function loaded. ~
+                         Nothing was written. Run (load-upgrade-files), then retry. Missing:~%~{  ~A~%~}"
+                        (length unloaded)
+                        (remove-duplicates
+                         (mapcar (lambda (mig)
+                                   (or (upgrade-file-defining (second mig))
+                                       (format nil "no file defines ~A" (second mig))))
+                                 unloaded)
+                         :test #'equal)))
                (dolist (migration *migrations*)
                  (destructuring-bind (version fn description) migration
                    (unless (member version applied :test #'string=)
-                     (format t "Applying migration ~A...~%" version)
-                     (format t "Description: ~A~%" description)
-                     (funcall fn)
-		     (sleep 1)
-                     (clsql:execute-command
-                      (format nil "INSERT INTO DOD_SCHEMA_MIGRATIONS (version) VALUES ('~A');" version))
-                     (format t "Migration ~A applied.~%" version)))))
+                     ;; handler-case is PER-MIGRATION on purpose: one bad entry must
+                     ;; not hide the migrations queued behind it, which is exactly
+                     ;; what the old whole-loop wrapper did.
+                     (handler-case
+                         (progn
+                           (format t "Applying migration ~A...~%" version)
+                           (format t "Description: ~A~%" description)
+                           (funcall fn)
+                           (sleep 1)
+                           (clsql:execute-command
+                            (format nil "INSERT INTO DOD_SCHEMA_MIGRATIONS (version) VALUES ('~A');" version))
+                           (format t "Migration ~A applied.~%" version))
+                       (error (e)
+                         (format *error-output*
+                                 "~&Migration ~A FAILED (continuing with the rest): ~A~%"
+                                 version e)))))))
            (error (e)
-             (format *error-output* "Migration error: ~A~%" e))))
+             ;; Reached only if the migration LIST itself is unreadable, or the
+             ;; connection dropped — a whole-run failure rather than one entry's.
+             (format *error-output* "Migration run error: ~A~%" e))))
     (when (clsql:connected-databases)
       (clsql:disconnect))))
 
@@ -114,13 +221,26 @@
 ;;; (e.g. migrate-2026Aug-insert-warehouse-policy-and-transactions) call them.
 ;;; ---------------------------------------------------------------------------
 
+(defun sql-literal (value)
+  "VALUE as the BODY of a MySQL string literal: single quotes doubled, backslashes
+   escaped. These helpers build their SQL with FORMAT, so an unescaped apostrophe
+   (\"the session tenant's catalog\") terminates the literal and raises Error 1064 —
+   and a caller-supplied value could inject. Every string that reaches a quote is
+   wrapped in this."
+  (let ((s (if value (format nil "~A" value) "")))
+    (with-output-to-string (out)
+      (loop for c across s do
+        (cond ((char= c #\') (write-string "''" out))
+              ((char= c #\\) (write-string "\\\\" out))
+              (t (write-char c out)))))))
+
 (defun auth-policy-inserted-p (name tenant-id)
   "Non-nil if a live (not soft-deleted) policy with NAME exists."
   (let ((result (clsql:query
                  (format nil
                          "SELECT COUNT(*) FROM DOD_AUTH_POLICY
                           WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N'"
-                         name tenant-id)
+                         (sql-literal name) tenant-id)
                  :flatp t)))
     (> (first result) 0)))
 
@@ -130,7 +250,7 @@
                  (format nil
                          "SELECT COUNT(*) FROM DOD_BUS_TRANSACTION
                           WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N'"
-                         name tenant-id)
+                         (sql-literal name) tenant-id)
                  :flatp t)))
     (> (first result) 0)))
 
@@ -141,7 +261,7 @@
                          "SELECT ROW_ID FROM DOD_AUTH_POLICY
                           WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N'
                           LIMIT 1"
-                         name tenant-id)
+                         (sql-literal name) tenant-id)
                  :flatp t)))
     (and result (first result))))
 
@@ -159,7 +279,8 @@
                     (NAME, DESCRIPTION, POLICY_FUNC, CREATED_BY, ACTIVE_FLG, DELETED_STATE, TENANT_ID)
                   VALUES
                     ('~A', '~A', '~A', NULL, '~A', 'N', ~D)"
-                 name description policy-func active-flg tenant-id))
+                 (sql-literal name) (sql-literal description)
+                 (sql-literal policy-func) (sql-literal active-flg) tenant-id))
         (format t "  inserted policy ~A~%" name)
         (auth-policy-id-by-name name tenant-id))))
 
@@ -191,7 +312,7 @@
                       (format nil
                               "SELECT ROW_ID FROM DOD_BUS_TRANSACTION
                                WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N' LIMIT 1"
-                              transaction-name tenant-id)
+                              (sql-literal transaction-name) tenant-id)
                       :flatp t)))
             (and res (first res))))
         (progn
@@ -201,15 +322,16 @@
                       (NAME, URI, AUTH_POLICY_ID, TRANS_TYPE, CREATED_BY, ACTIVE_FLG, DELETED_STATE, TENANT_ID, TRANS_FUNC, ABAC_SUBJECT_ID)
                     VALUES
                       ('~A', '~A', ~D, '~A', NULL, '~A', 'N', ~D, '~A', ~A)"
-                   transaction-name uri effective-policy-id trans-type active-flg tenant-id
-                   trans-func (if abac-subject-id (format nil "~D" abac-subject-id) "NULL")))
+                   (sql-literal transaction-name) (sql-literal uri) effective-policy-id
+                   (sql-literal trans-type) (sql-literal active-flg) tenant-id
+                   (sql-literal trans-func) (if abac-subject-id (format nil "~D" abac-subject-id) "NULL")))
           (format t "  inserted transaction ~A (~A) linked to policy ~D~%"
                   transaction-name uri effective-policy-id)
           (let ((res (clsql:query
                       (format nil
                               "SELECT ROW_ID FROM DOD_BUS_TRANSACTION
                                WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N' LIMIT 1"
-                              transaction-name tenant-id)
+                              (sql-literal transaction-name) tenant-id)
                       :flatp t)))
             (and res (first res)))))))
 
@@ -262,124 +384,3 @@
                       table))
          (result (clsql:query sql :flatp t)))
     (> (first result) 0)))
-
-
-(defun migrate-2025Sep-orderitem-upgrade-sgst ()
-  (when (column-exists-p "DOD_ORDER_ITEMS" "SGST")
-    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS MODIFY COLUMN SGST decimal(4,2);"))
-  (when (column-exists-p "DOD_ORDER_ITEMS" "TAXABLE_VALUE")
-    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS DROP COLUMN TAXABLE_VALUE;")))
-
-(defun migrate-2025Aug-OrderItem-upgrade ()
-  ;; 1 - Add column - TAXABLE_VALUE
-  (unless (column-exists-p "DOD_ORDER_ITEMS" "TAXABLEVALUE")
-    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN TAXABLEVALUE  decimal(15,2);"))
-  ;; 2 - Add column - SGSTAMT
-  (unless (column-exists-p "DOD_ORDER_ITEMS" "SGSTAMT")
-    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN SGSTAMT decimal(15,2);"))
-  ;; 2 - Add column - CGSTAMT
-  (unless (column-exists-p "DOD_ORDER_ITEMS" "CGSTAMT")
-    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN CGSTAMT decimal(15,2);"))
-  ;; 2 - Add column - IGSTAMT
-  (unless (column-exists-p "DOD_ORDER_ITEMS" "IGSTAMT")
-    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN IGSTAMT decimal(15,2);"))
-  ;; 2 - Add column - TOTALITEMVAL
-  (unless (column-exists-p "DOD_ORDER_ITEMS" "TOTALITEMVAL")
-    (clsql:execute-command "ALTER TABLE DOD_ORDER_ITEMS ADD COLUMN TOTALITEMVAL decimal(15,2);")))
-
-
-(defun migrate-2025May-add-discount-column ()
-  ;; Add Current pricing and Current discount columns to dod_prd_master table
-  (unless (column-exists-p "DOD_PRD_MASTER" "unit-price")
-    (clsql:execute-command "ALTER TABLE DOD_PRD_MASTER DROP COLUMN unit_price;"))
-  (unless (column-exists-p "DOD_PRD_MASTER" "current_price")
-    (clsql:execute-command
-     "ALTER TABLE DOD_PRD_MASTER ADD COLUMN current_price DECIMAL(10, 2);"))
-  (unless (column-exists-p "DOD_PRD_MASTER" "current_discount")
-    (clsql:execute-command
-     "ALTER TABLE DOD_PRD_MASTER ADD COLUMN current_discount DECIMAL(5, 2);")))
-
-
-(defun migrate-2025May-add-product-code ()
-  ;; 1 - Add column
-  (unless (column-exists-p "DOD_PRD_MASTER" "PRODUCT_CODE")
-    (clsql:execute-command "ALTER TABLE DOD_PRD_MASTER ADD COLUMN PRODUCT_CODE VARCHAR(50);"))
-  ;; 2. Update with unique values 
-  (clsql:execute-command "UPDATE DOD_PRD_MASTER SET product_code = CONCAT('PRD', LPAD(row_id, 6, '0')) WHERE product_code IS NULL OR product_code = '';")
-  ;; 3. Set NOT NULL  
-  (clsql:execute-command "ALTER TABLE DOD_PRD_MASTER MODIFY COLUMN PRODUCT_CODE VARCHAR(50) NOT NULL;")
-  ;; 4. Add UNIQUE constraint 
-  (clsql:execute-command "ALTER TABLE DOD_PRD_MASTER ADD UNIQUE (PRODUCT_CODE);"))
-
-
-
-(defun migrate-2025Jun-dod-order-schema ()
-  ;; Add missing columns to DOD_ORDER table based on the target schema
-
-  ;; ORDNUM
-  (unless (column-exists-p "DOD_ORDER" "ORDNUM")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN ORDNUM VARCHAR(50);"))
-  
-  ;; CUSTNAME
-  (unless (column-exists-p "DOD_ORDER" "CUSTNAME")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN CUSTNAME VARCHAR(255);"))
-
-  ;; IS_CONVERTED_TO_INVOICE
-  (unless (column-exists-p "DOD_ORDER" "IS_CONVERTED_TO_INVOICE")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN IS_CONVERTED_TO_INVOICE CHAR(1) DEFAULT 'N';"))
-
-  ;; IS_CANCELLED
-  (unless (column-exists-p "DOD_ORDER" "IS_CANCELLED")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN IS_CANCELLED CHAR(1) DEFAULT 'N';"))
-
-  ;; CANCEL_REASON
-  (unless (column-exists-p "DOD_ORDER" "CANCEL_REASON")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN CANCEL_REASON TEXT DEFAULT NULL;"))
-
-  ;; ORDER_SOURCE
-  (unless (column-exists-p "DOD_ORDER" "ORDER_SOURCE")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN ORDER_SOURCE ENUM('POS', 'ONLINE', 'WHATSAPP', 'API') DEFAULT 'ONLINE';"))
-
-  ;; EXPECTED_DELIVERY_DATE
-  (unless (column-exists-p "DOD_ORDER" "EXPECTED_DELIVERY_DATE")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN EXPECTED_DELIVERY_DATE TIMESTAMP DEFAULT NULL;"))
-  
-  ;; EXTERNAL_URL
-  (unless (column-exists-p "DOD_ORDER" "EXTERNAL_URL")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN EXTERNAL_URL VARCHAR(2048) CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL;"))
-
-  (clsql:execute-command
-   "ALTER TABLE DOD_ORDER MODIFY COLUMN ORDER_AMT DECIMAL(15,2) DEFAULT 0.00;")
-
-  ;; TOTAL_DISCOUNT
-  (unless (column-exists-p "DOD_ORDER" "TOTAL_DISCOUNT")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN TOTAL_DISCOUNT DECIMAL(15,2) DEFAULT 0.00;"))
-
-    ;; TOTAL_TAX
-  (unless (column-exists-p "DOD_ORDER" "TOTAL_TAX")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN TOTAL_TAX DECIMAL(15,2) DEFAULT 0.00;"))
-
-  (clsql:execute-command
-   "ALTER TABLE DOD_ORDER MODIFY COLUMN SHIPPING_COST DECIMAL(15,2) DEFAULT 0.00;")
-
-  (unless (column-exists-p "DOD_ORDER" "SHIPADDR")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN SHIPADDR TEXT;"))
-  (unless (column-exists-p "DOD_ORDER" "BILLADDR")
-    (clsql:execute-command
-     "ALTER TABLE DOD_ORDER ADD COLUMN BILLADDR TEXT;"))
-  )
-
-
-
-  

@@ -3,7 +3,7 @@
 ;;; Copyright (c) 2026 Nine Stores. All rights reserved.
 ;;;
 ;;; The Ring-2/3 ROUTE-ACTION DISPATCHER — Pāṇinian verb dispatch.
-;;; Design: hhub/core/nst-bl-conflodis2-DESIGN.md
+;;; Design: aiharness/deepseek/skills/nst-bl-conflodis2-DESIGN.md
 ;;; Grammar: paninigrammarprocurement.md
 ;;;
 ;;; TWO-TIER OWNERSHIP

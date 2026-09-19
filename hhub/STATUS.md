@@ -145,8 +145,12 @@ any error into `:U` — so **the 4xx taxonomy fix will NOT fix these**. Not ship
 | `vendor/nst-bl-vndapi-CONTEXT.md` | ✅ | the vendor API: decisions, schema, §11 render-json, §12 the shipping design |
 | `vendor/nst-dal-vndshp.lisp`, `nst-bl-vndshp.lisp`, `nst-bl-vndshpapi.lisp` | ✅ | **S1/S2/K1, the L1–L5 laws, the UI→API map — in their headers** |
 | `test/smoke-vendor-shipping-api.sh` | ✅ | the shipping suite; KNOWN list + fixtures in its header |
-| `products/nst-bl-prdapi-CONTEXT.md`, `core/nst-bl-apidefs2-CONTEXT.md`, `core/nst-bl-conflodis2-DESIGN.md` | ⚠️ **untracked, mode 600** | reference impl + Belnap findings; Ring-4; Tier-2/3 |
+| `aiharness/deepseek/skills/nst-bl-prdapi-CONTEXT.md`, `…/nst-bl-apidefs2-CONTEXT.md` | ✅ | reference impl + Belnap findings; Ring-4 |
+| `aiharness/deepseek/skills/nst-bl-conflodis2-DESIGN.md` | ⚠️ untracked | Tier-2/3 — the conflodis2 design authority |
 | `core/nst-bl-adhara.lisp` | ✅ | sentinels, the converters, the प्रत्यय contracts |
 
-**⚠️ THE THREE ABOVE EXIST ONLY ON THIS MACHINE** — untracked *and* 600, so they need a
-`chmod` even here. · `verify: git ls-files --error-unmatch <path>`
+**⚠️ THE CONTEXT FILES NOW LIVE OUTSIDE `hhub/`**, under `aiharness/deepseek/skills/`, because
+they are agent context rather than shipped code. They were previously untracked **and** mode
+600 — a `chmod` was needed even on this machine — and are now mode 664 in `hhubgrp`, readable
+by both accounts. `nst-bl-conflodis2-DESIGN.md` is the remaining untracked one.
+· `verify: git ls-files --error-unmatch <path>`

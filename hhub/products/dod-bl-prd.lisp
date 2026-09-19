@@ -617,6 +617,150 @@
 
 
 ;;; ═══════════════════════════════════════════════════════════════════════════
+;;; PRODUCT SHIPPING FIELDS — the laws the database does not enforce
+;;;
+;;; The four shipping_* columns live ON DOD_PRD_MASTER, so this is not a second
+;;; entity: it is a constrained way of writing four product fields, and the verb
+;;; it feeds is nst-prd's own !update. What it adds is the validation the legacy
+;;; controller has none of.
+;;;
+;;; WHY THESE FOUR ARE CALLED SHIPPING AT ALL: they are the INPUT to the shipping
+;;; calculation, not part of the vendor's shipping CONFIGURATION (that is
+;;; nst-vnd-shp, a different entity over DOD_SHIPPING_METHODS). The zonewise rate
+;;; table is indexed by a WEIGHT BAND, so the product supplies the weight that
+;;; selects the band — see nst-bl-vndshpapi.lisp:61-66, which deliberately
+;;; refused to bind this controller to the shipping surface for exactly that
+;;; reason: one route must not carry two कर्म.
+;;;
+;;; WHAT THE LEGACY DOES, and why a law is needed (dod-ui-ven.lisp:1354-1378):
+;;; it parses three dimensions with parse-integer and the weight with a bare
+;;; read/float, then writes all four with update-prd-details and NO validation.
+;;; The columns are NULLABLE with no CHECK constraint, so a zero, a negative or a
+;;; non-numeric-that-happened-to-parse is accepted. Live data has 71 of 89
+;;; non-deleted products carrying all four, and every one of those weights is
+;;; positive — but nothing in the schema makes that true.
+;;; ═══════════════════════════════════════════════════════════════════════════
+
+(define-condition prd-shipping-validation-error (error)
+  ((message :initarg :message :reader prd-shipping-validation-error-message))
+  (:report (lambda (c s)
+             (format s "Product shipping validation: ~A"
+                     (prd-shipping-validation-error-message c))))
+  (:documentation
+   "A MALFORMED shipping value — the caller's mistake, not a system failure.
+    A dedicated condition rather than a plain error so the API boundary can turn
+    exactly this into a 400 without catching every other error and mislabelling a
+    genuine bug as a client error."))
+
+(defparameter *prd-shipping-dimension-max* 32767
+  "SMALLINT ceiling. The three dimension columns are SHIPPING_*_CMS smallint.")
+
+(defparameter *prd-shipping-weight-max* 999.99
+  "DECIMAL(5,2) ceiling — five digits with two after the point, so the largest
+   storable weight is 999.99 kg. The column is the constraint; stating it here
+   means an oversized value is refused with a comprehensible message instead of
+   surfacing as a database range error.")
+
+(defun prd-shipping-number-arg (value)
+  "A JSON scalar → a Lisp number, or NIL when VALUE is absent/blank.
+   JSON numbers arrive already decoded (via cl-json) and query values arrive as
+   STRINGS, so both must be accepted. Deliberately NOT read-from-string on
+   arbitrary text — the character check admits only digits, a sign and a point,
+   so no reader macro can survive it."
+  (cond
+    ((null value) nil)
+    ((numberp value) value)
+    ((stringp value)
+     (let ((s (string-trim " " value)))
+       (if (zerop (length s))
+           nil
+           (if (every (lambda (c) (or (digit-char-p c) (find c "+-." :test #'char=))) s)
+               (let ((n (ignore-errors (read-from-string s))))
+                 (if (numberp n)
+                     n
+                     (error 'prd-shipping-validation-error
+                            :message (format nil "~S is not a number" value))))
+               (error 'prd-shipping-validation-error
+                      :message (format nil "~S is not a number" value))))))
+    (t (error 'prd-shipping-validation-error
+              :message (format nil "~S is not a number" value)))))
+
+(defun prd-shipping-dimension-arg (value what)
+  "Validate one dimension and return an INTEGER, or NIL when absent.
+   An integral float (10.0) is accepted because JSON has one numeric type and a
+   client that sends 10.0 for a centimetre count means ten; a FRACTIONAL value
+   (10.5) is refused, because SHIPPING_*_CMS is smallint and silently truncating
+   half a centimetre is the kind of quiet data loss this file refuses elsewhere."
+  (let ((n (prd-shipping-number-arg value)))
+    (when n
+      (cond
+        ((not (realp n))
+         (error 'prd-shipping-validation-error
+                :message (format nil "~A ~S is not a real number" what value)))
+        ((not (= n (truncate n)))
+         (error 'prd-shipping-validation-error
+                :message (format nil "~A ~S is not a whole number of centimetres — the column is smallint" what value)))
+        ((<= n 0)
+         (error 'prd-shipping-validation-error
+                :message (format nil "~A must be greater than 0 (got ~A) — a parcel of zero size cannot be rated" what n)))
+        ((> n *prd-shipping-dimension-max*)
+         (error 'prd-shipping-validation-error
+                :message (format nil "~A ~A exceeds the ~A cm ceiling of the smallint column" what n *prd-shipping-dimension-max*)))
+        (t (truncate n))))))
+
+(defun prd-shipping-weight-arg (value)
+  "Validate the weight in KG and return a real, or NIL when absent.
+   Positive only: the column would accept 0 and negative values, and a zero-weight
+   parcel selects the lowest rate band in every zonewise table — so an unfilled
+   weight and a deliberately free shipment would be indistinguishable to the
+   checkout. A caller who means 'this weighs nothing' is describing a data-entry
+   omission, not a fact."
+  (let ((n (prd-shipping-number-arg value)))
+    (when n
+      (cond
+        ((not (realp n))
+         (error 'prd-shipping-validation-error
+                :message (format nil "shipping-weight-kg ~S is not a real number" value)))
+        ((<= n 0)
+         (error 'prd-shipping-validation-error
+                :message (format nil "shipping-weight-kg must be greater than 0 (got ~A) — a zero weight selects the lowest rate band in every zonewise table" n)))
+        ((> n *prd-shipping-weight-max*)
+         (error 'prd-shipping-validation-error
+                :message (format nil "shipping-weight-kg ~A exceeds the ~A kg ceiling of the decimal(5,2) column" n *prd-shipping-weight-max*)))
+        (t (coerce n 'double-float))))))
+
+(defun prd-validate-shipping-args (length width height weight)
+  "Validate the four shipping values and return an INITARGS PLIST containing
+   ONLY the ones supplied, or NIL when none were.
+
+   THE ALLOWLIST IS STRUCTURAL, NOT A FILTER: the four values arrive as four
+   arguments, so no other product field can reach !update through this path. That
+   is deliberate — the generic ferry (request->dispatch) MOP-filters against
+   EVERY initarg nst-prd declares, so routing this endpoint through it would let
+   a caller rename the product, move its price or flip its approval status by
+   adding one JSON key to a request that claims to be about shipping.
+
+   PARTIAL BY CONSTRUCTION: an absent argument contributes nothing, so a caller
+   changing only the weight leaves the dimensions untouched — CLOS
+   reinitialize-instance semantics, the same partial update the rest of this
+   surface uses. An empty result is returned as NIL rather than as an empty list,
+   so the caller can tell 'nothing supplied' from 'something validated'.
+
+   The values are NOT rounded: a weight with more than two decimals is passed
+   through and MySQL rounds it to decimal(5,2). Refusing it would be pedantic;
+   silently pretending it was stored exactly would be dishonest."
+  (let ((args (append (when (prd-shipping-number-arg length)
+                        (list :shipping-length-cms (prd-shipping-dimension-arg length "shipping-length-cms")))
+                      (when (prd-shipping-number-arg width)
+                        (list :shipping-width-cms  (prd-shipping-dimension-arg width "shipping-width-cms")))
+                      (when (prd-shipping-number-arg height)
+                        (list :shipping-height-cms (prd-shipping-dimension-arg height "shipping-height-cms")))
+                      (when (prd-shipping-number-arg weight)
+                        (list :shipping-weight-kg  (prd-shipping-weight-arg weight))))))
+    (when args args)))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════════
 ;;; Tier-1 प्रत्यय for nst-prd — ?exists (प्रत्यभिज्ञा) and make (सृजन)
 ;;;
 ;;; Shapes follow nst-whs in nst-bl-warehouse.lisp, the verified reference. Every
@@ -795,28 +939,84 @@
     (unless (approved-flag entity)   (setf (approved-flag entity) "N"))
     (unless (approval-status entity) (setf (approval-status entity) "PENDING"))
     (unless (prd-type entity)        (setf (prd-type entity) "SALE"))
+    ;; PRICING DEFAULTS — persist-product's convention (dod-bl-prd.lisp:265-266):
+    ;; a new product starts at 1.00 with no discount. Applied only when the caller
+    ;; said nothing, so a create that supplies :current-price keeps it.
+    (unless (current-price entity)    (setf (current-price entity) 1.00))
+    (unless (current-discount entity) (setf (current-discount entity) 0.00))
     (copyProduct-domaintodb entity dbobj)
-    (let ((knowledge (with-nst-db-create (:source "nst-prd/make")
-                        (clsql:update-records-from-instance dbobj)
-                        dbobj)))
-      (case (bo-knowledge-truth knowledge)
-        (:T (bind-generated-row-id entity (bo-knowledge-payload knowledge))
-            entity)
-        (:F ;; The unique key rejected the row: the code was taken between the
-            ;; :around check and this INSERT (a lost race, not a client mistake).
-            ;; Same domain fact as the :T case there → the same answer: :C → 409.
-            (make-instance 'nst-entity-contradiction
-                           :tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)
-                           :reason (format nil "PRODUCT_CODE ~A rejected at the database — the unique key already holds it (uniqueness race lost after the :around check passed)." (product-code entity))))
-        (:U ;; The boundary failed: NOT a refusal, and we do not know whether the
-            ;; row was written. → 503, never 404 and never a misleading 500.
-            (domain-sentinel-from-knowledge
-             knowledge ctx
-             :reason "Product create: the database call did not answer — the row may or may not have been written, so this is unknown, not failed"))
-        (:C ;; Unreachable without a :pre-flight form, which this call does not
-            ;; supply — a programming error if it ever appears.
-            (error "Unreachable: no :pre-flight form was supplied to with-nst-db-create in this call — a :C here means the macro contract changed without this method being updated"))
-        (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-create" (bo-knowledge-truth knowledge)))))))
+    ;; ── THE PRODUCT AND ITS INITIAL PRICING ROW ARE ONE WRITE ────────────────
+    ;;
+    ;; A product with no pricing row cannot be sold: every reader that prices a
+    ;; line — the product page, the cart, the invoice — goes through
+    ;; DOD_PRODUCT_PRICING, and 11 live products are in exactly that state
+    ;; today. So the row is created HERE, and inside the SAME TRANSACTION as the
+    ;; product, mirroring create-product (dod-bl-prd.lisp:308-320), which the
+    ;; vendor's add-product form reaches through
+    ;; com-hhub-transaction-vendor-product-add-action (dod-ui-ven.lisp:1435).
+    ;;
+    ;; WHY THE TRANSACTION IS LOAD-BEARING, given with-nst-db-create already
+    ;; reports failures: the macro CATCHES the database error and returns Belnap
+    ;; knowledge — it does NOT unwind. So without an enclosing transaction a
+    ;; failed pricing insert would leave a product committed with no price, which
+    ;; is the very state this block exists to prevent. Every refusal below leaves
+    ;; via RETURN-FROM, which exits the clsql:with-transaction body non-locally
+    ;; and therefore ROLLS BACK the product insert (CLSQL's own contract: "If BODY
+    ;; aborts or throws, DATABASE is rolled back").
+    ;;
+    ;; WHY THE PRICING ROW IS SEEDED FROM THE PRODUCT'S OWN current-price, not
+    ;; from a hardcoded 1.00 as persist-product does: the product row's
+    ;; CURRENT_PRICE is a CACHE of the pricing row (see the header of
+    ;; products/nst-bl-prdpricing.lisp). Seeding the two with different numbers
+    ;; would create drift AT BIRTH — the exact defect this feature exists to end.
+    ;; nst-prd-pricing/make syncs the cache from its own values on the way out, so
+    ;; the two agree by construction.
+    (block make-product
+      (clsql:with-transaction ()
+        (let ((knowledge (with-nst-db-create (:source "nst-prd/make")
+                            (clsql:update-records-from-instance dbobj)
+                            dbobj)))
+          (case (bo-knowledge-truth knowledge)
+            (:T (bind-generated-row-id entity (bo-knowledge-payload knowledge))
+                ;; ── THE INITIAL PRICING ROW. Window: today … today+90 days —
+                ;;    create-product's window (dod-bl-prd.lisp:318). NOTE the
+                ;;    vendor's pricing FORM defaults its end date to today+180
+                ;;    (dod-ui-prd.lisp:381), so the two defaults disagree; 90 is
+                ;;    kept here because it is the value the create path has always
+                ;;    written, and changing it would silently re-date every new
+                ;;    product.
+                (let ((pricing (make 'nst-prd-pricing ctx
+                                     :product-id (row-id entity)
+                                     :price (current-price entity)
+                                     :discount (current-discount entity)
+                                     :currency (or (ignore-errors (get-account-currency company)) "INR")
+                                     :start-date (clsql:get-date)
+                                     :end-date (clsql:date+ (clsql:get-date)
+                                                            (clsql-sys:make-duration :day 90)))))
+                  (if (typep pricing 'nst-prd-pricing)
+                      entity
+                      ;; The product IS written and its price is NOT. Neither
+                      ;; 'created' nor 'failed' is true, and a product that cannot
+                      ;; be priced is worse than no product — so the product insert
+                      ;; is rolled back and the sentinel is reported as-is.
+                      (return-from make-product pricing))))
+            (:F (return-from make-product
+                  ;; The unique key rejected the row: the code was taken between the
+                  ;; :around check and this INSERT (a lost race, not a client mistake).
+                  ;; Same domain fact as the :T case there → the same answer: :C → 409.
+                  (make-instance 'nst-entity-contradiction
+                                 :tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)
+                                 :reason (format nil "PRODUCT_CODE ~A rejected at the database — the unique key already holds it (uniqueness race lost after the :around check passed)." (product-code entity)))))
+            (:U (return-from make-product
+                  ;; The boundary failed: NOT a refusal, and we do not know whether
+                  ;; the row was written. → 503, never 404 and never a misleading 500.
+                  (domain-sentinel-from-knowledge
+                   knowledge ctx
+                   :reason "Product create: the database call did not answer — the row may or may not have been written, so this is unknown, not failed")))
+            (:C ;; Unreachable without a :pre-flight form, which this call does not
+                ;; supply — a programming error if it ever appears.
+                (error "Unreachable: no :pre-flight form was supplied to with-nst-db-create in this call — a :C here means the macro contract changed without this method being updated"))
+            (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-create" (bo-knowledge-truth knowledge)))))))))
 
 
 ;;; ═══════════════════════════════════════════════════════════════════════════
