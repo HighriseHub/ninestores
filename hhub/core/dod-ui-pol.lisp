@@ -34,6 +34,201 @@
   :documentation "Policy for update a given warehouse for a given vendor"
   T)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;; CATALOG / PRODUCT API ENDPOINT POLICIES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; One policy per PUBLISHED API ENDPOINT (hhub/products/nst-bl-prdapi.lisp), reached
+;;; through the conflodis2 transaction seam. They are named after the endpoint, not
+;;; after a UI controller, because an API endpoint has no controller of its own — the
+;;; whole surface shares com-hhub-api-dispatch.
+;;;
+;;; THE CHECK IS REAL, not a stub T like the warehouse set above: every one of these
+;;; denies when the SESSION TENANT IS SUSPENDED, using the same
+;;; com-hhub-attribute-company-issuspended predicate that show-invoice-payment-page
+;;; and the customer-address policies already use. That is the one authority question
+;;; the API can answer today from the params it carries: WHICH TENANT is asking is
+;;; established by the credential before any policy runs (नियम-1), and whether that
+;;; tenant may transact at all is this check.
+;;;
+;;; WHAT THEY DELIBERATELY DO NOT CHECK, and why that is not an omission:
+;;;
+;;;   * ROLE / SCOPE (vendor vs compadmin vs customer). The API resolves a company
+;;;     from the session credential and nothing more; there is no role or scope value
+;;;     in `params` to test. Inventing one here would be a security theatre that
+;;;     passes for everybody. The action routes already carry :required-roles '(vendor)
+;;;     as metadata, and the header of nst-bl-prdapi.lisp is explicit that conflodis2
+;;;     v1 CARRIES but does NOT ENFORCE it. Making role enforcement real means the
+;;;     credential seam (apidefs2 SECTION 4) must publish an actor role — a change to
+;;;     the boundary, not to a policy function.
+;;;
+;;;   * PER-OBJECT OWNERSHIP. Whether this vendor owns product 42 is already answered
+;;;     by the VERBS: every product query is tenant-scoped, so another tenant's row-id
+;;;     yields 404, never data. A policy cannot check that better than the query that
+;;;     already does it, and duplicating it would create two places to get wrong.
+;;;
+;;; `params` is the controller-style ALIST (string keys, "uri" and "company"), built by
+;;; the transaction seam — NOT the keyword plist the ferry reads. Reading it with
+;;; keyword keys would silently find nothing and allow everything.
+
+(defun %com-hhub-policy-tenant-may-transact (params policy-name)
+  "Shared body for every API-endpoint policy: T when the session tenant may
+   transact, an hhub-abac-transaction-error when it is suspended.
+
+   ONE IMPLEMENTATION FOR ALL DOMAINS. The product, warehouse, vendor-profile,
+   vendor-shipping and vendor-payment endpoint policies all call this, so the
+   authority rule is stated once and cannot drift between domains.
+
+   A NIL COMPANY IS ALLOWED THROUGH HERE ON PURPOSE, and the reasoning matters:
+   by the time a policy runs, apidefs2 has already refused an unauthenticated
+   request with a 401 (api-authenticate runs BEFORE dispatch — see
+   com-hhub-api-dispatch). So a nil company here means the caller forgot to put
+   it in params, not that an anonymous request arrived. Signalling
+   hhub-abac-transaction-error would report that as 'this account is suspended',
+   which is a lie; letting it through keeps the failure where it belongs and the
+   verbs' own tenant scoping still refuses the write."
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+         (suspend-flag (when company (slot-value company 'suspend-flag))))
+    (when (and company (com-hhub-attribute-company-issuspended suspend-flag))
+      (error 'hhub-abac-transaction-error
+             :errstring (format nil "Account Name: ~A. This Account is Suspended. (~A)"
+                                (slot-value company 'name) policy-name)))
+    T))
+
+(defun com-hhub-policy-api-product-list (&optional (params nil))
+  "GET /hhub/api/v1/catalog/products — list the session tenant's catalog."
+  (%com-hhub-policy-tenant-may-transact params "list products"))
+
+(defun com-hhub-policy-api-product-create (&optional (params nil))
+  "POST /hhub/api/v1/catalog/products — create a product."
+  (%com-hhub-policy-tenant-may-transact params "create product"))
+
+(defun com-hhub-policy-api-product-read (&optional (params nil))
+  "GET /hhub/api/v1/catalog/products/{id} — read one product."
+  (%com-hhub-policy-tenant-may-transact params "read product"))
+
+(defun com-hhub-policy-api-product-update (&optional (params nil))
+  "PUT /hhub/api/v1/catalog/products/{id} — partially update a product."
+  (%com-hhub-policy-tenant-may-transact params "update product"))
+
+(defun com-hhub-policy-api-product-delete (&optional (params nil))
+  "DELETE /hhub/api/v1/catalog/products/{id} — soft-delete a product."
+  (%com-hhub-policy-tenant-may-transact params "delete product"))
+
+(defun com-hhub-policy-api-product-update-shipping (&optional (params nil))
+  "PUT /hhub/api/v1/catalog/products/{id}/shipping — set shipping dimensions
+   and weight."
+  (%com-hhub-policy-tenant-may-transact params "update product shipping"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;; WAREHOUSE · VENDOR-PROFILE · VENDOR-SHIPPING · VENDOR-PAYMENT ;;;;;;;;;;;;;
+;;;;;;;;;;;;; API ENDPOINT POLICIES                                          ;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; The remaining API endpoints created before the product work. Same shape as the
+;;; product set above and the same single authority rule; each names the endpoint it
+;;; guards so a deny message says WHICH call was refused.
+;;;
+;;; ONE FUNCTION PER ENDPOINT, even where the body is identical, because the
+;;; TRANSACTION→POLICY pairing is one-to-one (see the ABAC skill, §2): a policy row
+;;; holds a single POLICY_FUNC, so sharing a function between two transactions would
+;;; make the two indistinguishable in the log and unable to diverge later. Where the
+;;; body IS identical, that is deliberate — they all defer to
+;;; %com-hhub-policy-tenant-may-transact so the rule itself exists once.
+
+;; ── WAREHOUSE ───────────────────────────────────────────────────────────────
+(defun com-hhub-policy-api-warehouse-list (&optional (params nil))
+  "GET /hhub/api/v1/warehouse — list the session tenant's warehouses."
+  (%com-hhub-policy-tenant-may-transact params "list warehouses"))
+
+(defun com-hhub-policy-api-warehouse-create (&optional (params nil))
+  "POST /hhub/api/v1/warehouse — create a warehouse."
+  (%com-hhub-policy-tenant-may-transact params "create warehouse"))
+
+(defun com-hhub-policy-api-warehouse-read (&optional (params nil))
+  "GET /hhub/api/v1/warehouse/{id} — read one warehouse."
+  (%com-hhub-policy-tenant-may-transact params "read warehouse"))
+
+(defun com-hhub-policy-api-warehouse-read-identity (&optional (params nil))
+  "GET /hhub/api/v1/warehouse/by-identity — read a warehouse by its business
+   identity (GSTIN + name) rather than its row-id."
+  (%com-hhub-policy-tenant-may-transact params "read warehouse by identity"))
+
+(defun com-hhub-policy-api-warehouse-update (&optional (params nil))
+  "PUT /hhub/api/v1/warehouse/{id} — update a warehouse."
+  (%com-hhub-policy-tenant-may-transact params "update warehouse"))
+
+(defun com-hhub-policy-api-warehouse-delete (&optional (params nil))
+  "DELETE /hhub/api/v1/warehouse/{id} — soft-delete a warehouse."
+  (%com-hhub-policy-tenant-may-transact params "delete warehouse"))
+
+;; ── VENDOR PROFILE ──────────────────────────────────────────────────────────
+(defun com-hhub-policy-api-vendor-profile-list (&optional (params nil))
+  "GET /hhub/api/v1/vendor/profile — list vendor profiles for the session tenant."
+  (%com-hhub-policy-tenant-may-transact params "list vendor profiles"))
+
+(defun com-hhub-policy-api-vendor-profile-create (&optional (params nil))
+  "POST /hhub/api/v1/vendor/profile — register a vendor."
+  (%com-hhub-policy-tenant-may-transact params "create vendor profile"))
+
+(defun com-hhub-policy-api-vendor-profile-read (&optional (params nil))
+  "GET /hhub/api/v1/vendor/profile/{id} — read one vendor profile."
+  (%com-hhub-policy-tenant-may-transact params "read vendor profile"))
+
+(defun com-hhub-policy-api-vendor-profile-update (&optional (params nil))
+  "PUT /hhub/api/v1/vendor/profile/{id} — update a vendor profile."
+  (%com-hhub-policy-tenant-may-transact params "update vendor profile"))
+
+(defun com-hhub-policy-api-vendor-profile-delete (&optional (params nil))
+  "DELETE /hhub/api/v1/vendor/profile/{id} — soft-delete a vendor profile."
+  (%com-hhub-policy-tenant-may-transact params "delete vendor profile"))
+
+;; ── VENDOR SHIPPING ─────────────────────────────────────────────────────────
+(defun com-hhub-policy-api-vendor-shipping-list (&optional (params nil))
+  "GET /hhub/api/v1/vendor/shipping — list shipping configurations."
+  (%com-hhub-policy-tenant-may-transact params "list vendor shipping configurations"))
+
+(defun com-hhub-policy-api-vendor-shipping-create (&optional (params nil))
+  "POST /hhub/api/v1/vendor/shipping — create a vendor's shipping configuration."
+  (%com-hhub-policy-tenant-may-transact params "create vendor shipping configuration"))
+
+(defun com-hhub-policy-api-vendor-shipping-read (&optional (params nil))
+  "GET /hhub/api/v1/vendor/shipping/{vendorId} — read one vendor's shipping
+   configuration."
+  (%com-hhub-policy-tenant-may-transact params "read vendor shipping configuration"))
+
+(defun com-hhub-policy-api-vendor-shipping-update (&optional (params nil))
+  "PUT /hhub/api/v1/vendor/shipping/{vendorId} — update a vendor's shipping
+   configuration."
+  (%com-hhub-policy-tenant-may-transact params "update vendor shipping configuration"))
+
+(defun com-hhub-policy-api-vendor-shipping-ratetable (&optional (params nil))
+  "PUT /hhub/api/v1/vendor/shipping/{vendorId}/rate-table — upload the rate
+   table (and, with it, the zone rows)."
+  (%com-hhub-policy-tenant-may-transact params "upload vendor shipping rate table"))
+
+(defun com-hhub-policy-api-vendor-shipping-zones (&optional (params nil))
+  "PUT /hhub/api/v1/vendor/shipping/{vendorId}/zones — upload the zone rows
+   alone, leaving the rate table untouched."
+  (%com-hhub-policy-tenant-may-transact params "upload vendor shipping zones"))
+
+;; ── VENDOR PAYMENT METHODS ──────────────────────────────────────────────────
+(defun com-hhub-policy-api-vendor-payment-create (&optional (params nil))
+  "POST /hhub/api/v1/vendor/payment/methods — create a vendor's payment
+   configuration."
+  (%com-hhub-policy-tenant-may-transact params "create vendor payment methods"))
+
+(defun com-hhub-policy-api-vendor-payment-read (&optional (params nil))
+  "GET /hhub/api/v1/vendor/payment/methods/{vendorId} — read a vendor's payment
+   configuration."
+  (%com-hhub-policy-tenant-may-transact params "read vendor payment methods"))
+
+(defun com-hhub-policy-api-vendor-payment-update (&optional (params nil))
+  "PUT /hhub/api/v1/vendor/payment/methods/{vendorId} — update a vendor's payment
+   configuration (gateway credentials and UPI settings)."
+  (%com-hhub-policy-tenant-may-transact params "update vendor payment methods"))
+
+
 (defun com-hhub-policy-customer-address (&optional (params nil))
   :documentation "This policy governs updating the invoice item by the vendor"
   (let* ((company (cdr (assoc "company" params :test 'equal)))
