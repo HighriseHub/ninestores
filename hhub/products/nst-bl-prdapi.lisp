@@ -172,6 +172,49 @@
    there."
   (apply #'enumerate 'nst-prd ctx (prd-enumerate-args (params request))))
 
+(defun route-product-update-shipping (request ctx)
+  "कर्म = nst-prd — THE SAME ENTITY AND THE SAME VERB AS route-product-update.
+
+   There is no shipping entity to write. The four shipping_* columns live ON
+   DOD_PRD_MASTER (shipping-length-cms / -width-cms / -height-cms / -weight-kg),
+   and nst-prd already declares all four slots, so this endpoint is a CONSTRAINED
+   !update — a narrower door onto the identical verb, not a second business path.
+   That is also why nst-bl-vndshpapi.lisp:61-66 lists the legacy controller as
+   'NOT HERE': the vendor's shipping CONFIGURATION is nst-vnd-shp, but these
+   dimensions are product fields that the rate table is indexed BY.
+
+   WHY IT DOES NOT GO THROUGH request->dispatch, unlike every sibling verb in this
+   file. The generic ferry MOP-filters params against EVERY initarg nst-prd
+   declares, so binding this route that way would let a caller rename the product,
+   move its price, or flip its approval status simply by adding one JSON key to a
+   request that claims to be about shipping — a mass-assignment hole of exactly
+   the shape the legacy CSV upload already has. Here the four values are read
+   explicitly and handed to prd-validate-shipping-args, so THE ALLOWLIST IS
+   STRUCTURAL: there is no code path by which a fifth field can reach !update.
+
+   ERROR TAXONOMY. A malformed VALUE is the client's mistake and becomes a 400
+   via api-client-error — the condition prd-shipping-validation-error exists
+   precisely so this clause catches the caller's error without also catching a
+   genuine bug and mislabelling it. An EMPTY request (no shipping key at all) is
+   also a 400 and not a silent 200: it is the same 'a write that did not happen
+   must not report success' rule the legacy controller breaks when the vendor's
+   shipping_enabled flag is off (see the note on the binding below).
+
+   A missing or other-tenant product yields !update's own nst-entity-nil → 404,
+   with no product-specific code here."
+  (let ((payload (params request)))
+    (handler-case
+        (let ((args (prd-validate-shipping-args
+                     (prd-param payload :shipping-length-cms)
+                     (prd-param payload :shipping-width-cms)
+                     (prd-param payload :shipping-height-cms)
+                     (prd-param payload :shipping-weight-kg))))
+          (unless args
+            (api-client-error "no shipping information supplied — expected at least one of shipping-length-cms, shipping-width-cms, shipping-height-cms, shipping-weight-kg"))
+          (apply #'!update 'nst-prd (rm-row-id request) ctx args))
+      (prd-shipping-validation-error (c)
+        (api-client-error "~A" (prd-shipping-validation-error-message c))))))
+
 
 ;;; ═══════════════════════════════════════════════════════════════════════
 ;;; SECTION 3 — Route registration
@@ -186,23 +229,29 @@
 ;;; conflodis2 v1 (DESIGN §4.2, §11.1) — registered now so the metadata is in one
 ;;; place when the PEP/ABAC seam lands. Do not read them as protection.
 ;;;
-;;; THE SEVEN ENDPOINTS OF THE ORIGINAL SKETCH THAT ARE ABSENT HERE, and why —
-;;; listed so their absence is a decision and not an oversight:
+;;; THE SIX ENDPOINTS OF THE ORIGINAL SKETCH THAT ARE STILL ABSENT HERE, and why
+;;; — listed so their absence is a decision and not an oversight:
 ;;;
+;;;   (update-shipping   WAS on this list and is now BOUND above, as
+;;;                      PUT /catalog/products/{id}/shipping. The validation rule
+;;;                      it was waiting for now lives in dod-bl-prd.lisp as
+;;;                      prd-validate-shipping-args, with
+;;;                      prd-shipping-validation-error as its condition.)
 ;;;   update-status     could be !update with :active-flag, but the published
 ;;;                     'active | inactive' vocabulary does not match the schema's
 ;;;                     three-column reality (active_flag is 'Y' on all 107 live
 ;;;                     rows; what delists a product is approved_flag/deleted_state).
 ;;;                     Registering it before that is settled would publish a verb
 ;;;                     that cannot do what its name says.
-;;;   update-shipping   the shipping_* columns ARE on the master row, so this is
-;;;                     !update with those initargs — achievable, but it needs a
-;;;                     product-owned validation rule first (a weight without a
-;;;                     unit, a zero dimension).
 ;;;   copy              needs read-then-make with an explicit field policy (does a
 ;;;                     copy inherit approval? pricing tiers?). A design decision.
-;;;   update-pricing    prices live in DOD_PRODUCT_PRICING, which has NO domain
-;;;                     entity and no Tier-1 प्रत्यय — nothing for a route to call.
+;;;   update-pricing    PARTLY UNBLOCKED, and the reason this line no longer
+;;;                     matches the code: prices DO live in DOD_PRODUCT_PRICING,
+;;;                     but current_price/current_discount are ALSO denormalised on
+;;;                     the master row, and nst-prd-pricing now has a domain entity
+;;;                     (dod-dal-prd.lisp) and Tier-1 प्रत्यय
+;;;                     (nst-bl-prdpricing.lisp) to call. What remains is the route
+;;;                     binding, not a missing entity.
 ;;;   bulk-create       CSV upload: multipart, and apidefs2 reads the body as JSON
 ;;;                     only (api-request-body-params). Blocked on that extension.
 ;;;   upload-images     same multipart block.
@@ -264,6 +313,17 @@
                        :audit-level :read
                        :tags '(products catalog api v1))
 
+(register-action-route 'route-product-update-shipping
+                       :action-verb 'route-product-update-shipping
+                       :request-class 'ProductRequestModel
+                       :description "Update a product's shipping dimensions and weight (the fields the zonewise shipping rate table is indexed by)."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor)
+                       :feature-flags '(new-product-domain)
+                       :audit-level :full
+                       :tags '(products catalog shipping api v1))
+
 
 ;;; ═══════════════════════════════════════════════════════════════════════
 ;;; SECTION 4 — Public API bindings (Ring 4)
@@ -297,7 +357,7 @@
 ;;; otherwise, 200 [] for an empty catalog, 404 for a fetch/update/delete miss,
 ;;; 409 when a create collides with a SOFT-DELETED product's code, 401 without a
 ;;; session, 400 for a malformed body or path. Endpoints we did not bind (bulk,
-;;; template, images, pricing, status, copy, shipping) answer 404
+;;; template, images, pricing, status, copy) answer 404
 ;;; no_such_endpoint — see SECTION 3 for why each is absent.
 
 (register-api-route 'route-product-list
@@ -337,3 +397,11 @@
                     :success-status 200
                     :auth-scope :session
                     :description "Soft-delete a product by numeric row-id: the row is kept and its product-code stays reserved, so re-creating that code later is a 409, not a fresh product.")
+
+(register-api-route 'route-product-update-shipping
+                    :method :put
+                    :path "/hhub/api/v1/catalog/products/{id}/shipping"
+                    :path-params '(("id" . :row-id))
+                    :success-status 200
+                    :auth-scope :session
+                    :description "Set a product's shipping dimensions and weight. Body: any subset of shipping-length-cms, shipping-width-cms, shipping-height-cms (whole centimetres, 1-32767) and shipping-weight-kg (0.01-999.99), camelCase or hyphenated. Only the supplied fields change; at least one is required. 400 on a non-positive, fractional-dimension or oversized value, or on an empty body. 404 when the product does not exist in this tenant. NOTE: these four fields are what the zonewise shipping rate table is indexed BY; the vendor's shipping configuration itself is a different entity and a different endpoint.")
