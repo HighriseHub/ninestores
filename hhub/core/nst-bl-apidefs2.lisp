@@ -6,7 +6,7 @@
 ;;;
 ;;; THE API BOUNDARY — Ring 4 (HTTP/JSON) → Ring 3 (conflodis2 action routes).
 ;;;
-;;; Design: hhub/core/nst-bl-conflodis2-DESIGN.md; conventions of
+;;; Design: aiharness/deepseek/skills/nst-bl-conflodis2-DESIGN.md; conventions of
 ;;; hhub/core/nstoresapi.html and the *api.lisp route files.
 ;;;
 ;;; The API adds TRANSPORT, never business routes. An endpoint is a binding

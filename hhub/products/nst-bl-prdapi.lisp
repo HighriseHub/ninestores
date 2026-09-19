@@ -6,7 +6,7 @@
 ;;;
 ;;; PRODUCTS ACTION ROUTES — conflodis2 Tier 2 (Ring 2/3).
 ;;;
-;;; Design:     hhub/core/nst-bl-conflodis2-DESIGN.md  (§3 signature, §5 multi-
+;;; Design:     aiharness/deepseek/skills/nst-bl-conflodis2-DESIGN.md  (§3 signature, §5 multi-
 ;;;             entity assembly, §6 कारक, §9 file layout)
 ;;; Dispatcher: hhub/core/nst-bl-conflodis2.lisp
 ;;; Domain:     hhub/products/dod-dal-prd.lisp   (nst-prd, ProductRequestModel)

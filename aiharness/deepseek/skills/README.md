@@ -31,6 +31,7 @@ shipped with the system. Nothing here is loaded by `nstores.asd`.
 | [nst-bl-prdapi-CONTEXT.md](nst-bl-prdapi-CONTEXT.md) | The products/catalog API: decisions (§6), deliberately-unfinished list (§7), sharp edges (§8), verified transcripts (§11–12). | 2026-09-13 — **partly stale, see below** |
 | [nst-bl-apidefs2-CONTEXT.md](nst-bl-apidefs2-CONTEXT.md) | The JSON API layer itself: bound endpoints, the Belnap→HTTP status mapping, session/login rules, nginx deployment reality. | 2026-09-12 |
 | [nst-bl-vndapi-CONTEXT.md](nst-bl-vndapi-CONTEXT.md) | The vendor-profile migration: verification status (§0), schema facts, the प्रत्यय layer as designed, decisions. | 2026-09-13 |
+| [nst-bl-conflodis2-DESIGN.md](nst-bl-conflodis2-DESIGN.md) | **The conflodis2 design authority** — Tier-2/3 route verbs, the ferry signatures, multi-entity assembly and the कारक. Cited by name in the headers of `nst-bl-conflodis2.lisp`, `nst-bl-apidefs2.lisp`, `nst-bl-whsapi.lisp` and `nst-bl-prdapi.lisp`. Note the `-DESIGN.md` suffix: it predates this directory's `-CONTEXT.md` convention and was kept so those citations stay recognisable. | undated |
 | [WAREHOUSE-NST-GRAMMAR-CONTEXT.md](WAREHOUSE-NST-GRAMMAR-CONTEXT.md) | **Authoritative architecture reference.** The Paninian grammar: `domain-ctx`, the प्रत्यय verbs, the ferry (लोप), नियम, and `nst-whs` as the first grammar-based entity. The legacy DDD stack is deprecated — do not extend it. | undated |
 
 ## Known staleness
