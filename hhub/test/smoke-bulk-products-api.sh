@@ -145,7 +145,10 @@ fi
 # newline would otherwise be concatenated with the first generated row, silently
 # producing 100 rows where 101 were intended -- which is exactly the boundary this
 # section exists to test.
-printf '%s\n' "$(head -1 "$CSV")" > "$TMP/hdr"
+# tr -d '\r' because the generator writes CRLF (#\return #\linefeed), so head -1 of a
+# correct file ends in a carriage return and an exact comparison fails on a header that
+# is byte-identical apart from it -- which is exactly how this assertion failed first.
+printf '%s\n' "$(head -1 "$CSV" | tr -d '\r')" > "$TMP/hdr"
 if [ "$(cat "$TMP/hdr")" = "ProductID,ProductName,QtyPerUnit,UnitOfMeasure,UnitPrice,Discount,DiscountStart,DiscountEnd,UnitsInStock,SubscriptionFlag,MD5Digest" ]; then
   PASS=$((PASS+1)); printf '  %sPASS%s %-52s\n' "$G" "$N" "  ↳ header is the 11-column contract, in order"
 else
