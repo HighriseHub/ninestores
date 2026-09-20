@@ -32,6 +32,12 @@
     (style-warnings 0)
     (failed-files nil)
     (warning-details nil))
+
+  (defvar *last-compilation-stats* nil
+    "Statistics struct from the most recent compile-hhub-files run.
+     compile-hhub-files deliberately returns zero values so interactive
+     callers (SLIME) do not print a raw #S(COMPILATION-STATS ...) on the
+     console; inspect the last run here instead.")
   
   ;;; Optimization Settings
   (defun get-optimization-settings (mode)
@@ -193,7 +199,8 @@
      "products/dod-bl-gst.lisp"
      "products/dod-ui-gst.lisp"
      "products/nst-bl-prodapi.lisp"
-     "products/nst-bl-prdapi.lisp"     ;; Route-action verbs + action routes for nst-prd (needs conflodis2 + dod-bl-prd).
+     "products/nst-bl-prdpricing.lisp" ;; Tier-1 प्रत्यय for nst-prd-pricing (needs dod-dal-prd + dod-bl-prd + adhara).
+     "products/nst-bl-prdapi.lisp"     ;; Route-action verbs + action routes for nst-prd (needs conflodis2 + dod-bl-prd). AFTER prdpricing: route-product-update-pricing calls set-product-pricing and signals prdpricing-validation-error.
      
      ;; Sysuser
      "sysuser/dod-dal-usr.lisp"
@@ -405,7 +412,12 @@
           (close *log-stream*)
           (setf *log-stream* nil)))
       
-      stats))
+      ;; Publish the stats, then return ZERO values: the REPL prints the
+      ;; primary value, so returning the struct would echo a raw
+      ;; #S(COMPILATION-STATS ...) onto the console. Inspect the run via
+      ;; *last-compilation-stats* instead.
+      (setf *last-compilation-stats* stats)
+      (values)))
   
   ;;; Summary Report
   (defun print-compilation-summary (stats log-file)
