@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HHub · API Surface Design</title>
+<style>
+:root {
+  --bg: #ffffff; --bg2: #f5f5f4; --bg3: #e7e5e4;
+  --t1: #1c1917; --t2: #57534e; --t3: #a8a29e;
+  --bd: #e7e5e4; --bd2: #d6d3d1; --r: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1917; --bg2: #292524; --bg3: #3c3836;
+    --t1: #fafaf9; --t2: #a8a29e; --t3: #57534e;
+    --bd: #292524; --bd2: #3c3836;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--t1); line-height:1.5; padding:1.5rem; max-width:860px; margin:0 auto; font-size:14px; }
+.stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:1.25rem 0; }
+.stat { background:var(--bg2); border-radius:var(--r); padding:.875rem; text-align:center; }
+.sl { font-size:11px; color:var(--t2); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+.sv { font-size:26px; font-weight:500; }
+.filters { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1.25rem; }
+.flt { padding:4px 14px; border:1px solid var(--bd2); border-radius:20px; font-size:12px; cursor:pointer; background:transparent; color:var(--t2); font-family:inherit; }
+.flt.on { border-color:var(--t1); color:var(--t1); font-weight:500; }
+.dc { background:var(--bg); border:1px solid var(--bd); border-radius:var(--r); margin-bottom:10px; overflow:hidden; }
+.dh { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; cursor:pointer; gap:12px; user-select:none; }
+.dh:hover { background:var(--bg2); }
+.dn { font-size:13px; font-weight:500; }
+.dd { font-size:12px; color:var(--t2); margin-top:2px; }
+.dmeta { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.rbadge { font-size:11px; padding:2px 8px; border-radius:20px; background:var(--bg2); color:var(--t2); white-space:nowrap; border:1px solid var(--bd); }
+.cnt { font-size:11px; white-space:nowrap; color:var(--t2); }
+.cnt b { color:var(--t1); }
+.chv { font-size:12px; color:var(--t3); transition:transform .15s; flex-shrink:0; }
+.chv.o { transform:rotate(180deg); }
+.db { display:none; padding:0 14px 10px; }
+.db.o { display:block; }
+.sep { border-top:1px solid var(--bd); margin-bottom:2px; }
+.er { display:flex; gap:8px; align-items:flex-start; padding:6px 0; border-bottom:1px solid var(--bd); cursor:pointer; }
+.er:last-child { border-bottom:none; }
+.ep { font-family:ui-monospace,'Cascadia Code',Menlo,monospace; font-size:11px; color:var(--t1); word-break:break-all; }
+.edoc { font-size:11px; color:var(--t2); margin-top:3px; line-height:1.6; display:none; }
+.edoc.o { display:block; }
+.ec { font-size:10px; color:var(--t3); flex-shrink:0; margin-top:3px; transition:transform .12s; }
+.ec.o { transform:rotate(180deg); }
+.mb { display:inline-flex; align-items:center; justify-content:center; font-family:ui-monospace,Menlo,monospace; font-size:10px; font-weight:600; padding:2px 5px; border-radius:4px; min-width:54px; flex-shrink:0; }
+.GET    { background:#dcfce7; color:#14532d; }
+.POST   { background:#dbeafe; color:#1e3a8a; }
+.PUT    { background:#fef3c7; color:#78350f; }
+.DELETE { background:#fee2e2; color:#7f1d1d; }
+@media (prefers-color-scheme: dark) {
+  .GET    { background:#14532d; color:#bbf7d0; }
+  .POST   { background:#1e3a8a; color:#bfdbfe; }
+  .PUT    { background:#78350f; color:#fde68a; }
+  .DELETE { background:#7f1d1d; color:#fecaca; }
+}
+footer { margin-top:1.5rem; font-size:11px; color:var(--t3); border-top:1px solid var(--bd); padding-top:.75rem; }
+</style>
+</head>
+<body>
+
+<header style="margin-bottom:1.25rem">
+  <div style="font-size:16px;font-weight:600">HHub · API Surface Design</div>
+  <div style="font-size:12px;color:var(--t2);margin-top:3px">Clean REST API derived from Hunchentoot dispatch table · 10 business domains · Ready for MCP implementation</div>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="sl">UI routes (before)</div><div class="sv" id="s0">200</div></div>
+  <div class="stat"><div class="sl">API endpoints (after)</div><div class="sv" id="s1">99</div></div>
+  <div class="stat"><div class="sl">Business domains</div><div class="sv" id="s2">10</div></div>
+</div>
+
+<div class="filters">
+  <button class="flt on" onclick="fil(this,'all')">All</button>
+  <button class="flt" onclick="fil(this,'sa')">SuperAdmin</button>
+  <button class="flt" onclick="fil(this,'ca')">CompAdmin</button>
+  <button class="flt" onclick="fil(this,'v')">Vendor</button>
+  <button class="flt" onclick="fil(this,'c')">Customer</button>
+  <button class="flt" onclick="fil(this,'p')">Public</button>
+</div>
+
+<div id="dl"></div>
+
+<footer>Click a domain header to expand · Click an endpoint row to reveal its docstring · Docstrings are the MCP tool descriptions</footer>
+
+<script>
+var DS=[
+  {id:'plt',nm:'Platform administration',rl:'sa',rlb:'SuperAdmin',ac:'#7C3AED',orig:40,
+   ds:'Tenant lifecycle, ABAC security policies, GST/HSN tax codes, system health and IAM management.',eps:[
+    {m:'POST',p:'/api/v1/platform/companies',d:'Register and onboard a new tenant company. Creates the default store structure and sends an admin welcome email.'},
+    {m:'GET',p:'/api/v1/platform/companies',d:'List all registered tenant companies. Supports search by name and filter by status: active | suspended.'},
+    {m:'PUT',p:'/api/v1/platform/companies/{id}/status',d:'Suspend or restore a tenant company account. Accepts status: active | suspended. Triggers an IAM cache refresh.'},
+    {m:'DELETE',p:'/api/v1/platform/companies/{id}',d:'Permanently delete a tenant and all associated data. Requires superadmin authorisation. Irreversible.'},
+    {m:'POST',p:'/api/v1/platform/users',d:'Create a platform-level operator or admin user with an assigned role and access scope.'},
+    {m:'POST',p:'/api/v1/platform/security/attributes',d:'Define a new ABAC subject or object attribute. Used to build fine-grained access control policies.'},
+    {m:'GET',p:'/api/v1/platform/security/abac',d:'Retrieve all ABAC subjects, business objects, and transaction types. Used to configure policy rules.'},
+    {m:'POST',p:'/api/v1/platform/security/policies',d:'Create an ABAC security policy linking a business transaction type to a set of subject and object attributes.'},
+    {m:'GET',p:'/api/v1/platform/security/policies',d:'Search and list all ABAC access policies. Filterable by subject, object, or transaction type.'},
+    {m:'POST',p:'/api/v1/platform/security/policies/{id}/transactions',d:'Link a specific business transaction type to an existing ABAC policy definition.'},
+    {m:'POST',p:'/api/v1/platform/tax/hsn-codes',d:'Create a new GST HSN code entry with applicable tax rate and product category mapping.'},
+    {m:'PUT',p:'/api/v1/platform/tax/hsn-codes/{id}',d:'Update an existing GST HSN code: description or applicable tax rate.'},
+    {m:'GET',p:'/api/v1/platform/tax/hsn-codes',d:'Search HSN codes by chapter, description, or GST rate percentage. Returns paginated results.'},
+    {m:'GET',p:'/api/v1/platform/diagnostics',d:'Retrieve system health metrics: DB connection status, active sessions, queue depth, memory usage, and uptime.'},
+    {m:'POST',p:'/api/v1/platform/iam/refresh',d:'Force a refresh of IAM settings and ABAC policy cache across all active tenant sessions.'},
+    {m:'POST',p:'/api/v1/platform/db/reset',d:'Reset the database to a clean seed state. Restricted to development and staging environments only.'},
+  ]},
+  {id:'adm',nm:'Tenant administration',rl:'ca',rlb:'CompAdmin',ac:'#2563EB',orig:15,
+   ds:'Approve vendors and product listings, manage product categories, configure company store profile.',eps:[
+    {m:'GET',p:'/api/v1/admin/products/pending',d:'List all vendor product listings awaiting approval within this tenant company.'},
+    {m:'PUT',p:'/api/v1/admin/products/{id}/approve',d:'Approve a vendor product listing, making it visible to customers in the marketplace.'},
+    {m:'PUT',p:'/api/v1/admin/products/{id}/reject',d:'Reject a vendor product with an optional reason message. Sends rejection notification to the vendor.'},
+    {m:'GET',p:'/api/v1/admin/vendors/pending',d:'List all vendor account registrations awaiting approval for this tenant company.'},
+    {m:'PUT',p:'/api/v1/admin/vendors/{id}/approve',d:'Approve a vendor account, granting them access to sell in the tenant marketplace.'},
+    {m:'PUT',p:'/api/v1/admin/vendors/{id}/reject',d:'Reject a vendor registration with reason. Sends a rejection notification to the vendor email.'},
+    {m:'GET',p:'/api/v1/admin/categories',d:'List all product categories configured for this tenant company.'},
+    {m:'POST',p:'/api/v1/admin/categories',d:'Create a new product category for organising vendor catalog listings.'},
+    {m:'DELETE',p:'/api/v1/admin/categories/{id}',d:'Delete a product category. Fails with a conflict error if active products are assigned to it.'},
+    {m:'PUT',p:'/api/v1/admin/profile',d:'Update company admin profile details and publish the external-facing store URL.'},
+    {m:'PUT',p:'/api/v1/admin/account/currency',d:'⚠ REQUIREMENT, NOT YET BUILT — set the account-level currency for this tenant company. The read side already exists: get-account-currency (account/dod-bl-cmp.lisp:12) derives the currency from the account country via the cached currency table, falling back to *HHUBDEFAULTCURRENCY*. There is NO WRITER, so today a tenant cannot change its currency after provisioning. This endpoint needs a counterpart set-account-currency in the same file, plus persistence on the company row and an audit trail, because every product priced in the old currency keeps its stored number. Scope it deliberately: is this a one-way switch at onboarding, or a live re-denomination of existing prices? Those are different endpoints.'},
+  ]},
+  {id:'cat',nm:'Product catalog',rl:'v',rlb:'Vendor',ac:'#059669',orig:22,
+   ds:'Full product lifecycle: create listings, manage pricing and images, bulk import, and control status.',eps:[
+    {m:'POST',p:'/api/v1/catalog/products',d:'Add a new product listing with description, category, pricing, and initial shipping info. Submitted for CompAdmin approval.'},
+    {m:'POST',p:'/api/v1/catalog/products/bulk',d:'Upload multiple products at once via CSV file. Returns a per-row success and error report.'},
+    {m:'GET',p:'/api/v1/catalog/products/template',d:'Download the standard CSV template for bulk product upload with all required and optional column headers.'},
+    {m:'GET',p:'/api/v1/catalog/products',d:'Search and list the vendor catalog. Filters: category, status (active | inactive | pending), keyword, price range.'},
+    {m:'GET',p:'/api/v1/catalog/products/{id}',d:'Retrieve full product details: description, pricing tiers, images, category, shipping eligibility, and approval status.'},
+    {m:'PUT',p:'/api/v1/catalog/products/{id}',d:'Update product description, category assignment, or shipping info. Re-triggers approval if major fields change.'},
+    {m:'DELETE',p:'/api/v1/catalog/products/{id}',d:'Permanently delete a product listing. Only permitted for draft or inactive products.'},
+    {m:'POST',p:'/api/v1/catalog/products/{id}/images',d:'Upload one or more product images. Accepts multipart form data, up to 5 images per request.'},
+    {m:'PUT',p:'/api/v1/catalog/products/{id}/status',d:'Activate or deactivate a product listing without re-triggering approval. Accepts status: active | inactive.'},
+    {m:'POST',p:'/api/v1/catalog/products/{id}/copy',d:'Duplicate an existing product listing as a new draft for creating similar product variations.'},
+    {m:'PUT',p:'/api/v1/catalog/products/{id}/pricing',d:'Update product pricing tiers, bulk discounts, and the linked GST HSN code.'},
+    {m:'POST',p:'/api/v1/catalog/products/{id}/shipping',d:'Add or update shipping configuration for a specific product: weight, dimensions, and delivery restrictions.'},
+  ]},
+  {id:'ord',nm:'Cart & orders',rl:'cv',rlb:'Customer + Vendor',ac:'#D97706',orig:28,
+   ds:'Shopping cart, atomic order placement (OTP + wallet deduction), fulfillment lifecycle, daily batch.',eps:[
+    {m:'GET',p:'/api/v1/cart',d:'Retrieve the current session cart: line items, quantities, totals, wallet balance check, and delivery eligibility by pincode.'},
+    {m:'POST',p:'/api/v1/cart/items',d:'Add a product to the cart. Validates stock availability and vendor delivery eligibility for the customer pincode.'},
+    {m:'PUT',p:'/api/v1/cart/items/{id}',d:'Update the quantity of an existing cart line item.'},
+    {m:'DELETE',p:'/api/v1/cart/items/{id}',d:'Remove a specific item from the shopping cart.'},
+    {m:'POST',p:'/api/v1/orders',d:'Place an order from the current cart. Atomically handles OTP verification, wallet deduction, and shipping address capture.'},
+    {m:'GET',p:'/api/v1/orders',d:'List orders for the authenticated user. Customers see purchase history; vendors see orders pending fulfilment.'},
+    {m:'GET',p:'/api/v1/orders/{id}',d:'Get complete order details: line items, delivery status, payment summary, and shipping address.'},
+    {m:'PUT',p:'/api/v1/orders/{id}/items/{item-id}',d:'Edit a specific item within a pending order: quantity or delivery preference.'},
+    {m:'DELETE',p:'/api/v1/orders/{id}/items/{item-id}',d:'Remove a specific item from a pending order.'},
+    {m:'PUT',p:'/api/v1/orders/{id}/fulfill',d:'Mark an order as fulfilled (vendor action). Triggers a push notification to the customer.'},
+    {m:'PUT',p:'/api/v1/orders/{id}/cancel',d:'Cancel a pending order. Initiates a wallet refund if payment was already collected.'},
+    {m:'POST',p:'/api/v1/orders/batch/daily',d:'Trigger the daily recurring orders batch: processes standing orders and active subscription orders for today.'},
+    {m:'GET',p:'/api/v1/orders/calendar',d:'Return a calendar-view of orders: item counts and order totals grouped by date, in JSON format.'},
+  ]},
+  {id:'inv',nm:'Invoicing',rl:'v',rlb:'Vendor',ac:'#1D4ED8',orig:27,
+   ds:'Full invoice lifecycle: creation, line items, GST calculation, payment recording, PDF, and email delivery.',eps:[
+    {m:'POST',p:'/api/v1/invoices',d:'Create a new invoice for a customer. Optionally links to an existing order for auto-population of line items.'},
+    {m:'GET',p:'/api/v1/invoices',d:'Search and list invoices by customer, date range, or status: paid | unpaid | overdue.'},
+    {m:'GET',p:'/api/v1/invoices/{id}',d:'Get full invoice: header, line items, GST breakdown, payment status, and assigned customer details.'},
+    {m:'PUT',p:'/api/v1/invoices/{id}',d:'Update invoice header: issue date, due date, internal notes, or customer assignment.'},
+    {m:'POST',p:'/api/v1/invoices/{id}/items',d:'Add a product line item to the invoice. Accepts a catalog product ID or a barcode scan value.'},
+    {m:'PUT',p:'/api/v1/invoices/{id}/items/{item-id}',d:'Update a specific line item: quantity, unit price, or discount percentage.'},
+    {m:'DELETE',p:'/api/v1/invoices/{id}/items/{item-id}',d:'Remove a specific line item from the invoice.'},
+    {m:'POST',p:'/api/v1/invoices/{id}/payment',d:'Record a payment against the invoice. Accepts method: cash | UPI | wallet | card | bank-transfer.'},
+    {m:'POST',p:'/api/v1/invoices/{id}/send',d:'Email the invoice to the assigned customer using the vendor configured mail settings.'},
+    {m:'GET',p:'/api/v1/invoices/{id}/download',d:'Generate and return a print-ready PDF of the invoice with GST details and vendor branding.'},
+    {m:'GET',p:'/api/v1/invoices/{id}/public',d:'Publicly accessible invoice view URL for sharing with customers directly. No authentication required.'},
+    {m:'PUT',p:'/api/v1/invoices/settings',d:'Update invoice print settings: business logo, header text, footer content, GSTIN, and digital signature.'},
+  ]},
+  {id:'pay',nm:'Payments & wallet',rl:'cv',rlb:'Customer + Vendor',ac:'#BE185D',orig:20,
+   ds:'Customer wallet management, UPI payments, online gateway integration, vendor payment config.',eps:[
+    {m:'GET',p:'/api/v1/wallet',d:'Retrieve wallet balance and recent transaction history for the authenticated customer.'},
+    {m:'POST',p:'/api/v1/wallet/recharge',d:'Initiate wallet recharge via UPI. Returns a payment deep-link or QR code for the customer to complete.'},
+    {m:'PUT',p:'/api/v1/wallet/credit',d:'Credit a specific customer wallet balance (vendor action). Records the transaction with a mandatory reason code.'},
+    {m:'POST',p:'/api/v1/payments/upi/confirm',d:'Confirm a UPI payment after the customer completes the transaction. Validates the UTR and updates the linked order or invoice.'},
+    {m:'POST',p:'/api/v1/payments/upi/cancel',d:'Cancel a pending UPI payment request, releasing any held reservation.'},
+    {m:'POST',p:'/api/v1/payments/online',d:'Initiate payment via the configured gateway (Razorpay, PayU, etc.). Returns a redirect URL to the gateway checkout page.'},
+    {m:'PUT',p:'/api/v1/vendor/payment/gateway',d:'Update vendor payment gateway API credentials and integration configuration (API key, secret, webhook URL).'},
+    {m:'PUT',p:'/api/v1/vendor/payment/upi',d:'Save or update the vendor UPI ID and display settings used in the customer-facing payment flow.'},
+    {m:'GET',p:'/api/v1/vendor/payment/upi-transactions',d:'List all UPI payment transactions for this vendor with status, amount, and UTR reference details.'},
+  ]},
+  {id:'shp',nm:'Shipping',rl:'v',rlb:'Vendor',ac:'#0D9488',orig:12,
+   ds:'Shipping method configuration: flat rate, free threshold, zone-based rate tables, external partner integration.',eps:[
+    {m:'GET',p:'/api/v1/shipping/methods',d:'List all shipping methods configured for this vendor, including rates, eligibility rules, and current default.'},
+    {m:'PUT',p:'/api/v1/vendor/shipping/default',d:'Set the default shipping method used when no specific zone or product rule matches the customer order.'},
+    {m:'PUT',p:'/api/v1/vendor/shipping/flat-rate',d:'Configure a fixed flat rate shipping charge applied to all orders regardless of weight or delivery location.'},
+    {m:'PUT',p:'/api/v1/vendor/shipping/free-threshold',d:'Set the minimum order value above which free shipping is automatically applied to customer orders.'},
+    {m:'POST',p:'/api/v1/vendor/shipping/zone-rates',d:'Upload a zone-based shipping rate table as CSV. Maps pincode zones to weight-bracketed shipping charges.'},
+    {m:'PUT',p:'/api/v1/vendor/shipping/partner',d:'Configure an external shipping partner (Shiprocket, Delhivery, etc.) with API credentials and service preferences.'},
+  ]},
+  {id:'ath',nm:'Authentication',rl:'all',rlb:'All roles',ac:'#6B7280',orig:25,
+   ds:'Multi-role auth flows: PIN login, OTP login, guest sessions, registration, and password management.',eps:[
+    {m:'POST',p:'/api/v1/auth/customer/register',d:'Register a new customer. Requires tenant company selection, then triggers OTP verification before finalising account creation.'},
+    {m:'POST',p:'/api/v1/auth/customer/login',d:'Authenticate a customer via PIN or initiate an OTP-based login flow. Returns a session token on success.'},
+    {m:'POST',p:'/api/v1/auth/customer/guest',d:'Create a temporary guest session for browsing the store catalog without full registration.'},
+    {m:'POST',p:'/api/v1/auth/customer/logout',d:'Invalidate the current customer or guest session and clear session cookies.'},
+    {m:'POST',p:'/api/v1/auth/vendor/login',d:'Authenticate a vendor via PIN or OTP. On success, returns the list of associated tenants for context selection.'},
+    {m:'PUT',p:'/api/v1/auth/vendor/tenant',d:'Switch the active tenant context for a multi-tenant vendor session without requiring re-authentication.'},
+    {m:'POST',p:'/api/v1/auth/vendor/logout',d:'Invalidate the current vendor session.'},
+    {m:'POST',p:'/api/v1/auth/admin/login',d:'Authenticate a company admin (CAD) or superadmin operator with email and password credentials.'},
+    {m:'POST',p:'/api/v1/auth/admin/logout',d:'Invalidate the current admin or superadmin session.'},
+    {m:'POST',p:'/api/v1/auth/otp/generate',d:'Generate or regenerate a time-limited OTP for a given mobile number. Sends the code via SMS.'},
+    {m:'POST',p:'/api/v1/auth/otp/verify',d:'Verify a submitted OTP code for the current authentication flow. Returns success or remaining attempts count.'},
+    {m:'POST',p:'/api/v1/auth/password/reset-link',d:'Send a signed password reset email link to a registered customer or vendor email address.'},
+    {m:'POST',p:'/api/v1/auth/password/reset',d:'Reset account password using a valid signed token received from the reset email.'},
+    {m:'PUT',p:'/api/v1/auth/password/change-pin',d:'Change the account PIN for a currently authenticated customer or vendor.'},
+  ]},
+  {id:'ntf',nm:'Notifications',rl:'cv',rlb:'Customer + Vendor',ac:'#7C3AED',orig:8,
+   ds:'Web push notification subscription management and WhatsApp communication link generation.',eps:[
+    {m:'POST',p:'/api/v1/notifications/push/subscribe',d:'Save a Web Push API subscription object for the current user. Enables order placement and fulfilment event alerts.'},
+    {m:'DELETE',p:'/api/v1/notifications/push/unsubscribe',d:'Remove the Web Push subscription for the current user, disabling further push notifications on this device.'},
+    {m:'GET',p:'/api/v1/notifications/push/status',d:'Check whether the current user has an active push notification subscription registered on this device.'},
+    {m:'POST',p:'/api/v1/comms/whatsapp/link',d:'Generate a WhatsApp deep link pre-filled with a message template, e.g. order confirmation sharing with a customer.'},
+  ]},
+  {id:'pub',nm:'Public & store',rl:'p',rlb:'Public',ac:'#9CA3AF',orig:8,
+   ds:'Publicly accessible endpoints: vendor store display, delivery pincode check, and contact form.',eps:[
+    {m:'GET',p:'/api/v1/store/{company-id}',d:'Display the public-facing vendor store with product listings grouped by category. Supports unauthenticated browsing with a guest cart.'},
+    {m:'GET',p:'/api/v1/pincode/validate',d:'Check whether a delivery pincode is serviceable by a given vendor. Returns available shipping methods and estimated charges.'},
+    {m:'POST',p:'/api/v1/contact',d:'Submit a contact form enquiry. Routes to company helpdesk or platform admin depending on the referring context (tenant vs. platform).'},
+  ]},
+];
+
+var cur='all';
+
+function rolematches(d,r){
+  if(r==='all') return true;
+  if(r==='sa')  return d.rl==='sa'||d.rl==='all';
+  if(r==='ca')  return d.rl==='ca'||d.rl==='all';
+  if(r==='v')   return d.rl==='v'||d.rl==='cv'||d.rl==='all';
+  if(r==='c')   return d.rl==='cv'||d.rl==='all';
+  if(r==='p')   return d.rl==='p'||d.rl==='all';
+  return false;
+}
+
+function fil(btn,r){
+  cur=r;
+  document.querySelectorAll('.flt').forEach(function(b){b.classList.toggle('on',b===btn);});
+  render();
+}
+
+function toggleCard(id){
+  var b=document.getElementById('b'+id), c=document.getElementById('cv'+id);
+  var o=b.classList.toggle('o');
+  c.classList.toggle('o',o);
+}
+
+function toggleEp(el){
+  var ed=el.querySelector('.edoc'), ec=el.querySelector('.ec');
+  var o=ed.classList.toggle('o');
+  ec.classList.toggle('o',o);
+}
+
+function mb(m){
+  return '<span class="mb '+m+'">'+(m==='DELETE'?'DEL':m)+'</span>';
+}
+
+function render(){
+  var fd=DS.filter(function(d){return rolematches(d,cur);});
+  document.getElementById('s0').textContent=fd.reduce(function(s,d){return s+d.orig;},0);
+  document.getElementById('s1').textContent=fd.reduce(function(s,d){return s+d.eps.length;},0);
+  document.getElementById('s2').textContent=fd.length;
+  document.getElementById('dl').innerHTML=fd.map(function(d){
+    return '<div class="dc" style="border-left:3px solid '+d.ac+'">'+
+      '<div class="dh" onclick="toggleCard(\''+d.id+'\')">'+
+        '<div style="flex:1;min-width:0">'+
+          '<div class="dn">'+d.nm+'</div>'+
+          '<div class="dd">'+d.ds+'</div>'+
+        '</div>'+
+        '<div class="dmeta">'+
+          '<span class="rbadge">'+d.rlb+'</span>'+
+          '<span class="cnt">'+d.orig+'→<b>'+d.eps.length+'</b></span>'+
+          '<span class="chv" id="cv'+d.id+'">▾</span>'+
+        '</div>'+
+      '</div>'+
+      '<div class="db" id="b'+d.id+'">'+
+        '<div class="sep"></div>'+
+        d.eps.map(function(e){
+          return '<div class="er" onclick="toggleEp(this)">'+
+            mb(e.m)+
+            '<div style="flex:1;min-width:0">'+
+              '<div class="ep">'+e.p+'</div>'+
+              '<div class="edoc">'+e.d+'</div>'+
+            '</div>'+
+            '<span class="ec">▾</span>'+
+          '</div>';
+        }).join('')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+render();
+</script>
+</body>
+</html>
