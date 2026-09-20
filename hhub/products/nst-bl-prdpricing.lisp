@@ -121,7 +121,7 @@
 
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
-
+(clsql:file-enable-sql-reader-syntax)
 
 ;;; ═══════════════════════════════════════════════════════════════════════════
 ;;; SECTION 1 — The two legs of the लोप crossing
@@ -198,6 +198,35 @@
 ;;; opposite of itself (the recorded ?is-primary-location=0 incident).
 ;;; ═══════════════════════════════════════════════════════════════════════════
 
+(define-condition prdpricing-validation-error (error)
+  ((message :initarg :message :reader prdpricing-validation-error-message))
+  (:report (lambda (c s)
+             (format s "Product pricing validation: ~A"
+                     (prdpricing-validation-error-message c))))
+  (:documentation
+   "A MALFORMED pricing value — the caller's mistake, not a system failure.
+
+    A dedicated condition rather than a plain error, mirroring
+    prd-shipping-validation-error (dod-bl-prd.lisp:644) for the same reason: the
+    API boundary must be able to turn EXACTLY this into a 400 without catching
+    every other error and mislabelling a genuine bug as a client error.
+
+    That distinction is load-bearing here rather than theoretical. If the route
+    caught plain ERROR, then 'price is negative' (the caller's fault, a 400) would
+    be indistinguishable from a lost database connection (a 503) or from the
+    'Unrecognized bo-knowledge-truth' guards below (a real bug, a 500) — and all
+    three would reach the client as a bad request, hiding the two that need a human.
+
+    Signalled by the SECTION 2 validators only. The :U/:F/:C knowledge guards
+    deliberately still raise plain ERRORs: those are never the caller's fault."))
+
+(defun prdpricing-validation-error (format-string &rest args)
+  "Signal a malformed-value condition with a formatted message.
+   The condition and this constructor share a name, following api-client-error
+   in core/nst-bl-apidefs2.lisp:259."
+  (error 'prdpricing-validation-error
+         :message (apply #'format nil format-string args)))
+
 (defun prdpricing-number-arg (value what)
   "Coerce a price/discount that may arrive as a JSON or query STRING, or signal.
    Rejects anything that is not a non-negative real — including a bare
@@ -211,8 +240,8 @@
      (let ((n (ignore-errors (read-from-string value))))
        (if (numberp n)
            n
-           (error "nst-prd-pricing: ~A ~S is not a number" what value))))
-    (t (error "nst-prd-pricing: ~A ~S is not a number" what value))))
+           (prdpricing-validation-error "nst-prd-pricing: ~A ~S is not a number" what value))))
+    (t (prdpricing-validation-error "nst-prd-pricing: ~A ~S is not a number" what value))))
 
 (defun prdpricing-validate-price (price)
   "PRICE is decimal(10,2) NOT NULL with NO column default, and the column is
@@ -222,10 +251,10 @@
    products are ever wanted, that is a deliberate product decision with an
    explicit representation — not the accidental meaning of a missing value."
   (let ((p (prdpricing-number-arg price "price")))
-    (cond ((null p) (error "nst-prd-pricing: price is required — PRICE is NOT NULL with no column default"))
-          ((not (realp p)) (error "nst-prd-pricing: price ~S is not a real number" price))
-          ((minusp p) (error "nst-prd-pricing: price ~A is negative" p))
-          ((zerop p) (error "nst-prd-pricing: price must be greater than 0 (got ~A)" p))
+    (cond ((null p) (prdpricing-validation-error "nst-prd-pricing: price is required — PRICE is NOT NULL with no column default"))
+          ((not (realp p)) (prdpricing-validation-error "nst-prd-pricing: price ~S is not a real number" price))
+          ((minusp p) (prdpricing-validation-error "nst-prd-pricing: price ~A is negative" p))
+          ((zerop p) (prdpricing-validation-error "nst-prd-pricing: price must be greater than 0 (got ~A)" p))
           (t (coerce p 'double-float)))))
 
 (defun prdpricing-validate-discount (discount)
@@ -241,9 +270,9 @@
   (if (null discount)
       nil
       (let ((d (prdpricing-number-arg discount "discount")))
-        (cond ((not (realp d)) (error "nst-prd-pricing: discount ~S is not a real number" discount))
-              ((minusp d) (error "nst-prd-pricing: discount ~A is negative" d))
-              ((> d 100) (error "nst-prd-pricing: discount ~A exceeds 100 — DISCOUNT is a PERCENTAGE (live rows are 0–10), not a rupee amount" d))
+        (cond ((not (realp d)) (prdpricing-validation-error "nst-prd-pricing: discount ~S is not a real number" discount))
+              ((minusp d) (prdpricing-validation-error "nst-prd-pricing: discount ~A is negative" d))
+              ((> d 100) (prdpricing-validation-error "nst-prd-pricing: discount ~A exceeds 100 — DISCOUNT is a PERCENTAGE (live rows are 0–10), not a rupee amount" d))
               (t (coerce d 'double-float))))))
 
 (defun prdpricing-validate-window (start-date end-date)
@@ -258,17 +287,17 @@
    a CSV-fed caller will hand us. NIL is refused: a window with no start or no
    end is not a window, and the discount-expiry test above would signal on it."
   (labels ((->date (v what)
-             (cond ((null v) (error "nst-prd-pricing: ~A is required" what))
+             (cond ((null v) (prdpricing-validation-error "nst-prd-pricing: ~A is required" what))
                    ((stringp v)
                     (let ((s (string-trim " " v)))
                       (if (zerop (length s))
-                          (error "nst-prd-pricing: ~A is an empty string" what)
+                          (prdpricing-validation-error "nst-prd-pricing: ~A is an empty string" what)
                           (get-date-from-string s))))
                    (t v))))
     (let ((s (->date start-date "start-date"))
           (e (->date end-date "end-date")))
       (when (clsql:date< e s)
-        (error "nst-prd-pricing: end-date precedes start-date — the discount window would be empty on every day"))
+        (prdpricing-validation-error "nst-prd-pricing: end-date precedes start-date — the discount window would be empty on every day"))
       (values s e))))
 
 (defun prdpricing-window-contains-p (start-date end-date &optional (today (clsql:get-date)))
@@ -838,8 +867,39 @@
    bare nil. On any failure BOTH rows are rolled back, so the caller never sees a
    price that the catalogue is not also advertising.
 
-   Only the supplied keywords are applied on the update path: omitting :discount
-   leaves the stored discount alone rather than clearing it."
+   ── WHAT A MISSING KEY MEANS, and it means TWO DIFFERENT THINGS by path.
+   This is the one place that distinction is made, so it is stated once, here.
+
+   ON THE UPDATE PATH (a pricing row already exists) a missing key means LEAVE IT
+   ALONE. Only the supplied keys are applied, so {discount: 7} changes the
+   discount and nothing else.
+
+   🚨 THAT IS NOT WHAT THIS FUNCTION USED TO DO. It passed all five keys to
+   !update unconditionally, so an omitted :price arrived as NIL, reinitialize-
+   instance set the slot to NIL, and prdpricing-validate-price refused the row for
+   having no price at all — a partial update could not be expressed AT ALL, and an omitted
+   :discount was written as NULL rather than left alone. The create path beside it
+   had filtered with (when …) since it was written; only the update path did not.
+
+   ON THE CREATE PATH (no pricing row yet) a missing key means TAKE THE HOUSE
+   DEFAULT, because there is no stored value to preserve and PRICE is NOT NULL
+   with no column default — refusing the call would be the only alternative, and a
+   caller who said nothing about price has not thereby said something wrong:
+
+     :price      1.00 — one unit of the account currency. The value
+                 persist-product (dod-bl-prd.lisp:265) and nst-prd/make
+                 (dod-bl-prd.lisp:945) already use, so the two rows still agree.
+     :discount   0.00 — 'no discount', the column's own DDL default. Note this is
+                 NOT the same statement as a stored NULL ('never stated'); on
+                 create there is nothing to be ambiguous about.
+     :start-date today          \\ the same 90-day window create-product writes
+     :end-date   today + 90 days /  (dod-bl-prd.lisp:985), kept rather than
+                 invented so a new row is dated the way every existing row was.
+     :currency   the account's currency, applied by make itself (SECTION 4).
+
+   NIL IS NEVER HANDED TO A VALIDATOR on either path, which is the point: a NIL
+   that reaches prdpricing-validate-price or -validate-window is a 'required'
+   error, and neither path has a reason to produce one."
   (let* ((company   (domain-ctx-tenant ctx))
          (tenant-id (slot-value company 'row-id))
          (pid       (if (stringp product-id)
@@ -851,23 +911,39 @@
                        :reason (format nil "~S does not address a product row (row-ids are integers)" product-id))
         (block set-pricing
           (clsql:with-transaction ()
-            (let* ((existing (select-prd-pricing-row-for-product pid tenant-id))
+            (let* (;; THE ONE ARG LIST, built the same way for both paths: a key
+                   ;; the caller did not state is simply absent. This is what makes
+                   ;; the update path partial and keeps NIL away from the laws.
+                   (supplied (append (when price      (list :price price))
+                                     (when discount   (list :discount discount))
+                                     (when start-date (list :start-date start-date))
+                                     (when end-date   (list :end-date end-date))
+                                     (when currency   (list :currency currency))))
+                   (existing (select-prd-pricing-row-for-product pid tenant-id))
                    (outcome
                      (if existing
                          ;; ── UPDATE PATH — addressed by product-id, so the
                          ;;    entity verbs keep addressing what callers can name.
-                         (!update 'nst-prd-pricing (princ-to-string pid) ctx
-                                  :price price :discount discount
-                                  :start-date start-date :end-date end-date
-                                  :currency currency)
-                         ;; ── CREATE PATH
+                         ;;    ONLY :supplied crosses; no defaults are applied,
+                         ;;    because applying one here would RESET a stored
+                         ;;    price to 1.00 every time a caller touched only the
+                         ;;    discount.
+                         (apply #'!update 'nst-prd-pricing (princ-to-string pid) ctx supplied)
+                         ;; ── CREATE PATH — the defaults above fill only the keys
+                         ;;    the caller left unstated.
                          (apply #'make 'nst-prd-pricing ctx
                                 :product-id pid
-                                (append (when price      (list :price price))
-                                        (when discount   (list :discount discount))
-                                        (when start-date (list :start-date start-date))
-                                        (when end-date   (list :end-date end-date))
-                                        (when currency   (list :currency currency)))))))
+                                (append supplied
+                                        (unless price
+                                          (list :price 1.00))
+                                        (unless discount
+                                          (list :discount 0.00))
+                                        (unless start-date
+                                          (list :start-date (clsql:get-date)))
+                                        (unless end-date
+                                          (list :end-date
+                                                (clsql:date+ (clsql:get-date)
+                                                             (clsql-sys:make-duration :day 90)))))))))
               ;; A non-entity here means EITHER the pricing write failed OR its
               ;; master-cache sync did — make/!update return the sync's own
               ;; sentinel when the product row did not take the values (see
@@ -879,3 +955,145 @@
               (unless (typep outcome 'nst-prd-pricing)
                 (return-from set-pricing outcome))
               outcome))))))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; SECTION 10 — The reverse ferry — domain->response + render-json
+;;;
+;;; The boundary classes (ProductPricingRequestModel / ProductPricingResponseModel)
+;;; are DECLARED in dod-dal-prd.lisp:984-1046, and their docstrings say these two
+;;; methods "live with the प्रत्यय in products/nst-bl-prdpricing.lisp"
+;;; (dod-dal-prd.lisp:1049 and :978-981). Until this section existed they lived
+;;; NOWHERE: class-slots reported the slots, the verbs below returned
+;;; nst-prd-pricing entities, and action->response (conflodis2 §4) reached
+;;; domain->response with NO APPLICABLE METHOD — a 500 on every pricing route, at
+;;; the last hop, AFTER the database had already been written.
+;;;
+;;; ONLY TWO METHODS ARE DEFINED HERE, deliberately — the same rule
+;;; dod-bl-prd.lisp:1419-1437 records for products. The rest of the surface is
+;;; already ENTITY-GENERIC in this tree, and redefining ANY of it here would
+;;; silently replace the warehouse's version (same generic function, same
+;;; specializer):
+;;;
+;;;   * domain->response on nst-entity-nil / -unknown / -contradiction lives in
+;;;     warehouse/nst-bl-whsapi.lisp §4 and specializes on the SENTINEL classes,
+;;;     not on nst-whs. A pricing miss therefore already ferries to
+;;;     nst-response-nil and answers 404 with no pricing-specific code.
+;;;   * domain->response on (eql t) — the delete! ack — is generic by the same
+;;;     reasoning.
+;;;   * render-json on LIST, and domain->response-list, are thin mapcars over the
+;;;     per-element methods, so they already cover ProductPricingResponseModel.
+;;; ═══════════════════════════════════════════════════════════════════════════
+
+(defmethod domain->response ((entity nst-prd-pricing) (ctx domain-ctx))
+  "Reverse ferry (adhara §4): nst-prd-pricing → ProductPricingResponseModel.
+
+   entity is the ONLY dispatching argument that may be an nst-domain-entity, and
+   the entity itself never crosses into Ring 4 — only the boundary object does.
+
+   EVERY declared slot is copied, and the two that are NOT copied are the कारक
+   rather than payload: tenant-id and prc-company. ProductPricingResponseModel has
+   no field to receive them, so they cannot leak by accident — a fact must be
+   added to BOTH the response model and the render-json allowlist before it can
+   ever reach a client (adhara's security contract).
+
+   ROW-ID IS CARRIED ACROSS even though the entity verbs ADDRESS a pricing row by
+   its PRODUCT-id. Publishing an address is not accepting one: the row-id goes out
+   and is never read back in (see dod-dal-prd.lisp:1056-1072 on why product-id is
+   published and tenant-id is not)."
+  (declare (ignore ctx))
+  (let ((destination (make-instance 'ProductPricingResponseModel)))
+    (setf (row-id destination)      (row-id entity))
+    (setf (product-id destination)  (product-id entity))
+    (setf (price destination)       (price entity))
+    (setf (discount destination)    (discount entity))
+    (setf (currency destination)    (currency entity))
+    (setf (start-date destination)  (start-date entity))
+    (setf (end-date destination)    (end-date entity))
+    (setf (active-flag destination) (active-flag entity))
+    destination))
+
+(defun prdpricing-date->string (date)
+  "A CLSQL date → \"DD/MM/YYYY\", or NIL when the column is empty.
+
+   DD/MM/YYYY is not an arbitrary choice, and the round trip is the reason: it is
+   what get-date-string publishes (dod-bl-utl.lisp:603) and what
+   get-date-from-string parses (dod-bl-utl.lisp:537), which is exactly the format
+   prdpricing-validate-window accepts INBOUND (SECTION 2). Publishing ISO-8601 or
+   a universal time instead would hand the client a value it could not PUT back —
+   a read whose result is rejected by the write of the same field.
+
+   NIL IS NOT ZERO-PADDED INTO SOMETHING. Both window columns are nullable, and an
+   absent date crosses as JSON null rather than as a fabricated epoch."
+  (when date (get-date-string date)))
+
+(defun prdpricing-response-discount-expired-p (r)
+  "Is R's discount window over as of TODAY?
+
+   DERIVED AT RENDER TIME, NEVER STORED — the contract stated on
+   ProductPricingResponseModel (dod-dal-prd.lisp:1090-1099): the answer is a fact
+   about the current date, not about the row, and a stored boolean would go stale
+   the moment midnight passed. That is why there is no slot for it on the model
+   and why the render-json allowlist below computes it rather than reading it.
+
+   It is computed by the ONE predicate the checkout already uses
+   (prdpricing-window-contains-p, promoted in SECTION 2), so the API and the till
+   cannot drift apart — the same argument that promoted it out of the UI.
+
+   A ROW WITH NO WINDOW IS 'EXPIRED', which is the answer the legacy checkout
+   gives: discountexpired-p is (not (and (date>= today start) (date<= today end))),
+   and a missing bound makes that AND nil. Answering false here would tell a client
+   that a discount is live on a row with no dates to justify it."
+  (let ((start (start-date r))
+        (end   (end-date r)))
+    (not (and start end (prdpricing-window-contains-p start end)))))
+
+(defmethod render-json ((r ProductPricingResponseModel) (ctx domain-ctx))
+  "One pricing row → JSON ALIST.
+
+   The contract is split in this tree on purpose (conflodis2-json-text): a
+   per-ENTITY method returns a Lisp structure while the per-LIST and sentinel
+   methods return already-encoded text, and the dispatcher's render hop normalises
+   the two. Returning encoded text here would make this method unusable to a
+   caller composing an array itself.
+
+   SECURITY CONTRACT: this alist IS the field allowlist and the last gate before
+   the transport. It publishes NOTHING ProductPricingResponseModel does not
+   declare — and that class declares no tenant-id, prc-company, created-at or
+   deleted-state. The inherited boundary `id` is likewise NOT emitted, exactly as
+   the class docstring demands (dod-dal-prd.lisp:1051-1054).
+
+   IDS ARE STRINGS via response-id-string (dod-ui-utl.lisp), the one id convention
+   for every entity: rowId/productId come from integer columns and may be NIL when
+   unset, which the helper normalises to a string or to JSON null. Passing them
+   raw would mix \"47\", 0 and null for the same kind of value.
+
+   \"active\" RATHER THAN \"activeFlag\", and a BOOLEAN rather than the stored
+   \"Y\"/\"N\": this endpoint sits under the products API and follows its
+   convention (dod-bl-prd.lisp:1524-1529), not the warehouse's. The divergence is
+   recorded there; unifying the two is a decision for whoever adds the first
+   external consumer, not a change to smuggle in here.
+
+   \"discountExpired\" IS PUBLISHED WITHOUT A SLOT, and that is the model's own
+   instruction rather than a leak: see prdpricing-response-discount-expired-p. It
+   is in the allowlist because it is DERIVED from two fields that are already in
+   it, so it discloses nothing the caller does not already receive.
+
+   A NIL discount crosses as JSON null, which is NOT the same statement as 0.00 —
+   see prdpricing-validate-discount. The column's own default is 0.00, so null
+   means 'never stated' while 0.00 means 'no discount'."
+  (declare (ignore ctx))
+  (list
+   ;; IDENTITY — the address out, never an address in
+   (cons "rowId"           (response-id-string (row-id r)))
+   (cons "productId"       (response-id-string (product-id r)))
+   ;; MONEY
+   (cons "price"           (price r))
+   (cons "discount"        (discount r))
+   (cons "currency"        (currency r))
+   ;; THE WINDOW — the period the DISCOUNT runs, not a price schedule
+   (cons "startDate"       (prdpricing-date->string (start-date r)))
+   (cons "endDate"         (prdpricing-date->string (end-date r)))
+   ;; STATUS
+   (cons "active"          (prd-flag->boolean (active-flag r)))
+   (cons "discountExpired" (prdpricing-response-discount-expired-p r))))

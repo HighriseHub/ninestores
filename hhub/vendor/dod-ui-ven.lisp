@@ -646,7 +646,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (with-mvc-redirect-ui #'create-model-for-vgenprodcttempl #'create-widgets-for-genericredirect)))
 
 (defun create-model-for-vgenprodcttempl ()
-  (let* ((header (list "ProductID" "ProductName" "QtyPerUnit" "UnitOfMeasure" "UnitPrice" "Discount" "DiscountStart" "DiscountEnd" "UnitsInStock" "SubscriptionFlag" "MD5Digest"))
+  (let* (;; The header lives in dod-bl-prd.lisp so the API's download route and
+	 ;; this legacy template generator cannot drift apart: the MD5 only
+	 ;; round-trips if both ends agree on the column order and formatting.
+	 (header *prd-bulk-csv-header*)
 	 (vendor (get-login-vendor))
 	 (vendor-id (slot-value vendor  'row-id))
 	 (productlist (hhub-get-cached-vendor-products))

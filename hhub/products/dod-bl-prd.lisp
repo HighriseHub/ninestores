@@ -729,6 +729,89 @@
                 :message (format nil "shipping-weight-kg ~A exceeds the ~A kg ceiling of the decimal(5,2) column" n *prd-shipping-weight-max*)))
         (t (coerce n 'double-float))))))
 
+(defparameter *prd-bulk-csv-header*
+  '("ProductID" "ProductName" "QtyPerUnit" "UnitOfMeasure" "UnitPrice" "Discount"
+    "DiscountStart" "DiscountEnd" "UnitsInStock" "SubscriptionFlag" "MD5Digest")
+  "The products.csv column order, ONCE, for both the download and the upload.
+
+   🚨 THE ORDER IS A WIRE CONTRACT, NOT A FORMATTING CHOICE. product-csv-file-data-row
+   reads these columns POSITIONALLY (nth 0 … nth 10) and recomputes column 10 as an
+   MD5 over columns 0-9, so inserting a column anywhere but the end silently
+   re-labels every field after it — a row that says 30 units in stock would be read
+   as a price. There is no header-name lookup to save you.
+
+   Hoisted here on 2026-09-20 from an inline literal in
+   create-model-for-vgenprodcttempl (dod-ui-ven.lisp), because the API's download
+   route needs the identical header: the client downloads this file, edits it, and
+   uploads it back through a validator that recomputes the MD5 from the same field
+   formatting. Two copies of the header would be two chances for the round trip to
+   fail on a field nobody thought to change.")
+
+(defparameter *prd-copy-name-prefix* "Copy of "
+  "The prefix a duplicated product's name gets. A constant rather than a literal so
+   the rule is greppable and so the API and any future UI path cannot disagree about
+   it — the same reasoning nst-bl-vndshp applies to its default filenames.")
+
+(defun prd-copy-initargs (source)
+  "The initargs a COPY inherits from SOURCE, and only those. THE FIELD POLICY.
+
+   The legacy equivalent is the action menu's Copy item, which opened
+   `modal.vendor-product-edit-html` in \"COPY\" mode (dod-ui-prd.lisp:170-195) — the
+   SAME form as Edit, prefilled from the source and submitted with prd-id 0, so
+   'copy' there meant 'create a new product starting from these values'. Read that
+   form rather than guessing: it carries prd-name, description, hsn-code, sku, upc,
+   qty-per-unit, unit-of-measure, catg-id, subscribe-flag and prd-type. This function
+   inherits those, plus the price and the shipping dimensions, and nothing else.
+
+   THE THREE THINGS NOT INHERITED, AND WHY THEY ARE THE DANGEROUS ONES:
+
+     :product-code  PRODUCT_CODE carries TWO unique indexes (verified by SHOW INDEX
+                    on 2026-09-20). Inheriting it would collide with the source on
+                    every copy — a guaranteed 409. Omitted, nst-prd/make generates a
+                    fresh one.
+     :external-url  It is the source's PUBLIC SHARE LINK. Copying it would give two
+                    products one address, and the new one would silently overwrite
+                    what the URL resolves to.
+     approval state :approved-flag / :approval-status / :active-flag / :deleted-state
+                    are omitted so make's defaults apply (N / PENDING / Y / N). A copy
+                    is a NEW listing and has not been approved; inheriting 'Y' would
+                    be a way to launder approval.
+
+   🚨 UNITS-IN-STOCK IS DELIBERATELY NOT INHERITED, and this is the ONE place this
+   policy departs from the legacy form, which prefilled it. Stock is a count of
+   physical goods, not part of a product's identity: copying it asserts that twice as
+   many exist. The copy starts with no stock recorded, which understates rather than
+   overstates. If the legacy behaviour is wanted instead, adding
+   `:units-in-stock (units-in-stock source)` below is the whole change — but it should
+   be a decision, not a default.
+
+   SKU IS inherited, which is safe ONLY because SKU is not unique: 89 live rows carry
+   17 distinct SKUs (measured 2026-09-20), so vendors already reuse them across
+   products. That is not true of PRODUCT_CODE, which is why the two are treated
+   differently despite looking alike."
+  (list :prd-name            (format nil "~A~A" *prd-copy-name-prefix* (prd-name source))
+        :description         (description source)
+        :hsn-code            (hsn-code source)
+        :prd-type            (prd-type source)
+        :unit-of-measure     (unit-of-measure source)
+        :qty-per-unit        (qty-per-unit source)
+        :sku                 (sku source)
+        :upc                 (upc source)
+        :catg-id             (catg-id source)
+        :vendor-id           (vendor-id source)
+        :subscribe-flag      (subscribe-flag source)
+        ;; PRICE AND DISCOUNT travel so make seeds the copy's pricing row with the
+        ;; same money. The WINDOW does not: make writes today … today+90 days, which
+        ;; is right — a copy is being listed NOW, and inheriting an expired window
+        ;; would create a product whose discount is dead on arrival.
+        :current-price       (current-price source)
+        :current-discount    (current-discount source)
+        ;; The physical parcel is the same parcel.
+        :shipping-length-cms (shipping-length-cms source)
+        :shipping-width-cms  (shipping-width-cms source)
+        :shipping-height-cms (shipping-height-cms source)
+        :shipping-weight-kg  (shipping-weight-kg source)))
+
 (defun prd-validate-shipping-args (length width height weight)
   "Validate the four shipping values and return an INITARGS PLIST containing
    ONLY the ones supplied, or NIL when none were.

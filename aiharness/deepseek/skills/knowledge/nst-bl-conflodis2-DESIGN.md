@@ -1,5 +1,9 @@
 # nst-bl-conflodis2 — Design Doc
 
+**Read this when:** you are writing or reviewing a Tier-2/3 route verb, adding an
+API binding, or a field quietly vanished crossing the ferry. This is the design
+authority the other files cite by name.
+
 **Title:** The Ring-2/3 Route-Action Dispatcher (Pāṇinian verb dispatch)
 
 **Source grammar:** `procurement/paninigrammarprocurement.md` (Verb-first, कारक, संधि)

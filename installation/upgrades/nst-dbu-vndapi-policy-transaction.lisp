@@ -7,7 +7,7 @@
 ;;; API-path sibling of the UI-route seeds; see
 ;;; nst-dbu-warehouse-api-policy-transaction.lisp for the full explanation of why
 ;;; the two exist side by side, and
-;;; aiharness/deepseek/skills/ABAC-policy-transaction-CONTEXT.md for the traps.
+;;; aiharness/deepseek/skills/knowledge/ABAC-policy-transaction-CONTEXT.md for the traps.
 ;;;
 ;;; Register in the *migrations* list in nst-sch-mig.lisp. Idempotent.
 

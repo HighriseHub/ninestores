@@ -1,5 +1,9 @@
 # SKILL: File permissions on the shared hhub tree
 
+**Read this when:** a write fails, a file is mysteriously un-editable, or you are
+about to reach for `chmod` or `sudo`. Read §3 first — `sudo` is dead here, and
+ownership is the only thing that works.
+
 **Status:** verified 2026-09-19 against `/home/ubuntu/ninestores`.
 **Applies to:** every file operation on the repository — creating, editing, or fixing
 permissions — and to the skills directory itself.

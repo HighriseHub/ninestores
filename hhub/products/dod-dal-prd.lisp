@@ -1011,6 +1011,41 @@
     अधिकरण; the verbs re-resolve it against the session tenant, so another
     tenant's product-id yields 404 and never data."))
 
+(defclass ProductBulkUploadResponseModel (nst-response-model)
+  ((rows
+    :initarg :rows :accessor rows :initform 0)
+   (applied
+    :initarg :applied :accessor applied :initform 0)
+   (created
+    :initarg :created :accessor created :initform 0)
+   (updated
+    :initarg :updated :accessor updated :initform 0)
+   (skipped
+    :initarg :skipped :accessor skipped :initform 0)
+   (problems
+    :initarg :problems :accessor problems :initform nil))
+  (:documentation
+   "The per-row report a bulk products.csv upload answers with.
+
+    🚨 IT DESCENDS FROM nst-response-model, NOT nst-boundary-object, AND THAT IS THE
+    WHOLE TRICK. Every other response class in this file mirrors a DOMAIN ENTITY and
+    is produced by a domain->response ferry. A bulk report mirrors nothing — there is
+    no entity called 'an upload', the verb computes these counts as it goes — so it
+    has no ferry and must not have one: action->response (conflodis2) passes an
+    nst-response-model straight through, which is exactly right for a value the verb
+    produced directly. Had it descended from nst-boundary-object instead, the
+    dispatcher would have looked for a domain->response method matching nothing and
+    answered 500.
+
+    WHY A REPORT AT ALL, when the legacy controller returns a redirect and says
+    nothing: a bulk write that answers only 200 hides which of 100 rows failed. The
+    vendor has to be able to act on the result, and 'row 47' is actionable where
+    'something went wrong' is not.
+
+    All six slots are always populated — zero is a real answer, not an absent one —
+    so a client never has to distinguish 'none failed' from 'the field was omitted'."
+   ))
+
 (defclass ProductPricingResponseModel (nst-boundary-object)
   ((row-id
     :initarg :row-id

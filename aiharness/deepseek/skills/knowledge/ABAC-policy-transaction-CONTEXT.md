@@ -1,5 +1,10 @@
 # SKILL: ABAC Policy + Transaction seeding and enforcement (Nine Stores / hhub)
 
+**Read this when:** you are adding authorization to an endpoint (policy +
+transaction rows), an endpoint that *should* be denied is allowed, or a governed
+call fails closed on a URI mismatch. §8 is the recipe; §7 tells you whether
+enforcement is even wired up yet.
+
 **Status:** verified against the live tree and database 2026-09-19.
 **Applies to:** every endpoint that should be governed by an authorization policy —
 UI controllers *and* the `/hhub/api/v1/...` JSON API.
@@ -304,7 +309,46 @@ Add a `(version fn description)` triple to `*migrations*` at `core/nst-sch-mig.l
 
 12. **`DOD_AUTH_POLICY.NAME` is not unique by schema** — idempotency relies on the helper's own `NAME + TENANT_ID + DELETED_STATE='N'` check, so a soft-deleted row with the same name will cause a **duplicate** to be inserted on the next run.
 
+13. **🚨 Adding rows to an ALREADY-APPLIED migration is a silent no-op.** `apply-migrations` never re-runs a version it has already recorded, so appending a block to an existing migration function puts the row in the *source* and never in the *database* — the worst possible outcome, because the file then reads as covered. **The version is the unit of "has this already happened"**, not the function. The insert helpers are idempotent, which is what makes a later migration over the same two tables safe. This bit twice on 2026-09-20, first for pricing and then for copy.
+
+13b. **THE FIX IS ONE APPLY PER DAY, and it is a cadence rule, not a code rule.** *See §13.1 — the day's migration is EXTENDED as endpoints land and APPLIED ONCE, at the day's end.* Getting this wrong is what produced **four** product migrations on 2026-09-20: each endpoint was seeded and applied as it landed, and once a version is recorded the next endpoint cannot join it.
+
+14. **A new endpoint needs a policy FUNCTION too, not just a seed row.** The migration's `POLICY_FUNC` string must name a `defun` in `core/dod-ui-pol.lisp`, or the policy row points at nothing. §10 checks this; the row alone is not the change.
+
 ---
+
+### 13.1 One migration per day — the cadence
+
+**One `*migrations*` version per calendar day**, named `<DDMMYYYY>-insert-<domain>-policies`,
+carrying every ABAC policy + transaction seeded that day. The rule is enforced not by
+discipline in the file but by **when you run `apply-migrations`**:
+
+| when | what |
+|---|---|
+| while the day's work continues | **extend** the day's function — add a block per endpoint. Do **not** create a second version. |
+| at the day's end (the 23:00 commit) | **apply once.** One version, one run, every endpoint seeded together. |
+| an endpoint lands *after* the day's migration was applied | that needs a **second version**, and it is a signal the apply came too early — not a reason to give up on the rule. |
+
+**Why applying early is the thing that breaks it.** A version is recorded at apply time
+and never re-runs, so an apply mid-day freezes that version and orphans every endpoint
+added afterwards. Batching the *apply* is what makes one version per day possible; the
+file is edited freely all day and that costs nothing.
+
+**The escape hatch, and why it is not the same thing.** The insert helpers are
+idempotent, so a *function* can safely be called again by hand in the REPL. But doing
+that instead of a new version leaves the database and `DOD_SCHEMA_MIGRATIONS`
+disagreeing: a fresh database running `apply-migrations` would produce a different
+state from an existing one where the function was re-called manually. **Same version,
+two different databases** is precisely the divergence migrations exist to prevent. Use
+a new version.
+
+**Today's exception, recorded rather than tidied.** 2026-09-20 carries four product
+migrations — `19092026-insert-product-policy-and-transactions` (6 endpoints),
+`20092026-insert-product-pricing-policies`, `20092026-insert-product-status-policy`, and
+`20092026-insert-product-copy-policy`. The first two were applied before the rule
+existed and the third before it was agreed, so they cannot be merged now: two are
+recorded and merging would mean rewriting history that databases have already acted on.
+**The rule starts with the next day.**
 
 ## 10. Verification snippet
 
@@ -368,10 +412,30 @@ Expected: `TRANS_FUNC match : EXACT`, no missing policy funcs, and every reporte
 
 ---
 
-## 12. Current state as of 2026-09-19
+## 12. Current state as of 2026-09-20 (late)
 
-- **Products / catalog API (6 endpoints):** policies + transactions seeded (`nst-dbu-product-policy-transaction.lisp`), policy functions written in `dod-ui-pol.lisp`, migration registered as `19092026-insert-product-policy-and-transactions` (47 chars). `TRANS_FUNC` strings verified to match `apidefs2` exactly. **Not yet enforced** — the API seam (§7) is still unbound.
+- **Products / catalog API — 9 endpoints, ALL seeded.** Policies + transactions in
+  `nst-dbu-product-policy-transaction.lisp`, policy functions in `dod-ui-pol.lisp`,
+  `TRANS_FUNC` verified against the route table (§10 reports `EXACT`, **9 built / 9
+  seeded**). **Not yet enforced** — the API seam (§7) is still unbound.
+
+  The nine: list, create, read, update, delete, **shipping**, **pricing**, **status**,
+  **copy**. Four migrations carry them, and the split is history rather than design —
+  see §13.1 for why:
+
+  | version | endpoints | applied |
+  |---|---|---|
+  | `19092026-insert-product-policy-and-transactions` | 6 (CRUD + list) | 2026-09-19 |
+  | `20092026-insert-product-pricing-policies` | pricing | 2026-09-20 11:19 |
+  | `20092026-insert-product-status-policy` | status | 2026-09-20 19:17 |
+  | `20092026-insert-product-copy-policy` | copy | **not yet** |
+
+  Checked by SQL, not assumed: `DOD_BUS_TRANSACTION` holds rows 54–59, 80, 81 and the
+  copy row is pending. **Copy is the only one outstanding**, and copy's is the product
+  policy whose separation is a genuine authority split rather than a logging
+  convenience (it creates a listing; the others change one).
+
 - **Warehouse (6 endpoints):** seeded and applied (`25082026-insert-warehouse-policy-and-transactions`); policy functions are stubs returning `T`.
 - **Vendor order-cancel (1 endpoint):** seeded and applied; version string is over-long and re-runs (§4).
 - **Still to seed:** vendor profile (5), vendor shipping (6), vendor payment methods (3) — the remaining API endpoints created before the product work.
-- `DOD_SCHEMA_MIGRATIONS` held 61 applied migrations; `DOD_BUS_TRANSACTION` 53 rows; `DOD_AUTH_POLICY` 51 rows.
+- **Counts at 2026-09-20 19:17:** `DOD_SCHEMA_MIGRATIONS` 68 applied, `DOD_BUS_TRANSACTION` 81 rows, `DOD_AUTH_POLICY` 79 rows. Applying the copy migration should make it 69 / 82 / 80.

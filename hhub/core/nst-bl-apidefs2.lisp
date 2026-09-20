@@ -6,7 +6,7 @@
 ;;;
 ;;; THE API BOUNDARY — Ring 4 (HTTP/JSON) → Ring 3 (conflodis2 action routes).
 ;;;
-;;; Design: aiharness/deepseek/skills/nst-bl-conflodis2-DESIGN.md; conventions of
+;;; Design: aiharness/deepseek/skills/knowledge/nst-bl-conflodis2-DESIGN.md; conventions of
 ;;; hhub/core/nstoresapi.html and the *api.lisp route files.
 ;;;
 ;;; The API adds TRANSPORT, never business routes. An endpoint is a binding
@@ -88,6 +88,37 @@
                     entity that does not declare :company would reject the
                     unknown initarg, and the dispatcher stays entity-agnostic.
                     Only routes whose Tier-1 verb reads the slot set this.")
+   (request-format
+    :initarg :request-format :accessor api-route-request-format :initform :json
+    :documentation ":json (default) or :raw. A :raw route receives the request
+                    body UNPARSED, as a string in params under :raw-body, instead
+                    of having api-request-body-params JSON-decode it.
+                    WHY IT EXISTS: api-request-body-params does
+                    (raw-post-data :force-text t) and then json:decode-json-from-string,
+                    so a text/csv body is answered 400 'malformed JSON payload'
+                    before any verb sees it. That is correct for every JSON
+                    endpoint and wrong for exactly one shape of request — a file
+                    whose contents ARE the payload, where wrapping it in JSON only
+                    to unwrap it again serves nothing.
+                    :raw does NOT weaken the JSON endpoints: they keep the default,
+                    and the conversion to 400-on-malformed stays theirs.")
+   (response-format
+    :initarg :response-format :accessor api-route-response-format :initform :json
+    :documentation ":json (default) or :csv. A :csv route's verb returns the body
+                    TEXT ITSELF, which is written with :content-type below and
+                    never passed through render-json.
+                    WHY IT EXISTS: api-write-json hardcodes application/json, so a
+                    download endpoint had no way to say 'this is a file'. Same
+                    reasoning as the request side — the one endpoint that emits a
+                    document rather than a resource representation should not be
+                    forced through the resource pipeline.")
+   (content-type
+    :initarg :content-type :accessor api-route-content-type :initform nil
+    :documentation "The Content-Type written for a :csv route. NIL for JSON
+                    routes, which api-write-json types itself. Kept per-route
+                    rather than derived because text/csv and
+                    application/octet-stream are both plausible for a download and
+                    the route is the only place that knows which it produced.")
    (description :initarg :description :accessor api-route-description :initform nil)
    (active :initarg :active :accessor api-route-active :initform t))
   (:documentation
@@ -359,7 +390,10 @@
                 for key = (cdr (assoc name (api-route-path-params route)
                                       :test #'string-equal))
                 when key append (list key value))
-          (api-request-body-params)
+          (if (eq (api-route-request-format route) :raw)
+              (let ((body (api-raw-body)))
+                (when body (list :raw-body body)))
+              (api-request-body-params))
           (api-query-params)))
 
 
@@ -419,6 +453,93 @@
    ctx is a throwaway empty domain-ctx — the render-json methods for response
    models ignore it (it exists for renderers that format per-tenant)."
   (conflodis2-render response (make-domain-ctx) :json))
+
+(defparameter *api-upload-field-names* '("file" "uploadedcsvfile" "csv" "csvfile")
+  "The multipart field names a :request-format :raw route accepts a file under.
+   TWO NAMES ARE HERE FOR A REASON rather than leniency: \"file\" is what a curl
+   client naturally writes (-F \"file=@products.csv\") and \"uploadedcsvfile\" is
+   what the legacy vendor form posts. The point of the conflodis2 route is that
+   BOTH transports reach the same verb, so the verb must not be able to tell which
+   one it is talking to — and that requires accepting both spellings here, once,
+   instead of teaching the verb about either.")
+
+(defun api-uploaded-file-text (&optional (names *api-upload-field-names*))
+  "The TEXT of a multipart-uploaded file, or NIL when the request carried none.
+
+   Hunchentoot stores an uploaded file in a temp file and hands back its PATHNAME
+   (it tracks them in *tmp-files* and deletes them when the request ends), so this
+   reads the file rather than returning a path a verb would have to know how to
+   open. It returns the CONTENTS because the route's कर्म is the CSV, not a path.
+
+   THE VALUE IS TREATED DEFENSIVELY, and not out of superstition: post-parameter
+   returns the raw value from an alist, so a name that appears more than once gives
+   a LIST, while a single occurrence gives the pathname itself. The legacy caller
+   does (nth 0 ...) and would break on the single case; this handles both. A plain
+   STRING is ambiguous — it is a path when it names an existing file, and the
+   content when it does not — so the file system is asked rather than guessed."
+  (labels ((as-text (v)
+             (cond
+               ((null v) nil)
+               ((listp v) (as-text (first v)))
+               ((pathnamep v)
+                (handler-case (with-open-file (s v :external-format :utf-8)
+                                (let ((buf (make-string (file-length s))))
+                                  (subseq buf 0 (read-sequence buf s))))
+                  (error () nil)))
+               ((stringp v)
+                (let ((p (ignore-errors (probe-file v))))
+                  (if (and p (pathnamep p))
+                      (as-text p)
+                      v)))
+               (t nil))))
+    (loop for name in names
+          for raw = (handler-case (hunchentoot:post-parameter name) (condition () nil))
+          when (as-text raw)
+            return (as-text raw))))
+
+(defun api-raw-body ()
+  "The request body UNPARSED, as text — the :request-format :raw counterpart of
+   api-request-body-params, and the ONE place the two upload transports are
+   reconciled.
+
+   TWO WAYS IN, ONE ANSWER OUT:
+
+     multipart/form-data  the body is a form carrying a FILE. api-uploaded-file-text
+                          reads it and returns the contents. This is what
+                          `curl -F \"file=@products.csv\"` sends, and what the legacy
+                          browser form sends.
+     anything else        the body IS the payload — `curl --data-binary @x.csv`
+                          with Content-Type: text/csv — read as text.
+
+   The distinction is made on Content-Type, which is the transport's own way of
+   saying which shape it used, rather than by trying one and falling back to the
+   other. A fallback would silently accept a malformed multipart body as raw text.
+
+   DELIBERATELY DOES NOT VALIDATE the CSV. This function's whole job is to hand the
+   verb the bytes the client sent; the verb that knows what a products.csv IS does
+   the rejecting, and a second, competing definition of well-formedness in the
+   transport is how the two drift apart."
+  (let ((ct (handler-case (hunchentoot:content-type*) (condition () nil))))
+    (if (and ct (search "multipart/form-data" ct :test #'char-equal))
+        (or (api-uploaded-file-text)
+            (api-client-error "multipart body carried no file — post it as -F \"file=@products.csv\""))
+        (let ((raw (handler-case (hunchentoot:raw-post-data :force-text t)
+                     (condition () nil))))
+          (if (and raw (plusp (length (string-trim '(#\Space #\Tab #\Newline #\Return) raw))))
+              raw
+              nil)))))
+
+(defun api-write-text (text status content-type)
+  "Terminate the request with TEXT, STATUS and an explicit CONTENT-TYPE.
+   The :response-format :csv counterpart of api-write-json, and the same
+   abort-request-handler discipline so a caller can bail out from anywhere.
+
+   content-type is required rather than defaulted: a download that goes out as
+   application/json by accident is a file the client cannot save under the right
+   name, and a silent default is how that happens."
+  (setf (hunchentoot:content-type*) content-type)
+  (setf (hunchentoot:return-code*) status)
+  (hunchentoot:abort-request-handler text))
 
 (defun api-write-json (text status)
   "Terminate the request with TEXT as application/json and STATUS.
@@ -572,7 +693,13 @@
                                     :output-type :json
                                     :raw t))
          (status (api-status-for-response response (api-route-success-status route))))
-    (api-write-json (api-render-json response) status)))
+    (if (eq (api-route-response-format route) :csv)
+        ;; The verb already returned the body text. Rendering it would be wrong:
+        ;; conflodis2-render would pass a string through unchanged, but routing it
+        ;; via api-render-json implies it is JSON, which is the whole thing a :csv
+        ;; route is declaring it is not.
+        (api-write-text (or response "") status (or (api-route-content-type route) "text/csv; charset=utf-8"))
+        (api-write-json (api-render-json response) status))))
 
 (defun com-hhub-api-dispatch ()
   "THE API ENTRY POINT. Registered once:

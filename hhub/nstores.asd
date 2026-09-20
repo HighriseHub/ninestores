@@ -147,8 +147,8 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "products/dod-bl-prd")
    (:file "products/dod-ui-gst")
    (:file "products/dod-ui-prd")
-   (:file "products/nst-bl-prdapi")   ; Route-action verbs + action routes for nst-prd (needs conflodis2 + dod-bl-prd).
    (:file "products/nst-bl-prdpricing") ; Tier-1 प्रत्यय for nst-prd-pricing (needs dod-dal-prd + dod-bl-prd + adhara).
+   (:file "products/nst-bl-prdapi")   ; Route-action verbs + action routes for nst-prd (needs conflodis2 + dod-bl-prd). AFTER prdpricing: route-product-update-pricing calls set-product-pricing and signals prdpricing-validation-error.
    
    ;; Shipping
    (:file "shipping/dod-dal-osh")

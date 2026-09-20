@@ -124,6 +124,26 @@ expect() {
   fi
 }
 
+# expect_re NAME STATUS REGEX
+# Same contract as expect, but the body match is an EXTENDED REGEX rather than a
+# fixed string. Needed for JSON booleans: {"active":true} and {"active": true} are
+# both valid encodings and which one a server emits is not part of the contract, so
+# a fixed-string match on either would be asserting the encoder's padding rather
+# than our behaviour. Use expect (fixed) everywhere else.
+expect_re() {
+  local name="$1" want="$2" re="$3" ok=1
+  [ "$HTTP_CODE" = "$want" ] || ok=0
+  grep -qE -- "$re" "$BODY" || ok=0
+  if [ "$ok" = 1 ]; then
+    PASS=$((PASS+1))
+    printf '  %sPASS%s %-44s %s\n' "$G" "$N" "$name" "$HTTP_CODE"
+  else
+    FAIL=$((FAIL+1))
+    printf '  %sFAIL%s %-44s got %s, want %s matching /%s/\n' "$R" "$N" "$name" "$HTTP_CODE" "$want" "$re"
+    printf '       body: %s\n' "$(head -c 300 "$BODY" | tr -d '\n')"
+  fi
+}
+
 # info NAME — print a value without asserting (for things we cannot predict)
 info() { printf '  %s----%s %-44s %s\n' "$Y" "$N" "$1" "$2"; }
 
@@ -258,6 +278,172 @@ if [ "$WRITE" = 1 ]; then
         -H 'Content-Type: application/json' \
         -d "{\"prd-name\":\"API Smoke Test $STAMP (edited)\"}"
     expect "PUT update (partial)" 200 "\"name\""
+
+    # ── 6b. pricing — PUT /catalog/products/{id}/pricing ────────────────────
+    # The pricing row is an ENTITY OF ITS OWN reachable through the product, and
+    # this is the only endpoint whose write touches TWO ROWS: the pricing row and
+    # the PRODUCT MASTER's cached currentPrice/currentDiscount. The master copy is
+    # what the catalogue filter, the :current-price sort and the cart read, so a
+    # test that only checked the pricing row would miss the failure that matters.
+    # PRICE is chosen as a whole number so the JSON encoder cannot render it as
+    # 98765.000000001 and make an exact substring match a coin flip.
+    req PUT "/hhub/api/v1/catalog/products/$RID/pricing" \
+        -H 'Content-Type: application/json' \
+        -d '{"price":98765,"discount":7.5,"start-date":"01/01/2020","end-date":"31/12/2030","currency":"INR"}'
+    expect "PUT pricing (all five fields)" 200 "\"discount\""
+
+    req GET "/hhub/api/v1/catalog/products/$RID"
+    expect "  ↳ product master's currentPrice followed" 200 "98765"
+
+    # PARTIAL: camelCase spelling on purpose — the boundary accepts both, and
+    # only the supplied fields may change. If the price came back as 1.00 the
+    # create-path default leaked into the update path.
+    req PUT "/hhub/api/v1/catalog/products/$RID/pricing" \
+        -H 'Content-Type: application/json' -d '{"discount":9.99}'
+    expect "PUT pricing (partial, camelCase: discount only)" 200 "\"discount\""
+
+    req GET "/hhub/api/v1/catalog/products/$RID"
+    expect "  ↳ price was LEFT ALONE, not reset to the default" 200 "98765"
+
+    # The three refusals. Each must be a 400 (the caller's mistake), NOT a 500:
+    # that is the whole reason prdpricing-validation-error exists as its own
+    # condition rather than a plain error.
+    req PUT "/hhub/api/v1/catalog/products/$RID/pricing" \
+        -H 'Content-Type: application/json' -d '{"price":0}'
+    expect "PUT pricing price=0 → 400" 400
+    req PUT "/hhub/api/v1/catalog/products/$RID/pricing" \
+        -H 'Content-Type: application/json' -d '{"discount":150}'
+    expect "PUT pricing discount=150 → 400 (it is a PERCENTAGE)" 400
+    req PUT "/hhub/api/v1/catalog/products/$RID/pricing" \
+        -H 'Content-Type: application/json' \
+        -d '{"price":10,"start-date":"31/12/2030","end-date":"01/01/2020"}'
+    expect "PUT pricing reversed window → 400" 400
+    req PUT "/hhub/api/v1/catalog/products/$RID/pricing" \
+        -H 'Content-Type: application/json' -d '{}'
+    expect "PUT pricing empty body → 400" 400
+
+    # A miss is nst-entity-nil → 404, with no pricing-specific code behind it.
+    req PUT "/hhub/api/v1/catalog/products/999999/pricing" \
+        -H 'Content-Type: application/json' -d '{"price":10}'
+    expect "PUT pricing on an absent product → 404" 404
+
+    # ── 6c. product shipping dimensions — PUT /catalog/products/{id}/shipping ─
+    # These four are NOT a shipping entity; they are columns on the product master
+    # (shipping_*_cms, shipping_weight_kg) that the zonewise rate table is indexed
+    # BY. This is the one product endpoint that never had a test, which is why the
+    # section exists even though the route is older than pricing.
+    # The length used is the EXACT smallint ceiling, 32767: it exercises the
+    # boundary in the permissive direction, and it is distinctive enough that a
+    # read-back substring match cannot accidentally hit a row-id or a timestamp.
+    req PUT "/hhub/api/v1/catalog/products/$RID/shipping" \
+        -H 'Content-Type: application/json' \
+        -d '{"shipping-length-cms":32767,"shipping-width-cms":20,"shipping-height-cms":10,"shipping-weight-kg":5.5}'
+    expect "PUT shipping (all four, at the smallint ceiling)" 200 "\"shippingLengthCms\""
+
+    req GET "/hhub/api/v1/catalog/products/$RID"
+    expect "  ↳ dimensions are readable back on the product" 200 "32767"
+
+    # One past the ceiling, a fractional centimetre, a zero weight. The fractional
+    # case is the one worth having: SHIPPING_*_CMS is smallint, and silently
+    # truncating half a centimetre is the quiet data loss the validator refuses.
+    req PUT "/hhub/api/v1/catalog/products/$RID/shipping" \
+        -H 'Content-Type: application/json' -d '{"shipping-length-cms":32768}'
+    expect "PUT shipping 32768 → 400 (one past the ceiling)" 400
+    req PUT "/hhub/api/v1/catalog/products/$RID/shipping" \
+        -H 'Content-Type: application/json' -d '{"shipping-width-cms":30.5}'
+    expect "PUT shipping 30.5 cm → 400 (smallint, not truncated)" 400
+    req PUT "/hhub/api/v1/catalog/products/$RID/shipping" \
+        -H 'Content-Type: application/json' -d '{"shipping-weight-kg":0}'
+    expect "PUT shipping weight 0 → 400" 400
+    req PUT "/hhub/api/v1/catalog/products/$RID/shipping" \
+        -H 'Content-Type: application/json' -d '{}'
+    expect "PUT shipping empty body → 400" 400
+    req PUT "/hhub/api/v1/catalog/products/999999/shipping" \
+        -H 'Content-Type: application/json' -d '{"shipping-length-cms":10}'
+    expect "PUT shipping on an absent product → 404" 404
+
+    # ── 6d. product status — PUT /catalog/products/{id}/status ──────────────
+    # Turn On / Turn Off from the vendor's action menu, as a constrained !update on
+    # active-flag. The body is one field with two values; everything else about the
+    # product must be unreachable through this path.
+    # `inactive` means active_flag='N' (what the legacy Turn Off did) and does NOT
+    # delist — so this asserts the READ-BACK too, because a status write that
+    # returned 200 while changing nothing would pass a status-code-only test.
+    req PUT "/hhub/api/v1/catalog/products/$RID/status" \
+        -H 'Content-Type: application/json' -d '{"status":"inactive"}'
+    expect "PUT status inactive" 200 "\"active\""
+    req GET "/hhub/api/v1/catalog/products/$RID"
+    expect_re "  ↳ product now reads inactive" 200 '"active"[[:space:]]*:[[:space:]]*false'
+
+    req PUT "/hhub/api/v1/catalog/products/$RID/status" \
+        -H 'Content-Type: application/json' -d '{"status":"active"}'
+    expect "PUT status active" 200 "\"active\""
+    req GET "/hhub/api/v1/catalog/products/$RID"
+    expect_re "  ↳ and reads active again" 200 '"active"[[:space:]]*:[[:space:]]*true'
+
+    # THE MASS-ASSIGNMENT CHECK, and the reason this endpoint bypasses the ferry.
+    # The generic ferry MOP-filters params against EVERY nst-prd initarg, so if this
+    # route had gone through request->dispatch these two extra keys would have been
+    # applied. 98765 is the price the pricing section set above: if it survives a
+    # write that claimed to be about status, the allowlist is structural.
+    req PUT "/hhub/api/v1/catalog/products/$RID/status" \
+        -H 'Content-Type: application/json' \
+        -d '{"status":"active","current-price":1,"prd-name":"hijacked by a status write"}'
+    expect "PUT status ignores extra fields" 200 "\"active\""
+    req GET "/hhub/api/v1/catalog/products/$RID"
+    expect "  ↳ price untouched by a status write" 200 "98765"
+
+    req PUT "/hhub/api/v1/catalog/products/$RID/status" \
+        -H 'Content-Type: application/json' -d '{"status":"enabled"}'
+    expect "PUT status 'enabled' → 400 (not a synonym)" 400
+    req PUT "/hhub/api/v1/catalog/products/$RID/status" \
+        -H 'Content-Type: application/json' -d '{}'
+    expect "PUT status empty body → 400" 400
+    req PUT "/hhub/api/v1/catalog/products/$RID/status" \
+        -H 'Content-Type: application/json' -d '{"status":true}'
+    expect "PUT status non-string → 400" 400
+    req PUT "/hhub/api/v1/catalog/products/999999/status" \
+        -H 'Content-Type: application/json' -d '{"status":"inactive"}'
+    expect "PUT status on an absent product → 404" 404
+
+    # ── 6e. copy — POST /catalog/products/{id}/copy ─────────────────────────
+    # A copy is a CREATE (सृजन): new row, new product-code, unapproved. The body is
+    # EMPTY by design, so there is nothing for a client to mass-assign — the source is
+    # read server-side. The assertions below are the three that would catch a wrong
+    # implementation: a copy that reused the row, one that reused the product-code
+    # (uniquely indexed → 409), or one that inherited approval.
+    req POST "/hhub/api/v1/catalog/products/$RID/copy"
+    expect "POST copy → 201" 201 "\"rowId\""
+    expect "  ↳ name is prefixed 'Copy of '" 201 "Copy of "
+    expect "  ↳ copy starts PENDING (approval not inherited)" 201 "\"approvalStatus\":\"PENDING\""
+    expect "  ↳ price inherited from the source" 201 "98765"
+    COPY_ID="$(body_field rowId)"
+
+    if [ -z "$COPY_ID" ] || [ "$COPY_ID" = "$RID" ]; then
+      FAIL=$((FAIL+1)); printf '  %sFAIL%s %-44s rowId=%s, source=%s\n' "$R" "$N" "  ↳ copy is a NEW row" "${COPY_ID:-<empty>}" "$RID"
+    else
+      PASS=$((PASS+1)); printf '  %sPASS%s %-44s %s (source %s)\n' "$G" "$N" "  ↳ copy is a NEW row" "$COPY_ID" "$RID"
+
+      req GET "/hhub/api/v1/catalog/products/$COPY_ID"
+      expect "GET the copy reads back" 200 "Copy of "
+
+      COPY_CODE="$(body_field productCode)"
+      req GET "/hhub/api/v1/catalog/products/$RID"
+      SRC_CODE="$(body_field productCode)"
+      if [ -n "$COPY_CODE" ] && [ "$COPY_CODE" != "$SRC_CODE" ]; then
+        PASS=$((PASS+1)); printf '  %sPASS%s %-44s %s\n' "$G" "$N" "  ↳ fresh product-code, not inherited" "$COPY_CODE"
+      else
+        FAIL=$((FAIL+1)); printf '  %sFAIL%s %-44s copy=%s source=%s\n' "$R" "$N" "  ↳ fresh product-code, not inherited" "${COPY_CODE:-<empty>}" "${SRC_CODE:-<empty>}"
+      fi
+      expect "  ↳ source is UNCHANGED by the copy" 200 "API Smoke Test"
+
+      req DELETE "/hhub/api/v1/catalog/products/$COPY_ID"
+      printf '       cleanup: copy rowId=%s soft-deleted (a copy is a real row)\n' "$COPY_ID"
+    fi
+
+    req POST "/hhub/api/v1/catalog/products/999999/copy"
+    expect "POST copy of an absent product → 404" 404
+
     req DELETE "/hhub/api/v1/catalog/products/$RID"
     expect "DELETE (soft)" 200 "\"ok\""
     req DELETE "/hhub/api/v1/catalog/products/$RID"

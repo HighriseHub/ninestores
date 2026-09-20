@@ -11,7 +11,7 @@
 ;;;
 ;;; The reusable insert helpers live in hhub/core/nst-sch-mig.lisp; the policy
 ;;; functions live in hhub/core/dod-ui-pol.lisp. See the ABAC skill at
-;;; aiharness/deepseek/skills/ABAC-policy-transaction-CONTEXT.md for the traps —
+;;; aiharness/deepseek/skills/knowledge/ABAC-policy-transaction-CONTEXT.md for the traps —
 ;;; in particular: TRANS_FUNC is the lookup key (not NAME), tenant-id must be 1,
 ;;; the cache needs refreshiamsettings after seeding, and URI must be the
 ;;; COLLECTION PREFIX because {id} is a template that never matches a real path.

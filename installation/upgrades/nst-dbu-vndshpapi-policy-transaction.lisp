@@ -6,7 +6,7 @@
 ;;;
 ;;; See nst-dbu-warehouse-api-policy-transaction.lisp for why API-path seeds are
 ;;; separate from the UI-route seeds, and
-;;; aiharness/deepseek/skills/ABAC-policy-transaction-CONTEXT.md for the traps.
+;;; aiharness/deepseek/skills/knowledge/ABAC-policy-transaction-CONTEXT.md for the traps.
 ;;;
 ;;; NOTE the URI is the same prefix for all six endpoints even though they span
 ;;; three distinct resources (the configuration, its rate table and its zones):
