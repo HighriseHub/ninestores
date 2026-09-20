@@ -672,7 +672,13 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		 (cl-who:str ","))))
     (cl-who:str (format nil "~C~C" #\return #\linefeed))
   (mapcar (lambda (product)
-	    (with-slots (row-id prd-name description qty-per-unit unit-of-measure current-price sku units-in-stock subscribe-flag) product
+	    ;; CURRENT-DISCOUNT ADDED 2026-09-20. It was NOT in this list while CURRENT-PRICE
+	    ;; was, which is the kind of asymmetry that only bites when a fallback needs it:
+	    ;; the un-priced-product guard below reads current-discount, and an unbound
+	    ;; variable inside with-slots is not a compile-time error in a file this size --
+	    ;; it surfaced as 'The variable COM.NSTORES.APP::CURRENT-DISCOUNT is unbound'
+	    ;; at RUNTIME, from a 500 on the download.
+	    (with-slots (row-id prd-name description qty-per-unit unit-of-measure current-price current-discount sku units-in-stock subscribe-flag) product
 	      (let ((db-product-pricing (select-product-pricing-by-product-id row-id (product-company product))))
 		;; 🚨 GUARDED 2026-09-20: A PRODUCT WITH NO PRICING ROW IS REACHABLE, and
 		;; this used to crash on one. (with-slots (price ...) nil) signals
