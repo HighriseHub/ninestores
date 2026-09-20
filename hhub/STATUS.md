@@ -146,7 +146,7 @@ any error into `:U` — so **the 4xx taxonomy fix will NOT fix these**. Not ship
 | `vendor/nst-dal-vndshp.lisp`, `nst-bl-vndshp.lisp`, `nst-bl-vndshpapi.lisp` | ✅ | **S1/S2/K1, the L1–L5 laws, the UI→API map — in their headers** |
 | `test/smoke-vendor-shipping-api.sh` | ✅ | the shipping suite; KNOWN list + fixtures in its header |
 | `aiharness/deepseek/skills/nst-bl-prdapi-CONTEXT.md`, `…/nst-bl-apidefs2-CONTEXT.md` | ✅ | reference impl + Belnap findings; Ring-4 |
-| `aiharness/deepseek/skills/nst-bl-conflodis2-DESIGN.md` | ⚠️ untracked | Tier-2/3 — the conflodis2 design authority |
+| `aiharness/deepseek/skills/knowledge/nst-bl-conflodis2-DESIGN.md` | ⚠️ untracked | Tier-2/3 — the conflodis2 design authority |
 | `core/nst-bl-adhara.lisp` | ✅ | sentinels, the converters, the प्रत्यय contracts |
 
 **⚠️ THE CONTEXT FILES NOW LIVE OUTSIDE `hhub/`**, under `aiharness/deepseek/skills/`, because

@@ -6,7 +6,7 @@
 ;;;
 ;;; See nst-dbu-warehouse-api-policy-transaction.lisp for why API-path seeds are
 ;;; separate from the UI-route seeds, and
-;;; aiharness/deepseek/skills/ABAC-policy-transaction-CONTEXT.md for the traps.
+;;; aiharness/deepseek/skills/knowledge/ABAC-policy-transaction-CONTEXT.md for the traps.
 ;;;
 ;;; ⚠ THESE THREE ENDPOINTS CARRY SECRETS. The entity behind them holds the
 ;;; vendor's payment-gateway API key and salt, and VpmResponseModel deliberately
