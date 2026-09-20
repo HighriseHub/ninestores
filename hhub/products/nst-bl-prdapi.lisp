@@ -434,8 +434,16 @@
          (csv (getf payload :raw-body)))
     (unless csv
       (api-client-error "no products.csv supplied — post it as -F \"file=@products.csv\" (multipart) or as a text/csv body"))
-    (let ((raw (handler-case (cl-csv:read-csv csv :skip-first-p t)
-                 (error (e) (api-client-error "products.csv could not be parsed as CSV: ~A" e))))
+    ;; THE HEADER IS READ AND CHECKED, not skipped. :skip-first-p would throw away the
+    ;; only part of the file that can be validated -- see prd-bulk-csv-header-p for why
+    ;; a body of literal {} otherwise becomes a product row.
+    (let* ((whole (handler-case (cl-csv:read-csv csv :skip-first-p nil)
+                    (error (e) (api-client-error "products.csv could not be parsed as CSV: ~A" e))))
+           (header (first whole))
+           (raw (rest whole)))
+      (unless (prd-bulk-csv-header-p header)
+        (api-client-error "the request body is not a products.csv: expected the header ~S, got ~S. Post the file you downloaded from /catalog/products/template."
+                          *prd-bulk-csv-header* header))
           (problems nil)
           (rows nil))
       (loop for row in raw
@@ -488,7 +496,7 @@
                        :created created
                        :updated updated
                        :skipped (- (length raw) (length rows))
-                       :problems problems)))))
+                       :problems problems))))
 
 (defun route-product-copy (request ctx)
   "कर्म = nst-prd. सृजन — a COPY is a CREATE, which is the whole design decision here.
