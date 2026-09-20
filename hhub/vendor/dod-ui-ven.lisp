@@ -674,9 +674,28 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (mapcar (lambda (product)
 	    (with-slots (row-id prd-name description qty-per-unit unit-of-measure current-price sku units-in-stock subscribe-flag) product
 	      (let ((db-product-pricing (select-product-pricing-by-product-id row-id (product-company product))))
-		(with-slots (price discount start-date end-date) db-product-pricing
-		  (let* ((md5digest (create-md5-from-list (normalize-md5-fields row-id prd-name qty-per-unit unit-of-measure price discount (get-date-string start-date) (get-date-string end-date) units-in-stock subscribe-flag))))
-		    (cl-who:str (format nil "~A,~A,~A,~A,~A,~A,~A,~A,~A,~A,~A~C~C" row-id prd-name  qty-per-unit unit-of-measure price discount (get-date-string start-date) (get-date-string end-date) units-in-stock subscribe-flag md5digest  #\return #\linefeed))))))) productlist)))
+		;; 🚨 GUARDED 2026-09-20: A PRODUCT WITH NO PRICING ROW IS REACHABLE, and
+		;; this used to crash on one. (with-slots (price ...) nil) signals
+		;; MISSING-SLOT, so any vendor catalogue containing an un-priced product
+		;; answered 500 -- and 11 live products are in exactly that state (measured
+		;; by SQL). It reached the API first only because the download route is new;
+		;; the vendor's own template page has been able to hit it all along.
+		;;
+		;; THE FALLBACK IS NOT AN INVENTION: the master row's current-price /
+		;; current-discount ARE the pricing cache (see nst-bl-prdpricing §2), and
+		;; today..today+90 is the window make writes for a new row. So an un-priced
+		;; product is listed with the price the catalogue is already advertising and
+		;; a window the vendor can edit -- which is the whole point of sending them
+		;; the file.
+		(let* ((price    (if db-product-pricing (slot-value db-product-pricing 'price)      current-price))
+		       (discount (if db-product-pricing (slot-value db-product-pricing 'discount)   current-discount))
+		       (start    (if db-product-pricing (slot-value db-product-pricing 'start-date) (clsql:get-date)))
+		       (end      (if db-product-pricing (slot-value db-product-pricing 'end-date)
+				     (clsql:date+ (clsql:get-date) (clsql-sys:make-duration :day 90))))
+		       (startstr (get-date-string start))
+		       (endstr   (get-date-string end))
+		       (md5digest (create-md5-from-list (normalize-md5-fields row-id prd-name qty-per-unit unit-of-measure price discount startstr endstr units-in-stock subscribe-flag))))
+		  (cl-who:str (format nil "~A,~A,~A,~A,~A,~A,~A,~A,~A,~A,~A~C~C" row-id prd-name  qty-per-unit unit-of-measure price discount startstr endstr units-in-stock subscribe-flag md5digest  #\return #\linefeed)))))) productlist)))
 
 (defun normalize-md5-fields (row-id prd-name qty-per-unit unit-of-measure
                             price discount start-date end-date
