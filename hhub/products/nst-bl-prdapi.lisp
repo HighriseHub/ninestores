@@ -6,7 +6,7 @@
 ;;;
 ;;; PRODUCTS ACTION ROUTES — conflodis2 Tier 2 (Ring 2/3).
 ;;;
-;;; Design:     aiharness/deepseek/skills/nst-bl-conflodis2-DESIGN.md  (§3 signature, §5 multi-
+;;; Design:     aiharness/deepseek/skills/knowledge/nst-bl-conflodis2-DESIGN.md  (§3 signature, §5 multi-
 ;;;             entity assembly, §6 कारक, §9 file layout)
 ;;; Dispatcher: hhub/core/nst-bl-conflodis2.lisp
 ;;; Domain:     hhub/products/dod-dal-prd.lisp   (nst-prd, ProductRequestModel)
@@ -45,7 +45,7 @@
 
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
-
+(clsql:file-enable-sql-reader-syntax)
 
 ;;; ═══════════════════════════════════════════════════════════════════════
 ;;; SECTION 1 — Params readers
@@ -215,6 +215,297 @@
       (prd-shipping-validation-error (c)
         (api-client-error "~A" (prd-shipping-validation-error-message c))))))
 
+(defun route-product-update-pricing (request ctx)
+  "कर्म = nst-prd-pricing — A DIFFERENT ENTITY from every other verb in this file.
+
+   Every sibling here drives nst-prd through the generic ferry. This one drives
+   the pricing row through set-product-pricing (nst-bl-prdpricing.lisp §9), the
+   aggregate verb that writes the pricing row AND refreshes the product master's
+   cached CURRENT_PRICE / CURRENT_DISCOUNT in one transaction — so the catalogue,
+   the :current-price sort and the cart cannot advertise a price the pricing row
+   does not justify.
+
+   WHY IT DOES NOT GO THROUGH request->dispatch. Two reasons, either sufficient:
+
+     * set-product-pricing takes the product-id POSITIONALLY and the rest as &key,
+       so the ferry's (request verb entity-class ctx) shape cannot address it —
+       the same reason route-product-update-shipping calls its verb directly.
+     * the generic ferry MOP-filters params against EVERY initarg nst-prd-pricing
+       declares, which is the mass-assignment hole route-product-update-shipping
+       documents at length. Here the five values are read explicitly, so THE
+       ALLOWLIST IS STRUCTURAL: there is no code path by which a sixth field —
+       active-flag, tenant-id, row-id — reaches the verb.
+
+   UPSERT, not update. The product may carry no pricing row yet (11 live products
+   are in that state); set-product-pricing creates one. A client cannot tell the
+   two apart from the response, and does not need to.
+
+   WHAT A MISSING KEY MEANS differs by path, and this is the only asymmetry here:
+   on UPDATE it means leave the stored value alone; on CREATE it takes the house
+   default (1.00 / 0.00 / today … today+90 days). See the verb's own docstring.
+
+   AN EMPTY BODY IS REFUSED, following route-product-update-shipping: a write that
+   did not happen must not report success. Note the consequence — because at least
+   one field is always supplied, the create-path defaults above are reachable from
+   REPL and legacy callers but not from this endpoint. That is intended: a client
+   that says nothing about a product's price has not asked for 1.00.
+
+   ERROR TAXONOMY. A malformed VALUE is the client's mistake and becomes a 400 via
+   api-client-error, caught as prdpricing-validation-error — the condition exists
+   precisely so this clause catches the caller's error WITHOUT also catching a
+   database failure (503) or a genuine bug (500) and mislabelling either as a bad
+   request. A missing or other-tenant product yields the verb's own nst-entity-nil
+   → 404, with no product-specific code here. A non-numeric {id} does the same,
+   because the verb resolves the id through product-row-id-from-string."
+  (let* ((payload    (params request))
+         (price      (prd-param payload :price))
+         (discount   (prd-param payload :discount))
+         (start-date (prd-param payload :start-date))
+         (end-date   (prd-param payload :end-date))
+         (currency   (prd-param payload :currency)))
+    (unless (or price discount start-date end-date currency)
+      (api-client-error "no pricing information supplied — expected at least one of price, discount, start-date, end-date, currency"))
+    (handler-case
+        (set-product-pricing ctx (rm-row-id request)
+                             :price      price
+                             :discount   discount
+                             :start-date start-date
+                             :end-date   end-date
+                             :currency   currency)
+      (prdpricing-validation-error (c)
+        (api-client-error "~A" (prdpricing-validation-error-message c))))))
+
+(defun prd-status->active-flag (value)
+  "The PUBLISHED status vocabulary → the column's char(1), or NIL when absent.
+
+   This is the one place the two vocabularies meet, and it is deliberately a
+   function rather than an inline cond: the API publishes `active`/`inactive`
+   (what the vendor's own menu calls Turn On / Turn Off) while the column holds
+   'Y'/'N'. Anything else is refused rather than coerced — a status of \"ACTIVE\"
+   is accepted for case, but \"enabled\", \"1\", \"true\" and \"delisted\" are not,
+   because guessing which of the schema's three lifecycle columns a caller meant
+   is exactly how a delist silently becomes a no-op.
+
+   CONTEXT FOR WHY THIS IS NOT THE WHOLE STORY: the products API note (SECTION 3)
+   used to argue this endpoint could not be published until the vocabulary was
+   settled, on the grounds that `active_flag` is 'Y' on every live row and what
+   really delists a product is `approved_flag`/`deleted_state`. Reading the legacy
+   controller settles it: `activate-product` / `deactivate-product`
+   (dod-bl-prd.lisp:27-38) set `active_flag` to \"N\"/\"Y\" and nothing else, and the
+   action menu wires exactly those two. So `inactive` means `active_flag='N'`, and
+   this endpoint is a faithful port rather than a new invention. If delisting ever
+   needs `approved_flag` too, that is a second, separately-named endpoint — not a
+   second meaning smuggled into this one."
+  (cond
+    ((null value) nil)
+    ((not (stringp value))
+     (api-client-error "status ~S is not a string — expected \"active\" or \"inactive\"" value))
+    ((string-equal value "active")   "Y")
+    ((string-equal value "inactive") "N")
+    (t (api-client-error "status ~S is neither \"active\" nor \"inactive\"" value))))
+
+(defun route-product-update-status (request ctx)
+  "कर्म = nst-prd, CONSTRAINED to :active-flag — the second narrow door in this file.
+
+   Body: {\"status\":\"active\"} or {\"status\":\"inactive\"}. That is the whole
+   surface: one field, two values, and the allowlist is STRUCTURAL because the
+   field is a literal in the call below — the generic ferry is bypassed entirely,
+   so there is no code path by which a caller can rename, reprice or re-approve a
+   product through a request that claims to be about visibility.
+
+   WHY IT IS NOT `!update` VIA request->dispatch: identical reasoning to
+   route-product-update-shipping. The ferry MOP-filters params against EVERY initarg
+   nst-prd declares, so `{\"status\":\"inactive\",\"current-price\":1}` would have
+   changed both.
+
+   THE LEGACY EQUIVALENT IS TWO CONTROLLERS, and this is a faithful port of both:
+   /hhub/dodvendactivateprod → activate-product, /hhub/dodvenddeactivateprod →
+   deactivate-product (dod-bl-prd.lisp:27-38), each of which sets `active_flag` and
+   nothing else.
+
+   A missing or other-tenant product yields !update's own nst-entity-nil → 404, and
+   a malformed status a 400 via api-client-error — no product-specific code for
+   either."
+  (let* ((payload (params request))
+         (flag    (prd-status->active-flag (prd-param payload :status))))
+    (unless flag
+      (api-client-error "no status supplied — expected \"status\": \"active\" or \"inactive\""))
+    (!update 'nst-prd (rm-row-id request) ctx :active-flag flag)))
+
+(defmethod render-json ((r ProductBulkUploadResponseModel) (ctx domain-ctx))
+  "The bulk report → JSON alist. This alist IS the allowlist, as everywhere else.
+
+   THE PROBLEMS ARRAY IS THE POINT OF THE WHOLE OBJECT. A count alone ('3 skipped')
+   tells a vendor that something went wrong and nothing about what; each entry names
+   the row and the reason, so the file can actually be fixed. It is capped nowhere
+   here — a 100-row ceiling (com-hhub-attribute-vendor-bulk-product-count) bounds it
+   by construction, so the response cannot be used to make an arbitrarily large
+   answer.
+
+   Kept beside the route rather than with the products प्रत्यय (dod-bl-prd.lisp),
+   unlike every other render-json in this tree: those describe ENTITIES that the
+   domain owns, whereas this describes the RESULT OF A REQUEST and nothing outside
+   this file has any use for it."
+  (declare (ignore ctx))
+  (list (cons "rows"     (rows r))
+        (cons "applied"  (applied r))
+        (cons "created"  (created r))
+        (cons "updated"  (updated r))
+        (cons "skipped"  (skipped r))
+        (cons "problems" (problems r))))
+
+(defun route-product-template (request ctx)
+  "कर्म = the session vendor's own catalogue, rendered as the products.csv that
+   route-product-bulk-upload consumes. स्मरण — it reads and formats, and changes
+   nothing.
+
+   RETURNS TEXT, NOT AN ENTITY, and the registration says :response-format :csv so
+   apidefs2 writes it with text/csv instead of running it through render-json. A
+   download is a DOCUMENT, not a resource representation: wrapping a CSV in JSON so
+   the client can unwrap it again serves nothing, and the whole value of the
+   endpoint is that the file arrives saveable.
+
+   🚨 THE GENERATOR IS THE LEGACY ONE, DELIBERATELY — create-products-csv2, which is
+   also what the vendor's own page produces. This is not laziness; it is the
+   property the feature depends on. That function emits the eleven columns in the
+   order product-csv-file-data-row reads them POSITIONALLY, including the MD5Digest
+   in column 10, which the upload recomputes from the same
+   normalize-md5-fields formatting (~,1F qty, ~,2F money). A second generator here
+   would be a second column order and a second formatting rule to keep in step, and
+   when the two drift the round trip fails SILENTLY — every row rejected as a bad
+   MD5 with no hint that the file was never wrong.
+
+   So the download and the upload are two ends of one contract, and both reuse the
+   code that already implements it. *prd-bulk-csv-header* was hoisted for the same
+   reason.
+
+   ⚠ KNOWN COUPLING, flagged rather than hidden: create-products-csv2 lives in
+   vendor/dod-ui-ven.lisp, which compiles AFTER this file, so referencing it here
+   costs an undefined-function style warning at every rebuild. It should move into
+   the products BL when the vendor page is migrated onto this route — which is
+   precisely what the route existing makes possible."
+  (declare (ignore request ctx))
+  (create-products-csv2 *prd-bulk-csv-header* (hhub-get-cached-vendor-products)))
+
+(defun route-product-bulk-upload (request ctx)
+  "कर्म = THE CSV TEXT carried by the request. सृजन/!state — an upsert per row.
+
+   WHERE THE TEXT COMES FROM IS NOT THIS VERB'S BUSINESS, and that is the design.
+   apidefs2's :request-format :raw hands it over in :raw-body after reconciling
+   either transport — a multipart upload (-F \"file=@products.csv\") or a raw
+   text/csv body (--data-binary @products.csv). Naming the file fields, reading the
+   temp file, choosing between the two: all of that happens in the transport, so the
+   verb takes the same path from a curl script and, later, from the vendor page.
+
+   THE SAME IMPLEMENTATION AS THE LEGACY CONTROLLER. cl-csv:read-csv with
+   :skip-first-p T and :map-fn #'product-csv-file-data-row is literally
+   com-hhub-transaction-vendor-bulk-products-add's call (dod-ui-ven.lisp:540), and
+   the parsed rows go to create-bulk-products (dod-bl-prd.lisp:278) unchanged. The
+   ONE difference is the input: the legacy passes a temp FILE PATH and this passes
+   TEXT. cl-csv accepts both — so the parsing, the positional column contract and
+   the MD5 rule are the same code, not a rewrite kept in step by hand.
+
+   🚨 A MALFORMED ROW IS REPORTED, NOT FATAL, WHICH IS A DELIBERATE DEPARTURE.
+   The legacy passes :map-fn to cl-csv, so the first bad row signals out of the
+   entire upload: the vendor gets a stack trace and no idea how far it got. Here
+   each row is parsed inside its own handler-case and whatever fails is counted and
+   NAMED, because 'row 47: MD5Digest does not match' is actionable and 'the upload
+   failed' is not. The good rows still apply.
+
+   ONE TRANSACTION for the writes. A partial upload that reports success is worse
+   than a refused one, and create-bulk-products issues one statement per row without
+   wrapping them — so the caller wraps, exactly as set-product-pricing does for its
+   two-row pair.
+
+   NOT DONE HERE, AND WORTH KNOWING: the subscription rules that the UI path
+   enforces through com-hhub-policy-vendor-bulk-product-add — plan gate, suspension,
+   and the 100-row cap — belong to the ABAC policy for this route, not to the verb.
+   Until that policy is seeded and the PEP seam is bound, this endpoint applies no
+   ceiling and no plan check. Do not mistake a 200 here for a permitted upload."
+  (let* ((payload (params request))
+         (csv (getf payload :raw-body)))
+    (unless csv
+      (api-client-error "no products.csv supplied — post it as -F \"file=@products.csv\" (multipart) or as a text/csv body"))
+    (let ((raw (handler-case (cl-csv:read-csv csv :skip-first-p t)
+                 (error (e) (api-client-error "products.csv could not be parsed as CSV: ~A" e))))
+          (problems nil)
+          (rows nil))
+      (loop for row in raw
+            for n from 1
+            do (handler-case
+                   (let ((parsed (product-csv-file-data-row row)))
+                     (if parsed
+                         (push parsed rows)
+                         (push (format nil "row ~D: MD5Digest does not match the row's fields — the file was edited by hand or reformatted (the digest is computed over qty to 1 decimal, money to 2)" n)
+                               problems)))
+                 (error (e)
+                   (push (format nil "row ~D: ~A" n e) problems))))
+      (setf rows (nreverse rows) problems (nreverse problems))
+      ;; ── THE ROW CAP, enforced HERE and not in the policy — see
+      ;;    com-hhub-policy-api-product-bulk-upload in dod-ui-pol.lisp for why the
+      ;;    split is deliberate. The count is a property of the file; the only code
+      ;;    that knows it correctly is this parser, and a line count in the policy
+      ;;    would be a second, cruder definition of 'a row' that miscounts the
+      ;;    moment a quoted field contains a newline.
+      ;;    Refused BEFORE any write, so an over-long file costs nothing but the
+      ;;    parse, and it is checked against the RAW row count: a file of 150 rows
+      ;;    is over the cap even if 60 of them would have been skipped for a bad
+      ;;    MD5, because the vendor's real intent was 150 products.
+      (let ((cap (com-hhub-attribute-vendor-bulk-product-count)))
+        (when (> (length raw) cap)
+          (api-client-error "products.csv carries ~D rows; the limit for one upload is ~D" (length raw) cap)))
+      ;; Classification for the report, done BEFORE the writes. create-bulk-products
+      ;; makes the same distinction internally; this only counts it.
+      (let ((created 0) (updated 0))
+        (dolist (pair rows)
+          (let* ((prd (first pair))
+                 (rid (ignore-errors (slot-value prd 'row-id))))
+            (if (and rid (ignore-errors (select-product-by-id rid (product-company prd))))
+                (incf updated)
+                (incf created))))
+        (when rows
+          (clsql:with-transaction ()
+            (create-bulk-products (lambda () rows))))
+        (make-instance 'ProductBulkUploadResponseModel
+                       :rows (length raw)
+                       :applied (length rows)
+                       :created created
+                       :updated updated
+                       :skipped (- (length raw) (length rows))
+                       :problems problems)))))
+
+(defun route-product-copy (request ctx)
+  "कर्म = nst-prd. सृजन — a COPY is a CREATE, which is the whole design decision here.
+
+   The verb is `make`, not `!update` and not a bespoke copier, because a copy is a NEW
+   PRODUCT: new row-id, new product-code, make's approval defaults. Modelling it as a
+   write on the source would be the mistake — nothing about the source changes.
+
+   THE SOURCE IS READ, NOT TRUSTED FROM THE BODY. `fetch` is used rather than reading a
+   payload, for two reasons that both matter:
+
+     * it re-selects with the SESSION tenant, so another tenant's id answers 404
+       instead of copying their product;
+     * a caller therefore cannot supply the fields being copied. The body is EMPTY —
+       there is nothing to mass-assign and no field a client can smuggle into the new
+       row. The name is generated (`Copy of …`) rather than accepted, which is the same
+       rule stated positively.
+
+   A fetch that misses returns a Belnap sentinel, and that is RETURNED UNCHANGED rather
+   than wrapped: the dispatcher's reverse ferry already turns nst-entity-nil into a
+   404, so copying a product that does not exist needs no copy-specific code.
+
+   WHAT IT INHERITS is prd-copy-initargs (dod-bl-prd.lisp), which carries the field
+   policy and its reasons — including the two traps that would otherwise be silent
+   bugs: product-code is uniquely indexed and must not be inherited, and external-url
+   is the source's public share link.
+
+   STATUS 201, because this creates. The registration below says so."
+  (let ((source (fetch 'nst-prd (rm-row-id request) ctx)))
+    (if (typep source 'nst-prd)
+        (apply #'make 'nst-prd ctx (prd-copy-initargs source))
+        source)))
+
 
 ;;; ═══════════════════════════════════════════════════════════════════════
 ;;; SECTION 3 — Route registration
@@ -229,7 +520,7 @@
 ;;; conflodis2 v1 (DESIGN §4.2, §11.1) — registered now so the metadata is in one
 ;;; place when the PEP/ABAC seam lands. Do not read them as protection.
 ;;;
-;;; THE SIX ENDPOINTS OF THE ORIGINAL SKETCH THAT ARE STILL ABSENT HERE, and why
+;;; THE FOUR ENDPOINTS OF THE ORIGINAL SKETCH THAT ARE STILL ABSENT HERE, and why
 ;;; — listed so their absence is a decision and not an oversight:
 ;;;
 ;;;   (update-shipping   WAS on this list and is now BOUND above, as
@@ -243,15 +534,21 @@
 ;;;                     rows; what delists a product is approved_flag/deleted_state).
 ;;;                     Registering it before that is settled would publish a verb
 ;;;                     that cannot do what its name says.
-;;;   copy              needs read-then-make with an explicit field policy (does a
-;;;                     copy inherit approval? pricing tiers?). A design decision.
-;;;   update-pricing    PARTLY UNBLOCKED, and the reason this line no longer
-;;;                     matches the code: prices DO live in DOD_PRODUCT_PRICING,
-;;;                     but current_price/current_discount are ALSO denormalised on
-;;;                     the master row, and nst-prd-pricing now has a domain entity
-;;;                     (dod-dal-prd.lisp) and Tier-1 प्रत्यय
-;;;                     (nst-bl-prdpricing.lisp) to call. What remains is the route
-;;;                     binding, not a missing entity.
+;;;   copy              WAS on this list, and the note above used to ask the two
+;;;                     questions it was waiting on — 'does a copy inherit approval?
+;;;                     pricing tiers?'. Both are now answered, in code rather than
+;;;                     prose: NO to approval (make's defaults apply, so a copy is
+;;;                     PENDING and cannot launder approval), and YES to the price
+;;;                     but not the window (prd-copy-initargs, dod-bl-prd.lisp).
+;;;                     BOUND above as POST /catalog/products/{id}/copy.
+;;;   update-pricing    WAS on this list and is now BOUND above, as
+;;;                     PUT /catalog/products/{id}/pricing. It stopped being a
+;;;                     missing entity some time earlier — nst-prd-pricing has a
+;;;                     domain class (dod-dal-prd.lisp), Tier-1 प्रत्यय
+;;;                     (nst-bl-prdpricing.lisp) and boundary models — and the
+;;;                     binding was the last part. Note what it does NOT delegate:
+;;;                     it calls set-product-pricing directly rather than through
+;;;                     the ferry, and the reason is recorded on the verb.
 ;;;   bulk-create       CSV upload: multipart, and apidefs2 reads the body as JSON
 ;;;                     only (api-request-body-params). Blocked on that extension.
 ;;;   upload-images     same multipart block.
@@ -324,6 +621,64 @@
                        :audit-level :full
                        :tags '(products catalog shipping api v1))
 
+(register-action-route 'route-product-update-pricing
+                       :action-verb 'route-product-update-pricing
+                       :request-class 'ProductPricingRequestModel
+                       :description "Set a product's price, discount and discount window. Upsert: creates the pricing row when the product has none. Also refreshes the product's cached currentPrice/currentDiscount in the same transaction."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor)
+                       :feature-flags '(new-product-domain)
+                       :audit-level :full
+                       :tags '(products catalog pricing api v1))
+
+(register-action-route 'route-product-update-status
+                       :action-verb 'route-product-update-status
+                       :request-class 'ProductRequestModel
+                       :description "Turn a product on or off: set its active flag. Body: {\"status\":\"active\"|\"inactive\"}. The legacy equivalent is the action menu's Turn On / Turn Off."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor)
+                       :feature-flags '(new-product-domain)
+                       :audit-level :full
+                       :tags '(products catalog status api v1))
+
+(register-action-route 'route-product-copy
+                       :action-verb 'route-product-copy
+                       :request-class 'ProductRequestModel
+                       :description "Duplicate a product as a NEW listing: a copy of every catalogue field, named 'Copy of <name>', with a fresh product-code and unapproved status. The source is unchanged."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor)
+                       :feature-flags '(new-product-domain)
+                       :audit-level :full
+                       :tags '(products catalog copy api v1))
+
+;;; THE BULK PAIR. These two are ONE CONTRACT: the template emits the file the
+;;; upload consumes, so they are registered together and their descriptions refer
+;;; to each other. Registering either alone publishes half a round trip.
+(register-action-route 'route-product-template
+                       :action-verb 'route-product-template
+                       :request-class 'ProductRequestModel
+                       :description "Download the session vendor's catalogue as products.csv — the file the bulk upload consumes. text/csv, not JSON."
+                       :output-type :csv
+                       :channel :http
+                       :required-roles '(vendor)
+                       :feature-flags '(new-product-domain)
+                       :audit-level :read
+                       :tags '(products catalog bulk csv api v1))
+
+(register-action-route 'route-product-bulk-upload
+                       :action-verb 'route-product-bulk-upload
+                       :request-class 'ProductRequestModel
+                       :description "Upsert many products from a products.csv. Blank ProductID creates, a present one updates. Answers a per-row report."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor)
+                       :feature-flags '(new-product-domain)
+                       :audit-level :full
+                       :tags '(products catalog bulk csv api v1))
+
 
 ;;; ═══════════════════════════════════════════════════════════════════════
 ;;; SECTION 4 — Public API bindings (Ring 4)
@@ -357,7 +712,7 @@
 ;;; otherwise, 200 [] for an empty catalog, 404 for a fetch/update/delete miss,
 ;;; 409 when a create collides with a SOFT-DELETED product's code, 401 without a
 ;;; session, 400 for a malformed body or path. Endpoints we did not bind (bulk,
-;;; template, images, pricing, status, copy) answer 404
+;;; template, images, status, copy) answer 404
 ;;; no_such_endpoint — see SECTION 3 for why each is absent.
 
 (register-api-route 'route-product-list
@@ -405,3 +760,44 @@
                     :success-status 200
                     :auth-scope :session
                     :description "Set a product's shipping dimensions and weight. Body: any subset of shipping-length-cms, shipping-width-cms, shipping-height-cms (whole centimetres, 1-32767) and shipping-weight-kg (0.01-999.99), camelCase or hyphenated. Only the supplied fields change; at least one is required. 400 on a non-positive, fractional-dimension or oversized value, or on an empty body. 404 when the product does not exist in this tenant. NOTE: these four fields are what the zonewise shipping rate table is indexed BY; the vendor's shipping configuration itself is a different entity and a different endpoint.")
+
+(register-api-route 'route-product-update-pricing
+                    :method :put
+                    :path "/hhub/api/v1/catalog/products/{id}/pricing"
+                    :path-params '(("id" . :row-id))
+                    :success-status 200
+                    :auth-scope :session
+                    :description "Set a product's price, discount and discount window. Body: any subset of price (decimal, must be > 0), discount (a PERCENTAGE, 0-100), start-date and end-date (DD/MM/YYYY, the period the discount RUNS, end not before start) and currency (3 letters). camelCase or hyphenated; at least one field is required. UPSERT: a product with no pricing row gets one, created with the house defaults for any field not supplied (price 1.00, discount 0.00, window today..today+90 days, currency from the account). An UPDATE changes only the fields actually supplied. Either way the product's cached currentPrice/currentDiscount are refreshed in the same transaction, so the catalogue and the cart cannot advertise a price the pricing row does not justify. 400 on a malformed or empty body. 404 when the product does not exist in this tenant. The response publishes discountExpired, DERIVED from the window and today's date, and never stored.")
+
+(register-api-route 'route-product-update-status
+                    :method :put
+                    :path "/hhub/api/v1/catalog/products/{id}/status"
+                    :path-params '(("id" . :row-id))
+                    :success-status 200
+                    :auth-scope :session
+                    :description "Turn a product on or off. Body: {\"status\": \"active\"} or {\"status\": \"inactive\"}. That is the whole surface — a constrained !update on active-flag, with no other product field reachable through this path. 'inactive' means active_flag='N' (what the vendor's Turn Off does today); it does NOT delist the product, which is approved_flag/deleted_state and a different operation. 400 on a missing or unrecognised status. 404 when the product does not exist in this tenant.")
+
+(register-api-route 'route-product-copy
+                    :method :post
+                    :path "/hhub/api/v1/catalog/products/{id}/copy"
+                    :path-params '(("id" . :row-id))
+                    :success-status 201
+                    :auth-scope :session
+                    :description "Duplicate a product. NO BODY: the copy is made from the stored product addressed by {id}, so nothing a client sends can reach the new row. Inherits description, hsn-code, product type, unit of measure, qty per unit, sku, upc, category, vendor, subscription flag, price, discount and the shipping dimensions. NOT inherited, deliberately: product-code (uniquely indexed — a copy takes a fresh one), external-url (it is the source's public share link), and approval state, so the copy starts PENDING like any new listing. Units in stock are NOT copied: stock is a count of physical goods, not product identity. The name is generated as 'Copy of <source name>'. 404 when the source does not exist in this tenant. Returns 201 with the NEW product.")
+
+(register-api-route 'route-product-template
+                    :method :get
+                    :path "/hhub/api/v1/catalog/products/template"
+                    :success-status 200
+                    :auth-scope :session
+                    :response-format :csv
+                    :content-type "text/csv; charset=utf-8"
+                    :description "Download the session vendor's catalogue as products.csv. Eleven columns, ProductID first and MD5Digest last — the exact file the bulk upload consumes, including the digest it recomputes. Fill it in and post it back to /catalog/products/bulk. NOTE: register-api-route matches /catalog/products/template BEFORE /catalog/products/{id}, so this path is not shadowed by a product whose id is the literal string 'template'.")
+
+(register-api-route 'route-product-bulk-upload
+                    :method :post
+                    :path "/hhub/api/v1/catalog/products/bulk"
+                    :success-status 200
+                    :auth-scope :session
+                    :request-format :raw
+                    :description "Upsert many products from a products.csv. Send the file as multipart (-F \"file=@products.csv\") or as the raw body (-H 'Content-Type: text/csv' --data-binary @products.csv). Columns are positional and MUST keep the downloaded order; a blank ProductID creates a product and a present one updates it. Each row's MD5Digest is recomputed and a row that does not match is REPORTED AND SKIPPED rather than failing the whole upload. Answers {rows, applied, created, updated, skipped, problems[]}, with problems naming the row and the reason. All writes happen in one transaction, so a reported success is a complete upload. NOTE: the subscription plan gate, the suspension check and the 100-row ceiling are enforced by this route's ABAC policy, not by the verb — until that policy is seeded and the PEP seam is bound, this endpoint applies no ceiling.")
