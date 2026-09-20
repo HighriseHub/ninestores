@@ -111,8 +111,9 @@ fi
 # ── 2. create a product so the template has a row to carry ──────────────────
 section "2. fixture — a real product for the template to include"
 STAMP="$(date +%H%M%S)"
+FIXNAME="BULK Smoke $STAMP"       # referenced by the awk edit in section 6
 req POST "/hhub/api/v1/catalog/products" -H 'Content-Type: application/json' \
-    -d "{\"prd-name\":\"BULK Smoke $STAMP\",\"hsn-code\":\"8517\",\"current-price\":123.45}"
+    -d "{\"prd-name\":\"$FIXNAME\",\"hsn-code\":\"8517\",\"current-price\":123.45}"
 expect "POST create fixture product" 201 "\"rowId\""
 RID="$(sed -n 's/.*"rowId":"\([0-9]*\)".*/\1/p' "$BODY" | head -1)"
 if [ -z "$RID" ]; then printf '  %sFATAL%s no rowId — cannot continue.\n' "$R" "$N"; exit 2; fi
