@@ -575,6 +575,29 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	   (unit-of-measure (nth 3 row))
 	   (prdinst (make-instance 'dod-prd-master
 				   :row-id prd-id
+				   ;; 🚨 PRODUCT-CODE ADDED 2026-09-20. IT WAS NEVER SET HERE, and
+				   ;; PRODUCT_CODE carries a UNIQUE index -- so the first bulk-created
+				   ;; product took the empty string and EVERY LATER ONE failed with
+				   ;;   Error 1062 / Duplicate entry '' for key
+				   ;;   'DOD_PRD_MASTER.PRODUCT_CODE'
+				   ;; The bulk upload could therefore create exactly ONE product, ever,
+				   ;; which is the opposite of what it is for. Measured: exactly one live
+				   ;; row held the empty code, so the next insert was guaranteed to fail
+				   ;; and had been for as long as anyone had tried twice.
+				   ;;
+				   ;; NOT A NEW MISTAKE IN THE API LAYER -- this is the vendor page's own
+				   ;; row construction, and the JSON endpoint reuses it deliberately, so
+				   ;; BOTH paths had the defect. The single-create path never did:
+				   ;; persist-product (dod-bl-prd.lisp:275) sets exactly this expression,
+				   ;; and nst-prd/make calls generate-product-code (dod-bl-prd.lisp:505).
+				   ;; The two bulk paths are the ones that wrote the legacy row by hand
+				   ;; and simply omitted the column.
+				   ;;
+				   ;; SAFE ON THE UPDATE PATH: create-bulk-products copies only a named
+				   ;; slot list onto an existing row, and product-code is not in it -- so
+				   ;; an update cannot re-code a product, which would break its reserved
+				   ;; identity. Only the INSERT uses this instance's value.
+				   :product-code (format nil "PRD-~A" (hhub-random-password 10))
 				   :prd-name prd-name
 				   :vendor-id vendor-id
 				   :vendor vendor 
