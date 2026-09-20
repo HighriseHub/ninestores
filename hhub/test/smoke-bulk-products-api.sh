@@ -76,6 +76,14 @@ expect_re() {                 # expect_re NAME STATUS REGEX  (JSON needs whitesp
 # json_number KEY — the value of "key":<number> in $BODY, or empty.
 json_number() { sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\([0-9]\+\).*/\1/p" "$BODY" | head -1; }
 
+# check NAME DETAIL TRUE-OR-FALSE — for assertions that compare two computed values
+# rather than a status code plus a body substring.
+check() {
+  local name="$1" detail="$2" ok="$3"
+  if [ "$ok" = 1 ]; then PASS=$((PASS+1)); printf '  %sPASS%s %-52s %s\n' "$G" "$N" "$name" "$detail"
+  else FAIL=$((FAIL+1)); printf '  %sFAIL%s %-52s %s\n' "$R" "$N" "$name" "$detail"; fi
+}
+
 info() { printf '  %s----%s %-52s %s\n' "$Y" "$N" "$1" "$2"; }
 section() { printf '\n== %s\n' "$1"; }
 
@@ -148,8 +156,9 @@ fi
 # tr -d '\r' because the generator writes CRLF (#\return #\linefeed), so head -1 of a
 # correct file ends in a carriage return and an exact comparison fails on a header that
 # is byte-identical apart from it -- which is exactly how this assertion failed first.
-printf '%s\n' "$(head -1 "$CSV" | tr -d '\r')" > "$TMP/hdr"
-if [ "$(cat "$TMP/hdr")" = "ProductID,ProductName,QtyPerUnit,UnitOfMeasure,UnitPrice,Discount,DiscountStart,DiscountEnd,UnitsInStock,SubscriptionFlag,MD5Digest" ]; then
+HDR="$(head -1 "$CSV" | tr -d '\r')"
+printf '%s\n' "$HDR" > "$TMP/hdr"
+if [ "$HDR" = "ProductID,ProductName,QtyPerUnit,UnitOfMeasure,UnitPrice,Discount,DiscountStart,DiscountEnd,UnitsInStock,SubscriptionFlag,MD5Digest" ]; then
   PASS=$((PASS+1)); printf '  %sPASS%s %-52s\n' "$G" "$N" "  ↳ header is the 11-column contract, in order"
 else
   FAIL=$((FAIL+1)); printf '  %sFAIL%s %-52s\n       got: %s\n' "$R" "$N" "  ↳ header is the 11-column contract, in order" "$(head -c 200 "$TMP/hdr")"
