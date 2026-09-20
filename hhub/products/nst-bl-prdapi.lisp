@@ -440,12 +440,20 @@
     (let* ((whole (handler-case (cl-csv:read-csv csv :skip-first-p nil)
                     (error (e) (api-client-error "products.csv could not be parsed as CSV: ~A" e))))
            (header (first whole))
-           (raw (rest whole)))
+           (raw (rest whole))
+           ;; THESE TWO ARE BINDINGS, and they were left behind as BODY FORMS by the
+           ;; edit that introduced the header check -- my match stopped at `(raw ...)`
+           ;; and closed the binding list, so (problems nil) and (rows nil) became
+           ;; function CALLS. `problems` is the response model's slot accessor, so every
+           ;; bulk request died with `No applicable method for #<GENERIC-FUNCTION
+           ;; PROBLEMS> when called with (NIL)` -- a 500 on all four transport tests.
+           ;; The lesson is the same one this file keeps teaching: when adding to a
+           ;; LET, match through the END OF ITS BINDING LIST, not just the first binding.
+           (problems nil)
+           (rows nil))
       (unless (prd-bulk-csv-header-p header)
         (api-client-error "the request body is not a products.csv: expected the header ~S, got ~S. Post the file you downloaded from /catalog/products/template."
                           *prd-bulk-csv-header* header))
-          (problems nil)
-          (rows nil))
       (loop for row in raw
             for n from 1
             do (handler-case
@@ -496,7 +504,7 @@
                        :created created
                        :updated updated
                        :skipped (- (length raw) (length rows))
-                       :problems problems))))
+                       :problems problems)))))
 
 (defun route-product-copy (request ctx)
   "कर्म = nst-prd. सृजन — a COPY is a CREATE, which is the whole design decision here.
