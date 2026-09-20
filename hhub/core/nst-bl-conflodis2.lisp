@@ -3,7 +3,7 @@
 ;;; Copyright (c) 2026 Nine Stores. All rights reserved.
 ;;;
 ;;; The Ring-2/3 ROUTE-ACTION DISPATCHER — Pāṇinian verb dispatch.
-;;; Design: aiharness/deepseek/skills/nst-bl-conflodis2-DESIGN.md
+;;; Design: aiharness/deepseek/skills/knowledge/nst-bl-conflodis2-DESIGN.md
 ;;; Grammar: paninigrammarprocurement.md
 ;;;
 ;;; TWO-TIER OWNERSHIP
@@ -185,6 +185,14 @@
    sentinel, or a ready-made response model (pass-through)."
   (cond
     ((null domain) nil)
+    ;; A verb that ALREADY PRODUCED ITS BODY TEXT passes straight through. Only a
+    ;; :response-format :csv route (apidefs2) returns a string, because a download
+    ;; is a document rather than a resource representation — there is no entity to
+    ;; ferry and nothing for render-json to add. Without this clause the ferry
+    ;; would fall through to domain->response with a string and signal
+    ;; no-applicable-method, turning every download into a 500.
+    ;; PLAIN strings only: a list of strings is still a response collection.
+    ((stringp domain) domain)
     ((typep domain 'nst-response-model) domain)
     ((listp domain)
      (mapcar (lambda (e)
