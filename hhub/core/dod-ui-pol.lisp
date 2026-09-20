@@ -120,6 +120,120 @@
    and weight."
   (%com-hhub-policy-tenant-may-transact params "update product shipping"))
 
+(defun com-hhub-policy-api-product-update-pricing (&optional (params nil))
+  "PUT /hhub/api/v1/catalog/products/{id}/pricing — set the price, discount and
+   discount window.
+
+   A SEPARATE FUNCTION from product-update even though both write through the same
+   product: the transaction→policy pairing is one-to-one (§2), and pricing is the
+   one catalog write whose कर्म is a different entity (nst-prd-pricing). Sharing
+   product-update's function would make a refused price change indistinguishable
+   from a refused name change in the log, and the two could never diverge — which
+   is exactly the divergence a money-writing endpoint is most likely to need."
+  (%com-hhub-policy-tenant-may-transact params "update product pricing"))
+
+(defun com-hhub-policy-api-product-update-status (&optional (params nil))
+  "PUT /hhub/api/v1/catalog/products/{id}/status — turn a product on or off.
+
+   A SEPARATE function from product-update and product-update-shipping, for the
+   one-to-one transaction→policy reason the section header gives — and here the
+   separation has real content rather than being bookkeeping. Turning a product OFF
+   is a VISIBILITY decision with a different blast radius from editing it: the
+   product leaves the catalogue while its price, stock and orders stay exactly as
+   they were. A tenant that wants vendors able to edit but not to hide can express
+   that here and nowhere else — impossible if the three writes shared one function."
+  (%com-hhub-policy-tenant-may-transact params "change product status"))
+
+(defun %policy-company-from-params (params)
+  "The company out of a policy's PARAMS, whichever shape it is in.
+
+   🚨 TWO SHAPES EXIST AND BOTH ARE REAL. The legacy UI passes an ALIST with string
+   keys — (assoc \"company\" params :test #'equal) — which is what
+   %com-hhub-policy-tenant-may-transact reads. The API passes a PLIST with keyword
+   keys, because that is what the ferry and the domain verbs consume. Neither is
+   wrong; they are two callers of one hook.
+
+   WHY THIS IS WRITTEN DEFENSIVELY RATHER THAN ASSUMING ONE: the API's PEP seam
+   (*action-route-transaction-function*, conflodis2 §5) is still an unbound
+   pass-through, so NO policy has ever received API params and the shape has never
+   been exercised. Guessing one shape would produce a policy that silently reads a
+   NIL company the first time the seam is bound — and a nil company is TOLERATED by
+   design (see %com-hhub-policy-tenant-may-transact), so the failure would be a
+   policy that quietly permits everything instead of erroring. Silent permit is the
+   one failure mode an authorization check must not have."
+  (or (cdr (assoc "company" params :test #'equal))
+      (getf params :company)))
+
+(defun com-hhub-policy-api-product-template (&optional (params nil))
+  "GET /hhub/api/v1/catalog/products/template — download the vendor's products.csv.
+
+   A READ, and a SEPARATE policy from the bulk upload's even though the two are one
+   contract. The separation is what a tenant needs in order to grant 'you may look at
+   your catalogue as a file' without granting 'you may rewrite your catalogue from a
+   file' — the download is harmless on its own and the upload is not, so binding them
+   to one authority would force a tenant to permit both or neither.
+
+   Governed by the bulk-upload subscription attribute for the same reason the vendor
+   page hides the whole Bulk Add Products entry together: the file is only useful to
+   someone who can send it back, and offering a disabled feature's first step is how
+   a vendor ends up filling in a template they are not allowed to submit."
+  (%com-hhub-policy-tenant-may-transact params "download the bulk products template"))
+
+(defun com-hhub-policy-api-product-bulk-upload (&optional (params nil))
+  "POST /hhub/api/v1/catalog/products/bulk — upload many products from a CSV.
+
+   THE SUBSCRIPTION TIE-IN LIVES HERE, because it is an authorization question, and
+   this reuses com-hhub-attribute-company-prdbulkupload-enabled rather than
+   restating the plan table: BASIC and PROFESSIONAL are enabled, COMMUNITY and TRIAL
+   are not. Restating it would be a second copy of a business rule, and the two
+   copies would disagree the first time a plan changes.
+
+   🚨 WHAT IS DELIBERATELY **NOT** CHECKED HERE, AND WHY — the 100-row cap
+   (com-hhub-attribute-vendor-bulk-product-count), which the LEGACY policy
+   com-hhub-policy-vendor-bulk-product-add does enforce.
+
+   The legacy can check it because the UI parses the CSV BEFORE the policy runs and
+   passes a \"prdcount\" param in. A PEP wrapping a verb cannot: the count is a
+   property of the uploaded file, and the only code that knows it correctly is the
+   parser, which is the verb itself. Counting lines here instead would be a second,
+   cruder definition of 'a row' — one that miscounts the moment a quoted field
+   contains a newline — and a cap enforced by a miscount is worse than a cap
+   enforced in one place.
+
+   So the split is: THIS POLICY answers WHO may bulk-upload at all, and
+   route-product-bulk-upload enforces HOW MUCH in one upload. Stated here because a
+   reader comparing this file with the legacy policy will otherwise conclude the cap
+   was dropped."
+  (let* ((company (%policy-company-from-params params))
+         (subs-plan (when company (ignore-errors (subscription-plan company))))
+         (cmp-type  (when company (ignore-errors (cmp-type company))))
+         (suspend-flag (when company (slot-value company 'suspend-flag))))
+    (when company
+      (when (com-hhub-attribute-company-issuspended suspend-flag)
+        (error 'hhub-abac-transaction-error
+               :errstring (format nil "Account Name: ~A. This Account is Suspended. (bulk product upload)"
+                                  (slot-value company 'name))))
+      (unless (com-hhub-attribute-company-prdbulkupload-enabled subs-plan cmp-type)
+        (error 'hhub-abac-transaction-error
+               :errstring (format nil "Account Name: ~A. Bulk product upload is not enabled on this subscription plan (~A)."
+                                  (slot-value company 'name) subs-plan))))
+    T))
+
+(defun com-hhub-policy-api-product-copy (&optional (params nil))
+  "POST /hhub/api/v1/catalog/products/{id}/copy — duplicate a product as a new listing.
+
+   THE ONE PRODUCT POLICY WHOSE SEPARATION IS A REAL AUTHORITY SPLIT rather than a
+   logging convenience. Every other product write changes a row that already exists;
+   copy MANUFACTURES a new sellable listing. A tenant that trusts a vendor to edit
+   prices but not to multiply its catalogue can grant product.update and withhold
+   this — impossible if the two shared a function.
+
+   It does NOT confer publication. The copy is created with make's defaults, so it is
+   PENDING approval (prd-copy-initargs deliberately omits the approval initargs), and
+   the existing approval gate is what admits it to the storefront. This policy lets a
+   vendor PROPOSE a listing; it does not let anyone put one on sale."
+  (%com-hhub-policy-tenant-may-transact params "copy product"))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;; WAREHOUSE · VENDOR-PROFILE · VENDOR-SHIPPING · VENDOR-PAYMENT ;;;;;;;;;;;;;
 ;;;;;;;;;;;;; API ENDPOINT POLICIES                                          ;;;;;;;;;;;;;

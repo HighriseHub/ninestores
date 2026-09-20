@@ -7,8 +7,6 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 
-
-
 (defparameter *migrations*
   '(("05082025-add-product-code"  migrate-2025May-add-product-code "Added human readable Product code to DOD_PRD_MASTER table")
     ("09052025-add-price&discount-columns"  migrate-2025May-add-discount-column "Added current price and current discount to DOD_PRD_MASTER table")
@@ -75,6 +73,10 @@
     ("19092026-insert-vndapi-policies"   migrate-2026Sep-insert-vndapi-policy-and-transactions   "Insert ABAC policy + transaction seed rows for the vendor profile JSON API endpoints.")
     ("19092026-insert-vndshpapi-policies"   migrate-2026Sep-insert-vndshpapi-policy-and-transactions   "Insert ABAC policy + transaction seed rows for the vendor shipping JSON API endpoints.")
     ("19092026-insert-vndvpmapi-policies"   migrate-2026Sep-insert-vndvpmapi-policy-and-transactions   "Insert ABAC policy + transaction seed rows for the vendor payment-methods JSON API endpoints.")
+    ("20092026-insert-product-pricing-policies"   migrate-2026Sep-insert-product-pricing-policy-and-transaction   "Insert the ABAC policy + transaction seed row for the product PRICING endpoint. A separate version because the 19092026 product migration was already applied and never re-runs; 40 chars, because VERSION is varchar(50).")
+    ("20092026-insert-product-status-policy"   migrate-2026Sep-insert-product-status-policy-and-transaction   "Insert the ABAC policy + transaction seed row for the product STATUS endpoint (Turn On / Turn Off). A third version for the same reason as the second: 20092026-insert-product-pricing-policies was already applied, so this cannot join it. 37 chars, because VERSION is varchar(50).")
+    ("20092026-insert-product-copy-policy"   migrate-2026Sep-insert-product-copy-policy-and-transaction   "Insert the ABAC policy + transaction seed row for the product COPY endpoint. A fourth version: the status one was applied at 19:17:15 today, so it can no longer be appended to. 35 chars, because VERSION is varchar(50).")
+    ("20092026-insert-product-bulk-policies"   migrate-2026Sep-insert-product-bulk-policies-and-transactions   "Insert the ABAC policy + transaction seed rows for the bulk products.csv PAIR (template download + upload). A fifth version, and the clearest argument for the one-migration-per-day cadence in the ABAC skill 13.1: every earlier version was applied before this endpoint existed. 45 chars, because VERSION is varchar(50).")
     ))
 
 
