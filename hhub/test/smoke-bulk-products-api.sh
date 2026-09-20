@@ -73,6 +73,9 @@ expect_re() {                 # expect_re NAME STATUS REGEX  (JSON needs whitesp
        printf '       body: %s\n' "$(head -c 240 "$BODY" | tr -d '\n')"; fi
 }
 
+# json_number KEY — the value of "key":<number> in $BODY, or empty.
+json_number() { sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\([0-9]\+\).*/\1/p" "$BODY" | head -1; }
+
 info() { printf '  %s----%s %-52s %s\n' "$Y" "$N" "$1" "$2"; }
 section() { printf '\n== %s\n' "$1"; }
 
@@ -90,6 +93,20 @@ case "$HTTP_CODE" in
   404) printf '  %sFATAL%s the products routes are not registered in this image.\n' "$R" "$N"; exit 2 ;;
 esac
 printf '  session established (%s)\n' "$HTTP_CODE"
+
+# A GUARD WORTH ITS LINES. On the first run of this script every bulk assertion
+# below failed with 404, because the running image was ten hours older than the
+# routes: the image was built at 10:34 and the source edited at 20:33. Without this
+# check that reads as twelve endpoint bugs rather than one stale image.
+req POST "/hhub/api/v1/catalog/products/bulk" -H 'Content-Type: application/json' -d '{}'
+if grep -qF '"no_such_endpoint"' "$BODY"; then
+  printf '\n  %sFATAL%s the bulk routes are NOT REGISTERED in the running image.\n' "$R" "$N"
+  printf '        /catalog/products/bulk answered 404 no_such_endpoint. In the Lisp image:\n\n'
+  printf '            (asdf:load-system :nstores)     ; recompile, then RELOAD\n'
+  printf '            (list-api-routes)               ; expect the template + bulk rows\n\n'
+  printf '        Nothing below would be meaningful until then.\n'
+  exit 2
+fi
 
 # ── 2. create a product so the template has a row to carry ──────────────────
 section "2. fixture — a real product for the template to include"
@@ -110,7 +127,11 @@ else FAIL=$((FAIL+1)); printf '  %sFAIL%s %-52s got %s, want 200\n' "$R" "$N" "G
 
 # THE COLUMN CONTRACT, checked rather than assumed. Order is positional in the
 # parser, so a moved column is silent corruption rather than a parse error.
-head -1 "$CSV" > "$TMP/hdr"
+# printf, not `head >` : the header line of a CSV whose last row has no trailing
+# newline would otherwise be concatenated with the first generated row, silently
+# producing 100 rows where 101 were intended -- which is exactly the boundary this
+# section exists to test.
+printf '%s\n' "$(head -1 "$CSV")" > "$TMP/hdr"
 if [ "$(cat "$TMP/hdr")" = "ProductID,ProductName,QtyPerUnit,UnitOfMeasure,UnitPrice,Discount,DiscountStart,DiscountEnd,UnitsInStock,SubscriptionFlag,MD5Digest" ]; then
   PASS=$((PASS+1)); printf '  %sPASS%s %-52s\n' "$G" "$N" "  ↳ header is the 11-column contract, in order"
 else
@@ -132,8 +153,12 @@ expect "POST bulk (multipart, unchanged file)" 200 "\"rows\""
 # THE ROUND TRIP IS THE ASSERTION THAT MATTERS: every digest was produced by the
 # server, so a non-zero skipped count means the download and the upload disagree
 # about the field formatting — the silent failure this whole pair exists to avoid.
-expect_re "  ↳ nothing skipped (digests round-trip)" 200 '"skipped"[[:space:]]*:[[:space:]]*0'
-expect_re "  ↳ no problems reported" 200 '"problems"[[:space:]]*:[[:space:]]*\[\]'
+# 🚨 THIS ASSERTION LOOKS WRONG AND IS RIGHT. Every digest in the downloaded file was
+# computed by the server over that row's own fields, so every row MATCHES -- and a
+# MATCHING digest means 'unchanged, skip it'. The digest is a has-this-row-been-
+# touched flag, not a validity check; see the header. So the correct expectation for
+# an unedited file is that NOTHING applies.
+expect_re "  ↳ nothing applied (all rows unchanged)" 200 '"applied"[[:space:]]*:[[:space:]]*0'
 info "report" "$(head -c 200 "$BODY" | tr -d '\n')"
 
 # ── 5. the same file as a RAW body, not multipart ───────────────────────────
@@ -141,18 +166,40 @@ section "5. the same POST as text/csv (the other transport)"
 req POST "/hhub/api/v1/catalog/products/bulk" \
     -H 'Content-Type: text/csv' --data-binary "@$CSV"
 expect "POST bulk (text/csv body)" 200 "\"rows\""
-expect_re "  ↳ same answer from the other transport" 200 '"skipped"[[:space:]]*:[[:space:]]*0'
+expect_re "  ↳ same answer from the other transport" 200 '"applied"[[:space:]]*:[[:space:]]*0'
 
-# ── 6. tampering: change a field, leave the digest ──────────────────────────
-section "6. a row edited without re-signing it"
-# This is the mistake a human makes. The digest is over columns 0-9, so replacing
-# the price breaks it and the row must be SKIPPED and NAMED — not silently applied,
-# and not fatal to the rows around it.
-awk 'NR==1{print; next} {$5="999.99"; print}' "$CSV" > "$TAMPERED"
-req POST "/hhub/api/v1/catalog/products/bulk" -F "file=@$TAMPERED"
-expect "POST bulk with a tampered row" 200 "\"rows\""
-expect_re "  ↳ the tampered row is SKIPPED, not applied" 200 '"skipped"[[:space:]]*:[[:space:]]*1'
-expect "  ↳ and the problem names the row" 200 "row 1"
+# ── 6. 🚨 THE POINT OF THE WHOLE FEATURE: edit a row and have it APPLY ──────
+section "6. edit the fixture's price, leave the digest stale, upload it back"
+# Leaving the digest alone is exactly what a human does in a spreadsheet, and the
+# now-mismatched digest is the signal that says 'this row changed'.
+awk -v n="$FIXNAME" 'NR==1{print; next} $2==n {$5="777.77"; print; next} {print}' "$CSV" > "$EDITED"
+if cmp -s "$CSV" "$EDITED"; then
+  FAIL=$((FAIL+1)); printf '  %sFAIL%s %-52s the edit did not reach the file\n' "$R" "$N" "  ↳ the row was actually edited"
+else
+  PASS=$((PASS+1)); printf '  %sPASS%s %-52s\n' "$G" "$N" "  ↳ the row was actually edited"
+fi
+req POST "/hhub/api/v1/catalog/products/bulk" -F "file=@$EDITED"
+expect "POST bulk (edited row)" 200 "\"rows\""
+APPLIED="$(json_number applied)"
+check "  ↳ the edited row IS applied" "applied=${APPLIED:-none} (want >= 1)" \
+      "$([ -n "$APPLIED" ] && [ "$APPLIED" -ge 1 ] && echo 1 || echo 0)"
+
+# AND THE CHANGE MUST BE REAL, not merely counted. This proves the workflow end to
+# end: download, edit, upload, and the product actually moved.
+req GET "/hhub/api/v1/catalog/products/$RID"
+check "  ↳ the product's price is now 777.77" "$(grep -oF '777.77' "$BODY" | head -1)" \
+      "$(grep -qF '777.77' "$BODY" && echo 1 || echo 0)"
+
+# ── 6b. a NEW row: blank ProductID, blank digest ────────────────────────────
+section "6b. a new product — blank ProductID and blank digest"
+NEWNAME="BULK New $STAMP"
+{ printf '%s\n' "$HDR"
+  printf ',%s,1.0,NOS,55.00,0.00,01/01/2026,31/12/2026,7,N,\n' "$NEWNAME"
+} > "$NEWROW"
+req POST "/hhub/api/v1/catalog/products/bulk" -F "file=@$NEWROW"
+expect "POST bulk (one new row)" 200 "\"rows\""
+expect_re "  ↳ it is CREATED" 200 '"created"[[:space:]]*:[[:space:]]*1'
+expect_re "  ↳ and it is not skipped" 200 '"skipped"[[:space:]]*:[[:space:]]*0'
 
 # ── 7. the subscription cap ─────────────────────────────────────────────────
 section "7. the 100-row ceiling"
@@ -173,6 +220,14 @@ else FAIL=$((FAIL+1)); printf '  %sFAIL%s %-52s got %s, want 400\n' "$R" "$N" "P
 
 # ── 9. cleanup ──────────────────────────────────────────────────────────────
 section "9. cleanup"
+req GET "/hhub/api/v1/catalog/products?name-like=$NEWNAME&limit=2"
+NEWID="$(sed -n 's/.*"rowId":"\([0-9]*\)".*/\1/p' "$BODY" | head -1)"
+if [ -n "$NEWID" ]; then
+  req DELETE "/hhub/api/v1/catalog/products/$NEWID"
+  info "deleted the bulk-created product" "$NEWID ($HTTP_CODE)"
+else
+  info "bulk-created product" "not found by name — check manually"
+fi
 req DELETE "/hhub/api/v1/catalog/products/$RID"
 expect "DELETE the fixture product" 200 "\"ok\""
 printf '  the fixture row stays SOFT-DELETED and its product-code stays reserved.\n'
