@@ -557,7 +557,18 @@
    verb the bytes the client sent; the verb that knows what a products.csv IS does
    the rejecting, and a second, competing definition of well-formedness in the
    transport is how the two drift apart."
-  (let ((ct (handler-case (hunchentoot:content-type*) (condition () nil))))
+  ;; 🚨 header-in*, NOT content-type*. (hunchentoot:content-type*) reads the REPLY's
+  ;; content type -- it is the special variable api-write-json SETS -- so asking it
+  ;; about an inbound request always answers the acceptor's default and never
+  ;; "multipart/form-data". With content-type* the multipart branch below never ran,
+  ;; the function fell through to raw-post-data, and the verb received the whole
+  ;; MULTIPART ENVELOPE as its CSV:
+  ;;
+  ;;   products.csv could not be parsed as CSV: non whitespace after quoted data
+  ;;     ... "Content-Disposition: form-data; name=file" ...
+  ;;
+  ;; The request header is (hunchentoot:header-in* :content-type) (request.lisp:399).
+  (let ((ct (handler-case (hunchentoot:header-in* :content-type) (condition () nil))))
     (if (and ct (search "multipart/form-data" ct :test #'char-equal))
         (or (api-uploaded-file-text)
             (api-client-error "multipart body carried no file — post it as -F \"file=@products.csv\""))
