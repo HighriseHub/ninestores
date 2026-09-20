@@ -1,5 +1,9 @@
 # SKILL: Schema migrations — DDL and seed data (Nine Stores / hhub)
 
+**Read this when:** you are adding a migration, or a migration reported success and
+the database is unchanged. Two traps up front: migrations are deliberately **not** in
+the asd, and `version` is `varchar(50)`.
+
 **Status:** verified against the live tree 2026-09-19.
 **Applies to:** any change to the database schema, and any change to *seed data* that
 lives in tables rather than in code (ABAC policies and transactions being the main one).
@@ -7,6 +11,12 @@ lives in tables rather than in code (ABAC policies and transactions being the ma
 **Migrations:** `installation/upgrades/*.lisp` — **all** of them, 65 registered across 19 files.
 
 ---
+
+**Seeding ABAC policy/transaction rows?** Those are migrations too, and they have one
+extra rule this file does not otherwise need: **one migration version per day, applied
+once at the day's end.** Applying mid-day freezes the version and orphans every endpoint
+added afterwards, because `apply-migrations` never re-runs a recorded version. The recipe
+and the reasoning are in `ABAC-policy-transaction-CONTEXT.md` §8 and §13.1.
 
 ## 1. When to use this skill
 

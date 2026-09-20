@@ -1,5 +1,9 @@
 # NST Paninian Grammar — Warehouse as First Entity (Project Context)
 
+**Read this when:** you are creating a new entity, or working out what a प्रत्यय, the
+ferry (लोप), नियम or `domain-ctx` actually are. Read this before copying any existing
+entity's shape.
+
 *Authoritative reference for the new architecture. The legacy DDD stack is
 deprecated and should NOT be extended. All warehouse logic now follows the
 paninian-grammar rules in `nst-bl-adhara.lisp`.*

@@ -1,5 +1,9 @@
 # nst-bl-apidefs2 — API layer + warehouse action routes · CONTEXT
 
+**Read this when:** an API call returns a status you did not expect, a route is
+unreachable behind nginx, a login or session is being rejected, or you need to know
+how a domain verdict (`:T`/`:F`/`:U`/`:C`) becomes an HTTP code.
+
 **Purpose of this file.** Working context for anyone (human or agent) continuing the
 JSON API work on HHub. It records what exists, why it is shaped that way, what was
 verified by running it, and what is deliberately unfinished. Read this before
