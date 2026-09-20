@@ -43,7 +43,7 @@ fi
 TMP="$(mktemp -d)" || exit 2
 trap 'rm -rf "$TMP"' EXIT
 JAR="$TMP/cookies.txt"; BODY="$TMP/body"; ERR="$TMP/curl.err"
-CSV="$TMP/products.csv"; TAMPERED="$TMP/tampered.csv"; BIG="$TMP/big.csv"
+CSV="$TMP/products.csv"; EDITED="$TMP/edited.csv"; NEWROW="$TMP/newrow.csv"; BIG="$TMP/big.csv"
 
 if [ -t 1 ]; then G=$'\033[32m'; R=$'\033[31m'; Y=$'\033[33m'; N=$'\033[0m'; else G=; R=; Y=; N=; fi
 PASS=0; FAIL=0; HTTP_CODE=""
@@ -125,6 +125,19 @@ HTTP_CODE="$(curl -sS -o "$CSV" -w '%{http_code}' -b "$JAR" -c "$JAR" \
                   "$BASE/hhub/api/v1/catalog/products/template" 2>"$ERR")" || HTTP_CODE="000"
 if [ "$HTTP_CODE" = "200" ]; then PASS=$((PASS+1)); printf '  %sPASS%s %-52s %s\n' "$G" "$N" "GET template" "$HTTP_CODE"
 else FAIL=$((FAIL+1)); printf '  %sFAIL%s %-52s got %s, want 200\n' "$R" "$N" "GET template" "$HTTP_CODE"; fi
+
+# A CASCADE GUARD. Sections 4 to 6 upload the file THIS section downloads, so a failed
+# download leaves them with nothing to send -- and the first run showed how misleading
+# that looks: they reported 'products.csv could not be parsed as CSV ... "{error"'
+# because the "CSV" they posted was this endpoint's own error JSON. ONE broken download
+# read as six endpoint failures. Stop here instead, with the code and where to look.
+if [ "$HTTP_CODE" != "200" ]; then
+  printf '\n  %sFATAL%s the template download failed (HTTP %s).\n' "$R" "$N" "$HTTP_CODE"
+  printf '        Sections 4-6 upload the file this section produces, so they cannot run.\n'
+  printf '        body: %s\n' "$(head -c 200 "$CSV" | tr -d '\n')"
+  printf '        Server side: tail -30 /home/hunchentoot/hhublogs/ninestores-apilogs.log\n'
+  exit 2
+fi
 
 # THE COLUMN CONTRACT, checked rather than assumed. Order is positional in the
 # parser, so a moved column is silent corruption rather than a parse error.
