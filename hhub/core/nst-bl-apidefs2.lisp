@@ -134,8 +134,43 @@
 (defun register-api-route (route-key &key (method :get) path path-params
                                       (success-status 200) (auth-scope :session)
                                       inject-company
+                                      (request-format :json)
+                                      (response-format :json)
+                                      content-type
                                       description (active t))
   "Bind (METHOD, PATH) to the action route ROUTE-KEY. Returns ROUTE-KEY.
+
+   THE THREE TRANSPORT KEYS, and why they are here rather than only on the class:
+
+     :request-format   :json (default) or :raw — see the api-route slot of the same
+                       name. A :raw route receives the body unparsed under :raw-body.
+     :response-format  :json (default) or :csv — a :csv route's verb returns the body
+                       TEXT and apidefs2 writes it with :content-type below.
+     :content-type     the Content-Type for a :csv route. Explicit, never defaulted:
+                       a download that goes out as application/json by accident is a
+                       file the client cannot save under the right name.
+
+   🚨 THESE WERE ORIGINALLY ADDED AS SLOTS BUT NOT AS KEYS, and that is a mistake
+   worth naming because of how it failed. The api-route class gained the three
+   initargs, api-run-route learned to honour them, and this function was left with
+   its old lambda list — so the very first route to use one signalled
+
+       Unknown &KEY argument: :RESPONSE-FORMAT
+
+   at LOAD time, from a fasl that had compiled clean. Two lessons, both already
+   paid for elsewhere in this tree and now paid for here:
+
+     * a slot is not a keyword. Adding an :initarg to a class does nothing for a
+       constructor that lists its arguments explicitly, and this function does.
+     * the failure surfaces when the CALLER is compiled, not when this file is, so
+       no amount of care in the class's own file catches it. The check that would
+       have is the one the ABAC skill uses: verify the call site against the
+       definition, rather than trusting that both were edited.
+
+   Defaults are :json for both formats so every pre-existing binding is unaffected,
+   and they are written as explicit defaults rather than left to the class so that
+   the constructor's callers can see the values without opening the class.
+
 
    Refuses to create an endpoint whose action verb does not exist: an API
    surface that points at an unregistered verb is a Ring-3 registration
@@ -175,6 +210,9 @@
                        :success-status success-status
                        :auth-scope auth-scope
                        :inject-company inject-company
+                       :request-format request-format
+                       :response-format response-format
+                       :content-type content-type
                        :description description
                        :active active)
         *api-route-registry*)
