@@ -47,6 +47,7 @@ something is wrong; enter by index when you are exploring.**
 | a product's price, discount or discount window | `nst-bl-prdpricing-CONTEXT.md` |
 | a product/catalog route, its JSON shape, or the product verbs | `nst-bl-prdapi-CONTEXT.md` |
 | the vendor profile / vendor shipping / vendor payment API | `nst-bl-vndapi-CONTEXT.md`, `vendor-api-sessions-CONTEXT.md` |
+| **"The function COMMON-LISP:NIL is undefined"** with `CL-PPCRE::BUILD-REPLACEMENT` in the backtrace | `nil-safe-template-substitution-CONTEXT.md` |
 | a file you cannot write to; the two-account/one-group model | `knowledge/permissions-CONTEXT.md` |
 | the प्रत्यय / ferry / नियम architecture itself; a new entity | `knowledge/WAREHOUSE-NST-GRAMMAR-CONTEXT.md`, `knowledge/nst-bl-conflodis2-DESIGN.md` |
 
@@ -82,6 +83,7 @@ Work in flight. Retired to `archive/` once the feature ships and its learnings l
 | [vendor-api-handoff-CONTEXT.md](vendor-api-handoff-CONTEXT.md) | The 2026-09-13 handoff for starting the vendor API. **HISTORICAL, partly superseded** — but §17.3's environment facts are durable and were expensive to learn. | 2026-09-13 |
 | [nst-bl-vndapi-CONTEXT.md](nst-bl-vndapi-CONTEXT.md) | The vendor-profile migration: verification status (§0), where things live, schema facts, architecture, the प्रत्यय layer as designed, decisions, unfinished work, sharp edges. **Split 2026-09-20** — see the two files below. | 2026-09-13 |
 | [vendor-api-sessions-CONTEXT.md](vendor-api-sessions-CONTEXT.md) | The vendor work's operational half: the `t` trap restated, how to resume (Steps 0–3), and the 2026-09-14 session — status, the `read-from-string` RCE class, and the SETTLED shipping + payment design. | 2026-09-14 |
+| [nil-safe-template-substitution-CONTEXT.md](nil-safe-template-substitution-CONTEXT.md) | The `cl-ppcre` replacement-function trap: optional fields (GST, transporter, bank, `unit-of-measure`…) that are NIL at render time, the shared `nst-slot-str`, the six patched files, the verified non-issues not to re-patch, the audit + parse-check recipes, and the "the error names no field" correction. | 2026-09-21 |
 
 ## Known staleness
 

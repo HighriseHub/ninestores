@@ -138,7 +138,7 @@
 	    (with-html-div-row 
 	      (with-html-div-col :style "text-align: center;"
 		(:p "This session will expire in" (:div :id "withCountDownTimer"))))
-	    (when (> (length upiappurls) 0)
+	    (when (and upiappurls (> (length upiappurls) 0))
 	      (mapcar
 	       (lambda (url appname)
 		 (cl-who:htm
