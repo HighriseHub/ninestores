@@ -575,6 +575,29 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	   (unit-of-measure (nth 3 row))
 	   (prdinst (make-instance 'dod-prd-master
 				   :row-id prd-id
+				   ;; 🚨 PRODUCT-CODE ADDED 2026-09-20. IT WAS NEVER SET HERE, and
+				   ;; PRODUCT_CODE carries a UNIQUE index -- so the first bulk-created
+				   ;; product took the empty string and EVERY LATER ONE failed with
+				   ;;   Error 1062 / Duplicate entry '' for key
+				   ;;   'DOD_PRD_MASTER.PRODUCT_CODE'
+				   ;; The bulk upload could therefore create exactly ONE product, ever,
+				   ;; which is the opposite of what it is for. Measured: exactly one live
+				   ;; row held the empty code, so the next insert was guaranteed to fail
+				   ;; and had been for as long as anyone had tried twice.
+				   ;;
+				   ;; NOT A NEW MISTAKE IN THE API LAYER -- this is the vendor page's own
+				   ;; row construction, and the JSON endpoint reuses it deliberately, so
+				   ;; BOTH paths had the defect. The single-create path never did:
+				   ;; persist-product (dod-bl-prd.lisp:275) sets exactly this expression,
+				   ;; and nst-prd/make calls generate-product-code (dod-bl-prd.lisp:505).
+				   ;; The two bulk paths are the ones that wrote the legacy row by hand
+				   ;; and simply omitted the column.
+				   ;;
+				   ;; SAFE ON THE UPDATE PATH: create-bulk-products copies only a named
+				   ;; slot list onto an existing row, and product-code is not in it -- so
+				   ;; an update cannot re-code a product, which would break its reserved
+				   ;; identity. Only the INSERT uses this instance's value.
+				   :product-code (format nil "PRD-~A" (hhub-random-password 10))
 				   :prd-name prd-name
 				   :vendor-id vendor-id
 				   :vendor vendor 
@@ -672,11 +695,36 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		 (cl-who:str ","))))
     (cl-who:str (format nil "~C~C" #\return #\linefeed))
   (mapcar (lambda (product)
-	    (with-slots (row-id prd-name description qty-per-unit unit-of-measure current-price sku units-in-stock subscribe-flag) product
+	    ;; CURRENT-DISCOUNT ADDED 2026-09-20. It was NOT in this list while CURRENT-PRICE
+	    ;; was, which is the kind of asymmetry that only bites when a fallback needs it:
+	    ;; the un-priced-product guard below reads current-discount, and an unbound
+	    ;; variable inside with-slots is not a compile-time error in a file this size --
+	    ;; it surfaced as 'The variable COM.NSTORES.APP::CURRENT-DISCOUNT is unbound'
+	    ;; at RUNTIME, from a 500 on the download.
+	    (with-slots (row-id prd-name description qty-per-unit unit-of-measure current-price current-discount sku units-in-stock subscribe-flag) product
 	      (let ((db-product-pricing (select-product-pricing-by-product-id row-id (product-company product))))
-		(with-slots (price discount start-date end-date) db-product-pricing
-		  (let* ((md5digest (create-md5-from-list (normalize-md5-fields row-id prd-name qty-per-unit unit-of-measure price discount (get-date-string start-date) (get-date-string end-date) units-in-stock subscribe-flag))))
-		    (cl-who:str (format nil "~A,~A,~A,~A,~A,~A,~A,~A,~A,~A,~A~C~C" row-id prd-name  qty-per-unit unit-of-measure price discount (get-date-string start-date) (get-date-string end-date) units-in-stock subscribe-flag md5digest  #\return #\linefeed))))))) productlist)))
+		;; 🚨 GUARDED 2026-09-20: A PRODUCT WITH NO PRICING ROW IS REACHABLE, and
+		;; this used to crash on one. (with-slots (price ...) nil) signals
+		;; MISSING-SLOT, so any vendor catalogue containing an un-priced product
+		;; answered 500 -- and 11 live products are in exactly that state (measured
+		;; by SQL). It reached the API first only because the download route is new;
+		;; the vendor's own template page has been able to hit it all along.
+		;;
+		;; THE FALLBACK IS NOT AN INVENTION: the master row's current-price /
+		;; current-discount ARE the pricing cache (see nst-bl-prdpricing §2), and
+		;; today..today+90 is the window make writes for a new row. So an un-priced
+		;; product is listed with the price the catalogue is already advertising and
+		;; a window the vendor can edit -- which is the whole point of sending them
+		;; the file.
+		(let* ((price    (if db-product-pricing (slot-value db-product-pricing 'price)      current-price))
+		       (discount (if db-product-pricing (slot-value db-product-pricing 'discount)   current-discount))
+		       (start    (if db-product-pricing (slot-value db-product-pricing 'start-date) (clsql:get-date)))
+		       (end      (if db-product-pricing (slot-value db-product-pricing 'end-date)
+				     (clsql:date+ (clsql:get-date) (clsql-sys:make-duration :day 90))))
+		       (startstr (get-date-string start))
+		       (endstr   (get-date-string end))
+		       (md5digest (create-md5-from-list (normalize-md5-fields row-id prd-name qty-per-unit unit-of-measure price discount startstr endstr units-in-stock subscribe-flag))))
+		  (cl-who:str (format nil "~A,~A,~A,~A,~A,~A,~A,~A,~A,~A,~A~C~C" row-id prd-name  qty-per-unit unit-of-measure price discount startstr endstr units-in-stock subscribe-flag md5digest  #\return #\linefeed)))))) productlist)))
 
 (defun normalize-md5-fields (row-id prd-name qty-per-unit unit-of-measure
                             price discount start-date end-date
@@ -2596,10 +2644,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 
     
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product Name%" proddetailpagetempl prd-name))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Unit-Of-Measure%" proddetailpagetempl unit-of-measure))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Unit-Of-Measure%" proddetailpagetempl (or unit-of-measure "")))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Qty-Per-Unit%" proddetailpagetempl qtyperunit-str))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-SKU%" proddetailpagetempl product-sku))
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Description%" proddetailpagetempl description))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-SKU%" proddetailpagetempl (or product-sku "")))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Description%" proddetailpagetempl (or description "")))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Units-In-Stock%" proddetailpagetempl unitsinstock-str))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Pricing-Control%" proddetailpagetempl product-pricing-widget))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-Images-Carousel%" proddetailpagetempl product-images-carousel))

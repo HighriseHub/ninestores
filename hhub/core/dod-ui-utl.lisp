@@ -45,6 +45,20 @@
   (let ((regex (format nil "(?s)~A(.*?)~A" begin-marker end-marker)))
     (cl-ppcre:register-groups-bind (snippet) (regex template) snippet)))
 
+;;; ============================================================================
+;;; nst-slot-str
+;;;
+;;; Nil-safe slot read shared by all template substitution paths.  Optional
+;;; business fields are legitimately unset (e.g. a vendor below the GST
+;;; registration turnover threshold has no GST number), and cl-ppcre calls its
+;;; replacement argument as a function, so a raw NIL slot value raises
+;;; "The function COMMON-LISP:NIL is undefined".  NIL is rendered as "".
+;;; ============================================================================
+(defun nst-slot-str (object slot)
+  :documentation "Nil-safe slot read: NIL becomes an empty string so template substitution never gets NIL."
+  (let ((v (slot-value object slot)))
+    (if v (princ-to-string v) "")))
+
 ;; Widget is a function that when called renders HTML/JS/CSS
 (defun make-ui-widget (render-fn)
   ;; returns a widget structure containing closure

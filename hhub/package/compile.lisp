@@ -296,12 +296,30 @@
            (fasl-path (compile-file-pathname fullpath))
            (*captured-warnings* nil))
       
-      ;; Incremental: skip when the fasl is newer than its source.
+      ;; Incremental: don't RECOMPILE when the fasl is newer than its source.
       ;; clean-and-compile deletes every fasl first, so it always rebuilds.
+      ;;
+      ;; 🚨 BUT STILL LOAD IT. This branch used to return without loading, which
+      ;; made "skipped" mean "not compiled AND NOT LOADED" -- so a run could leave the
+      ;; image running an older definition of a file it had just called "up to date".
+      ;; That is not hypothetical: it produced
+      ;;
+      ;;     Unknown &KEY argument: :RESPONSE-FORMAT
+      ;;       (REGISTER-API-ROUTE ... :RESPONSE-FORMAT :CSV ...)
+      ;;
+      ;; when nst-bl-prdapi.fasl was loaded into an image whose register-api-route
+      ;; still came from the previous version of nst-bl-apidefs2 -- whose own fasl was
+      ;; NEWER THAN ITS SOURCE and therefore skipped, and therefore never loaded.
+      ;;
+      ;; The fix is one word of intent: the compilation is what "up to date" applies
+      ;; to, not the loading. A skip now loads the existing fasl, so the image always
+      ;; ends the run consistent with the tree, which is the property the whole
+      ;; incremental optimisation has to preserve to be worth having.
       (when (and (probe-file fasl-path)
                  (probe-file fullpath)
                  (> (file-write-date fasl-path) (file-write-date fullpath)))
-        (log-message "INFO" "Up to date, skipping: ~A" file)
+        (log-message "INFO" "Up to date, loading without recompiling: ~A" file)
+        (load fasl-path)
         (incf (compilation-stats-skipped stats))
         (return-from compile-single-file t))
       

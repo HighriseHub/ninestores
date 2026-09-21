@@ -384,7 +384,15 @@
    costs an undefined-function style warning at every rebuild. It should move into
    the products BL when the vendor page is migrated onto this route — which is
    precisely what the route existing makes possible."
-  (declare (ignore request ctx))
+  (declare (ignore request))
+  ;; 🚨 REFRESH FIRST. hhub-get-cached-vendor-products reads a SESSION-CACHED list
+  ;; (the :login-vendor-products-functions session value), and nothing on the API path
+  ;; ever invalidates it -- the legacy UI calls dod-reset-vendor-products-functions
+  ;; after every write, the API does not. So a vendor who created a product through
+  ;; the API and immediately downloaded the template got a file WITHOUT it: the smoke
+  ;; test saw 63 rows and no fixture. A stale export is worse than a slow one, because
+  ;; the vendor edits a file that cannot describe the catalogue they just changed.
+  (dod-reset-vendor-products-functions (get-login-vendor) (domain-ctx-tenant ctx))
   (create-products-csv2 *prd-bulk-csv-header* (hhub-get-cached-vendor-products)))
 
 (defun route-product-bulk-upload (request ctx)
@@ -409,8 +417,8 @@
    The legacy passes :map-fn to cl-csv, so the first bad row signals out of the
    entire upload: the vendor gets a stack trace and no idea how far it got. Here
    each row is parsed inside its own handler-case and whatever fails is counted and
-   NAMED, because 'row 47: MD5Digest does not match' is actionable and 'the upload
-   failed' is not. The good rows still apply.
+   NAMED, because 'row 47: <parse error>' is actionable and 'the upload failed' is
+   not. The good rows still apply.
 
    ONE TRANSACTION for the writes. A partial upload that reports success is worse
    than a refused one, and create-bulk-products issues one statement per row without
@@ -426,18 +434,42 @@
          (csv (getf payload :raw-body)))
     (unless csv
       (api-client-error "no products.csv supplied — post it as -F \"file=@products.csv\" (multipart) or as a text/csv body"))
-    (let ((raw (handler-case (cl-csv:read-csv csv :skip-first-p t)
-                 (error (e) (api-client-error "products.csv could not be parsed as CSV: ~A" e))))
-          (problems nil)
-          (rows nil))
+    ;; THE HEADER IS READ AND CHECKED, not skipped. :skip-first-p would throw away the
+    ;; only part of the file that can be validated -- see prd-bulk-csv-header-p for why
+    ;; a body of literal {} otherwise becomes a product row.
+    (let* ((whole (handler-case (cl-csv:read-csv csv :skip-first-p nil)
+                    (error (e) (api-client-error "products.csv could not be parsed as CSV: ~A" e))))
+           (header (first whole))
+           (raw (rest whole))
+           ;; THESE TWO ARE BINDINGS, and they were left behind as BODY FORMS by the
+           ;; edit that introduced the header check -- my match stopped at `(raw ...)`
+           ;; and closed the binding list, so (problems nil) and (rows nil) became
+           ;; function CALLS. `problems` is the response model's slot accessor, so every
+           ;; bulk request died with `No applicable method for #<GENERIC-FUNCTION
+           ;; PROBLEMS> when called with (NIL)` -- a 500 on all four transport tests.
+           ;; The lesson is the same one this file keeps teaching: when adding to a
+           ;; LET, match through the END OF ITS BINDING LIST, not just the first binding.
+           (problems nil)
+           (rows nil))
+      (unless (prd-bulk-csv-header-p header)
+        (api-client-error "the request body is not a products.csv: expected the header ~S, got ~S. Post the file you downloaded from /catalog/products/template."
+                          *prd-bulk-csv-header* header))
       (loop for row in raw
             for n from 1
             do (handler-case
                    (let ((parsed (product-csv-file-data-row row)))
-                     (if parsed
-                         (push parsed rows)
-                         (push (format nil "row ~D: MD5Digest does not match the row's fields — the file was edited by hand or reformatted (the digest is computed over qty to 1 decimal, money to 2)" n)
-                               problems)))
+                     ;; 🚨 NIL MEANS UNCHANGED, NOT INVALID, and this got written the
+                     ;; other way round first. product-csv-file-data-row ends
+                     ;;   (unless (equal expected-md5 computed-md5) (list ...))
+                     ;; so it returns a row when the digests DIFFER -- i.e. when the
+                     ;; vendor EDITED it -- and NIL when they MATCH, which means the row
+                     ;; is untouched and there is nothing to do. A NIL is therefore a
+                     ;; normal skip, and the first run's report said
+                     ;;   skipped 63, problems 63 x "MD5Digest does not match"
+                     ;; for a file whose digests were all perfectly correct.
+                     ;; ONLY AN EXCEPTION IS A PROBLEM: a row that cannot be parsed at
+                     ;; all, which is a genuinely broken file rather than an unedited one.
+                     (when parsed (push parsed rows)))
                  (error (e)
                    (push (format nil "row ~D: ~A" n e) problems))))
       (setf rows (nreverse rows) problems (nreverse problems))

@@ -752,6 +752,33 @@
    the rule is greppable and so the API and any future UI path cannot disagree about
    it — the same reasoning nst-bl-vndshp applies to its default filenames.")
 
+(defun prd-bulk-csv-header-p (header)
+  "Is HEADER the products.csv column line? T when it matches *prd-bulk-csv-header*
+   position for position, ignoring case and a trailing carriage return.
+
+   WHY THIS EXISTS, and it is not politeness. route-product-bulk-upload accepts the
+   request body UNPARSED (:request-format :raw), so whatever a client sends arrives as
+   text to be read as CSV. An empty JSON object -- POST /bulk with body {} -- parses as
+   ONE ROW OF ONE CELL, and every downstream step then treats that cell as a ProductID:
+   product-csv-file-data-row returns a row for it (its digest obviously does not match
+   the empty string in column 10), and create-bulk-products INSERTS a product with a nil
+   name and a nil price. Measured: a POST of literal {} answered 200 and wrote a junk
+   row.
+
+   CHECKING THE HEADER IS THE ONLY HONEST PLACE TO STOP IT, because the header is the
+   one part of the file whose content is fixed. A blank ProductID is legal (it means
+   'create'), so the first data cell cannot be validated; the header can.
+
+   Case-insensitive and CR-tolerant because the generator writes CRLF (#\return
+   #\linefeed), so an exact comparison against a correct file FAILS on a trailing
+   carriage return -- the same trap the smoke test hit on the same string."
+  (and (listp header)
+       (= (length header) (length *prd-bulk-csv-header*))
+       (every (lambda (got want)
+                (and (stringp got)
+                     (string-equal (string-trim '(#\Space #\Return #\Tab) got) want)))
+              header *prd-bulk-csv-header*)))
+
 (defun prd-copy-initargs (source)
   "The initargs a COPY inherits from SOURCE, and only those. THE FIELD POLICY.
 

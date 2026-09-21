@@ -403,6 +403,83 @@ a deliberate decision rather than a cleanup.
 
 ---
 
+## 8c. The bulk products.csv pair — findings, 2026-09-20 (evening)
+
+**Status: BUILT, partially exercised, ONE KNOWN BLOCKER.** Endpoints:
+`GET /catalog/products/template` (text/csv) and `POST /catalog/products/bulk`
+(multipart or raw CSV). Smoke: `hhub/test/smoke-bulk-products-api.sh`, 11 pass / 7 fail
+at the end of the day. Everything below was measured, not reasoned.
+
+### 🚨 THE MD5digest IS A "HAS THIS ROW BEEN TOUCHED?" FLAG, NOT A TAMPER CHECK
+
+`product-csv-file-data-row` ends `(unless (equal expected-md5 computed-md5) (list …))`
+and the caller `(remove nil …)s` the result. So:
+
+| digest | outcome |
+|---|---|
+| **matches** | row **SKIPPED** — unchanged, nothing to do |
+| **differs** | row **APPLIED** — the vendor edited it |
+| **blank** | row **APPLIED** — a new row |
+
+Coherent (the CSV is a whole-catalogue export; the digest identifies which rows changed
+without diffing the database) but the **opposite of what the name suggests**. This cost
+three separate wrong implementations in one evening — the smoke test, then the verb,
+each asserting that a match meant valid. State it wherever the digest is read.
+
+### 🚨 BULK COULD CREATE EXACTLY ONE PRODUCT, EVER (fixed)
+
+`product-csv-file-data-row` built the `dod-prd-master` row and never set `PRODUCT_CODE` —
+which carries a **UNIQUE index** — so the first insert took `''` and every later one died
+with `Error 1062 / Duplicate entry ''`. One live row held `''`. Fixed by setting
+`:product-code (format nil "PRD-~A" (hhub-random-password 10))`, matching `persist-product`
+(`dod-bl-prd.lisp:275`). **The vendor page had the same defect** — the API reuses its row
+construction deliberately, so both were broken. Safe on update: `create-bulk-products`
+copies a named slot list that excludes product-code.
+
+### Other traps hit, in the order they bit
+
+- **`(hunchentoot:content-type*)` is the REPLY's type** (`reply.lisp:87`). Reading it to
+  detect an inbound multipart body always failed, so `raw-post-data` handed the verb the
+  whole **multipart envelope**. The request header is `(hunchentoot:header-in* :content-type)`.
+- **The template served a stale session cache.** `hhub-get-cached-vendor-products` funcalls
+  the `:login-vendor-products-functions` session value; the legacy UI calls
+  `dod-reset-vendor-products-functions` after every write and the API did not.
+- **The generated CSV is CRLF**, so `head -1` of a *correct* file ends in a carriage
+  return — an exact header comparison fails on a byte-identical string.
+- **`create-products-csv2` crashed on any product with no pricing row** (`MISSING-SLOT
+  PRICE`; 11 live products), and its `with-slots` list has `current-price` but **not**
+  `current-discount`.
+- **The body is unparsed** (`:request-format :raw`), so a literal `{}` parsed as one row
+  and **inserted a junk product**. Now guarded by `prd-bulk-csv-header-p` — the header is
+  the only part of the file that can be validated, since a blank ProductID is legal.
+
+### ⚠️ OPEN, AND BLOCKING THE ONE ASSERTION THAT MATTERS
+
+**The fixture product never appears in the template** (64 rows, fixture absent, every run).
+The fixture is `approval_status='PENDING'` because that is what `POST /products` creates,
+so the likely answer is that the vendor's product list excludes unapproved products —
+correct behaviour, but it means **a vendor cannot see a product in the bulk template until
+it is approved**. Decide first, then either change the list filter or point the smoke
+test's edit at an existing catalogue product.
+
+**Also open:** one generated row fails to re-parse (`bounding indices 0 and 6 are bad for a
+sequence of length 5`) — the exporter emits a row with too few columns, so some product
+cannot round-trip.
+
+### The process lesson, which cost more than any single bug
+
+**Paren balance is not a correctness check.** Four times in one day an edit left something
+behind that the compiler could not see because the parens still balanced: `FIXNAME`
+used but never defined; `EDITED`/`NEWROW` the same; `check`/`HDR` called but never
+defined; and `(problems nil)`/`(rows nil)` turned from `let` **bindings** into **function
+calls** by an edit that matched the first binding and closed the list early — a 500 on
+every bulk request from a change whose purpose was to make the route stricter.
+
+**When adding a binding to a `let`, match through the END of its binding list.** And after
+any structural edit, read the region back: parsing is not meaning what you intended.
+
+---
+
 ## Where the rest of this material went
 
 This file was split on **2026-09-20** to stay inside the 400-line budget (README ·
