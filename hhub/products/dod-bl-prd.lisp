@@ -285,7 +285,9 @@
 		     (db-product (select-product-by-id prd-id company))
 		     (db-product-pricing (select-product-pricing-by-product-id prd-id company)))
 		(if db-product
-		    (with-slots (prd-name  qty-per-unit unit-of-measure current-price current-discount units-in-stock subscribe-flag) product
+		    (with-slots (prd-name  qty-per-unit unit-of-measure current-price current-discount units-in-stock subscribe-flag
+				 hsn-code prd-type sku upc ean jan isbn serial-no
+				 shipping-length-cms shipping-width-cms shipping-height-cms shipping-weight-kg) product
 		      (setf (slot-value db-product 'prd-name) prd-name)
 		      (setf (slot-value db-product 'qty-per-unit) qty-per-unit)
 		      (setf (slot-value db-product 'unit-of-measure) unit-of-measure)
@@ -293,6 +295,22 @@
 		      (setf (slot-value db-product 'current-discount) current-discount)
 		      (setf (slot-value db-product 'units-in-stock) units-in-stock)
 		      (setf (slot-value db-product 'subscribe-flag) subscribe-flag)
+		      ;; A BLANK CELL MEANS "NO CHANGE" on the update path, so a vendor cannot
+		      ;; wipe a column by leaving it empty. PRODUCTTYPE is the exception: blank
+		      ;; falls back to the schema default SALE. DESCRIPTION is not here at all:
+		      ;; it is the UI editor's, and a bulk upload must never touch it.
+		      (dolist (pair '((hsn-code . hsn-code) (sku . sku)
+				      (upc . upc) (ean . ean) (jan . jan) (isbn . isbn)
+				      (serial-no . serial-no)
+				      (shipping-length-cms . shipping-length-cms)
+				      (shipping-width-cms . shipping-width-cms)
+				      (shipping-height-cms . shipping-height-cms)
+				      (shipping-weight-kg . shipping-weight-kg)))
+			(setf (slot-value db-product (car pair))
+			      (prd-csv-or (slot-value product (cdr pair))
+					  (slot-value db-product (car pair)))))
+		      (setf (slot-value db-product 'prd-type)
+			    (if (prd-csv-blank-p prd-type) "SALE" prd-type))
 		      (clsql:update-records-from-instance db-product))
 		    ;;else
 		    (clsql:update-records-from-instance product))
@@ -731,21 +749,53 @@
 
 (defparameter *prd-bulk-csv-header*
   '("ProductID" "ProductName" "QtyPerUnit" "UnitOfMeasure" "UnitPrice" "Discount"
-    "DiscountStart" "DiscountEnd" "UnitsInStock" "SubscriptionFlag" "MD5Digest")
+    "DiscountStart" "DiscountEnd" "UnitsInStock" "SubscriptionFlag"
+    "HSNCode" "ProductType" "SKU"
+    "ShippingLengthCms" "ShippingWidthCms" "ShippingHeightCms" "ShippingWeightKg"
+    "UPCCode" "EANCode" "JANCode" "ISBNCode" "SerialNo"
+    "MD5Digest")
   "The products.csv column order, ONCE, for both the download and the upload.
+   Columns 0-9 are the original v1 contract and keep their order; 10-21 are the
+   B2B additions; MD5Digest stays LAST and covers every column before it.
+   THREE FIELDS ARE DELIBERATELY NOT COLUMNS. EXTERNAL_URL is internal, minted on
+   demand by the browser's create-link button and copied to the clipboard. CATG_ID
+   is set elsewhere. DESCRIPTION is RICH TEXT (HTML, varchar(1024)) owned by the UI
+   editor: a spreadsheet cannot round-trip it, so the CSV neither carries it nor
+   writes it — see the 2026-09-21 note in nst-bl-prdapi-CONTEXT.md section 8d.")
 
-   🚨 THE ORDER IS A WIRE CONTRACT, NOT A FORMATTING CHOICE. product-csv-file-data-row
-   reads these columns POSITIONALLY (nth 0 … nth 10) and recomputes column 10 as an
-   MD5 over columns 0-9, so inserting a column anywhere but the end silently
-   re-labels every field after it — a row that says 30 units in stock would be read
-   as a price. There is no header-name lookup to save you.
+(defun prd-csv-cell (row column)
+  "ROW's cell for COLUMN, looked up by header name so the order lives in one place."
+  (nth (position column *prd-bulk-csv-header* :test #'string-equal) row))
 
-   Hoisted here on 2026-09-20 from an inline literal in
-   create-model-for-vgenprodcttempl (dod-ui-ven.lisp), because the API's download
-   route needs the identical header: the client downloads this file, edits it, and
-   uploads it back through a validator that recomputes the MD5 from the same field
-   formatting. Two copies of the header would be two chances for the round trip to
-   fail on a field nobody thought to change.")
+(defun prd-csv-blank-p (value)
+  "T when VALUE is NIL or only whitespace — an empty products.csv cell."
+  (or (null value)
+      (string= "" (string-trim '(#\Space #\Return #\Tab) (princ-to-string value)))))
+
+(defun prd-csv-or (new old)
+  "NEW when the vendor supplied a value, else OLD — blank cell means no change."
+  (if (prd-csv-blank-p new) old new))
+
+(defparameter *prd-type-values* '("SALE" "SERV")
+  "PRD_TYPE char(4). Live values are SALE and SERV — not the view class doc's SERVICE.")
+
+(defun prd-csv-prd-type (value)
+  "VALUE as a legal PRD_TYPE, falling back to SALE for blank or unknown."
+  (let ((v (and value (string-upcase (string-trim '(#\Space #\Return #\Tab) value)))))
+    (if (member v *prd-type-values* :test #'string-equal) v "SALE")))
+
+(defun prd-csv-read-number (cell)
+  "CELL as a float, or NIL when blank or unreadable — a bad price must not 500."
+  (let ((s (if cell (string-trim '(#\Space #\Return #\Tab) cell) "")))
+    (when (plusp (length s))
+      (handler-case (float (with-input-from-string (in s) (read in)))
+	(error () nil)))))
+
+(defun prd-csv-read-integer (cell)
+  "CELL as an integer, or NIL when blank; trailing junk is ignored."
+  (let ((s (if cell (string-trim '(#\Space #\Return #\Tab) cell) "")))
+    (when (plusp (length s))
+      (parse-integer s :junk-allowed t))))
 
 (defparameter *prd-copy-name-prefix* "Copy of "
   "The prefix a duplicated product's name gets. A constant rather than a literal so
@@ -1553,10 +1603,10 @@
    entity is the ONLY dispatching argument that may be an nst-domain-entity, and
    the entity itself never crosses into Ring 4 — only the boundary object does.
 
-   EVERY business slot of nst-prd is copied. The two that are NOT copied are the
-   कारक rather than payload: tenant-id and prd-company. ProductResponseModel has
-   no field to receive them, so they cannot leak by accident — a fact must be
-   added to BOTH the response model and the render-json allowlist before it can
+   EVERY business slot of nst-prd is copied EXCEPT catg-id and external-url. The
+   two कारक — tenant-id and prd-company — are not copied either. ProductResponseModel
+   has no field to receive any of them, so they cannot leak by accident — a fact must
+   be added to BOTH the response model and the render-json allowlist before it can
    ever reach a client (adhara's security contract)."
   (declare (ignore ctx))
   (let ((destination (make-instance 'ProductResponseModel)))
@@ -1567,7 +1617,6 @@
     (setf (prd-name destination)          (prd-name entity))
     (setf (description destination)       (description entity))
     (setf (vendor-id destination)         (vendor-id entity))
-    (setf (catg-id destination)           (catg-id entity))
     (setf (sku destination)               (sku entity))
     (setf (hsn-code destination)          (hsn-code entity))
     (setf (prd-type destination)          (prd-type entity))
@@ -1575,7 +1624,6 @@
     (setf (qty-per-unit destination)      (qty-per-unit entity))
     (setf (units-in-stock destination)    (units-in-stock entity))
     (setf (prd-image-path destination)    (prd-image-path entity))
-    (setf (external-url destination)      (external-url entity))
     ;; TRADE IDENTIFIERS
     (setf (upc destination)               (upc entity))
     (setf (ean destination)               (ean entity))
@@ -1621,10 +1669,10 @@
    company are absent from both, so they cannot.
 
    IDS ARE STRINGS via response-id-string (dod-ui-utl.lisp), the one id
-   convention for every entity: rowId/vendorId/catgId arrive from integer
+   convention for every entity: rowId/vendorId arrive from integer
    columns and may be NIL when unset, which the helper normalises to a string or
    to JSON null. Passing them raw would mix \"47\", 0 and null for the same kind
-   of value.
+   of value. CATG_ID is not published at all — neither here nor on the model.
 
    NAMING follows the platform's JSON convention — the entity prefix is dropped
    where the field is self-evident (PRD_NAME → \"name\", PRD_IMAGE_PATH →
@@ -1646,7 +1694,6 @@
    (cons "name"              (prd-name r))
    (cons "description"       (description r))
    (cons "vendorId"          (response-id-string (vendor-id r)))
-   (cons "catgId"            (response-id-string (catg-id r)))
    (cons "sku"               (sku r))
    (cons "hsnCode"           (hsn-code r))
    (cons "productType"       (prd-type r))
@@ -1654,7 +1701,6 @@
    (cons "qtyPerUnit"        (qty-per-unit r))
    (cons "unitsInStock"      (units-in-stock r))
    (cons "imagePath"         (prd-image-path r))
-   (cons "externalUrl"       (external-url r))
    ;; TRADE IDENTIFIERS
    (cons "upc"               (upc r))
    (cons "ean"               (ean r))

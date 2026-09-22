@@ -14,8 +14,8 @@
 #   POST /hhub/api/v1/catalog/products/bulk       upsert from that same file
 #
 # ── WHY THIS SCRIPT ROUND-TRIPS THE DOWNLOAD INSTEAD OF BUILDING A CSV ──────
-# Every row carries an MD5Digest in column 10, computed over columns 0-9 with
-# exact formatting — qty to 1 decimal, money to 2 (normalize-md5-fields,
+# Every row carries an MD5Digest in the LAST column, computed over every column
+# before it with exact formatting — qty to 1 decimal, money to 2 (normalize-md5-fields,
 # dod-ui-ven.lisp). A test that hand-writes a CSV must reproduce that formatting
 # byte-for-byte in shell, and when it gets it wrong the failure looks like a bug in
 # the endpoint. So this script DOWNLOADS the template and posts it back: the digests
@@ -158,10 +158,10 @@ fi
 # is byte-identical apart from it -- which is exactly how this assertion failed first.
 HDR="$(head -1 "$CSV" | tr -d '\r')"
 printf '%s\n' "$HDR" > "$TMP/hdr"
-if [ "$HDR" = "ProductID,ProductName,QtyPerUnit,UnitOfMeasure,UnitPrice,Discount,DiscountStart,DiscountEnd,UnitsInStock,SubscriptionFlag,MD5Digest" ]; then
-  PASS=$((PASS+1)); printf '  %sPASS%s %-52s\n' "$G" "$N" "  ↳ header is the 11-column contract, in order"
+if [ "$HDR" = "ProductID,ProductName,QtyPerUnit,UnitOfMeasure,UnitPrice,Discount,DiscountStart,DiscountEnd,UnitsInStock,SubscriptionFlag,HSNCode,ProductType,SKU,ShippingLengthCms,ShippingWidthCms,ShippingHeightCms,ShippingWeightKg,UPCCode,EANCode,JANCode,ISBNCode,SerialNo,MD5Digest" ]; then
+  PASS=$((PASS+1)); printf '  %sPASS%s %-52s\n' "$G" "$N" "  ↳ header is the 23-column contract, in order"
 else
-  FAIL=$((FAIL+1)); printf '  %sFAIL%s %-52s\n       got: %s\n' "$R" "$N" "  ↳ header is the 11-column contract, in order" "$(head -c 200 "$TMP/hdr")"
+  FAIL=$((FAIL+1)); printf '  %sFAIL%s %-52s\n       got: %s\n' "$R" "$N" "  ↳ header is the 23-column contract, in order" "$(head -c 400 "$TMP/hdr")"
 fi
 
 if grep -qF "BULK Smoke $STAMP" "$CSV"; then

@@ -887,9 +887,6 @@
    (vendor-id
     :initarg :vendor-id
     :accessor vendor-id)
-   (catg-id
-    :initarg :catg-id
-    :accessor catg-id)
    (sku
     :initarg :sku
     :accessor sku)
@@ -911,9 +908,6 @@
    (prd-image-path
     :initarg :prd-image-path
     :accessor prd-image-path)
-   (external-url
-    :initarg :external-url
-    :accessor external-url)
    (upc
     :initarg :upc
     :accessor upc)
@@ -1100,8 +1094,8 @@
         request order and the result order differ;
       * vendor-id is hidden there because it is the SESSION'S OWN vendor — the
         one id a client never has to be told — whereas a product-id here is one of
-        many the caller owns. ProductResponseModel publishes vendorId and catgId
-        for the same reason.
+        many the caller owns. ProductResponseModel publishes vendorId for the
+        same reason; catgId it does not publish at all.
       Tenant scoping, not field secrecy, is what keeps another tenant's product
       out of reach (OWASP API1:2023 BOLA): every verb re-resolves product-id
       against the session company.

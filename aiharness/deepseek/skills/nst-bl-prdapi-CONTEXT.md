@@ -247,8 +247,9 @@ normalised by `response-id-string`.
    flagged and un-unified:** flipping to the warehouse convention is three cons cells in
    `render-json`. Unify before either endpoint has external consumers.
 7. **`render-json` is the field allowlist.** Tenant and company are absent from both the
-   response model and the render method, so they cannot leak. All 29 slots are published;
-   none extra.
+   response model and the render method, so they cannot leak. **`catgId` and `externalUrl`
+   were removed from both on 2026-09-21** — they are no longer published at all, so the
+   remaining 27 slots are the 27 published keys; none extra.
 8. **`?exists` carries `&key &allow-other-keys`** for CLOS congruence with the GF in
    adhara, even though the product identity is a single column (nst-whs needs `WNAME`).
 9. **`generate-product-code` is a function, not the class `:void-value`.** A `:void-value`
@@ -477,6 +478,98 @@ every bulk request from a change whose purpose was to make the route stricter.
 
 **When adding a binding to a `let`, match through the END of its binding list.** And after
 any structural edit, read the region back: parsing is not meaning what you intended.
+
+---
+
+## 8d. The products.csv v2 contract — 23 columns, 2026-09-21
+
+**Status: WRITTEN. Not compiled or run since the 23-column cut — see the gap below.**
+
+`*prd-bulk-csv-header*` (`dod-bl-prd.lisp`) is now 23 columns. Columns 0-9 are the old v1
+order, unchanged; 10-21 are new; `MD5Digest` is LAST and covers every cell before it.
+**Vendors start afresh — a v1 file is rejected by `prd-bulk-csv-header-p`, by design.**
+
+New: `HSNCode ProductType SKU ShippingLengthCms ShippingWidthCms
+ShippingHeightCms ShippingWeightKg UPCCode EANCode JANCode ISBNCode SerialNo`.
+
+### 🚨 DESCRIPTION IS OUT OF THE CSV — the UI OWNS IT (2026-09-21)
+
+Measured, not assumed: `DESCRIPTION` is **`varchar(1024)`, not `TEXT`** — not unlimited — and
+`sql_mode` is `STRICT_TRANS_TABLES`, so an over-long value is an **error 1406**, not a
+truncation. Three live rows sit at exactly 1024. Since `route-product-bulk-upload` wraps
+`create-bulk-products` in ONE `clsql:with-transaction` with no per-row handler, **a single
+over-long description would roll back the entire upload** — the per-row report only covers
+CSV *parsing*, never writes. (Pattern for the guard: `nst-bl-vndshp.lisp:1187`.)
+
+It was dropped because **any projection of it is destructive**: the 18 live HTML descriptions
+carry `<h1>/<p>/<ul>` and 31 contain real newlines and 34 commas. Exporting plain text so a
+spreadsheet can edit it means a vendor changing *only a price* still has a non-blank
+Description cell, which would overwrite the stored rich HTML on upload. A lossy export cannot
+have a lossless import, so one field gets one editor — and the UI editor is the right one.
+
+**NIL-SAFE BY CONSTRUCTION, all four sites:** the parser sets `:description nil` explicitly
+(bound, not unbound — a bare omission would make `slot-value` signal UNBOUND-SLOT); the
+update-path `with-slots` and its blank-cell dolist no longer name it at all; the generator
+does not emit it. So a bulk upload can neither read nor clobber a description.
+
+**Still open, and it is the real hazard of this cut:** `prd-bulk-csv-header-p` guards only the
+**API** route. The legacy vendor page parses with `:skip-first-p T` and **no header check**
+(`dod-ui-ven.lisp:540`), so a vendor re-uploading a pre-23-column file through the UI gets it
+read positionally against the new header — an old `Description` cell lands as `HSNCode`, and
+the corruption is silent. The UI path needs the same guard.
+
+**`CATG_ID` was also withdrawn** (2026-09-21), on the same reasoning as `EXTERNAL_URL` below:
+the category is set elsewhere, not by a spreadsheet cell. It went out of the header, the
+generator, the parser's initargs and `create-bulk-products`' update-path `with-slots` — and
+**out of the JSON response too**, along with `externalUrl` (both removed from `render-json`,
+from `domain->response` and from `ProductResponseModel`, leaving 27 slots = 27 published
+keys). Removing a column means removing it from all four CSV sites plus three JSON sites.
+
+**`EXTERNAL_URL` is deliberately NOT a column.** It is internal: the browser's create-link
+button mints it on demand (`generate-product-ext-url`, `dod-ui-ven.lisp:1449`) and copies it
+to the clipboard. It is **also no longer in the JSON response** (withdrawn 2026-09-21), and it
+stays out of `prd-copy-initargs` — it is the source's public share link, so a copy must not
+inherit it. Removing it from the CSV also removed it from the parser's initargs **and** from
+`create-bulk-products`' update-path `with-slots`; those two must move together, or the slot is
+read unbound and the upload 500s.
+
+* **One `HSNCode` column holds HSN or SAC** — there is only one DB column. Its `varchar(8)`
+  cap is narrower than `DOD_GST_HSN_CODES.HSN_CODE varchar(10)`, and **76 of the 118 codes
+  already in use are absent from that master table**, so it is not a validation source.
+  `DOD_GST_SAC_CODES` has **0 rows** — service codes cannot be checked at all.
+* **`ProductType` is pre-filled `SALE`** and accepts only `SALE`/`SERV` (live values are
+  `SALE` and `SERV`, *not* `SERVICE`). `prd-csv-prd-type` falls back to `SALE`. The UI
+  checkbox at `dod-ui-prd.lisp:197-203` still works and is still how a vendor marks a
+  service.
+* **The digest is now over every column.** The generator formats each field ONCE, hashes
+  that string and writes that same string; the parser re-normalises the cells it read
+  (trim only). Editing only the HSN therefore moves the digest and the row applies. Had the
+  new columns been left out of the hash, every HSN-only edit would have been **silently
+  skipped** — the §8c "match means skip" trap.
+* **CSV quoting is now load-bearing.** `prd-csv-escape` RFC-4180 quotes a cell holding a
+  comma, quote or newline: **34 of 105 live descriptions contain a comma and 31 contain a
+  newline**, so an unquoted file was already structurally broken. Likely the same root
+  cause as the still-open "bounding indices 0 and 6 … length 5" re-parse failure.
+* **A blank cell means "no change"** on the update path (`prd-csv-or`), so a vendor cannot
+  wipe a column by leaving it empty. The cost: **a field cannot be cleared through the
+  CSV.** `ProductType` is the exception — blank falls back to `SALE`.
+* Columns are now read by **name** (`prd-csv-cell` against the header constant), not by
+  `nth`, so inserting a column can no longer silently relabel every field after it.
+* `create-bulk-products`' update path grew the matching slot list. **Its `with-slots` reads
+  an unbound slot as an error**, so a field added to the parser but not to the generated
+  instance is a 500 — the `current-discount` lesson, one column over.
+* `ProductCode` is deliberately neither exported nor settable (a reserved identity).
+* 🚨 **A NON-ASCII DESCRIPTION CRASHED THE GENERATOR** (found 2026-09-21, fixed).
+  Putting `Description` in the digest exposed `create-digest-md5`
+  (`core/dod-bl-utl.lisp:721`), which used `ironclad:ascii-string-to-byte-array` and
+  signalled `"… is not an ASCII character"` on the very first typographic apostrophe
+  — live, on *"cow’s milk"*. Now UTF-8 via `sb-ext:string-to-octets`. **Pure-ASCII
+  input yields identical bytes, so no existing digest moved**, and `sb-ext` was
+  already used in that same file. `create-digest-sha1` (line 718) still carries the
+  same defect and has no callers.
+* Neither write path needed a charset fix: SBCL's default external format on this box
+  is already UTF-8, and hunchentoot's `*hunchentoot-default-external-format*` is
+  `+utf-8+`, matching the route's `text/csv; charset=utf-8`.
 
 ---
 

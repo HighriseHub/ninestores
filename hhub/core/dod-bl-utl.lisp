@@ -719,7 +719,11 @@ corresponding universal time."
   (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :sha1 (ironclad:ascii-string-to-byte-array plaintext)))) 
 
 (defun create-digest-md5 (plaintext)
-  (ironclad:byte-array-to-hex-string (ironclad:digest-sequence :md5 (ironclad:ascii-string-to-byte-array plaintext))))
+  ;; UTF-8, NOT ASCII: ironclad:ascii-string-to-byte-array signals
+  ;; "... is not an ASCII character" on any typographic quote or accented letter.
+  ;; Pure-ASCII input yields identical bytes, so existing digests do not move.
+  (ironclad:byte-array-to-hex-string
+   (ironclad:digest-sequence :md5 (sb-ext:string-to-octets plaintext :external-format :utf-8))))
 
 (defun create-md5-from-list (items)
   "Takes a list of strings, joins them with commas, and returns the MD5 digest."
