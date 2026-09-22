@@ -1175,8 +1175,28 @@ dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
     (loop for widget in widgets do 
       (funcall widget))))
 
+(defun vendor-breadcrumb-parents (path)
+  "Declared hierarchy for vendor pages, most specific match first.
+   Each row is (url-fragment . ((section-label . section-href) ...)) giving the
+   ancestor levels between Home and the current page. Add a row when a vendor
+   page should show where it sits. No row means Home / <page title>."
+  (cond ((search "dodvenbulkaddprodpage" path)
+	 '(("Products" . "/hhub/dodvenproducts")))
+	((or (search "displayinvoices" path) (search "editinvoicepage" path)
+	     (search "vproductsforinvoicepage" path))
+	 '(("Invoices" . "/hhub/displayinvoices")))
+	(t nil)))
+
 (defun display-vendor-page-with-widgets (pagetitle widgets)
+  ;; One breadcrumb for EVERY vendor page: Home / ancestors / page title.
+  ;; Ancestors come from vendor-breadcrumb-parents; the title is the page title
+  ;; each controller already passes to with-mvc-ui-page :role :vendor.
   (with-standard-vendor-page pagetitle
+    (with-vendor-breadcrumb
+      (dolist (crumb (vendor-breadcrumb-parents (hunchentoot:script-name hunchentoot:*request*)))
+	(cl-who:with-html-output (*standard-output* nil)
+	  (:li :class "breadcrumb-item" (:a :href (cdr crumb) (cl-who:str (car crumb))))))
+      (:li :class "breadcrumb-item active" :aria-current "page" (cl-who:str pagetitle)))
     (loop for widget in widgets do 
       (funcall widget))))
 

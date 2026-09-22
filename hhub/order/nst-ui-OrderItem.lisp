@@ -47,7 +47,6 @@
   (multiple-value-bind (viewallmodel htmlview) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
-		       (with-vendor-breadcrumb)
 		       (OrderItem-search-html)
 			 (:hr)))))
 	  (widget2 (function (lambda ()
