@@ -632,34 +632,61 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (with-mvc-ui-page "Bulk Add Products using CSV File" #'create-model-for-vbulkaddproducts #'create-widgets-for-vbulkaddproducts :role :vendor)))
 
 (defun create-model-for-vbulkaddproducts ()
-  (let ((vendor-id (slot-value (get-login-vendor) 'row-id)))
+  (let* ((vendor-id (slot-value (get-login-vendor) 'row-id))
+	 (templfile (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id)))
+    ;; A visit that did not just come from Generate starts a FRESH BATCH: last run's
+    ;; file is removed here, which also removes its download link, so the green button
+    ;; can only ever appear on the load that follows a Generate you just clicked.
+    (unless (hunchentoot:get-parameter "generated")
+      (when (probe-file templfile)
+	(delete-file templfile)))
     (function (lambda ()
       (values vendor-id)))))
 
 (defun create-widgets-for-vbulkaddproducts (modelfunc)
   (multiple-value-bind (vendor-id) (funcall modelfunc)
-    (let ((widget1 (function (lambda ()
-		     (cl-who:with-html-output (*standard-output* nil) 
-		       (:br) (:br)
-		       (:br) (:br)
+    (let* ((templfile (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id))
+	   (widget1 (function (lambda ()
+		     (cl-who:with-html-output (*standard-output* nil)
 		       (with-html-div-row
-			 (with-html-div-col-6
-			   (:ul :class "list-group"
-				(:li :class "list-group-item" "Step 1: Download Products.csv Template")
-				(:li :class "list-group-item" "Step 2: Fill up other required columns of Products.csv file")
-				(:li :class "list-group-item" "Step 3: Upload the Products.csv file")))
-			 
-			 (:div :class "list-group col-xs-12 col-sm-6 col-md-6 col-lg-6" 
-			       (with-catch-submit-event "idgeneratecsvbutton"
-				 (with-html-form "generateproductcsvform" "generateproductcsvaction"
-				   (with-html-submit-button "Generate & Download Products Template")))
-			       ;; This download will be enabled when the file is ready for download. 
-			       (if (probe-file (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id))
-				   (cl-who:htm (:a :href (format nil "/img/temp/products-ven-~a.csv" vendor-id) :class "list-group-item list-group-item-action" "Click here to download Products.csv"))) 
-			       (:a :class "list-group-item list-group-item-action"  :data-bs-toggle "modal" :data-bs-target (format nil "#hhubvendprodcsvupload-modal")  :href "#"  " Upload Products CSV File")
-			       ;; Modal dialog for CSV file upload
-			       (modal-dialog-v2 (format nil "hhubvendprodcsvupload-modal") " Upload Products CSV File " (modal.upload-csv-file)))))))))
-    (list widget1))))
+			 (with-html-div-col-12
+			   (:h1 :class "h3 mb-1" "Bulk add or update products")
+			   (:p :class "text-muted" "Fill in the template, then upload it. Your catalogue changes only after the upload is accepted.")))
+		       (with-html-div-row
+			 (:div :class "col-12 col-lg-6"
+			   (:div :class "card mb-3"
+				 (:div :class "card-body"
+				      (:h2 :class "h5 card-title" "Step 1: Get the template")
+				      (:p :class "card-text" "The template already lists every product you sell. Add new products on new rows.")
+				      (with-catch-submit-event "idgeneratecsvbutton"
+					(with-html-form "generateproductcsvform" "generateproductcsvaction"
+					  (with-html-submit-button "Generate template")))
+				      (if (probe-file templfile)
+					  (cl-who:htm
+					   (:a :href (format nil "/img/temp/products-ven-~a.csv" vendor-id)
+					       :download "products-template.csv"
+					       :class "btn btn-success mt-2"
+					       "Download products-template.csv"))
+					  (cl-who:htm
+					   (:p :class "text-muted mt-2 mb-0" "Click Generate template to create the file, then download it here.")))))))
+			 (:div :class "col-12 col-lg-6"
+			   (:div :class "card mb-3"
+				 (:div :class "card-body"
+				      (:h2 :class "h5 card-title" "Step 2: Upload the filled template")
+				      (:ul :class "small"
+					   (:li "Blank ProductID on a row creates a new product.")
+					   (:li "Keep the ProductID to update that product.")
+					   (:li "A blank cell anywhere else keeps the current value.")
+					   (:li "Rows you did not change are skipped.")
+					   (:li "Maximum 100 rows per file.")
+					   (:li "Product images are not part of this file."))
+				      (:button :type "button" :class "btn btn-primary"
+					       :data-bs-toggle "modal"
+					       :data-bs-target "#hhubvendprodcsvupload-modal"
+					       "Upload filled template")
+				      (:p :class "text-muted mt-2 mb-0" "You are returned to your product list after the upload.")))))
+		       (modal-dialog-v2 "hhubvendprodcsvupload-modal" "Upload filled template" (modal.upload-csv-file))))))
+      (list widget1))))
 
 
 
@@ -676,8 +703,16 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (vendor (get-login-vendor))
 	 (vendor-id (slot-value vendor  'row-id))
 	 (productlist (hhub-get-cached-vendor-products))
-	 (redirecturl "/hhub/venbulkaddprodpage"))
-    (with-open-file (stream (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id)  
+	 ;; ?generated=1 marks THIS load as the one that follows a Generate, so the
+	 ;; page keeps the file it just wrote instead of treating it as last run's.
+	 (redirecturl "/hhub/dodvenbulkaddprodpage?generated=1")
+	 ;; Last run's file is removed BEFORE this run writes. :supersede alone would
+	 ;; leave the previous file downloadable when generation fails below, i.e. the
+	 ;; vendor would silently get last visit's template.
+	 (templfile (format nil "~A/temp/products-ven-~a.csv" *HHUBRESOURCESDIR* vendor-id)))
+    (when (probe-file templfile)
+      (delete-file templfile))
+    (with-open-file (stream templfile
 			    :direction :output
 			    :if-exists :supersede
 			    :if-does-not-exist :create)
