@@ -367,13 +367,12 @@
 
    🚨 THE GENERATOR IS THE LEGACY ONE, DELIBERATELY — create-products-csv2, which is
    also what the vendor's own page produces. This is not laziness; it is the
-   property the feature depends on. That function emits the eleven columns in the
-   order product-csv-file-data-row reads them POSITIONALLY, including the MD5Digest
-   in column 10, which the upload recomputes from the same
-   normalize-md5-fields formatting (~,1F qty, ~,2F money). A second generator here
-   would be a second column order and a second formatting rule to keep in step, and
-   when the two drift the round trip fails SILENTLY — every row rejected as a bad
-   MD5 with no hint that the file was never wrong.
+   property the feature depends on. That function emits the columns of
+   *prd-bulk-csv-header* in order, with MD5Digest LAST, and the upload recomputes
+   that digest over every cell before it using the same normalize-md5-fields.
+   A second generator here would be a second column order and a second formatting
+   rule to keep in step, and when the two drift the round trip fails SILENTLY —
+   every row rejected as a bad MD5 with no hint that the file was never wrong.
 
    So the download and the upload are two ends of one contract, and both reuse the
    code that already implements it. *prd-bulk-csv-header* was hoisted for the same

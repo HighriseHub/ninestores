@@ -550,64 +550,55 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 
 (defun product-csv-file-data-row (row)
-  (unless (string= (string-upcase (nth 0 row)) "PRODUCTID") ;; ignore the 1st row
-    (let* ((expected-md5 (nth 10 row))
+  ;; Returns NIL when the row is UNCHANGED, i.e. when its MD5Digest matches --
+  ;; the digest marks "touched", it is not a tamper check.
+  (unless (string= (string-upcase (or (nth 0 row) "")) "PRODUCTID") ;; ignore the 1st row
+    (let* ((ncols (1- (length *prd-bulk-csv-header*)))
+	   (expected-md5 (prd-csv-cell row "MD5Digest"))
 	   (computed-md5
-             (create-md5-from-list
-              (normalize-md5-fields
-               (parse-integer (nth 0 row) :junk-allowed t)
-               (nth 1 row)
-	       (float (with-input-from-string (in (nth 2 row)) (read in)))
-               (nth 3 row)
-	       (float (with-input-from-string (in (nth 4 row)) (read in)))
-	       (float (with-input-from-string (in (nth 5 row)) (read in)))
-               (nth 6 row)
-               (nth 7 row)
-               (parse-integer (nth 8 row) :junk-allowed t)
-               (nth 9 row))))
+	    (create-md5-from-list
+	     (normalize-md5-fields (subseq row 0 (min ncols (length row))))))
 	   (vendor (get-login-vendor))
 	   (vendor-id (get-login-vendor-id))
 	   (company (get-login-vendor-company))
 	   (tenant-id (get-login-vendor-tenant-id))
-	   (prd-id (parse-integer (check-null (nth 0 row)) :junk-allowed t))
-	   (prd-name (nth 1 row))
-	   (qty-per-unit (float (with-input-from-string (in (nth 2 row)) (read in))))
-	   (unit-of-measure (nth 3 row))
+	   (prd-id (prd-csv-read-integer (prd-csv-cell row "ProductID")))
+	   (prd-name (prd-csv-cell row "ProductName"))
+	   (qty-per-unit (prd-csv-read-number (prd-csv-cell row "QtyPerUnit")))
+	   (unit-of-measure (prd-csv-cell row "UnitOfMeasure"))
 	   (prdinst (make-instance 'dod-prd-master
 				   :row-id prd-id
-				   ;; 🚨 PRODUCT-CODE ADDED 2026-09-20. IT WAS NEVER SET HERE, and
-				   ;; PRODUCT_CODE carries a UNIQUE index -- so the first bulk-created
-				   ;; product took the empty string and EVERY LATER ONE failed with
-				   ;;   Error 1062 / Duplicate entry '' for key
-				   ;;   'DOD_PRD_MASTER.PRODUCT_CODE'
-				   ;; The bulk upload could therefore create exactly ONE product, ever,
-				   ;; which is the opposite of what it is for. Measured: exactly one live
-				   ;; row held the empty code, so the next insert was guaranteed to fail
-				   ;; and had been for as long as anyone had tried twice.
-				   ;;
-				   ;; NOT A NEW MISTAKE IN THE API LAYER -- this is the vendor page's own
-				   ;; row construction, and the JSON endpoint reuses it deliberately, so
-				   ;; BOTH paths had the defect. The single-create path never did:
-				   ;; persist-product (dod-bl-prd.lisp:275) sets exactly this expression,
-				   ;; and nst-prd/make calls generate-product-code (dod-bl-prd.lisp:505).
-				   ;; The two bulk paths are the ones that wrote the legacy row by hand
-				   ;; and simply omitted the column.
-				   ;;
-				   ;; SAFE ON THE UPDATE PATH: create-bulk-products copies only a named
-				   ;; slot list onto an existing row, and product-code is not in it -- so
-				   ;; an update cannot re-code a product, which would break its reserved
-				   ;; identity. Only the INSERT uses this instance's value.
+				   ;; PRODUCT-CODE carries a UNIQUE index and is never taken from
+				   ;; the file: an update cannot re-code a product's identity.
 				   :product-code (format nil "PRD-~A" (hhub-random-password 10))
 				   :prd-name prd-name
+				   ;; DESCRIPTION IS NOT IN products.csv — it is rich text owned by
+				   ;; the UI editor. Bound to NIL, never read back and never written
+				   ;; on update, so a bulk upload can neither see nor clobber it.
+				   :description nil
 				   :vendor-id vendor-id
-				   :vendor vendor 
-				   :qty-per-unit qty-per-unit 
+				   :vendor vendor
+				   :qty-per-unit qty-per-unit
 				   :unit-of-measure unit-of-measure
-				   :current-price (float (with-input-from-string (in (nth 4 row)) (read in)))
-				   :current-discount (float (with-input-from-string (in (nth 5 row)) (read in)))
-				   :units-in-stock  (parse-integer (nth 8 row))
-				   :subscribe-flag (nth 9 row)
-				   :sku (generate-sku prd-name prd-name qty-per-unit unit-of-measure)
+				   :hsn-code (prd-csv-cell row "HSNCode")
+				   :prd-type (prd-csv-prd-type (prd-csv-cell row "ProductType"))
+				   :current-price (prd-csv-read-number (prd-csv-cell row "UnitPrice"))
+				   :current-discount (prd-csv-read-number (prd-csv-cell row "Discount"))
+				   :units-in-stock (prd-csv-read-integer (prd-csv-cell row "UnitsInStock"))
+				   :subscribe-flag (prd-csv-cell row "SubscriptionFlag")
+				   :sku (let ((v (prd-csv-cell row "SKU")))
+					  (if (prd-csv-blank-p v)
+					      (generate-sku prd-name prd-name qty-per-unit unit-of-measure)
+					      v))
+				   :upc (prd-csv-cell row "UPCCode")
+				   :ean (prd-csv-cell row "EANCode")
+				   :jan (prd-csv-cell row "JANCode")
+				   :isbn (prd-csv-cell row "ISBNCode")
+				   :serial-no (prd-csv-cell row "SerialNo")
+				   :shipping-length-cms (prd-csv-read-integer (prd-csv-cell row "ShippingLengthCms"))
+				   :shipping-width-cms (prd-csv-read-integer (prd-csv-cell row "ShippingWidthCms"))
+				   :shipping-height-cms (prd-csv-read-integer (prd-csv-cell row "ShippingHeightCms"))
+				   :shipping-weight-kg (prd-csv-read-number (prd-csv-cell row "ShippingWeightKg"))
 				   :tenant-id tenant-id
 				   :company company
 				   :active-flag "Y"
@@ -616,11 +607,11 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 				   :deleted-state "N"))
 	   (priceinst (if prd-id
 			  (make-instance 'dod-product-pricing
-					 :product-id (nth 0 row)
-					 :price (float (with-input-from-string (in (nth 4 row)) (read in)))
-					 :discount (float (with-input-from-string (in (nth 5 row)) (read in)))
-					 :start-date (get-date-from-string (nth 6 row))
-					 :end-date (get-date-from-string (nth 7 row))))))
+					 :product-id prd-id
+					 :price (prd-csv-read-number (prd-csv-cell row "UnitPrice"))
+					 :discount (prd-csv-read-number (prd-csv-cell row "Discount"))
+					 :start-date (get-date-from-string (prd-csv-cell row "DiscountStart"))
+					 :end-date (get-date-from-string (prd-csv-cell row "DiscountEnd"))))))
       (unless (equal expected-md5 computed-md5)
 	(list prdinst priceinst)))))
   
@@ -720,62 +711,66 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (function (lambda ()
       (values redirecturl)))))
 
+(defun prd-csv-escape (value)
+  "One products.csv cell, RFC-4180 quoted when it holds a comma, quote or newline."
+  (let ((s (if value (princ-to-string value) "")))
+    (if (find-if (lambda (c) (member c '(#\, #\" #\Return #\Newline))) s)
+	(with-output-to-string (out)
+	  (write-char #\" out)
+	  (loop for c across s
+		do (when (char= c #\") (write-char #\" out))
+		   (write-char c out))
+	  (write-char #\" out))
+	s)))
+
+(defun prd-csv-num (value decimals)
+  "VALUE with DECIMALS places when it is a number, else its raw text; NIL -> empty."
+  (cond ((null value) "")
+	((not (numberp value)) (princ-to-string value))
+	((= decimals 1) (format nil "~,1F" value))
+	(t (format nil "~,2F" value))))
+
 (defun create-products-csv2 (header productlist)
   (cl-who:with-html-output-to-string (*standard-output* nil)
-    (loop for item in header
-          for last = (null (cdr (member item header))) ; check if it's the last item
-          do (progn
-               (cl-who:str (format nil "~A" item))
-               (unless last
-		 (cl-who:str ","))))
-    (cl-who:str (format nil "~C~C" #\return #\linefeed))
-  (mapcar (lambda (product)
-	    ;; CURRENT-DISCOUNT ADDED 2026-09-20. It was NOT in this list while CURRENT-PRICE
-	    ;; was, which is the kind of asymmetry that only bites when a fallback needs it:
-	    ;; the un-priced-product guard below reads current-discount, and an unbound
-	    ;; variable inside with-slots is not a compile-time error in a file this size --
-	    ;; it surfaced as 'The variable COM.NSTORES.APP::CURRENT-DISCOUNT is unbound'
-	    ;; at RUNTIME, from a 500 on the download.
-	    (with-slots (row-id prd-name description qty-per-unit unit-of-measure current-price current-discount sku units-in-stock subscribe-flag) product
-	      (let ((db-product-pricing (select-product-pricing-by-product-id row-id (product-company product))))
-		;; 🚨 GUARDED 2026-09-20: A PRODUCT WITH NO PRICING ROW IS REACHABLE, and
-		;; this used to crash on one. (with-slots (price ...) nil) signals
-		;; MISSING-SLOT, so any vendor catalogue containing an un-priced product
-		;; answered 500 -- and 11 live products are in exactly that state (measured
-		;; by SQL). It reached the API first only because the download route is new;
-		;; the vendor's own template page has been able to hit it all along.
-		;;
-		;; THE FALLBACK IS NOT AN INVENTION: the master row's current-price /
-		;; current-discount ARE the pricing cache (see nst-bl-prdpricing §2), and
-		;; today..today+90 is the window make writes for a new row. So an un-priced
-		;; product is listed with the price the catalogue is already advertising and
-		;; a window the vendor can edit -- which is the whole point of sending them
-		;; the file.
-		(let* ((price    (if db-product-pricing (slot-value db-product-pricing 'price)      current-price))
-		       (discount (if db-product-pricing (slot-value db-product-pricing 'discount)   current-discount))
-		       (start    (if db-product-pricing (slot-value db-product-pricing 'start-date) (clsql:get-date)))
-		       (end      (if db-product-pricing (slot-value db-product-pricing 'end-date)
-				     (clsql:date+ (clsql:get-date) (clsql-sys:make-duration :day 90))))
-		       (startstr (get-date-string start))
-		       (endstr   (get-date-string end))
-		       (md5digest (create-md5-from-list (normalize-md5-fields row-id prd-name qty-per-unit unit-of-measure price discount startstr endstr units-in-stock subscribe-flag))))
-		  (cl-who:str (format nil "~A,~A,~A,~A,~A,~A,~A,~A,~A,~A,~A~C~C" row-id prd-name  qty-per-unit unit-of-measure price discount startstr endstr units-in-stock subscribe-flag md5digest  #\return #\linefeed)))))) productlist)))
+    (cl-who:str (format nil "~{~A~^,~}~C~C" header #\return #\linefeed))
+    (mapcar (lambda (product)
+	      (with-slots (row-id prd-name hsn-code prd-type sku
+			   qty-per-unit unit-of-measure current-price current-discount
+			   units-in-stock subscribe-flag
+			   shipping-length-cms shipping-width-cms shipping-height-cms shipping-weight-kg
+			   upc ean jan isbn serial-no) product
+		(let ((db-product-pricing (select-product-pricing-by-product-id row-id (product-company product))))
+		  ;; An un-priced product is listed at the master row's cached price and a
+		  ;; today..today+90 window, which is what make writes for a new row.
+		  (let* ((price    (if db-product-pricing (slot-value db-product-pricing 'price)      current-price))
+			 (discount (if db-product-pricing (slot-value db-product-pricing 'discount)   current-discount))
+			 (start    (if db-product-pricing (slot-value db-product-pricing 'start-date) (clsql:get-date)))
+			 (end      (if db-product-pricing (slot-value db-product-pricing 'end-date)
+				       (clsql:date+ (clsql:get-date) (clsql-sys:make-duration :day 90))))
+			 (startstr (get-date-string start))
+			 (endstr   (get-date-string end))
+			 ;; Formatted once, then BOTH hashed and written, so the digest covers
+			 ;; exactly the bytes in the file and the upload end agrees cell for cell.
+			 (fields (normalize-md5-fields
+				  (list row-id prd-name (prd-csv-num qty-per-unit 1) unit-of-measure
+					(prd-csv-num price 2) (prd-csv-num discount 2) startstr endstr
+					units-in-stock subscribe-flag
+					hsn-code (prd-csv-prd-type prd-type)
+					sku
+					shipping-length-cms shipping-width-cms shipping-height-cms shipping-weight-kg
+					upc ean jan isbn serial-no)))
+			 (md5digest (create-md5-from-list fields)))
+		    (cl-who:str (format nil "~{~A~^,~}~C~C"
+					(mapcar #'prd-csv-escape (append fields (list md5digest)))
+					#\return #\linefeed))))))
+	    productlist)))
 
-(defun normalize-md5-fields (row-id prd-name qty-per-unit unit-of-measure
-                            price discount start-date end-date
-                            units-in-stock subscribe-flag)
-  "Normalize and format all product fields to consistent strings for MD5 calculation."
-  (list
-   (princ-to-string row-id)
-   (string-trim " " prd-name)
-   (format nil "~,1F" (coerce qty-per-unit 'float))      ; force 1 decimal place
-   (string-trim " " unit-of-measure)
-   (format nil "~,2F" (coerce price 'float))             ; force 2 decimal places
-   (format nil "~,2F" (coerce discount 'float))          ; force 2 decimal places
-   (string-trim " " start-date)
-   (string-trim " " end-date)
-   (princ-to-string units-in-stock)
-   (string-trim " " subscribe-flag)))
+(defun normalize-md5-fields (fields)
+  "Canonical strings for one products.csv row in header order, MD5Digest excluded.
+   Both ends hash this: the generator what it writes, the parser the cells it read."
+  (mapcar (lambda (v) (string-trim '(#\Space #\Return #\Tab)
+				   (if v (princ-to-string v) "")))
+	  fields))
 
 (defun modal.vendor-update-details ()
   (let* ((vendor (get-login-vendor))
@@ -2678,7 +2673,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 
 	 
     
-    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product Name%" proddetailpagetempl prd-name))
+    (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product Name%" proddetailpagetempl (or prd-name "")))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Unit-Of-Measure%" proddetailpagetempl (or unit-of-measure "")))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Qty-Per-Unit%" proddetailpagetempl qtyperunit-str))
     (setf proddetailpagetempl (cl-ppcre:regex-replace-all "%Product-SKU%" proddetailpagetempl (or product-sku "")))
