@@ -52,6 +52,14 @@
 (defvar *stdoutstream* *standard-output*)
 (defvar *dod-db-instance*)
 (defvar *siteurl* "https://www.ninestores.in")
+;; Base URL of the node file server which receives uploads and reads them back from the local
+;; image directory. An upload only succeeds when this points at the file server running on the
+;; SAME host as this Lisp image, because that server reads the uploaded file from its own
+;; /data/www/public/img. It defaults to *siteurl*, which is correct only when the web site and
+;; this application run on one host. Where they do not (on the development box *siteurl* is the
+;; public production domain) set this to the local file server, i.e. the address nginx proxies
+;; /file/ to, e.g. "http://127.0.0.1:4301".
+(defvar *HHUBFILESERVERURL* "http://127.0.0.1:4301")
 (defvar *sitepass* (encrypt "P@ssword1" "ninestores.in"))
 (defvar *current-customer-session* nil) 
 (defvar *customer-page-title* nil) 
@@ -138,6 +146,20 @@
 (defvar *NST-GSTINVOICE-TEMPLATEFILE-3* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice3A5.html")
 (defvar *NST-GSTINVOICE-TEMPLATEFILE-4* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice480mm.html")
 (defvar *NST-GSTINVOICE-TEMPLATEFILE-5* "/home/ubuntu/ninestores/hhub/invoice/templates/gstinvoice5A4.html")
+;; Default invoice template number used by the invoice confirm page (13 = gstinvoice5A4.html)
+(defvar *NST-GSTINVOICE-DEFAULTTEMPLATENUM* 13)
+;; Dropdown map for the invoice confirm page : key = templatenum (string, as it arrives from the request), value = display name
+(defvar *NST-GSTINVOICE-TEMPLATES-HT*
+  (let ((ht (make-hash-table :test 'equal)))
+    (setf (gethash "9" ht) "GST Invoice 1 - gstinvoice1")
+    (setf (gethash "10" ht) "GST Invoice 2 - gstinvoice2")
+    (setf (gethash "11" ht) "GST Invoice 3 - gstinvoice3A5")
+    (setf (gethash "12" ht) "GST Invoice 4 - gstinvoice480mm")
+    (setf (gethash "13" ht) "GST Invoice 5 - gstinvoice5A4")
+    ht))
+;; Shared 4-Eye Review Mode control bar, injected into the invoice confirm page for every template
+(defvar *NST-INVOICE-REVIEWCONTROLS-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/invoice/templates/invoicereviewcontrols.html")
+(defvar *NST-INVOICE-REVIEWCONTROLS-HTML* nil)
 (defvar *NST-INVOICE-TEMPLATES* nil)
 ;; Product templates
 (defvar *NST-PRDDETAILSFORCUST-TEMPLATEFILE* "/home/ubuntu/ninestores/hhub/products/templates/prddetailsforcust.html")
@@ -453,7 +475,9 @@ a caller that has already been told `reconnected' is never handed a dead connect
 	 (gstinvoice2html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-2*))
 	 (gstinvoice3html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-3*))
 	 (gstinvoice4html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-4*))
-	 (gstinvoice5html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-5*)))
+	 (gstinvoice5html (hhub-read-file *NST-GSTINVOICE-TEMPLATEFILE-5*))
+	 (reviewcontrolshtml (hhub-read-file *NST-INVOICE-REVIEWCONTROLS-TEMPLATEFILE*)))
+    (setf *NST-INVOICE-REVIEWCONTROLS-HTML* reviewcontrolshtml)
     (function (lambda ()
       (values (function (lambda () draftemailhtml))
 	      (function (lambda () invoicepaymenthtml))

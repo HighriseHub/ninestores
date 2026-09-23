@@ -393,7 +393,7 @@ Returns a list of widget outputs."
   (defmacro with-customer-breadcrumb (&body body)
     :description "Takes link attributes like HREF and Link name as pair and processes it to display the breadcrumb"
     `(cl-who:with-html-output (*standard-output* nil)
-       (:nav :aria-label "breadcrumb"
+       (:nav :class "no-print" :aria-label "breadcrumb"
 	     (:ol :class "breadcrumb"
 		  (:li :class "breadcrumb-item" (:a :href "/hhub/dodcustindex" "Home"))
 		  ,@body)))))
@@ -402,7 +402,7 @@ Returns a list of widget outputs."
   (defmacro with-vendor-breadcrumb (&body body)
     :description "Takes link attributes like HREF and Link name as pair and processes it to display the breadcrumb"
     `(cl-who:with-html-output (*standard-output* nil)
-       (:nav :aria-label "breadcrumb"
+       (:nav :class "no-print" :aria-label "breadcrumb"
 	     (:ol :class "breadcrumb"
 		  (:li :class "breadcrumb-item no-print" (:a :href "/hhub/dodvendindex?context=home" "Home"))
 		  ,@body)))))
@@ -411,7 +411,7 @@ Returns a list of widget outputs."
   (defmacro with-compadmin-breadcrumb (&body body)
     :description "Takes link attributes like HREF and Link name as pair and processes it to display the breadcrumb"
     `(cl-who:with-html-output (*standard-output* nil)
-       (:nav :aria-label "breadcrumb"
+       (:nav :class "no-print" :aria-label "breadcrumb"
 	     (:ol :class "breadcrumb"
 		  (:li :class "breadcrumb-item no-print" (:a :href "/hhub/hhubcadindex" "Home"))
 		  ,@body)))))
@@ -1029,10 +1029,11 @@ Returns a list of widget outputs."
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro with-html-dropdown (name kvhash selectedkey)
+  (defmacro with-html-dropdown (name kvhash selectedkey &optional onchange)
   (let ((id (format nil "id~A" name)))
     `(cl-who:with-html-output (*standard-output* nil)
        (:select :class "form-select" :id ,id :name ,name
+        ,@(when onchange `(:onchange ,onchange))
         (maphash (lambda (kv-key kv-value)
                    (if (equal kv-key ,selectedkey)
                        (cl-who:htm (:option :value kv-key :selected "true" (cl-who:str kv-value)))

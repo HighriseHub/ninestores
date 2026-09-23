@@ -1,0 +1,73 @@
+<!--NST_INVOICE_REVIEW_CONTROLS_BEGIN-->
+<style>
+    .controls {
+        position: sticky;
+        top: 0;
+        background: #333;
+        padding: 10px;
+        text-align: center;
+        z-index: 1000;
+        color: white;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .controls .bold { font-weight: bold; }
+
+    .controls .btn {
+        padding: 8px 15px;
+        cursor: pointer;
+        background: #555;
+        color: white;
+        border: 1px solid #777;
+        border-radius: 4px;
+        margin: 0 5px;
+    }
+
+    .controls .btn:hover { background: #777; }
+
+    /* --- Print Specific Rules --- */
+    @media print {
+        .controls { display: none; } /* Hide buttons on print */
+    }
+</style>
+
+<div class="controls" id="reviewcontrols">
+    <span class="bold">4-Eye Review Mode: </span>
+    <button class="btn btn-orientation" onclick="setOrientation('portrait')">Portrait (Standard)</button>
+    <button class="btn btn-orientation" onclick="setOrientation('landscape')">Landscape (Wide)</button>
+    <button class="btn" onclick="window.print()" style="background: #28a745;">Print / Save PDF</button>
+</div>
+
+<script>
+    /* Orientation toggling only applies to the A4 layout, which is the only template
+       exposing an element with id "invoice". On the A5 / 80mm thermal layouts the
+       orientation buttons are removed below, so setOrientation() is never called there. */
+    function setOrientation(mode) {
+        var invoice = document.getElementById('invoice');
+        if (!invoice) { return; }
+        var body = document.body;
+
+        if (mode === 'landscape') {
+            invoice.classList.remove('page-portrait');
+            invoice.classList.add('page-landscape');
+            body.classList.remove('portrait-mode');
+            body.classList.add('landscape-mode');
+        } else {
+            invoice.classList.remove('page-landscape');
+            invoice.classList.add('page-portrait');
+            body.classList.remove('landscape-mode');
+            body.classList.add('portrait-mode');
+        }
+    }
+
+    (function () {
+        if (document.getElementById('invoice')) { return; }
+        var controls = document.getElementById('reviewcontrols');
+        if (!controls) { return; }
+        var orientationbuttons = controls.querySelectorAll('.btn-orientation');
+        for (var i = 0; i < orientationbuttons.length; i++) {
+            orientationbuttons[i].style.display = 'none';
+        }
+    })();
+</script>
+<!--NST_INVOICE_REVIEW_CONTROLS_END-->

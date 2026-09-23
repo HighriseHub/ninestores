@@ -1401,7 +1401,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
          (paramvalues (list tenantid-str type vendorid-str objectname objectid-str uuid filename))
          (param-alist (pairlis paramnames paramvalues))
          (headers nil)
-	 (url (format nil "~A/file/awss3v3/upload" *siteurl*))
+	 (url (format nil "~A/file/awss3v3/upload" (or *HHUBFILESERVERURL* *siteurl*)))
          (headers (acons "auth-secret" "ntstores1234" headers)))   
     (drakma:http-request url
 			      :method :get
@@ -1419,7 +1419,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
          (paramvalues (list tenantid-str type vendorid-str objectname objectid-str))
          (param-alist (pairlis paramnames paramvalues))
          (headers nil)
-	 (url (format nil "~A/file/awss3v3/deletefiles" *siteurl*))
+	 (url (format nil "~A/file/awss3v3/deletefiles" (or *HHUBFILESERVERURL* *siteurl*)))
          (headers (acons "auth-secret" "ntstores1234" headers)))   
     (drakma:http-request url
 			 :method :DELETE 
