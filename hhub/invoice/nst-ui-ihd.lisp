@@ -119,7 +119,10 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (vinvsettingshtml (funcall (nst-get-cached-invoice-template-func :templatenum 14)))
 	 (idinvsettings (format nil "idvinvsettings~A" (gensym))))
 
-    (setf vinvsettingshtml (format nil vinvsettingshtml (invoiceprintsettingswidgethtml printsettings )))
+    ;; the template takes the logo block first (its own form) and the print settings form second
+    (setf vinvsettingshtml (format nil vinvsettingshtml
+				   (invoiceprintsettingslogowidgethtml printsettings)
+				   (invoiceprintsettingswidgethtml printsettings)))
     (function (lambda ()
       (values idinvsettings vinvsettingshtml)))))
 
@@ -133,6 +136,152 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 
 
+(defun invoiceprintsettingentry (settings keyname)
+  :documentation "The (key . value) cons for KEYNAME in an invoice settings alist. Keys are matched on their name with hyphens removed, because the shipped *invoice-settings* defaults use plain symbols (logo-path) while a vendor's settings saved from the settings page round-trip through JSON and come back as hyphen-less keywords (:LOGOPATH)."
+  (let ((wanted (remove #\- (string-upcase keyname))))
+    (assoc wanted settings
+	   :test (lambda (name key)
+		   (and (symbolp key) (string= name (remove #\- (symbol-name key))))))))
+
+(defun invoiceprintsettingvalue (printsettings keyname)
+  :documentation "Value of KEYNAME in an invoice settings alist, see invoiceprintsettingentry. The shipped defaults are written as (key value) lists while saved settings are (key . value) pairs, so a single element list is unwrapped to the value it carries. A single element section such as ((:LOGOPATH . \"...\")) carries a cons or a keyword and is returned as it is, otherwise reading a section that happens to hold one entry would return the entry instead of the section."
+  (let ((value (cdr (invoiceprintsettingentry printsettings keyname))))
+    (if (and (consp value) (null (cdr value))
+	     (atom (car value)) (not (keywordp (car value))))
+	(car value)
+	;;else
+	value)))
+
+(defun nst-get-vendor-invoiceprintsettings (&optional vendor)
+  :documentation "The invoice-print-settings alist of VENDOR, falling back to the shipped *invoice-settings* defaults."
+  (let* ((vendor (or vendor (get-login-vendor)))
+	 (settingsstr (and vendor (slot-value vendor 'invoice-settings)))
+	 (settings (if (and settingsstr (> (length settingsstr) 0))
+		       (read-from-string settingsstr)
+		       ;;else
+		       *invoice-settings*)))
+    (or (cdr (assoc 'invoice-print-settings settings :test 'equal))
+	(cdr (assoc 'invoice-print-settings *invoice-settings* :test 'equal)))))
+
+(defun nst-invoice-logo-url (logopath)
+  :documentation "URL the invoice logo is served from : an absolute URL is used as it is, a site relative path is prefixed with *siteurl*, and an empty value falls back to the site logo."
+  (let ((logo (if (and (stringp logopath) (> (length logopath) 0)) logopath *HHUBDEFAULTLOGOIMG*)))
+    (if (cl-ppcre:scan "^https?://" logo)
+	logo
+	;;else
+	(format nil "~A~A" *siteurl* logo))))
+
+(defun nst-invoice-logo-image-tag (logopath)
+  :documentation "An <img> tag for the vendor's invoice logo, see nst-invoice-logo-url."
+  (format nil "<img src=\"~A\" alt=\"Logo\" style=\"max-height: 80px; max-width: 100%;\" />" (nst-invoice-logo-url logopath)))
+
+(defun nst-vendor-logo-objectid-from-url (logourl vendor-id tenant-id)
+  :documentation "The S3 object id of a previously uploaded vendor logo, parsed out of the URL the node file server returned, or NIL when LOGOURL is not an upload of this vendor. The file server keys vendor uploads as <tenantid>/vnd/<vendorid>/CFG/<objectid>/<uuid>."
+  (let ((segments (and (stringp logourl) (cl-ppcre:split "/" logourl))))
+    (if (and segments (> (length segments) 8)
+	     (string= (nth 4 segments) "vnd")
+	     (string= (nth 3 segments) (format nil "~A" tenant-id))
+	     (string= (nth 5 segments) (format nil "~A" vendor-id))
+	     (string= (nth 6 segments) "CFG"))
+	(nth 7 segments))))
+
+(defun nst-upload-vendor-logo (file-name vendor-id tenant-id previouslogourl)
+  :documentation "Uploads FILE-NAME to the vendor's area of the S3 bucket the file server is configured with, and returns the URL to store, or NIL when the upload did not succeed. objectname has to stay CFG (the file server only accepts ord, prd and cfg) and the object id is vendor scoped and unique per upload, so the logo already in use survives a failed upload. The superseded object is deleted only after the new upload has been confirmed."
+  (if *HHUBUSELOCALSTORFORRES*
+      ;; local storage mode : the file already sits in the public image directory
+      (format nil "/img/~A" file-name)
+      ;;else upload to S3 through the node file server
+      (let ((objectid (format nil "vlogo-~A-~A" vendor-id (get-universal-time))))
+	(multiple-value-bind (body status)
+	    (vendor-upload-file-s3bucket file-name "CFG" objectid vendor-id tenant-id)
+	  (if (and status (<= 200 status 299))
+	      (let ((logourl (if (stringp body) body (map 'string #'code-char body))))
+		(let ((previousobjectid (nst-vendor-logo-objectid-from-url previouslogourl vendor-id tenant-id)))
+		  (if (and previousobjectid (not (string= previousobjectid objectid)))
+		      (handler-case (vendor-delete-files-s3bucket "CFG" previousobjectid vendor-id tenant-id)
+			(error (e) (hhub-log-message (format nil "could not delete the superseded invoice logo ~A of vendor ~A : ~A~%" previouslogourl vendor-id e))))))
+		logourl)
+	      ;;else the response body is an error message, never a logo location
+	      (progn
+		(hhub-log-message (format nil "invoice logo upload failed for vendor ~A : status ~A response ~A~%" vendor-id status body))
+		nil))))))
+
+(defun nst-vendor-invoicesettings (&optional vendor)
+  :documentation "The VENDOR's stored invoice settings alist, or a copy of the shipped *invoice-settings* defaults when the vendor has none. The copy is what keeps a save from mutating the shared default that every other vendor falls back to."
+  (let* ((vendor (or vendor (get-login-vendor)))
+	 (settingsstr (and vendor (slot-value vendor 'invoice-settings))))
+    (if (and settingsstr (stringp settingsstr) (> (length settingsstr) 0))
+	(read-from-string settingsstr)
+	;;else
+	(copy-tree *invoice-settings*))))
+
+(defun nst-set-invoiceprintsetting (printsettings sectionname keyname value)
+  :documentation "Sets SECTIONNAME.KEYNAME to VALUE in a print settings alist, creating the section or the entry when the alist does not carry it yet. Returns the print settings."
+  (let ((section (invoiceprintsettingentry printsettings sectionname)))
+    (if section
+	(let ((entry (invoiceprintsettingentry (cdr section) keyname)))
+	  (if entry
+	      (setf (cdr entry) value)
+	      ;;else
+	      (setf (cdr section) (acons (intern (string-upcase keyname) :keyword) value (cdr section)))))
+	;;else
+	(push (cons (intern (string-upcase sectionname) :keyword)
+		    (list (cons (intern (string-upcase keyname) :keyword) value)))
+	      printsettings))
+    printsettings))
+
+(defun nst-save-vendor-invoiceprintsetting (sectionname keyname value &optional vendor)
+  :documentation "Persists one invoice print setting for VENDOR in the vendor row and the session, leaving the other settings as they are."
+  (let* ((vendor (or vendor (get-login-vendor)))
+	 (settings (nst-vendor-invoicesettings vendor))
+	 (printsettings (or (cdr (assoc 'invoice-print-settings settings :test 'equal))
+			    (copy-tree (cdr (assoc 'invoice-print-settings *invoice-settings* :test 'equal)))))
+	 (section (assoc 'invoice-print-settings settings :test 'equal)))
+    (setf printsettings (nst-set-invoiceprintsetting printsettings sectionname keyname value))
+    (if section
+	(setf (cdr section) printsettings)
+	;;else
+	(push (cons 'invoice-print-settings printsettings) settings))
+    (setf (slot-value vendor 'invoice-settings) (write-to-string settings :readably t))
+    (setf (hunchentoot:session-value :login-vendor-invoice-settings) settings)
+    (update-vendor-details vendor)
+    value))
+
+(defun nst-get-vendor-invoicetemplatenum (&optional vendor)
+  :documentation "Invoice template number the VENDOR chose in the invoice settings page. Falls back to *NST-GSTINVOICE-DEFAULTTEMPLATENUM* when the vendor never chose one, and validates the stored value against *NST-GSTINVOICE-TEMPLATES-HT* so a stale number can never be handed to nst-get-cached-invoice-template-func."
+  (let* ((printsettings (nst-get-vendor-invoiceprintsettings vendor))
+	 (stored (invoiceprintsettingvalue printsettings "DEFAULTINVOICETEMPLATENUM"))
+	 (storedstr (if stored (format nil "~A" stored))))
+    (if (and storedstr (gethash storedstr *NST-GSTINVOICE-TEMPLATES-HT*))
+	(parse-integer storedstr)
+	;;else
+	*NST-GSTINVOICE-DEFAULTTEMPLATENUM*)))
+
+(defun invoiceprintsettingslogowidgethtml (printsettings)
+  :documentation "The invoice logo block. It renders its own form (the upload dialog) above the print settings form, because a file input cannot be posted through the ajax serialize() path the settings form uses - and a form must not be nested inside another form."
+  (let ((logopath (invoiceprintsettingvalue (invoiceprintsettingvalue printsettings "HEADER") "LOGOPATH")))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      (:div :class "mb-3"
+	    (:label :class "form-label" "Invoice Logo")
+	    (:div :class "mt-2" :data-bs-toggle "tooltip" :title "Upload Invoice Logo"
+		  (:a :href "#" :data-bs-toggle "modal" :data-bs-target "#nstinvoicelogoupload-modal"
+		      (:i :class "fa-solid fa-upload"))
+		  ;; an absolute URL is what the upload stores, anything else is the shipped default
+		  (if (and (stringp logopath) (> (length logopath) 0))
+		      (cl-who:htm
+		       (if (cl-ppcre:scan "^https?://" logopath)
+			   (cl-who:htm (:span :class "badge bg-success ms-2" "Uploaded"))
+			   ;;else
+			   (cl-who:htm (:span :class "badge bg-secondary ms-2" "Current logo"))))
+		      ;;else
+		      (cl-who:htm (:span :class "form-text text-muted ms-2" "No logo uploaded yet - the site logo is used."))))
+	    (if (and (stringp logopath) (> (length logopath) 0))
+		(cl-who:htm
+		 (:img :src (nst-invoice-logo-url logopath) :alt "Logo"
+		       :style "max-height: 60px; max-width: 100%; display: block; margin-top: 4px;")
+		 (:div :class "form-text" :style "word-break: break-all;" (cl-who:str logopath))))
+	    (modal-dialog-v2 "nstinvoicelogoupload-modal" "Upload Invoice Logo" (nst-invoice-logo-upload-dialog-html))))))
+
 (defun invoiceprintsettingswidgethtml (printsettings)
   (let ((papersize-ht (make-hash-table :test 'equal))
 	(orientation-ht (make-hash-table :test 'equal))
@@ -145,11 +294,13 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	(marginright (cdr (assoc :RIGHT (cdr (assoc :MARGIN printsettings :test 'equal)))))
 	(headerenable (cdr (assoc :ENABLE (cdr (assoc :HEADER printsettings :test 'equal)))))
 	(headertext (cdr (assoc :TEXT (cdr (assoc :HEADER printsettings :test 'equal)))))
-	(headerlogopath (cdr (assoc :LOGO-PATH (cdr (assoc :HEADER printsettings :test 'equal)))))
+	(headerlogopath (invoiceprintsettingvalue (invoiceprintsettingvalue printsettings "HEADER") "LOGOPATH"))
 	(footerenable (cdr (assoc :ENABLE (cdr (assoc :FOOTER printsettings :test 'equal)))))
 	(footertext (cdr (assoc :TEXT (cdr (assoc :FOOTER printsettings :test 'equal)))))
 	(watermarkenable (cdr (assoc :ENABLE (cdr (assoc :WATERMARK printsettings :test 'equal)))))
-	(watermarktext (cdr (assoc :TEXT (cdr (assoc :WATERMARK printsettings :test 'equal))))))
+	(watermarktext (cdr (assoc :TEXT (cdr (assoc :WATERMARK printsettings :test 'equal)))))
+	(invoicetemplatenum (or (invoiceprintsettingvalue printsettings "DEFAULTINVOICETEMPLATENUM")
+				*NST-GSTINVOICE-DEFAULTTEMPLATENUM*)))
 	
     
     (setf (gethash "A4" papersize-ht) "A4")
@@ -159,6 +310,11 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (setf (gethash "Landscape" orientation-ht) "Landscape")
     
     (cl-who:with-html-output-to-string (*standard-output* nil)
+      ;;<!-- Default Invoice Template -->
+      (:div :class "mb-3"
+	    (:label :for "iddefaultinvoicetemplatenum" :class "form-label" "Default Invoice Template")
+	    (with-html-dropdown "defaultinvoicetemplatenum" *NST-GSTINVOICE-TEMPLATES-HT* (format nil "~A" invoicetemplatenum)))
+
       ;;<!-- Default Paper Size -->
       (:div :class "mb-3"
 	    (:label :for "defaultpapersize" :class "form-label" "Default Paper Size")
@@ -205,9 +361,13 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	    (:div :class "mt-2"
 		  (:label :for "headertext" :class "form-label" "Header Text")
 		  (:input :type "text" :class "form-control" :id "headertext" :value headertext))
+	    ;; The logo lives in its own form, rendered above this one by
+	    ;; invoiceprintsettingslogowidgethtml. This form only carries the URL, so that the
+	    ;; settings payload the browser submits contains the logo chosen in the dialog.
 	    (:div :class "mt-2"
 		  (:label :for "headerlogopath" :class "form-label" "Logo Path")
-		  (:input :type "file" :class "form-control" :name "headerlogopath" :id "headerlogopath" :value headerlogopath)))
+		  (:input :type "hidden" :name "headerlogopath" :id "headerlogopath" :value (or headerlogopath ""))
+		  (:div :class "form-text text-muted" "Use the Invoice Logo upload above to set or replace it.")))
       ;; Footer
       (:div :class "mb-3"
 	    (:label :class "form-label" "Footer")
@@ -236,6 +396,43 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 		  (:input :type "text" :class "form-control" :id "watermarktext" :value watermarktext))))
       )))
 
+(defun nst-invoice-logo-upload-dialog-html ()
+  :documentation "The invoice logo upload form shown in a modal dialog on the settings page. It posts to its own transaction as multipart through submitfileuploadevent, because the ajax serialize() path used by the other forms drops file inputs."
+  (with-catch-file-upload-event "nstinvoicelogoupload"
+    (with-html-form "nstinvoicelogouploadform" "vuploadinvoicelogoaction"
+      (:div :class "form-group"
+	    (:label :for "idnstlogofileupldctrl" "Select the invoice logo (PNG or JPEG, under 1 MB)")
+	    (:input :id "idnstlogofileupldctrl" :class "form-control" :name "headerlogopath" :type "file"))
+      (:div :class "form-group"
+	    (:button :id "btnnstlogoupload" :class "btn btn-lg btn-primary btn-block" :type "submit" "Upload Logo")))))
+
+(defun com-hhub-transaction-vendor-upload-invoice-logo-action ()
+  (with-vend-session-check
+    (with-mvc-redirect-ui #'create-model-for-vuploadinvoicelogo #'create-widgets-for-genericredirect)))
+
+(defun create-model-for-vuploadinvoicelogo ()
+  :documentation "Uploads the invoice logo the vendor picked in the settings dialog. This is the only place the logo is sent to S3 : the settings save itself never uploads."
+  (let* ((vendor (get-login-vendor))
+	 (vendor-id (get-login-vendor-id))
+	 (tenant-id (get-login-vendor-tenant-id))
+	 (logoparams (hunchentoot:post-parameter "headerlogopath"))
+	 (tempfilewithpath (first logoparams))
+	 (file-name (if tempfilewithpath (process-file logoparams *HHUBRESOURCESDIR*)))
+	 (previouslogourl (invoiceprintsettingvalue
+			   (invoiceprintsettingvalue (nst-get-vendor-invoiceprintsettings vendor) "HEADER")
+			   "LOGOPATH"))
+	 (uploadedlogourl (if tempfilewithpath
+			      (nst-upload-vendor-logo file-name vendor-id tenant-id previouslogourl)))
+	 (redirecturl "/hhub/vinvoicesettingspage"))
+    (if uploadedlogourl
+	;; store the new logo straight away, so the settings page comes back carrying it and a save
+	;; that follows cannot lose it
+	(nst-save-vendor-invoiceprintsetting "HEADER" "LOGOPATH" uploadedlogourl vendor)
+	;;else
+	(hhub-log-message (format nil "invoice logo upload produced no logo for vendor ~A (uploaded file ~A)~%" vendor-id file-name)))
+    (function (lambda ()
+      (values redirecturl)))))
+
 (defun com-hhub-transaction-save-invoice-print-settings-action ()
   (with-vend-session-check
     (with-mvc-redirect-ui #'create-model-for-invoiceprintsettingsaction #'create-widgets-for-genericredirect)))
@@ -245,22 +442,49 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (vendor-id (get-login-vendor-id))
 	 (tenant-id (get-login-vendor-tenant-id))
 	 (printsettings (hunchentoot:parameter "vinvprintsettings"))
-	 (json-response (with-input-from-string (stream printsettings) (cl-json:decode-json stream)))
-	 (vinvsettings *invoice-settings*)
-	 (imageparams (hunchentoot:post-parameter "headerlogopath"))
-	 (tempfilewithpath (first imageparams))
-	 (file-name (if tempfilewithpath (process-file imageparams *HHUBRESOURCESDIR*)))
+	 ;; the settings form carries its payload in this hidden field; the page's saveSettings()
+	 ;; fills it. An empty payload means that never happened, so decode only a real payload
+	 ;; instead of letting cl-json signal end-of-file on an empty stream.
+	 (json-response (if (and printsettings (> (length printsettings) 0))
+			    (handler-case (with-input-from-string (stream printsettings) (cl-json:decode-json stream))
+			      (error (e)
+				(hhub-log-message (format nil "could not decode vinvprintsettings payload for vendor ~A: ~A~%" vendor-id e))
+				nil))
+			    ;; else
+			    (progn
+			      (hhub-log-message (format nil "invoice print settings save called without a vinvprintsettings payload for vendor ~A~%" vendor-id))
+			      nil)))
 	 (redirecturl "/hhub/vinvoicesettingspage"))
-    ;;(logiamhere (format nil "headerlogopath is ~A" tempfilewithpath))
-    (if tempfilewithpath 
-	(let ((s3filelocation (vendor-upload-file-s3bucket file-name "CFG" "logo123" vendor-id tenant-id )))
-	  (setf (cdr (assoc :LOGO-PATH (cdr (assoc :HEADER json-response :test 'equal)))) s3filelocation)))
-    (setf (cdr (assoc 'invoice-print-settings vinvsettings)) json-response)
-    (setf (slot-value vendor 'invoice-settings) (write-to-string vinvsettings :readably t))
-    (setf (hunchentoot:session-value :login-vendor-invoice-settings) vinvsettings)
-    (update-vendor-details vendor)
-    (function (lambda ()
-      (values redirecturl)))))
+    (if (null json-response)
+	;; nothing to save : go back to the settings page with the stored settings untouched
+	(function (lambda ()
+	  (values redirecturl)))
+	;; else
+	(progn
+	  ;; The logo is uploaded by the settings dialog through vuploadinvoicelogoaction, so this
+	  ;; request only stores the URL the page carries in its headerlogopath field. When the page
+	  ;; carries none, the logo already stored is kept rather than wiped.
+	  (let* ((storedsettings (nst-vendor-invoicesettings vendor))
+		 (storedprintsettings (or (cdr (assoc 'invoice-print-settings storedsettings :test 'equal))
+					  (copy-tree (cdr (assoc 'invoice-print-settings *invoice-settings* :test 'equal)))))
+		 (postedlogourl (invoiceprintsettingvalue (invoiceprintsettingvalue json-response "HEADER") "LOGOPATH"))
+		 (storedlogourl (invoiceprintsettingvalue (invoiceprintsettingvalue storedprintsettings "HEADER") "LOGOPATH"))
+		 (logotostore (if (and (stringp postedlogourl) (> (length postedlogourl) 0)
+				       (not (cl-ppcre:scan "fakepath" postedlogourl)))
+				  postedlogourl
+				  ;;else keep the logo already stored
+				  (or storedlogourl "")))
+		 (section (assoc 'invoice-print-settings storedsettings :test 'equal)))
+	    (setf json-response (nst-set-invoiceprintsetting json-response "HEADER" "LOGOPATH" logotostore))
+	    (if section
+		(setf (cdr section) json-response)
+		;;else
+		(push (cons 'invoice-print-settings json-response) storedsettings))
+	    (setf (slot-value vendor 'invoice-settings) (write-to-string storedsettings :readably t))
+	    (setf (hunchentoot:session-value :login-vendor-invoice-settings) storedsettings)
+	    (update-vendor-details vendor))
+	  (function (lambda ()
+	    (values redirecturl)))))))
 
 
 
@@ -297,9 +521,8 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (subject (hunchentoot:parameter "draftinvoicesubject"))
 	 (emailbody (hunchentoot:parameter "draftinvoiceemailbody"))
 	 (redirecturl (format nil "/hhub/editinvoicepage?invnum=~A" sessioninvkey)))
-    (sb-thread:make-thread
-     (lambda ()
-       (hhubsendmail to subject emailbody)) :name "Invoice Email Thread")
+    ;; the send runs on the shared email actor : the request redirects without waiting for SMTP
+    (send-email-async to subject emailbody)
     (function (lambda ()
       (values redirecturl)))))
 
@@ -406,8 +629,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
 
 (defun create-model-for-displayinvoicepublic ()
-  (let* ((invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum 13)))  
-    	 (parambase64 (hunchentoot:parameter "key"))
+  (let* ((parambase64 (hunchentoot:parameter "key"))
 	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
 	 (paramslist (first (cl-csv:read-csv param-csv
 					     :skip-first-p T
@@ -418,6 +640,8 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (vendor-id (nth 2 paramslist))
 	 (vendor (select-vendor-by-id vendor-id))
 	 (company (select-company-by-id tenant-id))
+	 ;; the vendor's own choice from the invoice settings page, defaulted
+	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum (nst-get-vendor-invoicetemplatenum vendor))))
 	 (hrequestmodel (make-instance 'InvoiceHeaderRequestModel
 				      :invnum invnum
 				      :company company))
@@ -455,7 +679,24 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Address%" invoicetemplate (nst-slot-str vendor 'address)))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Phone%" invoicetemplate (nst-slot-str vendor 'phone)))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Email%" invoicetemplate (nst-slot-str vendor 'email)))
-      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor GST%" invoicetemplate (nst-slot-str vendor 'gstnumber))))
+      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor GST%" invoicetemplate (nst-slot-str vendor 'gstnumber)))
+      ;; template header / footer / logo, all driven by the vendor's invoice print settings.
+      ;; "enable" gates the text only : the logo is controlled by the logo path alone.
+      (let* ((printsettings (nst-get-vendor-invoiceprintsettings vendor))
+	     (headersettings (invoiceprintsettingvalue printsettings "HEADER"))
+	     (footersettings (invoiceprintsettingvalue printsettings "FOOTER"))
+	     (headertext (if (invoiceprintsettingvalue headersettings "ENABLE")
+			     (or (invoiceprintsettingvalue headersettings "TEXT") "")
+			     ;;else
+			     ""))
+	     (footertext (if (invoiceprintsettingvalue footersettings "ENABLE")
+			     (or (invoiceprintsettingvalue footersettings "TEXT") "")
+			     ;;else
+			     ""))
+	     (logoimage (nst-invoice-logo-image-tag (invoiceprintsettingvalue headersettings "LOGOPATH"))))
+	(setf invoicetemplate (cl-ppcre:regex-replace-all "%Template Logo Image%" invoicetemplate logoimage))
+	(setf invoicetemplate (cl-ppcre:regex-replace-all "%Template Header%" invoicetemplate headertext))
+	(setf invoicetemplate (cl-ppcre:regex-replace-all "%Template Footer%" invoicetemplate footertext))))
 
     (with-slots (row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor company) invheader
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Invoice Number%" invoicetemplate (or invnum "")))
@@ -801,7 +1042,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (sessioninvitems (processreadallrequest itemsadapter irequestmodel))
 	 (totalvalue (calculate-invoice-totalaftertax sessioninvitems))
 	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" invnum totalvalue)))
-	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum 13)))
+	 (templatenum (let* ((reqtemplatenum (hunchentoot:parameter "templatenum"))
+			     (reqtemplatenum-int (and reqtemplatenum (parse-integer reqtemplatenum :junk-allowed t)))
+			     (reqtemplatenum-str (and reqtemplatenum-int (format nil "~A" reqtemplatenum-int))))
+			(if (and reqtemplatenum-str (gethash reqtemplatenum-str *NST-GSTINVOICE-TEMPLATES-HT*))
+			    reqtemplatenum-int
+			    ;; else
+			    (nst-get-vendor-invoicetemplatenum vendor))))
+	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum templatenum)))
 	 (invoiceitemshtmlfunc (generate-invoice-items-rows  sessioninvitems (if (equal status "PAID") T NIL) sessioninvkey invoicetemplate))
 	 (invoicetaxbreakdownfunc (render-tax-summary-html sessioninvtaxbreakdown))
 	 ;;(invoiceitemshtmlfunc (invoicetemplatefillitemrows sessioninvitems (if (equal status "PAID") T NIL) sessioninvkey))
@@ -809,6 +1057,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (params nil))
  
     (setf invoicetemplate (remove-invoice-item-markers-from-template invoicetemplate))
+    ;; every selectable template gets the same 4-Eye Review Mode control bar
+    (if *NST-INVOICE-REVIEWCONTROLS-HTML*
+	(setf invoicetemplate (concatenate 'string *NST-INVOICE-REVIEWCONTROLS-HTML* invoicetemplate)))
     (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader sessioninvitems invoiceitemshtmlfunc invoicetaxbreakdownfunc qrcodepath currency vendor)))
     (setf (slot-value sessioninvoice 'InvoiceItems) sessioninvitems)
     (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
@@ -818,13 +1069,18 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     
     (with-hhub-transaction "com-hhub-transaction-show-invoice-confirm-page" params 
       (function (lambda ()
-	(values sessioninvkey invnum  invoicetemplate))))))
+	(values sessioninvkey invnum  invoicetemplate templatenum))))))
 
 
 (defun create-widgets-for-showinvoiceconfirmpage (modelfunc)
-  (multiple-value-bind (sessioninvkey  invnum  invoicetemplate) (funcall modelfunc)
+  (multiple-value-bind (sessioninvkey  invnum  invoicetemplate templatenum) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
-		      )))
+		      (cl-who:with-html-output (*standard-output* nil)
+			(:form :method "GET" :action "/hhub/vshowinvoiceconfirmpage" :class "no-print"
+			  (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
+			  (:div :class "form-group"
+				(:label :for "idtemplatenum" "Invoice Template")
+				(with-html-dropdown "templatenum" *NST-GSTINVOICE-TEMPLATES-HT* (format nil "~A" templatenum) "this.form.submit();")))))))
 	   (widget2 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-html-div-row
@@ -1084,7 +1340,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 				  (with-html-input-text-hidden "sessioninvkey" sessioninvkey)
 				  (:input :type "submit" :style "display: none;")))
 			      (with-html-div-col-4
-				    (:a :href (format nil "/hhub/vshowinvoiceconfirmpage?sessioninvkey=~A" sessioninvkey) 
+				    (:a :href (format nil "/hhub/vshowinvoiceconfirmpage?sessioninvkey=~A&templatenum=~A" sessioninvkey (nst-get-vendor-invoicetemplatenum)) 
 					(:img :src  "/img/checkoutimage.png"  :height "100" :width "350" :alt "checkout"))))
 			    (:h2 "Cart Items")
 			    (cl-who:str (display-as-table (list "" "Name" "Qty Per Unit" "Price" "" "Discount" "In Cart") sessioninvproducts  'display-product-in-invoice-row sessioninvkey sessioninvitems))

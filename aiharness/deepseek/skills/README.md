@@ -47,9 +47,11 @@ something is wrong; enter by index when you are exploring.**
 | a product's price, discount or discount window | `nst-bl-prdpricing-CONTEXT.md` |
 | a product/catalog route, its JSON shape, or the product verbs | `nst-bl-prdapi-CONTEXT.md` |
 | the vendor profile / vendor shipping / vendor payment API | `nst-bl-vndapi-CONTEXT.md`, `vendor-api-sessions-CONTEXT.md` |
+| `run-intent` returns a score you cannot account for · a setting that "saved" but persisted nothing · the vendor Web REPL's **Eval** button does nothing · looking for JEV or a vendor settings **AI page** | `nst-bl-vaisettings-CONTEXT.md` |
 | **"The function COMMON-LISP:NIL is undefined"** with `CL-PPCRE::BUILD-REPLACEMENT` in the backtrace | `nil-safe-template-substitution-CONTEXT.md` |
 | a file you cannot write to; the two-account/one-group model | `knowledge/permissions-CONTEXT.md` |
 | the प्रत्यय / ferry / नियम architecture itself; a new entity | `knowledge/WAREHOUSE-NST-GRAMMAR-CONTEXT.md`, `knowledge/nst-bl-conflodis2-DESIGN.md` |
+| an email or notification the request waits on · a background job to write (email, SMS/WhatsApp, S3, webhook) · an actor that stopped processing, dropped messages, retried or dead-lettered · a caller blocked while an actor is working | `knowledge/nst-bl-act-CONTEXT.md` |
 
 ## Index — `knowledge/` (for keeping)
 
@@ -68,6 +70,7 @@ Durable mechanism knowledge. Not tied to a feature; corrected in place, never re
 | [vendor-render-json-contract-CONTEXT.md](knowledge/vendor-render-json-contract-CONTEXT.md) | SETTLED: `render-json` stays in `adhara`, with the four arguments why, and the real defect underneath (the split contract). Do not re-litigate. | 2026-09-14 |
 | [nst-bl-conflodis2-DESIGN.md](knowledge/nst-bl-conflodis2-DESIGN.md) | **The conflodis2 design authority** — Tier-2/3 route verbs, the ferry signatures, multi-entity assembly and the कारक. Cited by name in the headers of `nst-bl-conflodis2.lisp`, `nst-bl-apidefs2.lisp`, `nst-bl-whsapi.lisp` and `nst-bl-prdapi.lisp`. Note the `-DESIGN.md` suffix: it predates this directory's `-CONTEXT.md` convention and was kept so those citations stay recognisable. | undated |
 | [WAREHOUSE-NST-GRAMMAR-CONTEXT.md](knowledge/WAREHOUSE-NST-GRAMMAR-CONTEXT.md) | **Authoritative architecture reference.** The Paninian grammar: `domain-ctx`, the प्रत्यय verbs, the ferry (लोप), नियम, and `nst-whs` as the first grammar-based entity. The legacy DDD stack is deprecated — do not extend it. | undated |
+| [nst-bl-act-CONTEXT.md](knowledge/nst-bl-act-CONTEXT.md) | The actor model: the six invariants (producer never blocked, FIFO, contained failures, bounded mailbox, cooperative shutdown, ask/reply), the API and policy variables, how to write an idempotent behaviour, retries + dead letters + supervision, the status report and symptom→counter table, and the ten measured traps — including the lock-across-behaviour bug that made every "async" email block its caller (751 ms → 0 ms). Also states plainly what is **not** on actors and why. | 2026-09-23 |
 
 
 ## Index — the cyclic buffer (active features)
@@ -84,6 +87,7 @@ Work in flight. Retired to `archive/` once the feature ships and its learnings l
 | [nst-bl-vndapi-CONTEXT.md](nst-bl-vndapi-CONTEXT.md) | The vendor-profile migration: verification status (§0), where things live, schema facts, architecture, the प्रत्यय layer as designed, decisions, unfinished work, sharp edges. **Split 2026-09-20** — see the two files below. | 2026-09-13 |
 | [vendor-api-sessions-CONTEXT.md](vendor-api-sessions-CONTEXT.md) | The vendor work's operational half: the `t` trap restated, how to resume (Steps 0–3), and the 2026-09-14 session — status, the `read-from-string` RCE class, and the SETTLED shipping + payment design. | 2026-09-14 |
 | [nil-safe-template-substitution-CONTEXT.md](nil-safe-template-substitution-CONTEXT.md) | The `cl-ppcre` replacement-function trap: optional fields (GST, transporter, bank, `unit-of-measure`…) that are NIL at render time, the shared `nst-slot-str`, the six patched files, the verified non-issues not to re-patch, the audit + parse-check recipes, and the "the error names no field" correction. | 2026-09-21 |
+| [nst-bl-vaisettings-CONTEXT.md](nst-bl-vaisettings-CONTEXT.md) | **The AI/JEV decision layer, and why nothing is wired**: the three colliding "settings" systems, the keyword scorer that is the real decision-maker (§3, with the reproduced `0.75/0.50`), the DDL that is a more advanced spec than the code, the vendor Web REPL that 404s on `POST /api/repl/eval`, what JEV is vs what an LLM can and cannot replace, the `read-eval` hole and the committed API key, and the ordered plan. | 2026-09-22 |
 
 ## Known staleness
 

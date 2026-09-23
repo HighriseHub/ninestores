@@ -336,8 +336,12 @@ Call STOP-NST-SERVER to revert, in reverse registration order."
                               :name "Send Order Email Actor"
                               :behavior #'send-order-email-behavior
                               :stateful t
-                              :state-clean-callback (function (lambda () ()))
-                              :initial-state 0))
+                              :state-clean-callback (function (lambda (actor) (declare (ignore actor)) nil))
+                              :initial-state 0
+                              :retry-limit 1      ;; SMTP fails transiently : one retry, then dead letter
+                              :retry-delay 2
+                              :max-queue-size 200))
+         (register-actor *NSTSENDORDEREMAILACTOR*)
          (start-actor *NSTSENDORDEREMAILACTOR*))
        (lambda ()
          (when *NSTSENDORDEREMAILACTOR*
@@ -345,21 +349,32 @@ Call STOP-NST-SERVER to revert, in reverse registration order."
            (setf *NSTSENDORDEREMAILACTOR* nil)))
        :name "Send Order Email Actor")
 
+      ;; every already rendered email goes through this one : see send-email-async
       (register-effect
        (lambda ()
-         (setf *NSTAWSS3FILEUPLOADACTOR*
+         (setf *NSTGENERICEMAILACTOR*
                (make-instance 'nst-actor
-                              :name "AWS S3 Bucket File Upload Actor"
-                              :behavior #'async-upload-files-s3bucket-behavior
+                              :name "Send Email Actor"
+                              :behavior #'send-generic-email-behavior
                               :stateful t
-                              :state-clean-callback nil
-                              :initial-state (make-hash-table)))
-         (start-actor *NSTAWSS3FILEUPLOADACTOR*))
+                              :state-clean-callback (function (lambda (actor) (declare (ignore actor)) nil))
+                              :initial-state 0
+                              :retry-limit 1
+                              :retry-delay 2
+                              :max-queue-size 200))
+         (register-actor *NSTGENERICEMAILACTOR*)
+         (start-actor *NSTGENERICEMAILACTOR*))
        (lambda ()
-         (when *NSTAWSS3FILEUPLOADACTOR*
-           (destroy-actor *NSTAWSS3FILEUPLOADACTOR*)
-           (setf *NSTAWSS3FILEUPLOADACTOR* nil)))
-       :name "AWS S3 File Upload Actor")
+         (when *NSTGENERICEMAILACTOR*
+           (destroy-actor *NSTGENERICEMAILACTOR*)
+           (setf *NSTGENERICEMAILACTOR* nil)))
+       :name "Send Email Actor")
+
+      ;; the supervisor revives any registered actor whose thread dies unexpectedly
+      (register-effect
+       (lambda () (start-actor-supervisor))
+       (lambda () (stop-actor-supervisor))
+       :name "Actor Supervisor")
 
       (format t "~&=== ninestores server started ===~%")
       (setf *server-running-p* t))

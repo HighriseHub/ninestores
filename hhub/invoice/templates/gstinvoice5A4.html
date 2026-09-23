@@ -121,14 +121,12 @@
 
     <div class="portrait-mode">
 
-    <div class="controls">
-        <span class="bold">4-Eye Review Mode: </span>
-        <button class="btn" onclick="setOrientation('portrait')">Portrait (Standard)</button>
-        <button class="btn" onclick="setOrientation('landscape')">Landscape (Wide)</button>
-        <button class="btn" onclick="window.print()" style="background: #28a745;">Print / Save PDF</button>
-    </div>
-
     <div id="invoice" class="invoice-container page-portrait">
+    <!--TEMPLATE HEADER / LOGO-->
+    <div class="template-header" style="text-align: center; margin-bottom: 6px;">
+      %Template Logo Image%
+      %Template Header%
+    </div>
         <table>
             <thead>
                 <tr>
@@ -299,24 +297,8 @@
                 </tr>
             </tbody>
         </table>
+    <!--TEMPLATE FOOTER-->
+    <div class="template-footer" style="text-align: center; margin-top: 6px;">%Template Footer%</div>
     </div>
 
-    <script>
-        function setOrientation(mode) {
-            const invoice = document.getElementById('invoice');
-            const body = document.body;
-            
-            if (mode === 'landscape') {
-                invoice.classList.remove('page-portrait');
-                invoice.classList.add('page-landscape');
-                body.classList.remove('portrait-mode');
-                body.classList.add('landscape-mode');
-            } else {
-                invoice.classList.remove('page-landscape');
-                invoice.classList.add('page-portrait');
-                body.classList.remove('landscape-mode');
-                body.classList.add('portrait-mode');
-            }
-        }
-    </script>
 </div>

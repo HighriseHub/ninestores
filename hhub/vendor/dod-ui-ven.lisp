@@ -457,6 +457,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (list widget1 widget2 widget3 widget4))))
 
 (defun async-upload-files-s3bucket-behavior (state messagefunc)
+  :documentation "Actor behavior for the bulk S3 uploads. STATE is what the actor was created with (a hash table), so the counters are kept in it and the state is handed back to the actor - incrementing the state itself would signal a type error and kill the actor thread."
   (multiple-value-bind (product images objectname object-id vendor) (funcall messagefunc) 
     (let* ((vendor-id (slot-value vendor 'row-id))
 	  (tenant-id (slot-value vendor 'tenant-id))
@@ -472,7 +473,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	(setf (slot-value product 'prd-image-path) (write-to-string uploadedfiles :readably t))
 	;; update the database with the new file upload paths.
 	(update-prd-details  product))
-      (incf state))))
+      (setf (gethash :last-uploaded-files state) uploadedfiles)
+      (incf (gethash :uploads-processed state 0))
+      state)))
 
 (defun async-upload-files-s3bucket (images objectname object-id vendor)
   (let ((vendor-id (slot-value vendor 'row-id))
@@ -1401,7 +1404,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
          (paramvalues (list tenantid-str type vendorid-str objectname objectid-str uuid filename))
          (param-alist (pairlis paramnames paramvalues))
          (headers nil)
-	 (url (format nil "~A/file/awss3v3/upload" *siteurl*))
+	 (url (format nil "~A/file/awss3v3/upload" (or *HHUBFILESERVERURL* *siteurl*)))
          (headers (acons "auth-secret" "ntstores1234" headers)))   
     (drakma:http-request url
 			      :method :get
@@ -1419,7 +1422,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
          (paramvalues (list tenantid-str type vendorid-str objectname objectid-str))
          (param-alist (pairlis paramnames paramvalues))
          (headers nil)
-	 (url (format nil "~A/file/awss3v3/deletefiles" *siteurl*))
+	 (url (format nil "~A/file/awss3v3/deletefiles" (or *HHUBFILESERVERURL* *siteurl*)))
          (headers (acons "auth-secret" "ntstores1234" headers)))   
     (drakma:http-request url
 			 :method :DELETE 

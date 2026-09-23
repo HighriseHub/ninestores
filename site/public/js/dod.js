@@ -158,8 +158,9 @@ const uploadFileToBackend = (form, onProgress) => {
         const xhr = new XMLHttpRequest();
 	const formData = new FormData(form);
 	const backendUrl = form.action; 
-	const input = document.getElementById("idprdimgfileupldctrl");
-	const files = input.files;
+	// the form's own file input, so this also works for pages other than the product one
+	const input = form.querySelector("input[type='file']");
+	const files = input ? input.files : [];
 
 	    // Check if no files are selected
 	if (files.length === 0) {
@@ -209,12 +210,12 @@ const uploadFileToBackend = (form, onProgress) => {
 
 const submitfileuploadevent = async (event) => {
     const theForm = event.target;
-    const fileInput = document.getElementById("idprdimgfileupldctrl");
     event.preventDefault();
     try {
-        // Optional: Track upload progress
+        // Optional: Track upload progress, shown only on pages that have the progress element
 	const onProgress = (percentCompleted) => {
-            document.getElementById("fileuploadprogress").textContent = `Uploading: ${percentCompleted}%`;
+            const progress = document.getElementById("fileuploadprogress");
+            if (progress) { progress.textContent = `Uploading: ${percentCompleted}%`; }
         };
 
         // Upload the file

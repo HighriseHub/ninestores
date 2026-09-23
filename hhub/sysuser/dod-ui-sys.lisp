@@ -1151,6 +1151,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/downloadinvoice"   'com-hhub-transaction-download-invoice)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicesettingspage"   'com-hhub-transaction-invoice-settings-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vsaveinvprintsettings"   'com-hhub-transaction-save-invoice-print-settings-action)
+	(hunchentoot:create-regex-dispatcher "^/hhub/vuploadinvoicelogoaction"   'com-hhub-transaction-vendor-upload-invoice-logo-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vuploadprdimagesaction"   'com-hhub-transaction-vendor-upload-product-images-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vwebrepl"   'com-hhub-transaction-vendor-display-webrepl-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vwarehouses"   'com-hhub-transaction-readall-warehouse)

@@ -11,6 +11,8 @@
         </h2>
         <div id="collapsePrintSettings" class="accordion-collapse collapse" aria-labelledby="headingPrintSettings" data-bs-parent="#settingsAccordion">
           <div class="accordion-body">
+	    <!-- Invoice Logo : its own form (the upload dialog), kept outside the settings form below -->
+	    ~A
 	    <form id="id-invprintsettingsform" name="printsettingsform"  method="POST" action="vsaveinvprintsettings" data-toggle="validator" role="form" enctype="multipart/form-data"> 
 	      <!-- Default Paper Size -->
 	      ~A
@@ -153,34 +155,53 @@
   <script>
     // JavaScript Functions to Save Settings
 
+    // Read a field by id. A missing element must not throw, otherwise the whole payload is
+    // dropped and the form posts an empty vinvprintsettings value.
+    function settingsFieldValue(id) {
+      const element = document.getElementById(id);
+      if (!element) { console.error("invoice settings: no element with id " + id); return ""; }
+      return element.value;
+    }
+
+    function settingsFieldChecked(id) {
+      const element = document.getElementById(id);
+      if (!element) { console.error("invoice settings: no element with id " + id); return false; }
+      return element.checked;
+    }
+
     function saveSettings() {
       const settings = {
-        defaultpapersize: document.getElementById("defaultpapersize").value,
-        orientation: document.getElementById("orientation").value,
-        fontsize: document.getElementById("fontsize").value,
+        defaultinvoicetemplatenum: settingsFieldValue("iddefaultinvoicetemplatenum"),
+        defaultpapersize: settingsFieldValue("iddefaultpapersize"),
+        orientation: settingsFieldValue("idorientation"),
+        fontsize: settingsFieldValue("fontsize"),
         margin: {
-          top: document.getElementById("margintop").value,
-          bottom: document.getElementById("marginbottom").value,
-          left: document.getElementById("marginleft").value,
-          right: document.getElementById("marginright").value,
+          top: settingsFieldValue("margintop"),
+          bottom: settingsFieldValue("marginbottom"),
+          left: settingsFieldValue("marginleft"),
+          right: settingsFieldValue("marginright"),
         },
         header: {
-          enable: document.getElementById("headerenable").checked,
-          text: document.getElementById("headertext").value,
-          logopath: document.getElementById("headerlogopath").value,
+          enable: settingsFieldChecked("headerenable"),
+          text: settingsFieldValue("headertext"),
+          logopath: settingsFieldValue("headerlogopath"),
         },
         footer: {
-          enable: document.getElementById("footerenable").checked,
-          text: document.getElementById("footertext").value,
+          enable: settingsFieldChecked("footerenable"),
+          text: settingsFieldValue("footertext"),
         },
         watermark: {
-          enable: document.getElementById("watermarkenable").checked,
-          text: document.getElementById("watermarktext").value,
+          enable: settingsFieldChecked("watermarkenable"),
+          text: settingsFieldValue("watermarktext"),
         },
       };
 	console.log("Saved Settings:", settings);
 	// Stringify the object and store it in the hidden input
-	let vinvprintsettings = document.querySelector("[name='vinvprintsettings']")
+	const vinvprintsettings = document.querySelector("[name='vinvprintsettings']");
+	if (!vinvprintsettings) {
+	  console.error("invoice settings: hidden vinvprintsettings input is missing - nothing to send");
+	  return;
+	}
 	vinvprintsettings.value = JSON.stringify(settings);
 	alert("Settings saved successfully!");
     }
