@@ -165,17 +165,17 @@
 
 (defun send-generic-email-behavior (state messagefunc)
   :documentation "Actor behaviour that sends an already rendered email : the message returns (values to subject body)."
-  (multiple-value-bind (to subject body) (funcall messagefunc)
-    (hhubsendmail to subject body)
+  (multiple-value-bind (to subject body attachments) (funcall messagefunc)
+    (hhubsendmail to subject body *HHUBSMTPSENDER* attachments)
     (incf state)))
 
 
-(defun send-email-async (to subject body)
-  :documentation "Queues an email on the shared email actor instead of blocking the calling request thread on the SMTP round trip. Returns T when the actor accepted the message. A send that fails is retried by the actor and then dead lettered, so a mail outage shows up in the log instead of in the caller's stack."
+(defun send-email-async (to subject body &optional attachments)
+  :documentation "Queues an email on the shared email actor instead of blocking the calling request thread on the SMTP round trip. Returns T when the actor accepted the message. A send that fails is retried by the actor and then dead lettered, so a mail outage shows up in the log instead of in the caller's stack. ATTACHMENTS is a cl-smtp attachment list (pathnames, pathname strings or cl-smtp:make-attachment objects); it is read from disk when the actor performs the send, so the file must still exist then."
   (if *NSTGENERICEMAILACTOR*
-      (send-message *NSTGENERICEMAILACTOR* (lambda () (values to subject body)))
+      (send-message *NSTGENERICEMAILACTOR* (lambda () (values to subject body attachments)))
       ;;else the actor is not up (early startup, tests) : send it inline rather than lose it
-      (progn (hhubsendmail to subject body) t)))
+      (progn (hhubsendmail to subject body *HHUBSMTPSENDER* attachments) t)))
 
 
 

@@ -174,20 +174,132 @@
 ;;(update-invoice-settings "config.yaml" "updated_config.yaml")
 
 
+;;; ---------------------------------------------------------------------------
+;;; External commands : run, then CHECK
+;;; ---------------------------------------------------------------------------
+;; wget and wkhtmltopdf were fired through /bin/sh with their exit status thrown away, so a 404 or a
+;; crashed renderer still produced a file name that every caller treated as success -- and a caller
+;; turns that name into a URL a customer downloads, or into an email attachment. They now check the
+;; exit status AND the artifact, and signal rather than hand back a name for a file that is missing,
+;; empty, or not the kind of file it claims to be.
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-condition hhub-external-command-failed (error)
+    ((command
+      :initarg :command
+      :reader external-command-failed-command)
+     (exit-code
+      :initarg :exit-code
+      :reader external-command-failed-exit-code)
+     (reason
+      :initarg :reason
+      :reader external-command-failed-reason))
+    (:documentation "An external command (wget, wkhtmltopdf) failed, or left nothing usable.")
+    (:report (lambda (condition stream)
+	       (format stream "external command failed (~A)~@[, exit status ~A~]: ~A"
+		       (external-command-failed-reason condition)
+		       (external-command-failed-exit-code condition)
+		       (external-command-failed-command condition))))))
+
+(defun shell-single-quote (string)
+  "Wraps STRING so /bin/sh reads all of it as one literal argument. The command lines are built with
+FORMAT, so an unquoted URL or path was free to be read as shell syntax instead of as data."
+  (with-output-to-string (out)
+    (write-char #\' out)
+    (loop for c across (or string "")
+	  do (if (char= c #\')
+		 (write-string "'\\''" out)
+		 (write-char c out)))
+    (write-char #\' out)))
+
+(defun run-external-command (command &key allow-non-zero-exit)
+  "Runs COMMAND through /bin/sh, returns its exit code, and signals
+HHUB-EXTERNAL-COMMAND-FAILED unless ALLOW-NON-ZERO-EXIT is set.
+The command's own output still goes to the server log, exactly where it already went, so nothing
+that used to be visible has been hidden -- the difference is that a failure is no longer silence.
+ALLOW-NON-ZERO-EXIT exists for wkhtmltopdf : see GENERATEPDF."
+  (let* ((process (sb-ext:run-program "/bin/sh" (list "-c" command)
+				      :input nil :output *standard-output* :error *error-output*))
+	 (exit-code (sb-ext:process-exit-code process)))
+    (unless (or allow-non-zero-exit (eql exit-code 0))
+      (error 'hhub-external-command-failed :command command :exit-code exit-code
+	     :reason "non-zero exit status"))
+    exit-code))
+
+(defun file-starts-with-p (path octets)
+  "True when PATH exists and begins with OCTETS : how a generated file is recognised as the kind of
+file it was meant to be, rather than merely as something that exists."
+  (and (probe-file path)
+       (handler-case
+	   (with-open-file (stream path :element-type '(unsigned-byte 8))
+	     (let ((head (make-array (length octets) :element-type '(unsigned-byte 8))))
+	       (and (= (length octets) (read-sequence head stream))
+		    (equalp head octets))))
+	 (error () nil))))
+
+(defparameter +pdf-magic-bytes+ #(37 80 68 70)
+  "The four bytes of %PDF. wkhtmltopdf can exit 0 and still leave a stub behind.")
+
+(defparameter +min-usable-pdf-bytes+ 2000
+  "Floor below which a render is a stub rather than an invoice. Measured on this box : a blank
+wkhtmltopdf render is ~1.3 KB, a one-line page ~6.8 KB, and a real invoice PDF 77-99 KB. The floor
+is set low on purpose : it is here to catch a blank page, not to judge an invoice's size.")
+
+(defun file-size-or-nil (path)
+  "The size of PATH in bytes, or NIL when there is no such file."
+  (and (probe-file path)
+       (with-open-file (stream path :element-type '(unsigned-byte 8))
+	 (file-length stream))))
+
 (defun generatepdf (inputhtmlfile outpdffilename)
+  "Renders the HTML file INPUTHTMLFILE under the public temp directory to a PDF and returns the bare
+file name, not a path. Signals HHUB-EXTERNAL-COMMAND-FAILED when the input HTML is missing or when
+no usable PDF appears.
+
+wkhtmltopdf's EXIT CODE IS NOT THE TEST. It exits 1 for a page with a subresource it cannot load
+while still rendering a complete PDF, and the invoice page does exactly that on every render : the
+template carries an about:blank reference, so the renderer always ends with
+\"Exit with code 1 due to network error: ProtocolUnknownError\" and still writes 98 KB of correct
+invoice. Gating on that exit code refused to email a PDF that was sitting right there. What the
+artifact IS decides instead : the %PDF bytes and a size above the blank-page floor. The renderer's
+own complaints are not swallowed -- its stderr goes to the server log, as before."
   (let* ((filename (format nil "~A~A.pdf" outpdffilename (get-universal-time)))
 	 (filepath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* filename))
 	 (htmlpath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* inputhtmlfile))
-	 (pdfcmd (format nil "wkhtmltopdf --disable-javascript ~A ~A" htmlpath filepath)))
-    (sb-ext:run-program "/bin/sh" (list "-c" pdfcmd) :input nil :output *standard-output*)
+	 (pdfcmd (format nil "wkhtmltopdf --disable-javascript ~A ~A"
+			 (shell-single-quote htmlpath) (shell-single-quote filepath))))
+    (unless (probe-file htmlpath)
+      (error 'hhub-external-command-failed :command pdfcmd :exit-code nil
+	     :reason (format nil "no such input HTML: ~A" htmlpath)))
+    (let ((exit-code (run-external-command pdfcmd :allow-non-zero-exit t)))
+      (let ((size (file-size-or-nil filepath)))
+	(unless (and size
+		     (>= size +min-usable-pdf-bytes+)
+		     (file-starts-with-p filepath +pdf-magic-bytes+))
+	  (error 'hhub-external-command-failed :command pdfcmd :exit-code exit-code
+		 :reason (format nil "no usable PDF (~A, ~A bytes): ~A"
+				 (if size "not a PDF or blank" "missing") size filepath)))))
     filename))
 
 
 (defun downloadhtmlfile (url)
+  "Fetches URL into an .html file under the public temp directory and returns the bare file name.
+Signals HHUB-EXTERNAL-COMMAND-FAILED when there is no URL to fetch, when wget exits non-zero, or
+when it leaves nothing behind."
+  (when (or (null url) (string= url ""))
+    (error 'hhub-external-command-failed :command "wget" :exit-code nil
+	   :reason "no URL to download"))
   (let* ((filename (format nil "download~A.html" (get-universal-time)))
 	 (filepath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* filename))
-	 (command (format nil "wget -O ~A ~A" filepath url)))
-    (sb-ext:run-program "/bin/sh" (list "-c" command) :input nil :output *standard-output*)
+	 (command (format nil "wget -O ~A ~A"
+			  (shell-single-quote filepath) (shell-single-quote url))))
+    (run-external-command command)
+    (let ((size (and (probe-file filepath)
+		     (with-open-file (stream filepath :element-type '(unsigned-byte 8))
+		       (file-length stream)))))
+      (when (or (null size) (zerop size))
+	(error 'hhub-external-command-failed :command command :exit-code 0
+	       :reason "wget left no HTML behind")))
     filename))
 
 (defun inr-to-words-anusthup (amount crore lakh)

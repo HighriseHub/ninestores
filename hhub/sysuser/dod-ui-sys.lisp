@@ -1146,6 +1146,9 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaymentpage"   'com-hhub-transaction-show-invoice-payment-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/vinvoicepaidaction"   'com-hhub-transaction-invoice-paid-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/displayinvoicepublic"   'com-hhub-transaction-display-invoice-public)
+	;; These patterns are unanchored prefixes matched in list order, so ^/hhub/downloadinvoice
+	;; would swallow this route and demand a vendor session of the customer. Keep it above.
+	(hunchentoot:create-regex-dispatcher "^/hhub/publicinvoicepdf"   'com-hhub-transaction-invoice-public-pdf)
 	(hunchentoot:create-regex-dispatcher "^/hhub/displayinvoiceemail"   'com-hhub-transaction-edit-invoice-email)
 	(hunchentoot:create-regex-dispatcher "^/hhub/invoicemailaction"   'com-hhub-transaction-send-invoice-email)
 	(hunchentoot:create-regex-dispatcher "^/hhub/downloadinvoice"   'com-hhub-transaction-download-invoice)
