@@ -184,7 +184,8 @@
 
 ;; NINE STORES ACTOR MODEL
 (defvar  *NSTSENDORDEREMAILACTOR* NIL)
-(defvar *NSTAWSS3FILEUPLOADACTOR* NIL)
+;; shared actor for every already rendered email : see send-email-async
+(defvar *NSTGENERICEMAILACTOR* NIL)
 (defvar *NSTAWSS3FILEDELETEACTOR* NIL)
 ;; NINE STORE OTP store
 (defvar *otp-store* nil)

@@ -457,6 +457,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
       (list widget1 widget2 widget3 widget4))))
 
 (defun async-upload-files-s3bucket-behavior (state messagefunc)
+  :documentation "Actor behavior for the bulk S3 uploads. STATE is what the actor was created with (a hash table), so the counters are kept in it and the state is handed back to the actor - incrementing the state itself would signal a type error and kill the actor thread."
   (multiple-value-bind (product images objectname object-id vendor) (funcall messagefunc) 
     (let* ((vendor-id (slot-value vendor 'row-id))
 	  (tenant-id (slot-value vendor 'tenant-id))
@@ -472,7 +473,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	(setf (slot-value product 'prd-image-path) (write-to-string uploadedfiles :readably t))
 	;; update the database with the new file upload paths.
 	(update-prd-details  product))
-      (incf state))))
+      (setf (gethash :last-uploaded-files state) uploadedfiles)
+      (incf (gethash :uploads-processed state 0))
+      state)))
 
 (defun async-upload-files-s3bucket (images objectname object-id vendor)
   (let ((vendor-id (slot-value vendor 'row-id))

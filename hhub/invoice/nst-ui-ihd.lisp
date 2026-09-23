@@ -521,9 +521,8 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (subject (hunchentoot:parameter "draftinvoicesubject"))
 	 (emailbody (hunchentoot:parameter "draftinvoiceemailbody"))
 	 (redirecturl (format nil "/hhub/editinvoicepage?invnum=~A" sessioninvkey)))
-    (sb-thread:make-thread
-     (lambda ()
-       (hhubsendmail to subject emailbody)) :name "Invoice Email Thread")
+    ;; the send runs on the shared email actor : the request redirects without waiting for SMTP
+    (send-email-async to subject emailbody)
     (function (lambda ()
       (values redirecturl)))))
 

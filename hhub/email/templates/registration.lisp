@@ -114,13 +114,13 @@
   (let* ((password-reset-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-PASSWORD-RESET-FILE* )))
 	 (email (slot-value object 'email))
 	 (password-reset-email (format nil password-reset-str url url)))
-  (hhubsendmail email  "Your Password Reset Link" password-reset-email)))
+  (send-email-async email  "Your Password Reset Link" password-reset-email)))
 
 (defun send-temp-password  (object temp-pass url)
   (let* ((temp-password-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-TEMP-PASSWORD-FILE* )))
 	 (email (slot-value object 'email))
 	 (temp-password-email (format nil temp-password-str temp-pass url ))) 
-  (hhubsendmail email  "Your Password Has Been Reset" temp-password-email)))
+  (send-email-async email  "Your Password Has Been Reset" temp-password-email)))
 
 
 (defun send-new-company-registration-email  (object custname phone email )
@@ -134,27 +134,25 @@
 	 (cmpwebsite (slot-value object 'website))
 	 (cmptype (slot-value object 'cmp-type))
 	 (temp-str-email (format nil temp-str custname phone email cmpname cmpaddress cmpcity cmpstate cmpzipcode cmpcountry cmpwebsite cmptype )))
-  (hhubsendmail *HHUBSUPPORTEMAIL*  "Nine Stores - New company registration request" temp-str-email)))
+  (send-email-async *HHUBSUPPORTEMAIL*  "Nine Stores - New company registration request" temp-str-email)))
 
 (defun send-contactus-email (firstname lastname businessname email subject message)
   :documentation "Send the email with data filled from the contact us form"
 (let* ((temp-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER*  *HHUB-CONTACTUS-EMAIL-TEMPLATE* )))
       (temp-str-email (format nil temp-str firstname lastname businessname email message)))
-  (hhubsendmail *HHUBSUPPORTEMAIL* subject temp-str-email)))
+  (send-email-async *HHUBSUPPORTEMAIL* subject temp-str-email)))
 
   
 (defun send-registration-email (name email)
   (let* ((reg-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-REG-TEMPLATE-FILE*)))
 	 (cust-reg-email (format nil reg-templ-str name)))
-    (hhubsendmail email "Welcome to Nine Stores" cust-reg-email)))
+    (send-email-async email "Welcome to Nine Stores" cust-reg-email)))
 
 (defun send-order-mail (email subject  order-disp-str)
-  :documentation "Here we are using the cl-async library to asynchronously send the email"
+  :documentation "Renders the guest order email and hands it to the shared email actor, so the calling request does not wait for SMTP."
   (let* ((order-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*)))
 	 (cust-order-email (format nil order-templ-str order-disp-str)))
-    (sb-thread:make-thread
-     (lambda ()
-       (hhubsendmail email subject cust-order-email)) :name "Order email thread")))
+    (send-email-async email subject cust-order-email)))
 
 
 (defun send-order-email-behavior (state messagefunc)
@@ -163,6 +161,21 @@
 	   (cust-order-email (format nil order-email-templ order-disp-str)))
       (hhubsendmail email subject cust-order-email)
       (incf state))))
+
+
+(defun send-generic-email-behavior (state messagefunc)
+  :documentation "Actor behaviour that sends an already rendered email : the message returns (values to subject body)."
+  (multiple-value-bind (to subject body) (funcall messagefunc)
+    (hhubsendmail to subject body)
+    (incf state)))
+
+
+(defun send-email-async (to subject body)
+  :documentation "Queues an email on the shared email actor instead of blocking the calling request thread on the SMTP round trip. Returns T when the actor accepted the message. A send that fails is retried by the actor and then dead lettered, so a mail outage shows up in the log instead of in the caller's stack."
+  (if *NSTGENERICEMAILACTOR*
+      (send-message *NSTGENERICEMAILACTOR* (lambda () (values to subject body)))
+      ;;else the actor is not up (early startup, tests) : send it inline rather than lose it
+      (progn (hhubsendmail to subject body) t)))
 
 
 
