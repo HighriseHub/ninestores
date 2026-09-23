@@ -515,14 +515,37 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
   (with-vend-session-check
     (with-mvc-redirect-ui #'create-model-for-sendinvoiceemail #'create-widgets-for-genericredirect)))
 
+(defun invoice-pdf-attachment (sessioninvkey)
+  :description "Builds the invoice PDF for the email attachment and returns it as a one-element attachment list. Rendered from the invoice's own public page, the same way the vendor download does, so the attachment the customer receives and the page they can open are the same document. Signals a business error when the PDF cannot be produced : a mail the vendor asked to carry an invoice must not go out without one."
+  (handler-case
+      (let* ((sessioninvoices-ht (hunchentoot:session-value :session-invoices-ht))
+	     (sessioninvoice (gethash sessioninvkey sessioninvoices-ht))
+	     (sessioninvheader (slot-value sessioninvoice 'InvoiceHeader))
+	     (invnum (slot-value sessioninvheader 'invnum))
+	     (external-url (generate-invoice-ext-url invnum (get-login-vendor) (get-login-vendor-company)))
+	     (htmlfile (downloadhtmlfile external-url))
+	     (pdfpath (format nil "~A/temp/~A" *HHUBRESOURCESDIR* (generatepdf htmlfile invnum))))
+	;; make-attachment rather than the bare pathname: generatepdf names the file
+	;; <invnum><universal-time>.pdf, and that is not a name to send a customer.
+	(list (cl-smtp:make-attachment pdfpath :name (format nil "Invoice-~A.pdf" invnum))))
+    (hhub-external-command-failed (condition)
+      (hhub-log-message (format nil "invoice email attachment for session invoice ~A failed: ~A~%"
+				sessioninvkey condition))
+      (error 'hhub-business-function-error
+	     :errstring (format nil "The invoice PDF could not be generated, so the email was NOT sent: ~A"
+				condition)))))
+
 (defun create-model-for-sendinvoiceemail ()
   (let* ((sessioninvkey (hunchentoot:parameter "sessioninvkey"))
 	 (to (hunchentoot:parameter "invoiceto"))
 	 (subject (hunchentoot:parameter "draftinvoicesubject"))
 	 (emailbody (hunchentoot:parameter "draftinvoiceemailbody"))
+	 ;; the page's checkbox : jQuery .serialize() sends it only when it is ticked
+	 (attachinvoicepdf (hunchentoot:parameter "attachinvoicepdf"))
+	 (attachment (if attachinvoicepdf (invoice-pdf-attachment sessioninvkey) nil))
 	 (redirecturl (format nil "/hhub/editinvoicepage?invnum=~A" sessioninvkey)))
     ;; the send runs on the shared email actor : the request redirects without waiting for SMTP
-    (send-email-async to subject emailbody)
+    (send-email-async to subject emailbody attachment)
     (function (lambda ()
       (values redirecturl)))))
 
@@ -615,6 +638,13 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 					       (:div :class "form-group"
 						     (:label "By clicking submit, you consent to allow Nine Stores to store and process the personal information submitted above to provide you the content requested. We will not share your information with other companies."))
 					       (:div :class "form-group"
+						     (:div :class "form-check"
+							   ;; ticked by default : the customer should get their
+							   ;; invoice unless the vendor deliberately unticks it,
+							   ;; and the public page carries a download button anyway.
+							   (:input :class "form-check-input" :type "checkbox" :name "attachinvoicepdf" :id "idattachinvoicepdf" :value "true" :checked "checked")
+							   (:label :class "form-check-label" :for "idattachinvoicepdf" "Attach the invoice PDF")))
+					       (:div :class "form-group"
 						     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Send"))))))))
 		       (:div  :class "hhub-footer" (hhub-html-page-footer)))))))
     (list widget1))))
@@ -658,19 +688,60 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (invoicetaxbreakdownfunc (render-tax-summary-html tax-breakdown))
 	 (totalvalue (calculate-invoice-totalaftertax invoiceitems))
 	 (currency (get-account-currency company))
-	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" invnum totalvalue))))
+	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" invnum totalvalue)))
+	 ;; The key is passed straight back, exactly as this page received it, so the download
+	 ;; route decodes the same value this model just decoded. Nothing is re-derived here.
+	 (downloadurl (format nil "/hhub/publicinvoicepdf?key=~A" parambase64)))
     (setf invoicetemplate (remove-invoice-item-markers-from-template invoicetemplate))
     (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader invoiceitems invoiceitemshtmlfunc invoicetaxbreakdownfunc qrcodepath currency vendor)))
     (function (lambda ()
-      (values  invoicetemplate)))))
+      (values  invoicetemplate downloadurl)))))
 
 (defun create-widgets-for-displayinvoicepublic (modelfunc)
-  (multiple-value-bind ( invoicetemplate) (funcall modelfunc)
+  (multiple-value-bind ( invoicetemplate downloadurl) (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		      (cl-who:with-html-output (*standard-output* nil)
+			;; The customer's own copy. The vendor may or may not have attached it to
+			;; the email they received, so the page always offers one.
+			(:div :class "text-end mb-2"
+			      (:a :class "btn btn-primary" :href downloadurl
+				  (:i :class "fa-solid fa-file-arrow-down")
+				  " Download Invoice PDF"))
 			(:hr :style "border-top: 2px dashed gray;")
 			(cl-who:str invoicetemplate))))))
       (list widget1))))
+
+;; ── The customer's copy of the PDF ──────────────────────────────────────────
+;; Public twin of the vendor's create-model-for-downloadinvoice. A customer has no vendor session,
+;; so the invoice is identified by the same base64 key the public page carries, and the PDF is
+;; rendered when the button is actually clicked rather than on every page view.
+;;
+;; The route is /hhub/publicinvoicepdf and NOT /hhub/downloadinvoicepublic on purpose : the
+;; dispatchers are matched in the order they appear in hunchentoot:*dispatch-table*, and the
+;; existing ^/hhub/downloadinvoice pattern is an unanchored prefix, so a customer hitting
+;; /hhub/downloadinvoicepublic would be caught by the VENDOR route first and bounced to the vendor
+;; login. /hhub/publicinvoicepdf collides with none of the 250 registered patterns.
+(defun create-model-for-invoice-public-pdf-url ()
+  :description "Renders the public invoice page to a PDF and returns its URL. Signals when the render fails."
+  (let* ((parambase64 (hunchentoot:parameter "key"))
+	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
+	 (paramslist (first (cl-csv:read-csv param-csv
+					     :skip-first-p T
+					     :map-fn #'(lambda (row)
+							 row))))
+	 (tenant-id (nth 0 paramslist))
+	 (invnum (nth 1 paramslist))
+	 (vendor-id (nth 2 paramslist))
+	 (vendor (select-vendor-by-id vendor-id))
+	 (company (select-company-by-id tenant-id))
+	 (external-url (generate-invoice-ext-url invnum vendor company))
+	 (htmlfile (downloadhtmlfile external-url))
+	 (pdffileurl (format nil "~A/img/temp/~A" *siteurl* (generatepdf htmlfile invnum))))
+    pdffileurl))
+
+(defun com-hhub-transaction-invoice-public-pdf ()
+  :description "Serves the invoice PDF to a customer reading the public invoice page. No session check : the key is the authorisation, the same as the page itself."
+  (hunchentoot:redirect (create-model-for-invoice-public-pdf-url)))
 
 (defun invoicetemplatefill (invoicetemplate invheader invoiceitems invoiceitemshtmlfunc  invoicetaxbreakdownfunc qrcodepath currency vendor) 
   (function (lambda ()

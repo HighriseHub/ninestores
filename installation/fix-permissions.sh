@@ -29,6 +29,9 @@
 #   3. setgid on every directory, so anything created later inherits `hhubgrp`
 #      automatically and this never has to be run for that reason again.
 #
+# `.git` is deliberately left alone at EVERY step: it belongs to `ubuntu` alone and is not
+# part of the shared tree, so this script must never re-group, re-mode or re-setgid it.
+#
 # FASL CREATION, specifically: SBCL/ASDF writes .fasl files into the SOURCE
 # directory and compilation logs into hhub/logs/. That needs write AND execute on
 # the DIRECTORY, not execute on the .lisp file. Step 2 gives both.
@@ -101,48 +104,47 @@ echo "reports 'no changes' at every step, which is the expected healthy result."
 echo
 
 echo "[1/4] setting group $GROUP ..."
-chgrp -R -c "$GROUP" "$TREE" > "$CHANGES_DIR/chgrp" 2>&1
+find "$TREE" -name .git -prune -o -exec chgrp -c "$GROUP" {} + > "$CHANGES_DIR/chgrp" 2>&1
 report 1 "group" "$CHANGES_DIR/chgrp"
 
 echo "[2/4] g+rwX on files and directories ..."
 # g+rwX: add group read+write everywhere, and group execute only on directories
-# and on files that already have an execute bit. Excludes nothing — .git is part
-# of the shared tree and benefits from the same treatment.
-chmod -R -c g+rwX "$TREE" > "$CHANGES_DIR/chmod" 2>&1
+# and on files that already have an execute bit. .git is pruned: it is ubuntu's
+# alone and is deliberately NOT part of the shared tree.
+find "$TREE" -name .git -prune -o -exec chmod -c g+rwX {} + > "$CHANGES_DIR/chmod" 2>&1
 report 2 "g+rwX" "$CHANGES_DIR/chmod"
 
 echo "[3/4] setgid on directories (so future files inherit $GROUP) ..."
-# -prune on .git is deliberately NOT used here: the repo's own metadata should
-# inherit the group too.
-find "$TREE" -type d -exec chmod -c g+s {} + > "$CHANGES_DIR/setgid" 2>&1
+# .git is pruned here too, for the same reason as step 2.
+find "$TREE" -name .git -prune -o -type d -exec chmod -c g+s {} + > "$CHANGES_DIR/setgid" 2>&1
 report 3 "setgid on directories" "$CHANGES_DIR/setgid"
 
 echo "[4/4] verifying ..."
 fail=0
 
-missing_dir_rwx="$(find "$TREE" -type d ! -perm -g+rwx -print)"
+missing_dir_rwx="$(find "$TREE" -name .git -prune -o -type d ! -perm -g+rwx -print)"
 if [ -n "$missing_dir_rwx" ]; then
   echo "  DIRS still missing g+rwx:"; echo "$missing_dir_rwx" | sed 's/^/    /'; fail=1
 fi
 
-missing_file_rw="$(find "$TREE" -type f ! -perm -g+rw -print)"
+missing_file_rw="$(find "$TREE" -name .git -prune -o -type f ! -perm -g+rw -print)"
 if [ -n "$missing_file_rw" ]; then
   echo "  FILES still missing g+rw:"; echo "$missing_file_rw" | sed 's/^/    /'; fail=1
 fi
 
-wrong_group="$(find "$TREE" ! -group "$GROUP" -print)"
+wrong_group="$(find "$TREE" -name .git -prune -o ! -group "$GROUP" -print)"
 if [ -n "$wrong_group" ]; then
   echo "  ENTRIES not in group $GROUP:"; echo "$wrong_group" | sed 's/^/    /'; fail=1
 fi
 
-nosetgid="$(find "$TREE" -type d ! -perm -g+s -print)"
+nosetgid="$(find "$TREE" -name .git -prune -o -type d ! -perm -g+s -print)"
 if [ -n "$nosetgid" ]; then
   echo "  DIRS without setgid:"; echo "$nosetgid" | sed 's/^/    /'; fail=1
 fi
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "  verification: every entry is $GROUP with g+rwX, and every directory is setgid."
+  echo "  verification: every entry outside .git is $GROUP with g+rwX, and every directory is setgid."
 else
   echo "  verification: INCOMPLETE — see the lists above." >&2
 fi
