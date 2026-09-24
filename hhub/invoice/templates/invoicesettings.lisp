@@ -7,30 +7,6 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
 (in-package :nstores)
 
-(defparameter *invoice-settings-alist*
-  '((invoice-print-settings.default-paper-size . "A4")
-    (invoice-print-settings.orientation . "portrait")
-    (invoice-print-settings.font-size . 12)
-    (invoice-print-settings.margin.top . "1cm")
-    (invoice-print-settings.margin.bottom . "1cm")
-    (invoice-print-settings.margin.left . "1cm")
-    (invoice-print-settings.margin.right . "1cm")
-    (invoice-print-settings.header.enable . t)
-    (invoice-print-settings.header.text . "Company Name - Invoice")
-    (invoice-print-settings.header.logo-path . "/assets/logo.png")
-    (invoice-print-settings.footer.enable . t)
-    (invoice-print-settings.footer.text . "Thank you for your business!")
-    (invoice-print-settings.watermark.enable . nil)
-    (invoice-print-settings.watermark.text . "")
-    (invoice-general-settings.invoice-number-format . "INV-YYYY-MM-{counter}")
-    (invoice-general-settings.default-currency . "USD")
-    (invoice-general-settings.date-format . "MM/DD/YYYY")
-    (invoice-general-settings.time-zone . "America/New_York")
-    (invoice-general-settings.enable-terms-and-conditions . t)
-    (invoice-general-settings.default-terms-and-conditions . "All sales are final. No refunds.")
-    (invoice-general-settings.enable-discounts . t)
-    (invoice-general-settings.default-discount-rate . 5)))
-
 (defparameter *invoice-settings*
   '((invoice-print-settings
       (default-paper-size "A4")

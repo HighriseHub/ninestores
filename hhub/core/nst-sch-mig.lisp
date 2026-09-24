@@ -77,6 +77,7 @@
     ("20092026-insert-product-status-policy"   migrate-2026Sep-insert-product-status-policy-and-transaction   "Insert the ABAC policy + transaction seed row for the product STATUS endpoint (Turn On / Turn Off). A third version for the same reason as the second: 20092026-insert-product-pricing-policies was already applied, so this cannot join it. 37 chars, because VERSION is varchar(50).")
     ("20092026-insert-product-copy-policy"   migrate-2026Sep-insert-product-copy-policy-and-transaction   "Insert the ABAC policy + transaction seed row for the product COPY endpoint. A fourth version: the status one was applied at 19:17:15 today, so it can no longer be appended to. 35 chars, because VERSION is varchar(50).")
     ("20092026-insert-product-bulk-policies"   migrate-2026Sep-insert-product-bulk-policies-and-transactions   "Insert the ABAC policy + transaction seed rows for the bulk products.csv PAIR (template download + upload). A fifth version, and the clearest argument for the one-migration-per-day cadence in the ABAC skill 13.1: every earlier version was applied before this endpoint existed. 45 chars, because VERSION is varchar(50).")
+    ("23092026-backfill-vendor-invoice-settings"   migrate-2026Sep-backfill-vendor-invoice-settings   "Seed DOD_VEND_PROFILE.INVOICE_SETTINGS with the default invoice settings for the vendors that have none (10 NULL rows and 4 holding the clsql void value). 41 chars, because VERSION is varchar(50).")
     ))
 
 
