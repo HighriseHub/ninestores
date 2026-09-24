@@ -52,6 +52,7 @@ something is wrong; enter by index when you are exploring.**
 | a file you cannot write to; the two-account/one-group model | `knowledge/permissions-CONTEXT.md` |
 | the प्रत्यय / ferry / नियम architecture itself; a new entity | `knowledge/WAREHOUSE-NST-GRAMMAR-CONTEXT.md`, `knowledge/nst-bl-conflodis2-DESIGN.md` |
 | an email or notification the request waits on · a background job to write (email, SMS/WhatsApp, S3, webhook) · an actor that stopped processing, dropped messages, retried or dead-lettered · a caller blocked while an actor is working | `knowledge/nst-bl-act-CONTEXT.md` |
+| asked for a GSTR-1 JSON export, ITC figures or GSTR-2B reconciliation · **"the ITC dashboard says zero"** although the invoices are ITC-eligible · a GST compliance table you expected to be populated is empty · adding a CA/accountant who files on a customer's or vendor's behalf | `knowledge/gst-gstr-compliance-CONTEXT.md` |
 
 ## Index — `knowledge/` (for keeping)
 
@@ -71,6 +72,7 @@ Durable mechanism knowledge. Not tied to a feature; corrected in place, never re
 | [nst-bl-conflodis2-DESIGN.md](knowledge/nst-bl-conflodis2-DESIGN.md) | **The conflodis2 design authority** — Tier-2/3 route verbs, the ferry signatures, multi-entity assembly and the कारक. Cited by name in the headers of `nst-bl-conflodis2.lisp`, `nst-bl-apidefs2.lisp`, `nst-bl-whsapi.lisp` and `nst-bl-prdapi.lisp`. Note the `-DESIGN.md` suffix: it predates this directory's `-CONTEXT.md` convention and was kept so those citations stay recognisable. | undated |
 | [WAREHOUSE-NST-GRAMMAR-CONTEXT.md](knowledge/WAREHOUSE-NST-GRAMMAR-CONTEXT.md) | **Authoritative architecture reference.** The Paninian grammar: `domain-ctx`, the प्रत्यय verbs, the ferry (लोप), नियम, and `nst-whs` as the first grammar-based entity. The legacy DDD stack is deprecated — do not extend it. | undated |
 | [nst-bl-act-CONTEXT.md](knowledge/nst-bl-act-CONTEXT.md) | The actor model: the six invariants (producer never blocked, FIFO, contained failures, bounded mailbox, cooperative shutdown, ask/reply), the API and policy variables, how to write an idempotent behaviour, retries + dead letters + supervision, the status report and symptom→counter table, and the ten measured traps — including the lock-across-behaviour bug that made every "async" email block its caller (751 ms → 0 ms). Also states plainly what is **not** on actors and why. | 2026-09-23 |
+| [gst-gstr-compliance-CONTEXT.md](knowledge/gst-gstr-compliance-CONTEXT.md) | The GST/GSTR surface: **the schema is already migrated and live while every GST feature table is empty** — GSTR-1 exports, the ITC lifecycle, GSTR-2B reconciliation, vendor filing status, buyer-vendor ITC-at-risk, the inbound-invoice view and its register/ITC classes. Eight verified traps (`ITC_AMOUNT` NULL on every row, the commented-out ITC summary, `HSNCODE`-not-`HSN_CODE`, the B2B-only view, two competing legal-name columns, no cess columns, no CA role, and mistaking schema presence for wiredness), five gating decisions, the six-slice plan, and the SQL recipe to re-verify it all. | 2026-09-23 |
 
 
 ## Index — the cyclic buffer (active features)
@@ -96,6 +98,13 @@ that is recorded here rather than silently corrected — **the older snapshot is
 evidence of what was true then**, which is why a stale claim gets an entry here and
 never a quiet rewrite.
 
+- **`nst-bl-vaisettings-CONTEXT.md` §356 and §367** refer to `*invoice-settings-alist*`
+  in `hhub/invoice/templates/invoicesettings.lisp`. **That defparameter was deleted on
+  2026-09-23** — it was dead code: the definition was its only occurrence in the tree and
+  no compiled file referenced the symbol. `*invoice-settings*` (now at `:10`) is the only
+  invoice settings alist, and it is what the vendor migration
+  (`installation/upgrades/nst-dbu-invoicesettings.lisp`) seeds `DOD_VEND_PROFILE.INVOICE_SETTINGS`
+  from. The two references above are left in place as the snapshot they are.
 - **`nst-bl-prdapi-CONTEXT.md` §7.4** lists `update-shipping` and `update-pricing`
   among seven unbound endpoints. **Both are now bound** and both were exercised for
   the first time on 2026-09-20 (`--write`, 34/34). See
