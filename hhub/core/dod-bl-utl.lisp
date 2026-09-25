@@ -848,8 +848,183 @@ corresponding universal time."
     (ironclad:decrypt-in-place cipher msg)
     (coerce (mapcar #'code-char (coerce msg 'list)) 'string)))
 
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; PASSWORD STORAGE — argon2id, with the legacy Blowfish value still readable
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;;
+;;; WHY THE OLD PAIR WAS REPLACED. encrypt/get-cipher above build BLOWFISH IN
+;;; ECB, whose block is 8 bytes, and ironclad:encrypt-message processes WHOLE
+;;; BLOCKS ONLY — any trailing partial block is silently DISCARDED. check-password
+;;; then compared that one block. Measured 2026-09-25 against a live row: encrypt
+;;; of an 8-byte and of a 9-byte plaintext are IDENTICAL, and Welcome1, Welcome12,
+;;; Welcome1$ and Welcome1$$ all authenticated, while Welcome (7 bytes) encrypted
+;;; to the empty string and could never match at all. So the effective credential
+;;; was its first 8 BYTES: everything after that was ignored, any password shorter
+;;; than 8 bytes was unusable, and ECB with no IV meant equal 8-byte prefixes
+;;; produced equal stored values.
+;;;
+;;; THE REPLACEMENT IS ARGON2ID AT THE OWASP MINIMUM: memory 19456 KiB (19 MiB),
+;;; iterations 2, parallelism 1. Ironclad's argon2 exposes no lanes parameter, so
+;;; p is 1 by construction. Ironclad counts memory in 128-byte blocks, which is
+;;; what password-hash-block-count converts.
+;;;
+;;; 🚨 MEASURED COST: ~3.2 SECONDS PER DERIVATION on this host, because ironclad's
+;;; Argon2 is pure Lisp rather than a native library. That is the honest price of
+;;; the OWASP minimum here and it lands on EVERY login. It is not a reason to go
+;;; below the minimum — that would be a non-compliant scheme wearing a compliant
+;;; name. If 3.2 s is unacceptable the correct move is bcrypt at work factor >= 10
+;;; (OWASP's third choice, also available), NOT a reduced argon2. Tune ONLY in the
+;;; parameter list below.
+;;;
+;;; THE SALT COLUMN IS STILL THE SALT. Every row already carries a unique per-user
+;;; salt, so the hash does not embed one — which is what lets check-password keep
+;;; its (plaintext salt ciphertext) signature and every caller stay unchanged.
+;;;
+;;; LEGACY VALUES KEEP WORKING. A legacy stored value is exactly 16 hex
+;;; characters; a current one begins "argon2id$". NOTHING ELSE IS ACCEPTED — an
+;;; unrecognised format returns NIL instead of falling through to a weaker check,
+;;; because a verification path that guesses is worse than one that refuses.
+;;; Note the legacy branch is still subject to the 8-byte truncation for the
+;;; values already stored; only rehashing escapes it, which is what
+;;; password-hash-needs-upgrade-p exists to drive.
+
+(defparameter *password-hash-format* "argon2id"
+  "The scheme tag that begins a CURRENT stored value. Bumping it is how a future
+   scheme change stays readable: an old value keeps verifying because it carries
+   its own tag and its own parameters.")
+
+(defparameter *password-hash-memory-kib* 19456
+  "Argon2id memory in KiB. 19456 = 19 MiB, the OWASP minimum. Raising it is the
+   cheapest way to buy strength; lowering it is not.")
+
+(defparameter *password-hash-iterations* 2
+  "Argon2id time cost. OWASP's minimum is 2.")
+
+(defparameter *password-hash-arity* 1
+  "Argon2id parallelism. Recorded in the stored value for the record: ironclad's
+   argon2 has no lanes parameter, so this is 1 by construction and cannot be
+   raised without changing library.")
+
+(defparameter *password-hash-key-bytes* 32
+  "Derived-key length. 32 bytes is the argon2id recommendation and base64s to 44
+   characters, which keeps the whole stored value at 63 — inside the varchar(100)
+   PASSWORD columns on DOD_VEND_PROFILE and DOD_USERS.")
+
+(defun password-hash-block-count ()
+  "The argon2id memory cost in ironclad's units: 128-byte blocks."
+  (/ (* *password-hash-memory-kib* 1024) 128))
+
+(defun password-hash-derive (plaintext salt memory-kib iterations key-bytes)
+  "PLAINTEXT under SALT -> the raw derived key, at the SUPPLIED parameters."
+  (ironclad:derive-key
+   (ironclad:make-kdf :argon2id :block-count (/ (* memory-kib 1024) 128))
+   (sb-ext:string-to-octets (or plaintext "") :external-format :utf-8)
+   (sb-ext:string-to-octets salt :external-format :utf-8)
+   iterations key-bytes))
+
+(defun hash-password (plaintext salt)
+  "PLAINTEXT under SALT -> the stored value: argon2id$<memory>$<iterations>$<arity>$<b64 key>.
+
+   A DROP-IN REPLACEMENT FOR (encrypt password salt) at every write site: same
+   two arguments, same slot, and it fits the same column. The salt is REQUIRED —
+   a nil or empty salt would hash under a shared default, which is the one way to
+   make per-row salts worthless, so it signals rather than proceeding."
+  (when (or (null salt) (not (stringp salt)) (zerop (length salt)))
+    (error "hash-password: a non-empty per-user salt is required (got ~S); hashing without one would defeat the per-row salt entirely." salt))
+  (format nil "~A$~D$~D$~D$~A"
+          *password-hash-format* *password-hash-memory-kib* *password-hash-iterations*
+          *password-hash-arity*
+          (cl-base64:usb8-array-to-base64-string
+           (password-hash-derive plaintext salt *password-hash-memory-kib*
+                                 *password-hash-iterations* *password-hash-key-bytes*))))
+
+(defun password-hash-p (stored)
+  "True when STORED is a CURRENT-format value — the tag, then four fields."
+  (and (stringp stored)
+       (> (length stored) 0)
+       (let ((tag (concatenate 'string *password-hash-format* "$")))
+         (and (>= (length stored) (length tag))
+              (string= tag stored :end1 (length tag) :end2 (length tag))))))
+
+(defun password-hash-legacy-p (stored)
+  "True when STORED is a LEGACY value: exactly 16 hexadecimal characters, which
+   is what one 8-byte Blowfish block prints as. Case-insensitive because the
+   writer used byte-array-to-hex-string (lower) and a hand-typed value may not."
+  (and (stringp stored)
+       (= (length stored) 16)
+       (every (lambda (c) (digit-char-p c 16)) stored)))
+
+(defun constant-time-string= (a b)
+  "Compare two strings without an early exit on the first difference. A password
+   comparison that returns as soon as it knows leaks how much of the answer was
+   right; the cost of avoiding that is one full pass over a 44-character string."
+  (and (stringp a) (stringp b) (= (length a) (length b))
+       (let ((diff 0))
+         (dotimes (i (length a) (zerop diff))
+           (setf diff (logior diff (logxor (char-code (char a i))
+                                           (char-code (char b i)))))))))
+
+(defun password-hash-verify (plaintext salt stored)
+  "Verify PLAINTEXT against a CURRENT stored value.
+
+   THE STORED PARAMETERS ARE USED, NOT TODAY'S CONSTANTS. That is the entire
+   reason they are embedded: raising *password-hash-memory-kib* must not
+   invalidate every existing row, and a value written under the old settings must
+   keep verifying until password-hash-needs-upgrade-p gets it rehashed."
+  (let ((parts (cl-ppcre:split "\\$" stored)))
+    (if (/= (length parts) 5)
+        nil
+        (destructuring-bind (tag memory iterations arity encoded) parts
+          (declare (ignore arity))
+          (and (string= tag *password-hash-format*)
+               (every #'digit-char-p memory)
+               (every #'digit-char-p iterations)
+               (handler-case
+                   (let ((expected (cl-base64:usb8-array-to-base64-string
+                                    (password-hash-derive plaintext salt
+                                                          (parse-integer memory)
+                                                          (parse-integer iterations)
+                                                          *password-hash-key-bytes*))))
+                     (constant-time-string= expected encoded))
+                 ;; A corrupt or hostile value must be a failed login, never a 500:
+                 ;; the database is the wrong place to trust arithmetic on.
+                 (error () nil)))))))
+
+(defun password-hash-needs-upgrade-p (stored)
+  "True when STORED should be rehashed on the next successful verification: a
+   legacy Blowfish row, a value whose scheme tag is no longer current, or a value
+   written under DIFFERENT PARAMETERS than the constants below.
+
+   THE PARAMETER CHECK IS THE POINT of embedding them. Raising
+   *password-hash-memory-kib* is the recommended way to keep up with hardware, and
+   without this comparison every existing row would keep verifying under the old
+   cost forever — a silent failure to upgrade that looks like a working system. An
+   earlier version of this function tested only the tag and answered NIL for a
+   4096/3 value, which is exactly the drift it was written to catch."
+  (if (not (password-hash-p stored))
+      t
+      (let ((parts (cl-ppcre:split "\\$" stored)))
+        (if (/= (length parts) 5)
+            t
+            (destructuring-bind (tag memory iterations arity encoded) parts
+              (declare (ignore encoded))
+              (or (not (string= tag *password-hash-format*))
+                  (not (equal memory (princ-to-string *password-hash-memory-kib*)))
+                  (not (equal iterations (princ-to-string *password-hash-iterations*)))
+                  (not (equal arity (princ-to-string *password-hash-arity*)))))))))
+
 (defun check-password (plaintext salt ciphertext)
-  (if (equal (encrypt plaintext salt) ciphertext) T NIL)) 
+  "Verify PLAINTEXT against CIPHERTEXT under SALT, accepting BOTH stored formats:
+   the current argon2id value and the legacy Blowfish one.
+
+   THE FORMAT DECIDES THE CHECK, and an unrecognised format fails closed. There is
+   deliberately no fallthrough to the legacy comparison: that would mean any
+   malformed or truncated value silently gets verified by the weak path, which is
+   how a migration quietly becomes a downgrade."
+  (cond
+    ((password-hash-p ciphertext) (password-hash-verify plaintext salt ciphertext))
+    ((password-hash-legacy-p ciphertext) (equal (encrypt plaintext salt) ciphertext))
+    (t nil)))
 
 
 

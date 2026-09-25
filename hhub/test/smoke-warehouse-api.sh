@@ -4,7 +4,7 @@
 #
 # The warehouse sibling of smoke-products-api.sh: same shape, same login, same
 # exit codes. Run it FROM A WORKSTATION (your Mac) — it uses
-# http://hunchentoot.local, the documented workstation entry point.
+# http://ninestores.local, the workstation entry point.
 #
 #   NS_PHONE=9999999990 NS_PASSWORD='…' ./smoke-warehouse-api.sh
 #   NS_PHONE=9999999990 NS_PASSWORD='…' ./smoke-warehouse-api.sh --write
@@ -64,7 +64,7 @@ set -uo pipefail
 #    cookies, and mixing User-Agents between login and request fails.
 
 # ── configuration ───────────────────────────────────────────────────────────
-BASE="${BASE:-http://hunchentoot.local}"
+BASE="${BASE:-http://ninestores.local}"
 PHONE="${NS_PHONE:-}"
 PASSWORD="${NS_PASSWORD:-}"
 
@@ -84,7 +84,7 @@ usage() {
 
 Options:
   --write            also run the mutating tests (creates a real warehouse row)
-  --base URL         override the base URL (default http://hunchentoot.local)
+  --base URL         override the base URL (default http://ninestores.local)
   -h, --help         this text
 
 Environment:

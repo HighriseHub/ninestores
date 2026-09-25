@@ -1,3 +1,6 @@
+**What's new (2026-09-24).** Vendors now choose the GST invoice template from a dropdown, and set the invoice logo plus the header and footer text.
+Invoice emails now carry the invoice PDF as an attachment.
+
 This repository contains the common lisp source code for E-Commerce Stores, Digital Marketplaces. You can create your own e-commerce SAAS application where you can host your customers. Your site will provide e-commerce store building capabilities for Individual Sellers/Social groups/Small communities who want to buy/sell goods and services. Some of the salient features of this project are as under. 
 There are two kinds of people involved in this marketplace. The Customers and Vendors. It has got all the features of e-commerce marketplace such as 
 

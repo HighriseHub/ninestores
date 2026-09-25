@@ -31,7 +31,7 @@
 
 set -uo pipefail
 
-BASE="${BASE:-http://hunchentoot.local}"
+BASE="${BASE:-http://ninestores.local}"
 PHONE="${NS_PHONE:-}"
 PASSWORD="${NS_PASSWORD:-}"
 

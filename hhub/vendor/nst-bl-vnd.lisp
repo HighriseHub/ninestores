@@ -1005,3 +1005,203 @@
    (cons "fyStartMonth"          (fy-start-month r))
    ;; MISC
    (cons "invoiceSettings"       (invoice-settings r))))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; The invoice-settings प्रत्यय — a STRUCTURE, not a set of columns
+;;;
+;;; !update already accepts :invoice-settings, because it is a declared initarg and
+;;; extract-domain-initargs forwards it. What it cannot do is say anything about the
+;;; VALUE: it assigns a TEXT column and moves on. That column holds a printed alist
+;;; of nested sections — 4,101 to 4,330 characters in the fifteen rows in the
+;;; database — and three readers parse it back with read-from-string, one of them
+;;; (nst-vendor-invoicesettings, nst-ui-ihd.lisp:209) with no listp guard, so a NULL
+;;; column — which the legacy ORM hands back as the 9 characters "undefined" —
+;;; becomes the SYMBOL UNDEFINED and the next assoc on it is a type error three
+;;; frames from the cause. That is a missing domain invariant, and this प्रत्यय is
+;;; where it belongs: the website, the API and a REPL caller all get it, because none
+;;; of them reaches the column without going through a verb.
+;;; ═══════════════════════════════════════════════════════════════════════════
+
+(define-condition vendor-settings-rejected (error)
+  ((why :initarg :why :reader vendor-settings-rejected-why))
+  (:report (lambda (condition stream)
+             (format stream "nst-vnd/invoice-settings: ~A This is a malformed request, not an unknown outcome; it must not be reported as 503."
+                     (vendor-settings-rejected-why condition)))))
+
+(defun vendor-settings-sections ()
+  "The section names a vendor's blob may carry, DERIVED from the shipped defaults
+   rather than restated, so a section added to *invoice-settings* is legal for a
+   vendor the moment it ships and this list cannot drift from the renderer."
+  (mapcar #'car *invoice-settings*))
+
+(defun vendor-settings-read (string)
+  "Parse the column's printed alist. *READ-EVAL* is NIL because the text comes from a
+   TEXT column: a stored #. reader macro would otherwise execute on read, and a
+   storage column is not a place to evaluate code from."
+  (when (string-equal (string-trim '(#\Space #\Tab #\Newline #\Return) string) "undefined")
+    (error 'vendor-settings-rejected
+           :why "the column holds the string \"undefined\", which is dod-vend-profile's void value for a NULL column, not a settings blob."))
+  (handler-case
+      (let ((*read-eval* nil)
+            (form (read-from-string string nil :eof)))
+        (if (eq form :eof)
+            (error 'vendor-settings-rejected :why "the column holds no readable Lisp form.")
+            form))
+    (vendor-settings-rejected (c) (error c))
+    (error (c) (error 'vendor-settings-rejected
+                      :why (format nil "the column does not hold a readable settings alist (~A)." c)))))
+
+(defun vendor-settings-key-designator-p (x)
+  "True when X can name a settings key — a symbol, a string or a character."
+  (or (symbolp x) (stringp x) (characterp x)))
+
+(defun vendor-settings-name->key (name)
+  "A settings key NAME — a string, a keyword, or a symbol — → the SYMBOL the readers
+   match on, interned in the package the shipped defaults live in.
+
+   WHY THE PACKAGE MATTERS, AND IT MATTERS ONLY FOR SECTIONS. nst-get-vendor-
+   invoiceprintsettings (nst-ui-ihd.lisp:163) looks the print section up with
+
+       (assoc 'invoice-print-settings settings :test #'equal)
+
+   — a strict EQUAL on the interned symbol — so a section key arriving as the keyword
+   :INVOICE-PRINT-SETTINGS is a DIFFERENT symbol, the lookup MISSES, and the very next
+   line silently falls through to the shipped defaults instead of signalling. That is
+   the dangerous shape of this bug: a JSON-written blob whose sections are keywords
+   does not error, it quietly reverts the vendor's configuration to the shipped one.
+
+   Entry keys need none of this: invoiceprintsettingentry matches on the hyphen-stripped
+   upper-case NAME and accepts any symbol, precisely because keys saved from the
+   settings page come back from JSON as hyphen-less keywords (:LOGOPATH)."
+  (intern (string-upcase (string name)) (find-package :nstores)))
+
+(defun vendor-settings-canonicalize-sections (settings)
+  "SETTINGS → the same alist with every TOP-LEVEL section key replaced by its canonical
+   symbol. NOTHING BELOW THE SECTION LEVEL IS TOUCHED, and that restraint is the point:
+
+     * only sections are looked up with a strict EQUAL, so only sections need a
+       canonical spelling (see vendor-settings-name->key);
+     * entries are matched on their hyphen-stripped name and already tolerate the
+       hyphen-less keywords a JSON body produces;
+     * the subtree is FREE-FORM, so no rule can safely rewrite it. The shipped defaults
+       prove it: default-tax carries
+
+           (tax-rates ((name "Sales Tax") (rate 8.5)) ((name "Service Tax") (rate 12.0)))
+
+       where every element is a cons, which is indistinguishable from a list of
+       key/value pairs. A first version of this function recursed on that test and
+       died calling STRING on the list (name \"Sales Tax\") — the seed data found it,
+       not a test.
+
+   A section whose car is not a key designator is passed through untouched so section
+   validation reports it by name instead of this dying on a type error."
+  (mapcar (lambda (section)
+            (if (and (consp section) (vendor-settings-key-designator-p (car section)))
+                (cons (vendor-settings-name->key (car section)) (cdr section))
+                section))
+          settings))
+
+(defun vendor-settings-canonical (raw)
+  "RAW → (values STORED-STRING PARSED). Accepts the string the column holds, or the
+   alist an internal caller has in hand, or a JSON-decoded settings OBJECT — the three
+   shapes a write can arrive as, so the verb has one contract instead of three.
+
+   A STRING IS VALIDATED BUT STORED UNCHANGED — it is the column's own spelling, and
+   re-printing it would rewrite formatting for nothing. A LIST HAS ITS SECTION KEYS
+   CANONICALISED first, which is what makes a JSON body acceptable: its section keys
+   arrive as keywords and would never match the readers' strict EQUAL (see
+   vendor-settings-name->key). An alist that is already canonical is unchanged by that,
+   so this is one rule, not two.
+
+   The printed form binds *package* to :keyword, fully qualifying the symbols: that is
+   the spelling migrate-2026Sep-backfill-vendor-invoice-settings writes, and the app's
+   own save path (nst-ui-ihd.lisp:245) does NOT bind the package and so may have
+   written bare symbols that only resolve inside com.nstores.app. New rows get the
+   portable form."
+  (cond
+    ((null raw)
+     (error 'vendor-settings-rejected :why "no :settings payload was supplied."))
+    ((stringp raw)
+     (values raw (vendor-settings-read raw)))
+    ((listp raw)
+     (let ((canonical (vendor-settings-canonicalize-sections raw)))
+       (values (let ((*package* (find-package :keyword)))
+                 (write-to-string canonical :readably t))
+               canonical)))
+    (t (error 'vendor-settings-rejected
+              :why (format nil ":settings must be a string or a list, not ~S." (type-of raw))))))
+
+(defun vendor-settings-validate (settings)
+  "The structure law: a LIST of (SECTION . ENTRIES), every SECTION a name the shipped
+   defaults already carry. Nothing deeper is checked — the entries are free-form by
+   design and the renderer walks them by name, so a validator that guessed each
+   section's inner shape would break the moment a section gained a field.
+
+   The rejection names the CLOSEST known section when the symbol is merely the wrong
+   one, because that is the failure a JSON caller actually hits: a keyword section
+   reads as \"not a shipped section\" and the real problem is that it is the RIGHT name
+   interned in the WRONG package."
+  (unless (listp settings)
+    (error 'vendor-settings-rejected
+           :why (format nil "the settings blob is ~S, not a list — a NULL column read back through the legacy ORM as the string \"undefined\" is the usual cause." settings)))
+  (let ((known (vendor-settings-sections)))
+    (dolist (section settings settings)
+      (unless (consp section)
+        (error 'vendor-settings-rejected
+               :why (format nil "~S is not a (section . entries) pair." section)))
+      (unless (member (car section) known :test #'eq)
+        (let ((namesake (find (symbol-name (car section)) known
+                              :key #'symbol-name :test #'string-equal)))
+          (error 'vendor-settings-rejected
+                 :why (format nil "~S is not one of the shipped sections (~{~A~^, ~}).~@[ Its NAME matches ~S, which is a different symbol: the readers look the section up with (assoc 'invoice-print-settings … :test #'equal), so that spelling would be silently ignored.~]"
+                              (car section) known namesake)))))))
+
+(defmethod !settings ((entity-class (eql 'nst-vnd)) (row-id string) (ctx domain-ctx) &rest args)
+  "संरचना प्रत्यय — replace the vendor's INVOICE_SETTINGS blob by row-id.
+
+   THE PAYLOAD IS VALIDATED BEFORE THE ROW IS LOOKED UP, the same order !update uses
+   for its forbidden fields: a malformed request is malformed whether or not the row
+   exists, and answering it with a 404 sends the client to fix the wrong thing.
+
+   STORED STATE IS LOADED FIRST and only the one slot changes, so this verb cannot
+   blank a column it was not asked about — copyVendor-domaintodb writes every field,
+   from the entity it is handed. That copier also forces DELETED_STATE to \"N\", which
+   is harmless here for !update's reason: select-vendor-by-id-in-tenant filters
+   deleted rows, so a deleted target answered :F above."
+  (declare (ignore entity-class))
+  (multiple-value-bind (stored parsed) (vendor-settings-canonical (getf args :settings))
+    (vendor-settings-validate parsed)
+    (let* ((company (domain-ctx-tenant ctx))
+           (tenant-id (slot-value company 'row-id))
+           (rid (vendor-row-id-from-string row-id)))
+      (if (null rid)
+          (make-instance 'nst-entity-nil
+                         :tenant-id tenant-id
+                         :reason (format nil "~S does not address a vendor row (row-ids are integers)" row-id))
+          ;; else
+          (let ((dbobj (select-vendor-by-id-in-tenant rid tenant-id)))
+            (if (null dbobj)
+                (make-instance 'nst-entity-nil
+                               :tenant-id tenant-id
+                               :reason (format nil "Vendor row-id ~A not found in this tenant (or already deleted)" row-id))
+                ;; else
+                (let ((entity (make-instance 'nst-vnd :tenant-id tenant-id)))
+                  (copyVendor-dbtodomain dbobj entity)
+                  (setf (company entity) company)
+                  (setf (invoice-settings entity) stored)
+                  (setf (company entity) company)
+                  (copyVendor-domaintodb entity dbobj)
+                  (let ((knowledge (with-nst-db-update (:source "nst-vnd/!settings")
+                                      (clsql:update-records-from-instance dbobj)
+                                      dbobj)))
+                    (case (bo-knowledge-truth knowledge)
+                      (:T entity)
+                      (:U ;; The write did not complete and the row's state is unknown →
+                          ;; 503, not 500 and NOT 404: the vendor exists, we just cannot
+                          ;; say what happened to it.
+                          (domain-sentinel-from-knowledge
+                           knowledge ctx
+                           :reason (format nil "Vendor settings update, row-id ~A: the database call did not answer — the row's current state is unknown" row-id)))
+                      (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-update"
+                                        (bo-knowledge-truth knowledge))))))))))))

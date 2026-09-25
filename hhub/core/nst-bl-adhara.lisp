@@ -258,6 +258,22 @@
    fields it actually reads."
   (apply #'?exists entity-class ctx (extract-domain-initargs rm entity-class)))
 
+(defmethod request->dispatch ((rm nst-request-model) (verb-symbol (eql '!settings))
+                               (entity-class symbol) (ctx domain-ctx))
+  "extract-domain-initargs cannot carry a settings blob: it forwards only keys the
+   domain class declares as initargs, and a sub-resource payload is ONE :settings
+   value rather than a set of nst-vnd fields.
+
+   THE VALUE MUST GO IN AS A PLIST ENTRY, not positionally. !settings takes
+   &rest args and reads (getf args :settings), so passing the blob as the sole
+   positional argument makes args the one-element list (<blob>) — and getf on a list
+   of odd length is not \"no :settings key\", it is a MALFORMED PROPERTY LIST error.
+   That is not hypothetical: this line was written positionally first, and the ferry
+   hop was the only thing that failed, because every direct REPL call passes :settings
+   properly and never touches this path. Same shape as !update's own ferry method."
+  (apply #'!settings entity-class (rm-row-id rm) ctx
+         (list :settings (getf (params rm) :settings))))
+
 
 ;;; Companion — the reverse ferry, domain result OUT to boundary tree
 (defgeneric domain->response (entity ctx)
@@ -420,7 +436,7 @@
 
 (define-gana-verbs :proc.finance
   invoice issue match pay settle refund adjust debit credit
-  recharge transfer accrue receive-payment)
+  recharge transfer accrue receive-payment !settings)
 
 (define-gana-verbs :proc.tax
   classify-hsn verify-gstin generate-irn generate-eway reconcile-2b
@@ -734,6 +750,19 @@
    "लोप प्रत्यय — soft-delete. Sets deleted-state to \"Y\". Never a
     hard DELETE — नियम-2 already blocks all further verbs on the
     result; physical removal is not this project's concern."))
+
+(defgeneric !settings (entity-class row-id ctx &rest args)
+  (:documentation
+   "संरचना प्रत्यय — replace ONE configuration SUB-RESOURCE on an existing entity.
+    The seventh पद, and deliberately not folded into !update: !update assigns typed
+    COLUMNS, one initarg per field, so the domain can check each value against its
+    own slot type. A settings sub-resource is a single TEXT column holding a whole
+    nested structure, so there is no per-field type to check — the invariant is on
+    the STRUCTURE (which sections exist, what shape each entry has), and it has to
+    live in a verb that knows it is validating a structure rather than assigning
+    fields.
+
+    GUARDRAIL 2 as for every verb: entity-class first, ctx before &rest."))
 
 (defun test-requestmodel-rejected-by-domain-verb ()
   "Any proc.GANA verb called with an nst-request-model as first arg

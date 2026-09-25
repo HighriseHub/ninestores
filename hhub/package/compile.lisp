@@ -269,10 +269,26 @@
      "invoice/nst-dal-itm.lisp"
      "invoice/nst-bl-itm.lisp"
      "invoice/nst-ui-itm.lisp"
+     "invoice/nst-bl-gstr1.lisp"
      "invoice/nst-dal-cusinvreg.lisp"
      "invoice/nst-bl-cusinvreg.lisp"
      "invoice/nst-ui-cusinvreg.lisp"
      "invoice/nst-bl-invapi.lisp"
+     ;; NST grammar invoice files (2026-09-25). These are listed in nstores.asd too, and
+     ;; BOTH lists must stay in sync — this one is hand-maintained, so a new file added
+     ;; only to the asd is compiled by ASDF (and therefore by the running server) while
+     ;; compile-production silently skips it. Order is the asd's order: the DAL classes
+     ;; first, then a BL file for each entity, then the Tier-2/Tier-3 files. nst-bl-invh
+     ;; precedes nst-bl-invitm because the two reference each other (the header's delete!
+     ;; soft-deletes the lines) and that order leaves one undefined-function style
+     ;; warning instead of several; nst-bl-invhapi precedes nst-bl-invitmapi for the
+     ;; inv-* param readers it holds.
+     "invoice/nst-dal-invh.lisp"
+     "invoice/nst-dal-invitm.lisp"
+     "invoice/nst-bl-invh.lisp"
+     "invoice/nst-bl-invitm.lisp"
+     "invoice/nst-bl-invhapi.lisp"
+     "invoice/nst-bl-invitmapi.lisp"
      
      ;; Server lifecycle (core). Deliberately LAST of the production files: 
      ;; start-nst-server registers one effect per subsystem, so every loader it calls 

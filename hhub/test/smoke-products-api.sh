@@ -3,12 +3,12 @@
 # smoke-products-api.sh — smoke-test the PRODUCTS JSON API (conflodis2 + apidefs2).
 #
 # Run this FROM A WORKSTATION (your Mac), not from the server: it uses
-# http://hunchentoot.local, which is the documented workstation entry point
+# http://ninestores.local, which is the workstation entry point
 # (nginx proxies /hhub/ straight to the acceptor on 127.0.0.1:4244).
 #
 #   NS_PHONE=9999999990 NS_PASSWORD='…' ./smoke-products-api.sh
 #   NS_PHONE=… NS_PASSWORD=… ./smoke-products-api.sh --write
-#   BASE=http://hunchentoot.local NS_PHONE=… NS_PASSWORD=… ./smoke-products-api.sh
+#   BASE=http://ninestores.local NS_PHONE=… NS_PASSWORD=… ./smoke-products-api.sh
 #
 # READ-ONLY by default. The mutating tests (POST/PUT/DELETE) create and soft-delete
 # a REAL row in the live database, so they run only with --write.
@@ -43,7 +43,7 @@
 set -uo pipefail
 
 # ── configuration ───────────────────────────────────────────────────────────
-BASE="${BASE:-http://hunchentoot.local}"
+BASE="${BASE:-http://ninestores.local}"
 PHONE="${NS_PHONE:-}"
 PASSWORD="${NS_PASSWORD:-}"
 DELETED_CODE="${NS_DELETED_CODE:-PRD-MPJ165U1Q7}"   # held by a SOFT-DELETED row; drives the 409 test
@@ -55,7 +55,7 @@ usage() {
 
 Options:
   --write            also run the mutating tests (creates a real product row)
-  --base URL         override the base URL (default http://hunchentoot.local)
+  --base URL         override the base URL (default http://ninestores.local)
   -h, --help         this text
 
 Environment:
@@ -170,7 +170,7 @@ section "1. reachability and session  ($BASE)"
 
 if ! curl -sS -o /dev/null --max-time 10 "$BASE/hhub/" 2>"$ERR"; then
   printf '  %sFATAL%s cannot reach %s — curl: %s\n' "$R" "$N" "$BASE" "$(head -1 "$ERR")"
-  printf '        Check that hunchentoot.local resolves from this machine and that nginx is up.\n'
+  printf '        Check that ninestores.local resolves from this machine and that nginx is up.\n'
   exit 2
 fi
 printf '  reachable\n'

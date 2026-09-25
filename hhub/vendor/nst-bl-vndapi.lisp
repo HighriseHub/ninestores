@@ -230,6 +230,85 @@
 
 
 ;;; ═══════════════════════════════════════════════════════════════════════════
+;;; The INVOICE_SETTINGS sub-resource
+;;;
+;;; WHY IT EXISTS. :invoice-settings is a declared initarg on nst-vnd, so generic
+;;; !update already accepted it and wrote the column with NO validation at all — a
+;;; blob whose section keys are keywords lands in the table and the readers' strict
+;;; (assoc 'invoice-print-settings … :test #'equal) then misses it and silently falls
+;;; back to the shipped defaults, reverting the vendor's configuration without an
+;;; error anywhere. !settings owns that invariant; this is its only HTTP door.
+;;;
+;;; THE BODY *IS* THE SETTINGS OBJECT, with no wrapper key — the same shape the
+;;; sibling payment-methods PUT uses (its body is the flat flag set). The ferry hop
+;;; for !settings reads ONE named :settings key, so the payload is re-labelled here,
+;;; in the transport, rather than making every client wrap its body in a key whose
+;;; name the URL already states.
+;;; ═══════════════════════════════════════════════════════════════════════════
+
+(defparameter *vnd-settings-transport-keys* '(:row-id :company)
+  "Keys api-params-for-request may add to an inbound params plist that are NOT part of
+   the settings object: :row-id from the path params, and :company from the session —
+   which is only injected when a route is registered with :inject-company, and the
+   vendor bindings are not. :company is stripped anyway, defensively: enabling
+   :inject-company on this binding later must not silently become a settings section
+   called \"company\". Every OTHER key is a section, which is what makes a wrapper key
+   unnecessary — and a stray query parameter is then REFUSED by the section allowlist,
+   the failure this wants: closed and named, not silently stored.")
+
+(defun vnd-settings-payload (params)
+  "The settings object out of an inbound params plist, as a SECTION ALIST.
+
+   THE GROUPING IS THIS FUNCTION'S REAL WORK, and it is not cosmetic. PARAMS IS A
+   PLIST — (:section <object> :section <object> …) — and a plist read as a list of
+   (key . value) pairs does not give pairs at all: its elements are the alternating
+   key and value ATOMS, so the first section arrives with its body and the SECOND
+   arrives as a bare keyword, which section validation then refuses with
+   ':INVOICE-GENERAL-SETTINGS is not a (section . entries) pair'. That is exactly how
+   this failed the first time. Walking BY #'CDDR is what turns the transport's plist
+   into the alist the domain speaks."
+  (let ((rest (copy-list params)))
+    (dolist (key *vnd-settings-transport-keys*) (remf rest key))
+    (loop for (key value) on rest by #'cddr collect (cons key value))))
+
+(defun vnd-settings-request (request)
+  "REQUEST with its body relabelled under the :settings key the ferry hop reads, and
+   returned so it can be dispatched.
+
+   THE FERRY TAKES THE REQUEST MODEL, NOT THE PAYLOAD — (request->dispatch rm '!settings
+   'nst-vnd ctx) — and its !settings method reads (getf (params rm) :settings). So the
+   ONE thing this has to do is present the body under that key. Passing the payload
+   itself as the first argument instead lands a plist where a request model belongs and
+   answers with no-applicable-method; that was written first, and this docstring exists
+   so it is not written again.
+
+   The relabelled key goes FIRST so getf finds it, and the transport keys stay in the
+   plist behind it so rm-row-id still resolves the address. Mutating params here is
+   safe: the API layer built this request model for this one dispatch, and the ferry's
+   whole contract is that the request model dies at the crossing."
+  (setf (params request)
+        (list* :settings (vnd-settings-payload (params request)) (params request)))
+  request)
+
+(defun route-vendor-settings-update (request ctx)
+  "कर्म = the INVOICE_SETTINGS sub-resource of nst-vnd, by :row-id.
+
+   The verb validates before it reads the row, so a malformed blob is malformed
+   whether or not the vendor exists — see !settings for why the order matters.
+
+   OVER HTTP THE BODY MUST BE A JSON OBJECT, one key per settings section. The verb
+   itself also accepts the stored blob as a STRING and stores it verbatim, but that
+   path is unreachable from here: api-normalize-body-params refuses a non-object body
+   outright ('the request body must be a JSON object'), and rightly — a settings
+   sub-resource whose representation is sometimes an object and sometimes a string is
+   two contracts for one URL. The string form exists for internal callers, and the
+   consequence to know is that a client can READ the blob as a string from
+   GET /hhub/api/v1/vendor/profile/{id} but cannot PUT that string back: a
+   JSON-shaped read of the settings is not built yet."
+  (request->dispatch (vnd-settings-request request) '!settings 'nst-vnd ctx))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════════
 ;;; SECTION 3 — Route registration
 ;;;
 ;;; One line per inbound action. The route key IS the action symbol the dispatcher
@@ -328,6 +407,17 @@
                        :audit-level :read
                        :tags '(vendors vendor api v1))
 
+(register-action-route 'route-vendor-settings-update
+                       :action-verb 'route-vendor-settings-update
+                       :request-class 'VendorRequestModel
+                       :description "Replace one vendor's INVOICE_SETTINGS blob by :row-id. Validated in the domain, not here: section names must be ones the shipped defaults carry, a NULL read back as \"undefined\" is refused, and a JSON body's section keys are canonicalised so the readers can find them."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor)
+                       :feature-flags '(new-vendor-domain)
+                       :audit-level :full
+                       :tags '(vendors vendor invoice settings api v1))
+
 
 ;;; ═══════════════════════════════════════════════════════════════════════════
 ;;; SECTION 4 — Public API bindings (Ring 4)
@@ -384,3 +474,17 @@
                     :success-status 200
                     :auth-scope :session
                     :description "Soft-delete a vendor by numeric row-id: the row is kept and its phone stays reserved IN THIS TENANT ONLY, so re-registering that number here is a 409 while another tenant may still use it.")
+
+;;; A SUB-RESOURCE OF THE VENDOR PROFILE, and the segment count is what keeps it
+;;; separate: api-match-route requires equal segment counts, so this 7-segment
+;;; template cannot be swallowed by the 6-segment PUT /vendor/profile/{id} above.
+;;; The design document (hhub/core/nstoresapi.html) specifies no invoice-settings
+;;; endpoint, so like the payment-methods surface this binding is ADDITIVE and the
+;;; path was chosen rather than inherited.
+(register-api-route 'route-vendor-settings-update
+                    :method :put
+                    :path "/hhub/api/v1/vendor/profile/{id}/invoice-settings"
+                    :path-params '(("id" . :row-id))
+                    :success-status 200
+                    :auth-scope :session
+                    :description "Replace one vendor's invoice settings by numeric row-id. THE BODY IS THE SETTINGS OBJECT — a JSON object with one key per settings section, no wrapper. Refused with the domain's own condition when the payload is not a list, when it carries the string \"undefined\" (the legacy void value for a NULL column), or when a section name is not one the shipped defaults carry; a JSON body's section keys are canonicalised so the readers find them. 404 when the vendor is not in this tenant. Returns the updated vendor profile, whose invoiceSettings field is the stored blob.")
