@@ -119,7 +119,7 @@
 set -uo pipefail
 
 # ── configuration ───────────────────────────────────────────────────────────
-BASE="${BASE:-http://hunchentoot.local}"
+BASE="${BASE:-http://ninestores.local}"
 PHONE="${NS_PHONE:-}"
 PASSWORD="${NS_PASSWORD:-}"
 
@@ -156,7 +156,7 @@ usage() {
 
 Options:
   --write            also run the mutating tests (creates/modifies a real row)
-  --base URL         override the base URL (default http://hunchentoot.local)
+  --base URL         override the base URL (default http://ninestores.local)
   -h, --help         this text
 
 Environment:
