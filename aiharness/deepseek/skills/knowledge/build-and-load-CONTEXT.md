@@ -162,3 +162,82 @@ This was a live compile failure on 2026-09-20 and **is not documented anywhere
 else**, including in `nst-bl-apidefs2-CONTEXT.md`.
 
 ---
+
+## 9. Recipe — check a file against the LIVE image (the other half of §6)
+
+§6 compiles a file in an isolated SBCL with a hand-picked package set. That is the
+right tool when the running image is unavailable or you do not want to touch it.
+**This is the right tool the rest of the time**, and it is strictly more truthful: the
+image already has CLSQL, every project package, and the loaded system, so a file that
+loads there has genuinely compiled against the real world.
+
+The image starts a Swank server on `127.0.0.1:4016` — `startup/init.lisp` documents the
+port as *"used for remote interaction with slime"*. `aiharness/deepseek/tools/swank-eval.py`
+is the same door without an editor:
+
+```bash
+cd /home/ubuntu/ninestores
+python3 aiharness/deepseek/tools/swank-eval.py -f /home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp
+python3 aiharness/deepseek/tools/swank-eval.py -F /tmp/probe.lisp
+python3 aiharness/deepseek/tools/swank-eval.py '(fboundp (quote !settings))'
+```
+
+`-f` **loads** (so it compiles and prints warnings); `-F` **evaluates** a file's single
+top-level form; a bare form argument is evaluated in `NSTORES` (`-p` changes that).
+
+### The traps, each of which cost a cycle
+
+1. **`-f` and `-F` are NOT interchangeable, and CLSQL is why.** `load` compiles, so
+   `clsql:select` expands through its **compiler macro**, and
+   `(clsql:select 'dod-company :where "row_id = 2" :flatp t)` dies with *"No source
+   tables supplied to select statement"* — while the identical form **evaluates**
+   correctly. Anything touching CLSQL belongs in a `-F` file. `-F` also sidesteps every
+   layer of shell quoting, which is what makes it the right way to hand over a probe
+   full of docstrings and double quotes.
+2. **Absolute paths only.** The image's `*default-pathname-defaults*` is not the repo,
+   so a relative `hhub/…` path fails with *"file does not exist"*.
+3. **The image runs as `hunchentoot`.** A probe written to `/tmp` must be world-readable
+   (`chmod 644`) or the load answers *"Permission denied"*.
+4. **The handshake is mandatory.** Swank sets up `*emacs-connection*` and its control
+   thread on `connection-info`; a request sent before it is queued and **never
+   answered**, which is indistinguishable from a hang. The `indentation-update` that
+   follows is a few hundred KB and must be drained before anything else.
+5. **The form must travel as a STRING** — `(swank:eval-and-grab-output "…")`. `emacs-rex`
+   is read inside `SWANK-IO-PACKAGE`, so a bare form's `*package*` resolves to
+   `SWANK-IO-PACKAGE::*PACKAGE*`, which is **unbound**, and the request lands in the
+   debugger instead of evaluating.
+6. **An errored request answers `(:debug …)`, not `(:return …)`.** Waiting for a
+   `:return` that will never come is the second way this looks like a hang; the client
+   detects `:debug` and aborts to top level.
+
+All six are implemented and commented in the tool's own header.
+
+### The rule that matters more than any of them
+
+**A probe that writes to the database must restore in an `unwind-protect` whose cleanup
+cannot itself fail — and it must restore THROUGH THE VERB, never by building SQL by
+hand.**
+
+Measured, 2026-09-25: a probe wrote a test blob to `DOD_VEND_PROFILE.INVOICE_SETTINGS`
+for vendor 1 and restored it with
+
+```lisp
+(format nil "UPDATE DOD_VEND_PROFILE SET INVOICE_SETTINGS = ~A WHERE ROW_ID = 1"
+        (sql-literal original))
+```
+
+`sql-literal` does **not** quote its argument — it escaped nothing and added no quotes,
+so the statement embedded a raw 4,101-character Lisp alist and MySQL answered
+`Error 1064`. The failure then happened *inside the cleanup*, so nothing restored the
+row: the test value stayed. Vendor 1 was the only customised row in the table (all 14
+others hold the migration seed), so there was no sibling to copy from and the original
+had to be reconstructed from the image's own error echo of the failed statement.
+
+Two lessons:
+- `sql-literal` is for values whose quoting the migration author has already verified;
+  do not assume it wraps a string in quotes.
+- Restoring through the domain verb (whose string path stores verbatim) makes the
+  cleanup as safe as the code under test. A hand-built statement is a second
+  implementation with its own bugs, written at the moment you are least able to check it.
+
+---
