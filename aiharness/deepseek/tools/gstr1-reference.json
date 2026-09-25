@@ -1,0 +1,312 @@
+{
+  "gstin": "29ALSKDKJADS455",
+  "fp": "052026",
+  "version": "GST2.2.6",
+  "hash": "hash",
+  "gt": 53000.11,
+  "cur_gt": 53000.11,
+
+  "b2b": [
+    {
+      "ctin": "29ABCABC3924S33",
+      "cfs": "N",
+      "inv": [
+        {
+          "inum": "NST00030-2026",
+          "idt": "23-05-2026",
+          "val": 887.0,
+          "pos": "29",
+          "rchrg": "N",
+          "inv_typ": "R",
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 18, "txval": 752.0, "iamt": 0.0, "camt": 67.68, "samt": 67.68, "csamt": 0.0 } }
+          ]
+        },
+        {
+          "inum": "NST00031-2026",
+          "idt": "25-05-2026",
+          "val": 841.0,
+          "pos": "29",
+          "rchrg": "N",
+          "inv_typ": "R",
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 18, "txval": 712.5, "iamt": 0.0, "camt": 64.13, "samt": 64.13, "csamt": 0.0 } }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "b2ba": [
+    {
+      "ctin": "29ABCABC3924S33",
+      "cfs": "N",
+      "inv": [
+        {
+          "oinum": "NST00030-2026",
+          "oidt": "23-05-2026",
+          "inum": "NST00030-2026",
+          "idt": "23-05-2026",
+          "val": 887.0,
+          "pos": "29",
+          "rchrg": "N",
+          "inv_typ": "R",
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 18, "txval": 752.0, "iamt": 0.0, "camt": 67.68, "samt": 67.68, "csamt": 0.0 } }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "b2cl": [
+    {
+      "pos": "37",
+      "inv": [
+        {
+          "inum": "10001",
+          "idt": "01-05-2026",
+          "val": 250000.01,
+          "etin": "12AJIPA1572E1C7",
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 5, "txval": 345600.0, "iamt": 17280.0, "camt": 0.0, "samt": 0.0, "csamt": 20756.0 } }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "b2cla": [
+    {
+      "pos": "37",
+      "inv": [
+        {
+          "oinum": "10001",
+          "oidt": "01-05-2026",
+          "inum": "10001",
+          "idt": "01-05-2026",
+          "val": 250000.01,
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 5, "txval": 345600.0, "iamt": 17280.0, "camt": 0.0, "samt": 0.0, "csamt": 20756.0 } }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "b2cs": [
+    { "sply_ty": "INTRA", "rt": 12, "typ": "OE", "pos": "29", "txval": 3253.75, "iamt": 0.0, "camt": 195.23, "samt": 195.23, "csamt": 0.0 },
+    { "sply_ty": "INTRA", "rt": 18, "typ": "OE", "pos": "29", "txval": 2632.0, "iamt": 0.0, "camt": 236.88, "samt": 236.88, "csamt": 0.0 },
+    { "sply_ty": "INTRA", "rt": 4.7, "typ": "OE", "pos": "29", "txval": 1330.0, "iamt": 0.0, "camt": 33.25, "samt": 29.26, "csamt": 0.0 },
+    { "sply_ty": "INTER", "rt": 28, "typ": "OE", "pos": "37", "txval": 50000.0, "iamt": 14000.0, "camt": 0.0, "samt": 0.0, "csamt": 20756.0, "etin": "12AJIPA1572E1C7" }
+  ],
+
+  "b2csa": [
+    { "sply_ty": "INTRA", "rt": 12, "typ": "OE", "pos": "29", "txval": 3253.75, "iamt": 0.0, "camt": 195.23, "samt": 195.23, "csamt": 0.0,
+      "omon": "052026", "oet": "OE", "oiamt": 0.0, "ocamt": 190.0, "osamt": 190.0, "ocsamt": 0.0 }
+  ],
+
+  "cdnr": [
+    {
+      "ctin": "19AAACM9169K1ZU",
+      "cfs": "N",
+      "nt": [
+        {
+          "ntty": "C",
+          "nt_num": "90009",
+          "nt_dt": "01-05-2026",
+          "val": 575136.0,
+          "pos": "19",
+          "rchrg": "N",
+          "inv_typ": "R",
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 18, "txval": 487403.0, "iamt": 0.0, "camt": 43866.27, "samt": 43866.27, "csamt": 0.0 } }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "cdnra": [
+    {
+      "ctin": "19AAACM9169K1ZU",
+      "cfs": "N",
+      "nt": [
+        {
+          "ont_num": "90009",
+          "ont_dt": "01-05-2026",
+          "ntty": "C",
+          "nt_num": "90009",
+          "nt_dt": "01-05-2026",
+          "val": 575136.0,
+          "pos": "19",
+          "rchrg": "N",
+          "inv_typ": "R",
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 18, "txval": 487403.0, "iamt": 0.0, "camt": 43866.27, "samt": 43866.27, "csamt": 0.0 } }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "cdnur": [
+    {
+      "ntty": "C",
+      "nt_num": "90010",
+      "nt_dt": "01-05-2026",
+      "val": 27000.0,
+      "typ": "B2CL",
+      "etin": "12AJIPA1572E1C7",
+      "itms": [
+        { "num": 1,
+          "itm_det": { "rt": 12, "txval": 25000.0, "iamt": 3000.0, "camt": 0.0, "samt": 0.0, "csamt": 3400.0 } }
+      ]
+    }
+  ],
+
+  "cdnura": [
+    {
+      "ont_num": "90010",
+      "ont_dt": "01-05-2026",
+      "ntty": "C",
+      "nt_num": "90010",
+      "nt_dt": "01-05-2026",
+      "val": 27000.0,
+      "typ": "B2CL",
+      "itms": [
+        { "num": 1,
+          "itm_det": { "rt": 12, "txval": 25000.0, "iamt": 3000.0, "camt": 0.0, "samt": 0.0, "csamt": 3400.0 } }
+      ]
+    }
+  ],
+
+  "exp": [
+    {
+      "exp_typ": "WOPAY",
+      "inv": [
+        {
+          "inum": "81510",
+          "idt": "01-05-2026",
+          "val": 80048.36,
+          "sbpcode": "INB995",
+          "sbnum": "184298",
+          "sbdt": "02-05-2026",
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 5, "txval": 78788.0, "iamt": 0.0, "camt": 0.0, "samt": 0.0, "csamt": 100.0 } }
+          ]
+        }
+      ]
+    },
+    {
+      "exp_typ": "WPAY",
+      "inv": [
+        {
+          "inum": "81512",
+          "idt": "01-05-2026",
+          "val": 50048.36,
+          "sbpcode": "INB997",
+          "sbnum": "184300",
+          "sbdt": "02-05-2026",
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 12, "txval": 48644.0, "iamt": 5837.28, "camt": 0.0, "samt": 0.0, "csamt": 0.0 } }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "expa": [
+    {
+      "exp_typ": "WPAY",
+      "inv": [
+        {
+          "oinum": "81512",
+          "oidt": "01-05-2026",
+          "inum": "81512",
+          "idt": "01-05-2026",
+          "val": 50048.36,
+          "sbpcode": "INB997",
+          "sbnum": "184300",
+          "sbdt": "02-05-2026",
+          "itms": [
+            { "num": 1,
+              "itm_det": { "rt": 12, "txval": 48644.0, "iamt": 5837.28, "camt": 0.0, "samt": 0.0, "csamt": 0.0 } }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "at": [
+    {
+      "pos": "32",
+      "sply_ty": "INTRA",
+      "itms": [
+        { "num": 1, "itm_det": { "rt": 12, "ad_amt": 87515.0, "iamt": 0.0, "camt": 5250.9, "samt": 5250.9, "csamt": 6819.0 } }
+      ]
+    }
+  ],
+
+  "ata": [
+    {
+      "pos": "32",
+      "sply_ty": "INTRA",
+      "itms": [
+        { "num": 1, "itm_det": { "rt": 12, "ad_amt": 87515.0, "iamt": 0.0, "camt": 5250.9, "samt": 5250.9, "csamt": 6819.0 } }
+      ]
+    }
+  ],
+
+  "atadj": [
+    {
+      "pos": "01",
+      "sply_ty": "INTER",
+      "itms": [
+        { "num": 1, "itm_det": { "rt": 12, "ad_amt": 30000.0, "iamt": 3600.0, "camt": 0.0, "samt": 0.0, "csamt": 2300.0 } }
+      ]
+    }
+  ],
+
+  "atadja": [
+    {
+      "pos": "01",
+      "sply_ty": "INTER",
+      "itms": [
+        { "num": 1, "itm_det": { "rt": 12, "ad_amt": 30000.0, "iamt": 3600.0, "camt": 0.0, "samt": 0.0, "csamt": 2300.0 } }
+      ]
+    }
+  ],
+
+  "exemp": [
+    { "sply_ty": "INTRA", "nil_amt": 3029.35, "expt_amt": 0.0, "ngsup_amt": 0.0 },
+    { "sply_ty": "INTER", "nil_amt": 21143.0, "expt_amt": 51235.0, "ngsup_amt": 5213.0 }
+  ],
+
+  "hsn": {
+    "data": [
+      { "num": 1, "hsn_sc": "19059010", "uqc": "KGS", "qty": 5.0, "val": 5737.76, "txval": 5273.35, "iamt": 0.0, "camt": 301.01, "samt": 301.01, "csamt": 0.0 },
+      { "num": 2, "hsn_sc": "0405", "uqc": "LTR", "qty": 9.0, "val": 3448.87, "txval": 3253.75, "iamt": 0.0, "camt": 195.23, "samt": 195.23, "csamt": 0.0 },
+      { "num": 3, "hsn_sc": "15121910", "uqc": "LTR", "qty": 2.0, "val": 1392.51, "txval": 1330.0, "iamt": 0.0, "camt": 33.25, "samt": 29.26, "csamt": 0.0 },
+      { "num": 4, "hsn_sc": "000000", "uqc": "OTH", "qty": 0.0, "val": 0.0, "txval": 0.0, "iamt": 0.0, "camt": 0.0, "samt": 0.0, "csamt": 0.0 }
+    ]
+  },
+
+  "doc_issue": {
+    "doc_det": [
+      { "doc_num": 1,
+        "docs": [ { "num": 1, "from": "NST00001-2026", "to": "NST00036-2026", "totnum": 36, "cancel": 3, "net_issue": 33 } ] },
+      { "doc_num": 2,
+        "docs": [ { "num": 1, "from": "DN0001-2026", "to": "DN0050-2026", "totnum": 50, "cancel": 0, "net_issue": 50 } ] }
+    ]
+  }
+}
