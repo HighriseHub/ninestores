@@ -114,6 +114,21 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "invoice/nst-dal-itm")
    (:file "invoice/nst-bl-ihd")
    (:file "invoice/nst-bl-itm")
+   (:file "invoice/nst-dal-invh")    ; nst-invh domain class + boundary models (needs adhara).
+   (:file "invoice/nst-dal-invitm")  ; nst-invitm domain class + boundary models (needs adhara).
+   ;; nst-bl-invh and nst-bl-invitm REFERENCE EACH OTHER: the header's delete! calls
+   ;; nst-soft-delete-invoice-items-for-header, and every item verb calls the header's
+   ;; select-invoice-header-by-row-id / invh-status-string. Lisp resolves both at run
+   ;; time, and listing nst-bl-invh FIRST is what keeps the build down to ONE
+   ;; undefined-function style-warning — nst-bl-invh's reference to the one item
+   ;; symbol, which is defined in the file compiled immediately after it.
+   (:file "invoice/nst-bl-invh")     ; Tier-1 प्रत्यय for nst-invh (needs nst-dal-ihd for the dod-invoice-header view class, adhara, nst-mult-logic).
+   (:file "invoice/nst-bl-invitm")   ; Tier-1 प्रत्यय for nst-invitm + the child लोप helper the header's delete! calls (needs nst-dal-itm for the dod-invoice-items view class, adhara, nst-mult-logic).
+   ;; Tier-2 action routes (conflodis2). invhapi FIRST: it holds the inv-* param readers
+   ;; invitmapi uses. Both depend at RUN time on the Belnap sentinel ferry + delete ack
+   ;; defined in warehouse/nst-bl-whsapi.lisp SECTION 4, which this section loads after.
+   (:file "invoice/nst-bl-invhapi")   ; Action routes for nst-invh (needs conflodis2 + apidefs2 + nst-bl-invh).
+   (:file "invoice/nst-bl-invitmapi") ; Action routes for nst-invitm (needs conflodis2 + apidefs2 + nst-bl-invitm + nst-bl-invhapi).
    (:file "invoice/nst-ui-ihd")
    (:file "invoice/nst-ui-itm")
    (:file "invoice/nst-dal-cusinvreg")
