@@ -1,0 +1,310 @@
+#!/usr/local/bin/sbcl --script
+;;; nst-symq --- query the generated symbol table (hhub/core/nst-bl-funloodat.lisp)
+;;; without a Lisp image, a database or a grep over the tree.
+;;;
+;;; Reads the generated data file, never evaluates it, and answers from the DAG:
+;;;   nst-symq info NAME        signature, file, calls, callers, depth/cost/impact
+;;;   nst-symq calls NAME       symbols NAME calls directly
+;;;   nst-symq callers NAME     symbols that call NAME directly
+;;;   nst-symq subtree NAME     everything NAME reaches (transitive calls)
+;;;   nst-symq impact NAME      everything that reaches NAME (blast radius)
+;;;   nst-symq path A B         shortest call path A -> B
+;;;   nst-symq search QUERY     substring search: name, docstring, keywords
+;;;   nst-symq fields           the field names the entries carry
+;;;   nst-symq stats            table totals, types, entry points, heaviest subtrees
+;;;
+;;; Exit codes: 0 ok, 1 not found / unreachable, 2 usage or unreadable table.
+
+(defparameter *table-file*
+  (or (sb-ext:posix-getenv "NST_SYMQ_TABLE")
+      (let ((here (or *load-truename* *default-pathname-defaults*)))
+        (merge-pathnames "hhub/core/nst-bl-funloodat.lisp"
+                         (merge-pathnames "../../../" (make-pathname :name nil :type nil
+                                                                     :defaults here))))))
+
+;;; --- reading the generated table -------------------------------------------
+
+(defun read-table (file)
+  "Returns the entry list from FILE, or NIL when it cannot be read.
+   The file is read, never loaded: nothing is compiled or executed."
+  (when (probe-file file)
+    (with-open-file (s file :external-format :utf-8)
+      (let ((*read-eval* nil) (*package* (find-package :keyword)) (forms '()))
+        (loop for form = (handler-case (read s nil :eof) (error () :eof))
+              until (eq form :eof)
+              do (push form forms))
+        (dolist (form (nreverse forms))
+          ;; symbols are read inside :KEYWORD, so compare names, not identity
+          (when (and (consp form) (symbolp (first form))
+                     (string-equal (string (first form)) "DEFUN")
+                     (string-equal (string (second form)) "FUNCTION-LOOKUP-TABLE"))
+            (let ((found (find-quoted-entries form)))
+              (when found (return-from read-table found)))))))))
+
+(defun find-quoted-entries (form)
+  "First (QUOTE <list-of-entries>) inside FORM — the generated literal."
+  (cond ((atom form) nil)
+        ((and (symbolp (first form))
+              (string-equal (string (first form)) "QUOTE")
+              (consp (second form))
+              (consp (first (second form))))
+         (second form))
+        (t (dolist (sub (rest form))
+             (let ((hit (find-quoted-entries sub)))
+               (when hit (return-from find-quoted-entries hit)))))))
+
+;;; --- accessors (alist entries, plus the legacy 6-slot lists) ----------------
+
+(defun field (entry key &optional default)
+  (when (consp entry)
+    (if (consp (first entry))
+        (let ((hit (assoc key entry))) (if hit (cdr hit) default))
+        (let ((pos (case key (:name 0) (:type 1) (:file 2) (:docstring 3)
+                           (:keywords 4) (:meta 5) (t nil))))
+          (if (and pos (< pos (length entry))) (nth pos entry) default)))))
+
+(defun entry-key (name)
+  (let* ((s (string name))
+         (colon (position #\: s :from-end t)))
+    (string-upcase (subseq s (if colon (1+ colon) 0)))))
+
+(defun basename (path)
+  (if (and (stringp path) (plusp (length path)))
+      (let ((slash (position #\/ path :from-end t))) (if slash (subseq path (1+ slash)) path))
+      ""))
+
+(defun file-line (entry)
+  "FILE:LINE for an entry — the line is where the definition starts, so the next
+   step can read that exact region instead of grepping for it."
+  (let ((file (or (field entry :file) ""))
+        (line (field entry :line)))
+    (if (and (stringp file) (plusp (length file)) line)
+        (format nil "~A:~A" file line)
+        (or (and (stringp file) file) ""))))
+
+(defun brief (names &optional (max 40))
+  (cond ((null names) "-")
+        ((<= (length names) max) (format nil "~{~A~^, ~}" names))
+        (t (format nil "~{~A~^, ~} ... +~D more" (subseq names 0 max) (- (length names) max)))))
+
+;;; --- the commands -----------------------------------------------------------
+
+(defparameter *commands* '("info" "calls" "callers" "subtree" "impact" "path"
+                           "search" "fields" "lines" "stats" "help"))
+
+(defun usage ()
+  (format t "~&nst-symq <command> [args]~%  ~{~A~^ | ~}~%  table: ~A~%"
+          *commands* *table-file*))
+
+(defun cmd-info (entry)
+  (format t "~&~A  [~A~@[ / ~A~]]~%"
+          (field entry :name) (field entry :type) (field entry :form))
+  (format t "  file      : ~A~%" (let ((fl (file-line entry))) (if (plusp (length fl)) fl "-")))
+  (format t "  signature : ~A~%" (or (field entry :lambda-list) "-"))
+  (format t "  package   : ~A~%" (or (field entry :package) "-"))
+  (let ((doc (field entry :docstring)))
+    (when (and doc (plusp (length doc)))
+      (let ((nl (position #\Newline doc)))
+        (format t "  docstring : ~A~%" (if nl (subseq doc 0 nl) doc)))))
+  (format t "  calls (~A)   : ~A~%" (or (field entry :calls-count) 0) (brief (field entry :calls)))
+  (format t "  used by (~A) : ~A~%" (or (field entry :used-by-count) 0) (brief (field entry :used-by)))
+  (format t "  dag       : depth ~A, cost ~A, impact ~A~%"
+          (field entry :depth) (field entry :cost) (field entry :impact))
+  (let ((meta (field entry :meta)))
+    (when meta
+      (format t "  meta      : ~{~A~^  ~}~%"
+              (mapcar (lambda (kv) (format nil "~A=~A" (car kv) (cdr kv))) meta)))))
+
+(defun table-index (table)
+  "NAME -> entry, for O(1) lookup."
+  (let ((index (make-hash-table :test #'equal)))
+    (dolist (e table)
+      (let ((n (field e :name)))
+        (when (stringp n) (setf (gethash n index) e))))
+    index))
+
+(defun need (index name)
+  "The entry for NAME, or exit 1 with a message."
+  (let ((key (and name (entry-key name))))
+    (unless key
+      (format t "~&missing argument~%")
+      (sb-ext:exit :code 2))
+    (or (gethash key index)
+        (progn (format t "~&no such symbol: ~A~%" name)
+               (sb-ext:exit :code 1)))))
+
+(defun neighbours (index names key)
+  (remove-duplicates (loop for n in names append (field (gethash n index) key))
+                     :test #'string=))
+
+(defun walk-levels (index names key depth)
+  "BFS over KEY (:CALLS / :USED-BY) from NAMES; returns ((LEVEL . NAME) ...)."
+  (let ((seen (make-hash-table :test #'equal))
+        (frontier (copy-list names))
+        (out '()))
+    (loop for level from 1 to (or depth 99)
+          while frontier
+          do (setf frontier
+                   (remove-if (lambda (n) (gethash n seen))
+                              (neighbours index frontier key)))
+             (dolist (n frontier)
+               (setf (gethash n seen) t)
+               (pushnew (cons level n) out :test #'equal)))
+    (nreverse out)))
+
+(defun print-levels (label levels)
+  (format t "~&~A (~D):~%" label (length levels))
+  (if (null levels)
+      (format t "  (none)~%")
+      (dolist (p levels)
+        (format t "  L~A  ~A~%" (car p) (cdr p)))))
+
+(defun print-path (index from to)
+  (let ((parent (make-hash-table :test #'equal))
+        (seen (make-hash-table :test #'equal))
+        (queue (list from))
+        (found nil))
+    (setf (gethash from seen) t)
+    (loop while (and queue (not found))
+          do (let ((n (pop queue)))
+               (if (string= n to)
+                   (setf found t)
+                   (dolist (c (field (gethash n index) :calls))
+                     (unless (gethash c seen)
+                       (setf (gethash c seen) t
+                             (gethash c parent) n)
+                       (setf queue (append queue (list c))))))))
+    (if (not found)
+        (progn (format t "~&no call path ~A -> ~A~%" from to)
+               (sb-ext:exit :code 1))
+        (let ((path '()))
+          (loop for c = to then (gethash c parent)
+                while c
+                do (push c path)
+                   (unless (gethash c parent) (return)))
+          (format t "~&~{~A~^ -> ~}~%" path)))))
+
+(defun cmd-calls (index arg)
+  (let ((e (need index arg)))
+    (format t "~&~A calls (~A): ~A~%"
+            (field e :name) (or (field e :calls-count) 0) (brief (field e :calls)))))
+
+(defun cmd-callers (index arg)
+  (let ((e (need index arg)))
+    (format t "~&callers of ~A (~A): ~A~%"
+            (field e :name) (or (field e :used-by-count) 0) (brief (field e :used-by)))))
+
+(defun cmd-search (table arg limit)
+  (let ((q (string-upcase arg))
+        (hits '()))
+    (unless arg (format t "~&missing query~%") (sb-ext:exit :code 2))
+    (dolist (e table)
+      (when (or (search q (or (field e :name) ""))
+                (search q (string-upcase (or (field e :docstring) "")))
+                (search q (string-upcase (or (field e :keywords) ""))))
+        (push e hits)))
+    ;; NRVERSE is destructive: bind it first, or (length hits) measures the stale
+    ;; one-cons tail and every search silently reports a single hit.
+    (setf hits (let ((all (nreverse hits)))
+                 (subseq all 0 (min (or limit 25) (length all)))))
+    (format t "~&~D hit(s) for '~A':~%" (length hits) q)
+    (dolist (e hits)
+      (format t "  ~A  [~A] ~A~@[:~A~]  calls ~A / used-by ~A~%"
+              (field e :name) (field e :type) (basename (field e :file)) (field e :line)
+              (or (field e :calls-count) "-") (or (field e :used-by-count) "-")))))
+
+(defun cmd-lines (table)
+  "Line-number coverage: how many entries carry a file:line, and samples of those
+   that do not (a stale table shows near-zero)."
+  (let ((with-line 0) (by-form (make-hash-table :test #'equal)) (samples '()))
+    (dolist (e table)
+      (if (field e :line)
+          (incf with-line)
+          (let ((form (or (field e :form) "?")))
+            (incf (gethash form by-form 0))
+            (when (< (length samples) 10)
+              (push (format nil "  ~A  [~A] ~A" (field e :name) form
+                            (basename (field e :file)))
+                    samples)))))
+    (format t "~&line numbers: ~D/~D entries (~,1F%)~%"
+            with-line (length table)
+            (if (plusp (length table)) (* 100.0 (/ with-line (length table))) 0.0))
+    (when (plusp (hash-table-count by-form))
+      (format t "missing line by form:~%")
+      (let ((pairs '())) (maphash (lambda (k v) (push (cons k v) pairs)) by-form)
+        (dolist (p (sort pairs #'> :key #'cdr)) (format t "  ~5D  ~A~%" (cdr p) (car p))))
+      (format t "examples without a line:~%~{~A~%~}" (nreverse samples)))))
+
+(defun cmd-fields (table)
+  (let ((first-entry (first table)))
+    (if (and (consp first-entry) (consp (first first-entry)))
+        (format t "~&rich table, ~D entries, fields: ~{~A~^, ~}~%"
+                (length table) (mapcar #'car first-entry))
+        (progn
+          (format t "~&legacy table (name type file doc keywords meta): no call DAG yet~%")
+          (format t "  regenerate with (generate-lookup-file \"nstores\" \"hhub/core/nst-bl-funloodat.lisp\")~%")))))
+
+(defun cmd-stats (table)
+  (let ((types (make-hash-table :test #'equal))
+        (roots '()))
+    (dolist (e table)
+      (let ((ty (or (field e :type) "?")))
+        (setf (gethash ty types) (1+ (or (gethash ty types) 0))))
+      (when (and (plusp (or (field e :calls-count) 0))
+                 (zerop (or (field e :used-by-count) 0)))
+        (push (field e :name) roots)))
+    (format t "~&symbols: ~D~%" (length table))
+    (maphash (lambda (k v) (format t "  ~A: ~A~%" k v)) types)
+    (format t "  no outgoing calls: ~D~%"
+            (count-if (lambda (e) (zerop (or (field e :calls-count) 0))) table))
+    (format t "  entry points (nobody calls them): ~A~%" (brief (sort roots #'string<) 25))
+    (let ((heavy (sort (copy-list table) #'>
+                       :key (lambda (e) (or (field e :cost) 0)))))
+      (format t "  heaviest subtrees (cost): ~{~A~^, ~}~%"
+              (loop for e in (subseq heavy 0 (min 12 (length heavy)))
+                    collect (format nil "~A(~A)" (field e :name) (or (field e :cost) 0)))))))
+
+(defun dispatch (command rest table index)
+  (let* ((arg (first rest))
+         (arg2 (second rest))
+         (depth (and arg2 (ignore-errors (parse-integer arg2)))))
+    (cond
+      ((string= command "info")    (cmd-info (need index arg)))
+      ((string= command "calls")   (cmd-calls index arg))
+      ((string= command "callers") (cmd-callers index arg))
+      ((string= command "subtree")
+       (let ((e (need index arg)))
+         (print-levels (format nil "subtree of ~A" (field e :name))
+                       (walk-levels index (list (field e :name)) :calls depth))))
+      ((string= command "impact")
+       (let ((e (need index arg)))
+         (print-levels (format nil "impact of ~A" (field e :name))
+                       (walk-levels index (list (field e :name)) :used-by depth))))
+      ((string= command "path")
+       (need index arg)
+       (need index arg2)
+       (print-path index (entry-key arg) (entry-key arg2)))
+      ((string= command "search")  (cmd-search table arg depth))
+      ((string= command "fields")  (cmd-fields table))
+      ((string= command "lines")   (cmd-lines table))
+      ((string= command "stats")   (cmd-stats table))
+      (t (usage)))))
+
+(defun main ()
+  (let* ((args (cdr sb-ext:*posix-argv*))
+         (command (string-downcase (or (first args) "help")))
+         (rest (cdr args)))
+    (when (or (null args) (member command '("help" "-h" "--help") :test #'string=))
+      (usage)
+      (sb-ext:exit :code 0))
+    (unless (member command *commands* :test #'string=)
+      (format t "~&unknown command: ~A~%" command)
+      (usage)
+      (sb-ext:exit :code 2))
+    (let ((table (read-table *table-file*)))
+      (unless table
+        (format t "~&cannot read the symbol table: ~A~%" *table-file*)
+        (sb-ext:exit :code 2))
+      (dispatch command rest table (table-index table)))))
+
+(main)
