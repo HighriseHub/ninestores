@@ -120,12 +120,16 @@ smaller argon2 would be a non-compliant scheme wearing a compliant name.
 ### How to re-verify
 
 ```bash
-# the section is live and the current format round-trips
-python3 aiharness/deepseek/tools/swank-eval.py \
-  '(let ((s "9ef9e56d14bbc1056cdb472409b228ce1e4d1f6f386cf4711f8ec8a5"))
-     (let ((h (hash-password "Welcome1" s)))
-       (list (length h) (check-password "Welcome1" s h) (check-password "Welcome12" s h))))'
+# the section is live and the current format round-trips.
+# Evaluate this PURE form in the SLIME REPL connected to the image — no file loading:
+#     (let ((s "9ef9e56d14bbc1056cdb472409b228ce1e4d1f6f386cf4711f8ec8a5"))
+#       (let ((h (hash-password "Welcome1" s)))
+#         (list (length h) (check-password "Welcome1" s h) (check-password "Welcome12" s h))))
 # expect: (63 T NIL)   <- NIL on the last one is the whole point
+# NOTE: tools/swank-eval.py was DELETED on 2026-09-26 — driving the image's Swank from an
+# agent parked a worker thread in the debugger and left class definition wedged for the
+# life of the process (knowledge/build-and-load-CONTEXT.md §9). A pure form typed into
+# the human's own REPL is safe; never load a file into the live image from outside it.
 
 # the defect, still live until steps 2-3 land
 curl -sS -o /dev/null -c /tmp/j -X POST http://ninestores.local/hhub/dodvendlogin \
