@@ -257,6 +257,14 @@ Call STOP-NST-SERVER to revert, in reverse registration order."
                               #'nst-load-vendor-tables-structure-for-agentic-ai
                               :name "Vendor tables for agentic AI") ; LEAK: never nilled
 
+      ;; ── generated symbol DAG (funcinfo*, nst-symq, the lookup page) ──
+      ;; Data, not code: loaded at boot, so a stale or absent generated file cannot
+      ;; break system load and every boot refreshes it. FUNCINFO-REFRESH sets the
+      ;; global and drops the query index in one step.
+      (register-effect #'funcinfo-refresh
+                       (lambda () (setf *nst-function-symbols* nil))
+                       :name "Function symbol table")
+
       ;; ── in-memory tables and function registries ──
       (register-effect
        (lambda ()

@@ -649,27 +649,335 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 		       (:div  :class "hhub-footer" (hhub-html-page-footer)))))))
     (list widget1))))
 
-(defun generate-invoice-ext-url (invnum vendor company)
-  :description "Generates an external URL for a product, which can be shared with external entities"
-  (let* ((tenant-id (slot-value company 'row-id))
-	 (vendor-id (slot-value vendor 'row-id))
-	 (param-csv (format nil "tenant-id,invnum,vendor-id~C~A,~A,~A" #\linefeed tenant-id invnum vendor-id))
-	 (param-base64 (cl-base64:string-to-base64-string param-csv)))
-    (format nil "~A/hhub/displayinvoicepublic?key=~A" *siteurl* param-base64)))
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; THE PUBLIC INVOICE LINK — a SIGNED, EXPIRING capability
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;;
+;;; WHAT THIS REPLACED, AND WHY IT MATTERED. The key used to be nothing but
+;;; `base64("tenant-id,invnum,vendor-id\n<tenant>,<invnum>,<vendor>")` — structured,
+;;; predictable, UNSIGNED, with no expiry and no password. Anyone holding one link could
+;;; decode the format and mint the key for ANY invoice in ANY tenant, which is a BOLA
+;;; bypass wearing the costume of a capability URL (OWASP API1:2023). The rendered PDF
+;;; was the same story: a static file under /img/temp/ named from the invoice number and
+;;; universal time.
+;;;
+;;; TWO THINGS MAKE THE EXPIRY MEAN ANYTHING, and neither is optional:
+;;;
+;;;   1. THE PAYLOAD IS SIGNED. An expiry inside plain base64 is decoration — an
+;;;      attacker re-encodes a later timestamp. The signature is HMAC-SHA256 over the
+;;;      exact payload bytes, keyed with THE VENDOR'S OWN SALT, so a token minted for
+;;;      one vendor cannot be forged for another and the expiry cannot be edited.
+;;;      (DOD_VEND_PROFILE.PAYMENT_API_SALT would be the natural key, but it is EMPTY on
+;;;      all fifteen rows; SALT is present on every row and never leaves the system —
+;;;      the vendor response allowlist excludes it.)
+;;;   2. THE PASSWORD CHECK IS RATE LIMITED — see *invoice-ext-max-attempts*. Four digits
+;;;      is 10,000 combinations and the value is the vendor's own phone number, which the
+;;;      customer plausibly already knows. Unthrottled, the password is theatre.
+;;;
+;;; ⚠ MINTING FAILS CLOSED. A vendor with no SALT cannot have a signed link, and minting
+;;; one with a shared fallback key would recreate exactly the forgeability this removes.
+;;;
+;;; THE LIFETIME IS SHORT ON PURPOSE (5 minutes, agreed 2026-09-26). Every consumer mints
+;;; on demand and uses the link immediately — the invoice EMAIL renders its PDF attachment
+;;; server-side straight away, and the public page's own download button reuses the key it
+;;; arrived with. **A STORED external-url therefore goes stale within five minutes**, which
+;;; is the intended trade: a link that cannot be forwarded later is the point.
 
+(defparameter *invoice-ext-link-lifetime-seconds* 300
+  "How long a public invoice link stays valid. FIVE MINUTES, by decision of 2026-09-26.
+   Short because the link carries a customer's GST invoice to whoever holds it.")
+
+(defparameter *invoice-ext-max-attempts* 5
+  "Password attempts allowed per token before it is refused. See the note above: without
+   this the 4-digit password is brute-forceable by hand, let alone by script.")
+
+(defun invoice-ext-b64-encode (string)
+  "STRING → URL-SAFE base64 with the padding stripped.
+
+   🚨 URL-SAFE IS NOT COSMETIC. Standard base64 emits `+` and `/`, and the link is built
+   by plain FORMAT with no percent-encoding — so a payload whose base64 happened to
+   contain them would be mangled by the query string. `+` in particular arrives as a
+   SPACE. The old key got away with it only because this CSV's base64 happened to use
+   neither.
+
+   🚨 AND THE RESULT IS NOT LOWERCASED. This function was written with a STRING-DOWNCASE
+   around it, which is FATAL: base64 is CASE-SENSITIVE, so `g` and `G` are different
+   sextets. Measured 2026-09-26 — the payload
+   `tenant-id,...,3959000000` came back from decode as line noise, and because the
+   signature is computed over the DECODED payload, EVERY minted link failed verification
+   with `the link is malformed`. Hex may be folded; base64 may not. The case-folding
+   belongs on the SIGNATURE (hex, genuinely case-insensitive), and now lives only there."
+  (substitute #\- #\+ (substitute #\_ #\/ (string-trim "=" (cl-base64:string-to-base64-string string)))))
+
+(defun invoice-ext-b64-decode (string)
+  "URL-safe base64 back to STRING, restoring the padding that was stripped."
+  (let* ((std (substitute #\+ #\- (substitute #\/ #\_ string)))
+         (pad (mod (- 4 (mod (length std) 4)) 4)))
+    (cl-base64:base64-string-to-string (concatenate 'string std (make-string pad :initial-element #\=)))))
+
+(defun invoice-ext-key-payload (invnum vendor company expires-at)
+  "The signed payload. The header line and the first three fields are UNCHANGED from the
+   original format so existing readers that take nth 0/1/2 keep working; the expiry is
+   APPENDED as the fourth."
+  (format nil "tenant-id,invnum,vendor-id,expires-at~C~A,~A,~A,~A"
+          #\linefeed
+          (slot-value company 'row-id) invnum (slot-value vendor 'row-id) expires-at))
+
+(defun invoice-ext-key-signature (payload vendor)
+  "HEX HMAC-SHA256 of PAYLOAD under VENDOR's own SALT, or NIL when the vendor has none."
+  (let ((key (and vendor (ignore-errors (slot-value vendor 'salt)))))
+    (when (and key (plusp (length key)))
+      (let ((mac (ironclad:make-hmac (ironclad:ascii-string-to-byte-array key) :sha256)))
+        ;; ⚠ UPDATE-HMAC *DECLARES* ITS SEQUENCE AS A SIMPLE OCTET VECTOR — a string
+        ;; is not accepted, and there is no `:hmac` digest name to pass to
+        ;; DIGEST-SEQUENCE. This is the only HMAC in the tree, and it is easy to get
+        ;; wrong twice over, which is why it is spelled out at length.
+        (ironclad:update-hmac mac (ironclad:ascii-string-to-byte-array payload))
+        (string-downcase (ironclad:byte-array-to-hex-string (ironclad:hmac-digest mac)))))))
+
+(defun generate-invoice-ext-url (invnum vendor company)
+  :description "The public, signed, expiring invoice link. See the section note above."
+  (let* ((expires-at (+ (get-universal-time) *invoice-ext-link-lifetime-seconds*))
+         (payload (invoice-ext-key-payload invnum vendor company expires-at))
+         (signature (invoice-ext-key-signature payload vendor)))
+    (when (null signature)
+      ;; FAIL CLOSED — see the note. A link nobody can verify is the vulnerability.
+      (error "Refusing to mint a public invoice link: vendor ~A has no SALT to sign it with."
+             (ignore-errors (slot-value vendor 'row-id))))
+    (format nil "~A/hhub/displayinvoicepublic?key=~A.~A"
+            *siteurl* (invoice-ext-b64-encode payload) signature)))
+
+(defun invoice-ext-key-parse (key)
+  "KEY → (values PLIST REASON). PLIST carries :tenant-id :invnum :vendor-id :vendor
+   :company :expires-at, or is NIL with REASON saying which check failed.
+
+   ⚠ EVERY FAILURE IS A REASON, NOT A SILENT NIL: an expired link, a forged signature and
+   a malformed key are different facts and the page says which one it is — a customer told
+   'expired' can ask for a fresh link, while one told 'invalid' cannot act at all."
+  (flet ((why (reason) (values nil reason)))
+    ;; A request with no `key` at all is just a customer who trimmed the URL, and
+    ;; POSITION would signal on NIL rather than answer. Guard before anything else.
+    (when (or (null key) (not (stringp key)) (zerop (length key)))
+      (return-from invoice-ext-key-parse (why "no link was supplied")))
+    (let* ((dot (position #\. key :from-end t))
+           (b64 (and dot (subseq key 0 dot)))
+           (given (and dot (subseq key (1+ dot)))))
+      (when (or (null dot) (< dot 1) (null given) (zerop (length given)))
+        (return-from invoice-ext-key-parse (why "the link is malformed")))
+      (let ((payload (handler-case (invoice-ext-b64-decode b64)
+                       (error () nil))))
+        (when (null payload)
+          (return-from invoice-ext-key-parse (why "the link is malformed")))
+        (let* ((fields (ignore-errors
+                        (first (cl-csv:read-csv payload :skip-first-p t
+                                                :map-fn #'(lambda (row) row)))))
+               (tenant-id (nth 0 fields)) (invnum (nth 1 fields))
+               (vendor-id (nth 2 fields)) (expires-at (nth 3 fields)))
+          (unless (and tenant-id invnum vendor-id expires-at)
+            (return-from invoice-ext-key-parse (why "the link is malformed")))
+          (let ((vendor (ignore-errors (select-vendor-by-id vendor-id)))
+                (company (ignore-errors (select-company-by-id tenant-id))))
+            (unless (and vendor company)
+              (return-from invoice-ext-key-parse (why "the link names a vendor or tenant that no longer exists")))
+            (let ((expected (invoice-ext-key-signature payload vendor)))
+              (unless (and expected (constant-time-string= expected given))
+                ;; FORGED, or minted before a salt rotation. Deliberately not distinguished.
+                (return-from invoice-ext-key-parse (why "the link is not one this system issued"))))
+            ;; 🚨 THE VALUES FORM IS INSIDE THIS LET ON PURPOSE. It was originally a
+            ;; sibling, one level out, which left EXPIRES unbound exactly when everything
+            ;; else had passed — so a perfectly valid key signalled UNBOUND-VARIABLE
+            ;; instead of opening the invoice. Caught by the offline harness on
+            ;; 2026-09-26; the compiler only offered a style-warning.
+            (let ((expires (ignore-errors (parse-integer expires-at :junk-allowed nil))))
+              (unless expires
+                (return-from invoice-ext-key-parse (why "the link is malformed")))
+              (when (< expires (get-universal-time))
+                (return-from invoice-ext-key-parse
+                  (why (format nil "the link expired (it is valid for ~A seconds)"
+                               *invoice-ext-link-lifetime-seconds*))))
+              (values (list :tenant-id tenant-id :invnum invnum :vendor-id vendor-id
+                            :vendor vendor :company company :expires-at expires)
+                      nil))))))))
+
+;;; ── THE PASSWORD GATE ───────────────────────────────────────────────────────
+;;;
+;;; The link carries the invoice; the PASSWORD is the last four digits of the vendor's
+;;; registered phone number (agreed 2026-09-26). It protects against the ordinary
+;;; accident — a forwarded, shoulder-surfed or mis-delivered link — and NOT against a
+;;; determined attacker, and it is better to say that here than to pretend otherwise:
+;;;
+;;;   • FOUR DIGITS IS 10,000 COMBINATIONS. Unthrottled that is seconds of work, so the
+;;;     attempt limit is the only thing that makes this password mean anything.
+;;;   • THE CUSTOMER MAY ALREADY KNOW THE NUMBER: it is the vendor's own phone, often
+;;;     printed on the very invoice being protected, and it is what the vendor quotes to
+;;;     customers. The password is a SPEED BUMP; the FIVE-MINUTE EXPIRY is the control.
+;;;
+;;; The check is server-side and keyed by the token, so a customer cannot mark themselves
+;;; as authorised, and the whole state dies with the token.
+;;;
+;;; ⚠ LOCKING A TOKEN IS ALSO A DENIAL OF SERVICE. Five wrong guesses stop the LEGITIMATE
+;;; customer too, and an attacker who can reach the link can spend them. That is
+;;; tolerable ONLY because the link is dead in five minutes anyway; if the lifetime is
+;;; ever lengthened, this trade must be revisited rather than assumed.
+
+(defvar *invoice-ext-gate-table* (make-hash-table :test 'equal)
+  "Token key → (:attempts N :unlocked BOOL :at UNIVERSAL-TIME).
+
+   IN MEMORY ON PURPOSE. The state is worth nothing once the token expires, and writing
+   it to the database would outlive the link it protects — an unlocked row for an expired
+   token is a liability, not a record.")
+
+(defvar *invoice-ext-gate-lock* (bt:make-lock "ninestores-invoice-ext-public-gate")
+  "Hunchentoot serves requests on many threads and this table is shared, so every read
+   and write goes through this lock.")
+
+(defun invoice-ext-four-digits (value)
+  "The LAST FOUR DIGITS of VALUE, or NIL when there are fewer than four.
+
+   ⚠ BOTH SIDES ARE NORMALISED THE SAME WAY, and both sides take the LAST four. So a
+   vendor whose stored phone is `+91 99999 99990` and a customer who types the whole
+   number both resolve to `9990`, while a customer who types 9990 also matches. Picking
+   the last four rather than the first four is what makes both spellings work."
+  (let* ((s (and value (format nil "~A" value)))
+         (d (and s (remove-if-not #'digit-char-p s))))
+    (when (and d (>= (length d) 4))
+      (subseq d (- (length d) 4)))))
+
+(defun invoice-ext-password-digits (vendor)
+  "The expected password for VENDOR: the last four digits of its phone number.
+
+   NIL MEANS THE PAGE MUST REFUSE — a gate with no expected value is not a gate, and an
+   unsigned fallback there would be worse than no password at all."
+  (invoice-ext-four-digits (ignore-errors (phone vendor))))
+
+(defun invoice-ext-gate-sweep (now)
+  "Forget tokens that can no longer be presented. Called with the lock held."
+  (let ((cutoff (- now (* 2 *invoice-ext-link-lifetime-seconds*))))
+    (maphash (lambda (k v)
+	       (when (< (getf v :at now) cutoff) (remhash k *invoice-ext-gate-table*)))
+	     *invoice-ext-gate-table*)))
+
+(defun invoice-ext-authorise (key expected submitted is-post)
+  "May KEY show the invoice? Returns (values STATE REASON ATTEMPTS-LEFT) where STATE is
+   :granted, :prompt (a password is still needed) or :locked (attempts exhausted).
+
+   🔑 SUBMITTED AND IS-POST ARE ARGUMENTS, NOT READS OF THE LIVE REQUEST. That keeps this
+   function pure enough to drive offline from a test harness — the alternative reads
+   HUNCHENTOOT:PARAMETER inside, which cannot be called anywhere except during a request.
+   The caller does the HTTP; this does the decision.
+
+   ONLY A POST CARRYING A PASSWORD SPENDS AN ATTEMPT. A GET never does, so an attacker
+   cannot exhaust the limit — and lock out the real customer — by simply reloading the
+   page, which is exactly what a naive `bump on every request` would allow."
+  (let ((now (get-universal-time)))
+    (bt:with-lock-held (*invoice-ext-gate-lock*)
+      (invoice-ext-gate-sweep now)
+      (let* ((entry (gethash key *invoice-ext-gate-table*))
+	     (attempts (getf entry :attempts 0))
+	     (unlocked (getf entry :unlocked nil)))
+	(flet ((remember (n open)
+		 (setf (gethash key *invoice-ext-gate-table*)
+		       (list :attempts n :unlocked open :at now))))
+	  (cond
+	    ;; Already proved. Re-posting a wrong password after success must NOT revoke it,
+	    ;; or a customer who fumbles a second tab loses the page they are reading.
+	    (unlocked (values :granted nil (- *invoice-ext-max-attempts* attempts)))
+	    ((>= attempts *invoice-ext-max-attempts*)
+	     (values :locked "too many incorrect attempts on this link" 0))
+	    ;; A BLANK SUBMISSION IS NOT A GUESS. An empty form field is a customer who
+	    ;; pressed the button without typing; counting it would punish one mis-click
+	    ;; several times over, and an attacker gains nothing by sending "" because it
+	    ;; can never match. Everything non-blank counts, junk included.
+	    ((and is-post submitted (plusp (length submitted)))
+	     (let ((given (invoice-ext-four-digits submitted)))
+	       (if (and given (constant-time-string= given expected))
+		   (progn (remember attempts t)
+			  (values :granted nil (- *invoice-ext-max-attempts* attempts)))
+		   ;; A wrong guess is recorded whether or not it even LOOKED like four
+		   ;; digits: otherwise a script sending junk would never trip the limit,
+		   ;; and tripping the limit is the whole defence.
+		   (let ((n (1+ attempts)))
+		     (remember n nil)
+		     (if (>= n *invoice-ext-max-attempts*)
+			 (values :locked "too many incorrect attempts on this link" 0)
+			 (values :prompt "that password is not correct"
+				 (- *invoice-ext-max-attempts* n)))))))
+	    (t (values :prompt nil (- *invoice-ext-max-attempts* attempts)))))))))
+
+
+(defun invoice-ext-password-prompt-thunk (key reason attempts-left)
+  "The form that asks for the password, in the same thunk shape the page's model returns.
+
+   THE KEY RIDES IN THE FORM'S ACTION, so the POST comes back to this same page with the
+   same token and no hidden field can be edited to point at another invoice. The password
+   travels in the POST BODY, never the query string — a password in a URL lands in access
+   logs, browser history and the Referer header of whatever the customer clicks next."
+  (function
+   (lambda ()
+     (values
+      (cl-who:with-html-output-to-string (s nil)
+	(:div :class "container mt-4" :style "max-width: 460px;"
+	      (:h4 "This invoice is protected")
+	      (:p "Enter the last 4 digits of the vendor's registered phone number to view it.")
+	      ;; ⚠ CL-WHO CONVERTS TAG FORMS ONLY IN A BODY POSITION. Inside WHEN it treats
+	      ;; (:div …) as ordinary Lisp — "The function :DIV is undefined" at runtime —
+	      ;; so each conditional block is wrapped in CL-WHO:HTM. Measured, not assumed.
+	      (when reason
+		(cl-who:htm
+		 (:div :class "alert alert-danger" (cl-who:str (format nil "~@(~A~)." reason)))))
+	      (when (and attempts-left (plusp attempts-left))
+		(cl-who:htm
+		 (:p :class "text-muted"
+		     (cl-who:str (format nil "~D attempt~:P remaining." attempts-left)))))
+	      (:form :method "POST"
+		     :action (format nil "/hhub/displayinvoicepublic?key=~A" key)
+		     (:div :class "mb-3"
+			   (:input :type "password" :name "password" :id "hhubinvoicepassword"
+				   :class "form-control form-control-lg text-center"
+				   :inputmode "numeric" :pattern "[0-9]*"
+				   :maxlength "4" :autocomplete "off"
+				   :required "required" :placeholder "4 digits"))
+		     (:button :type "submit" :class "btn btn-primary w-100"
+			      "View invoice"))))
+      nil nil))))
 
 (defun create-model-for-displayinvoicepublic ()
+  ;; ⚠ THE KEY IS VERIFIED BEFORE A SINGLE ROW IS READ. Until now this function took the
+  ;; base64 at face value, decoded a tenant and an invoice number out of it and fetched
+  ;; them — so a hand-built key read any tenant's invoice, and a nil vendor came back as a
+  ;; 500 (the "MISSING-SLOT INVNUM" failure this page has been throwing since at least
+  ;; 2026-05-23). INVOICE-EXT-KEY-PARSE checks the signature and the expiry, and its
+  ;; failure branch replaces the 500 with a sentence a customer can act on.
+  (multiple-value-bind (grant reason)
+      (invoice-ext-key-parse (hunchentoot:parameter "key"))
+    (unless grant
+      (return-from create-model-for-displayinvoicepublic
+	;; Same shape as the success path — a thunk of three values — so the widget code
+	;; below needs no special case, and the reason reaches the customer as text.
+	(function (lambda () (values nil nil reason)))))
+    ;; ── AND THEN THE PASSWORD ──────────────────────────────────────────────
+    ;; Verified key first, password second: a forged or expired link is refused without
+    ;; ever consulting, or spending an attempt on, a password.
+    (let ((rawkey (hunchentoot:parameter "key"))
+	  (expected (invoice-ext-password-digits (getf grant :vendor))))
+      (unless expected
+	(return-from create-model-for-displayinvoicepublic
+	  (function (lambda ()
+	    (values nil nil "the vendor has no phone number on record, so this invoice cannot be protected")))))
+      (multiple-value-bind (state why left)
+	  (invoice-ext-authorise rawkey expected
+				 (hunchentoot:parameter "password")
+				 (eq (hunchentoot:request-method*) :post))
+	(case state
+	  (:granted nil)
+	  (:locked (return-from create-model-for-displayinvoicepublic
+		     (function (lambda () (values nil nil why)))))
+	  (t (return-from create-model-for-displayinvoicepublic
+	       (invoice-ext-password-prompt-thunk rawkey why left))))))
   (let* ((parambase64 (hunchentoot:parameter "key"))
-	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
-	 (paramslist (first (cl-csv:read-csv param-csv
-					     :skip-first-p T
-					     :map-fn #'(lambda (row)
-							 row))))
-	 (tenant-id (nth 0 paramslist))
-	 (invnum (nth 1 paramslist))
-	 (vendor-id (nth 2 paramslist))
-	 (vendor (select-vendor-by-id vendor-id))
-	 (company (select-company-by-id tenant-id))
+	 (invnum (getf grant :invnum))
+	 (vendor (getf grant :vendor))
+	 (company (getf grant :company))
 	 ;; the vendor's own choice from the invoice settings page, defaulted
 	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum (nst-get-vendor-invoicetemplatenum vendor))))
 	 (hrequestmodel (make-instance 'InvoiceHeaderRequestModel
@@ -695,21 +1003,38 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (setf invoicetemplate (remove-invoice-item-markers-from-template invoicetemplate))
     (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader invoiceitems invoiceitemshtmlfunc invoicetaxbreakdownfunc qrcodepath currency vendor)))
     (function (lambda ()
-      (values  invoicetemplate downloadurl)))))
+      (values  invoicetemplate downloadurl nil))))))
 
 (defun create-widgets-for-displayinvoicepublic (modelfunc)
-  (multiple-value-bind ( invoicetemplate downloadurl) (funcall modelfunc)
-    (let* ((widget1 (function (lambda ()
-		      (cl-who:with-html-output (*standard-output* nil)
-			;; The customer's own copy. The vendor may or may not have attached it to
-			;; the email they received, so the page always offers one.
-			(:div :class "text-end mb-2"
-			      (:a :class "btn btn-primary" :href downloadurl
-				  (:i :class "fa-solid fa-file-arrow-down")
-				  " Download Invoice PDF"))
-			(:hr :style "border-top: 2px dashed gray;")
-			(cl-who:str invoicetemplate))))))
-      (list widget1))))
+  (multiple-value-bind ( invoicetemplate downloadurl reason) (funcall modelfunc)
+    ;; REASON is non-nil only when the key failed to verify. The download button is
+    ;; deliberately NOT rendered in that case: it would lead to a PDF that either cannot be
+    ;; built or, worse, could be built for the wrong invoice. Nothing is fetched here.
+    (if reason
+	(let ((widget1 (function (lambda ()
+			  (cl-who:with-html-output (*standard-output* nil)
+			    (:div :class "alert alert-warning mt-3"
+				  (:h4 :class "alert-heading" "This invoice link cannot be opened")
+				  (:p (cl-who:str (format nil "~@(~A~)." reason)))
+				  (:p :class "mb-0 text-muted"
+				      "Ask the vendor to send you a fresh link.")))))))
+	  (list widget1))
+	(let* ((widget1 (function (lambda ()
+			  (cl-who:with-html-output (*standard-output* nil)
+			    ;; The customer's own copy. The vendor may or may not have attached it to
+			    ;; the email they received, so the page always offers one.
+			    ;; DOWNLOADURL IS NIL WHILE THE PAGE IS STILL ASKING FOR THE
+			    ;; PASSWORD, and an <a href=""> there would be a button that
+			    ;; does nothing. The button appears only once there is an invoice.
+			    (when downloadurl
+			      (cl-who:htm
+			       (:div :class "text-end mb-2"
+				     (:a :class "btn btn-primary" :href downloadurl
+					 (:i :class "fa-solid fa-file-arrow-down")
+					 " Download Invoice PDF"))))
+			    (:hr :style "border-top: 2px dashed gray;")
+			    (cl-who:str invoicetemplate))))))
+	  (list widget1)))))
 
 ;; ── The customer's copy of the PDF ──────────────────────────────────────────
 ;; Public twin of the vendor's create-model-for-downloadinvoice. A customer has no vendor session,
@@ -723,21 +1048,22 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 ;; login. /hhub/publicinvoicepdf collides with none of the 250 registered patterns.
 (defun create-model-for-invoice-public-pdf-url ()
   :description "Renders the public invoice page to a PDF and returns its URL. Signals when the render fails."
-  (let* ((parambase64 (hunchentoot:parameter "key"))
-	 (param-csv (cl-base64:base64-string-to-string (hunchentoot:url-decode parambase64)))
-	 (paramslist (first (cl-csv:read-csv param-csv
-					     :skip-first-p T
-					     :map-fn #'(lambda (row)
-							 row))))
-	 (tenant-id (nth 0 paramslist))
-	 (invnum (nth 1 paramslist))
-	 (vendor-id (nth 2 paramslist))
-	 (vendor (select-vendor-by-id vendor-id))
-	 (company (select-company-by-id tenant-id))
-	 (external-url (generate-invoice-ext-url invnum vendor company))
-	 (htmlfile (downloadhtmlfile external-url))
-	 (pdffileurl (format nil "~A/img/temp/~A" *siteurl* (generatepdf htmlfile invnum))))
-    pdffileurl))
+  ;; VERIFIED THE SAME WAY THE PAGE IS. This route is reachable directly, so leaving it
+  ;; unverified would hand back any invoice's PDF to a hand-built key — the page's check
+  ;; would be decoration.
+  (multiple-value-bind (grant reason) (invoice-ext-key-parse (hunchentoot:parameter "key"))
+    (unless grant
+      (error "Refusing to render the public invoice PDF: ~A." reason))
+    (let* ((invnum (getf grant :invnum))
+	   (vendor (getf grant :vendor))
+	   (company (getf grant :company))
+	   ;; Re-minted rather than reusing the arriving key: this render fetches the URL
+	   ;; immediately, so a fresh five minutes costs nothing and avoids reasoning about
+	   ;; how much life is left on the caller's key.
+	   (external-url (generate-invoice-ext-url invnum vendor company))
+	   (htmlfile (downloadhtmlfile external-url))
+	   (pdffileurl (format nil "~A/img/temp/~A" *siteurl* (generatepdf htmlfile invnum))))
+      pdffileurl)))
 
 (defun com-hhub-transaction-invoice-public-pdf ()
   :description "Serves the invoice PDF to a customer reading the public invoice page. No session check : the key is the authorisation, the same as the page itself."

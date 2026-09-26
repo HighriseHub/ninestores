@@ -91,7 +91,7 @@
    (price
     :initarg :price
     :accessor price
-    :initform 0
+    :initform 0.0
     :documentation "PRICE decimal(10,2) NOT NULL — the UNIT price, before discount and before tax.")
    (discount
     :initarg :discount
@@ -102,7 +102,7 @@
    (taxable-value
     :initarg :taxable-value
     :accessor taxable-value
-    :initform 0
+    :initform 0.0
     :documentation
     "TAXABLE_VALUE decimal(15,2) NOT NULL — the line value the tax is charged
      on: (qty × price) − discount. NOT derived by any verb yet.")
@@ -137,7 +137,7 @@
    (totalitemval
     :initarg :totalitemval
     :accessor totalitemval
-    :initform 0
+    :initform 0.0
     :documentation
     "TOTALITEMVAL decimal(15,2) NOT NULL — taxable value + all tax amounts.
      [LEGAL: the header's TOTALVALUE must equal the sum of this over its
@@ -235,7 +235,15 @@
     :accessor totalitemval)
    (status
     :initarg :status
-    :accessor status))
+    :accessor status)
+   ;; C A R R I E D   B U T   N O T   P U B L I S H E D — the same slot, for the
+   ;; same reason, as NstInvhResponseModel's: *invitm-mirrored-slots* drives
+   ;; domain->response over every mirrored slot, so the slot must exist here or
+   ;; the setf signals MISSING-SLOT and every line route answers 500. render-json
+   ;; is the outbound allowlist and does not name it.
+   (deleted-state
+    :initarg :deleted-state
+    :accessor deleted-state))
   (:documentation
    "Outbound boundary object for nst-invitm, mirrored 1:1 with the entity. No
     domain->response or render-json method exists for it yet — those arrive with

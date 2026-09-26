@@ -163,57 +163,45 @@ else**, including in `nst-bl-apidefs2-CONTEXT.md`.
 
 ---
 
-## 9. Recipe — check a file against the LIVE image (the other half of §6)
+## 9. Probing the LIVE image — the door we CLOSED (2026-09-26)
 
-§6 compiles a file in an isolated SBCL with a hand-picked package set. That is the
-right tool when the running image is unavailable or you do not want to touch it.
-**This is the right tool the rest of the time**, and it is strictly more truthful: the
-image already has CLSQL, every project package, and the loaded system, so a file that
-loads there has genuinely compiled against the real world.
+**`aiharness/deepseek/tools/swank-eval.py` HAS BEEN DELETED. Do not rebuild it, and do not
+drive the image's Swank from an agent.** An in-image `load` that errors parks the request's
+worker thread in Swank's debugger, and whatever lock the failing form held is held for the
+life of the process — SBCL mutexes are not robust, so a restart is the only recovery, and
+every session cookie dies with it.
 
-The image starts a Swank server on `127.0.0.1:4016` — `startup/init.lisp` documents the
-port as *"used for remote interaction with slime"*. `aiharness/deepseek/tools/swank-eval.py`
-is the same door without an editor:
+**Measured 2026-09-25.** One aborted `-f` load, whose condition was raised from inside
+`ENSURE-CLASS`, left SBCL's PCL global mutex held. Afterwards NOTHING in that image could
+define a class or a struct again. Two symptoms, both of which read as "the file is broken"
+and neither of which was:
 
-```bash
-cd /home/ubuntu/ninestores
-python3 aiharness/deepseek/tools/swank-eval.py -f /home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp
-python3 aiharness/deepseek/tools/swank-eval.py -F /tmp/probe.lisp
-python3 aiharness/deepseek/tools/swank-eval.py '(fboundp (quote !settings))'
-```
+- `hhub/package/compile.lisp` never finished compiling. It defines `compilation-stats` with
+  a `defstruct` at line 23, and SBCL evaluates `defstruct` at COMPILE time — so the file
+  stops there and prints nothing at all.
+- `compile-production` stopped after
+  `Up to date, loading without recompiling: core/dod-dal-pas.lisp`. **That log message
+  PRECEDES the load** (`package/compile.lisp:337-338`), so the file named last is the one it
+  is stuck *in* — hanging on that file's `def-view-class` at line 10, the first
+  class-creating form in the whole build.
 
-`-f` **loads** (so it compiles and prints warnings); `-F` **evaluates** a file's single
-top-level form; a bare form argument is evaluated in `NSTORES` (`-p` changes that).
+An image in that state is IDLE, not looping: `ps` showed ~0.4% CPU accrued over hours. That
+is how to tell it apart from a compiler genuinely working.
 
-### The traps, each of which cost a cycle
+### What to use instead
 
-1. **`-f` and `-F` are NOT interchangeable, and CLSQL is why.** `load` compiles, so
-   `clsql:select` expands through its **compiler macro**, and
-   `(clsql:select 'dod-company :where "row_id = 2" :flatp t)` dies with *"No source
-   tables supplied to select statement"* — while the identical form **evaluates**
-   correctly. Anything touching CLSQL belongs in a `-F` file. `-F` also sidesteps every
-   layer of shell quoting, which is what makes it the right way to hand over a probe
-   full of docstrings and double quotes.
-2. **Absolute paths only.** The image's `*default-pathname-defaults*` is not the repo,
-   so a relative `hhub/…` path fails with *"file does not exist"*.
-3. **The image runs as `hunchentoot`.** A probe written to `/tmp` must be world-readable
-   (`chmod 644`) or the load answers *"Permission denied"*.
-4. **The handshake is mandatory.** Swank sets up `*emacs-connection*` and its control
-   thread on `connection-info`; a request sent before it is queued and **never
-   answered**, which is indistinguishable from a hang. The `indentation-update` that
-   follows is a few hundred KB and must be drained before anything else.
-5. **The form must travel as a STRING** — `(swank:eval-and-grab-output "…")`. `emacs-rex`
-   is read inside `SWANK-IO-PACKAGE`, so a bare form's `*package*` resolves to
-   `SWANK-IO-PACKAGE::*PACKAGE*`, which is **unbound**, and the request lands in the
-   debugger instead of evaluating.
-6. **An errored request answers `(:debug …)`, not `(:return …)`.** Waiting for a
-   `:return` that will never come is the second way this looks like a hang; the client
-   detects `:debug` and aborts to top level.
+- **§6's isolated `compile-file`** — a throwaway SBCL that cannot touch the server, and not
+  a weaker check: it caught a docstring-terminating quote, three paren bugs that made a file
+  unreadable to the reader, and a route/binding mismatch that only the loader rejected. Run
+  it FIRST, before any live check.
+- **`../tools/nst-symq`** for anything about a symbol — it reads the generated table and
+  never loads it, so it cannot disturb the image.
+- **The human's own SLIME** for interactive work, with PURE forms only — arithmetic, a
+  `select`, `hash-password`. The rule that follows: **never `load`/`compile` a file into the
+  live image from outside it.** Evaluating a form is fine; loading a file is what takes
+  locks that a later error can strand.
 
-All six are implemented and commented in the tool's own header.
-
-### The rule that matters more than any of them
-
+### The rule that outlived the tool: restore what you touch
 **A probe that writes to the database must restore in an `unwind-protect` whose cleanup
 cannot itself fail — and it must restore THROUGH THE VERB, never by building SQL by
 hand.**

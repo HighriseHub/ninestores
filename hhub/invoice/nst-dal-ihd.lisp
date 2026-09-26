@@ -793,7 +793,26 @@
    (updated
     :type clsql:wall-time
     :initarg :updated
-    :void-value (clsql:get-time)
+    ;; 🚨 NO :void-value HERE. It used to be (clsql:get-time) — A FORM, NOT A VALUE.
+    ;; CLSQL's own docstring for the option (sql/ooddl.lisp:234): ":void-value specifies
+    ;; THE VALUE to store if the SQL value is NULL and defaults to NIL" — a LITERAL, not
+    ;; something CLSQL evaluates. So that line meant "when UPDATED is NULL, store the
+    ;; list (CLSQL:GET-TIME)", and as this slot is typed clsql:wall-time the WRITE then
+    ;; failed validation:
+    ;;
+    ;;   A CLSQL lisp code error occurred: Invalid value GET-TIME in slot UPDATED,
+    ;;   not of type WALL-TIME.
+    ;;
+    ;; MEASURED 2026-09-26 in the business-functions log. It made EVERY header UPDATE
+    ;; answer :U (503) "the database call did not answer", so PUT /invoices/{id} could
+    ;; not modify anything. Removing the option restores the documented default (NIL,
+    ;; i.e. SQL NULL), which this column accepts:
+    ;;   UPDATED timestamp NULL DEFAULT NULL.
+    ;;
+    ;; ⚠ NOBODY STAMPS UPDATED TODAY, and removing this does not change that: the DDL
+    ;; has no ON UPDATE CURRENT_TIMESTAMP, and the domain->DB copier deliberately
+    ;; excludes created/updated. An auto-stamp needs a MIGRATION (or the domain setting
+    ;; it on write) — a void-value can never mean "now".
     :accessor updated)
    (status
     :initarg :status

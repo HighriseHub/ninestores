@@ -103,16 +103,24 @@ Lisp keywords in the table; `snake_case` in the JSON the UI page receives
 ## Regenerating (must run inside the loaded image)
 
 The graph needs the loaded system (`fboundp`, SWANK source locations), so it cannot
-be produced by a script:
+be produced by a script. One call does the whole job:
 
 ```lisp
-(generate-lookup-file "nstores" "hhub/core/nst-bl-funloodat.lisp")
+(refresh-symbol-table)              ; generate -> load -> refresh the global -> report
+(refresh-symbol-table :report nil)  ; the same, silent
 ```
 
-It returns **T and is completely silent — warnings included**; the generated file is the
-result. Regeneration preserves the curated `:keywords` and `:meta` slots and refreshes
-`*nst-function-symbols*` in place, so the REPL and the UI page pick up the new graph
-without a reload.
+**Load the files you changed first.** Generation reflects the *image* for symbols,
+docstrings and source locations, and only the file text for the call edges — an edited
+file that was never loaded still reports its old location, and symbols from a new file
+that was never loaded are invisible. A new file also has to be in `hhub/nstores.asd`
+and `hhub/package/compile.lisp` before its symbols can appear.
+
+`generate-lookup-file` on its own returns **T and is completely silent — warnings
+included**; the generated file is the result, and it preserves the curated `:keywords`
+and `:meta` slots and publishes `*nst-function-symbols*` in place.
+`refresh-symbol-table` additionally reloads the generated file (so `function-lookup-table`
+itself returns the new table) and prints the coverage report.
 
 Nothing is lost to that silence: a form that fails to
 read is counted in `*sym-read-errors*`, a file that cannot be opened at all is recorded

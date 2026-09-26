@@ -164,7 +164,10 @@
   "REQUEST with BOTH transport-shaped fields coerced — :row-id to a string and
    :invdate to a CLSQL date — or REQUEST unchanged when neither needs it. The ferry
    reads the request's params, so a coercion has to produce a request, not a side
-   effect on a shared object."
+   effect on a shared object.
+
+   ⚠ FOR ROUTES THAT ADDRESS AN EXISTING ROW ONLY — fetch, !update, delete!. Do NOT
+   use it for make: see invh-create-normalised-request."
   (let* ((with-id (inv-request-with-row-id-string request))
          (payload (params with-id))
          (invdate (inv-param payload :invdate)))
@@ -172,6 +175,38 @@
         (make-instance 'NstInvhRequestModel
                        :params (inv-plist-set payload :invdate (inv-date-param invdate)))
         with-id)))
+
+(defun invh-create-normalised-request (request)
+  "REQUEST with :invdate coerced and NO ROW-ID REQUIREMENT. The create route's
+   normaliser.
+
+   🚨 WHY THIS IS SEPARATE, AND WHAT IT FIXES. route-invh-create used
+   invh-normalised-request, which coerces :row-id through inv-row-id-param — and that
+   SIGNALS api-client-error when no row-id is present:
+
+     (api-client-error \"a row-id is required (a numeric id)\")
+
+   A CREATE HAS NO ROW-ID. The row does not exist yet; the database mints one. So every
+   POST /hhub/api/v1/invoices was refused with 400 before the verb ever ran, and the
+   endpoint could not create anything at all.
+
+   MEASURED 2026-09-26, by calling route-invh-create for the first time: the offline
+   harness raised exactly that condition. Nothing had caught it earlier because NOTHING
+   HAD EVER CALLED THIS ROUTE — the smoke suite's create assertions were written from
+   the route's docstring, and the route had never run. That is the whole reason the
+   offline harness exists.
+
+   The row-id coercion STAYS on the fetch/!update/delete! paths, where a missing id is
+   genuinely a malformed request — a shared normaliser would trade this 400 for a 500
+   from the verb's own (row-id string) dispatch. Two shapes, two normalisers.
+
+   :invdate still goes through the strict ISO coercion, so the 400 for a non-ISO date
+   is unchanged on create."
+  (let ((invdate (inv-param (params request) :invdate)))
+    (if (stringp invdate)
+        (make-instance 'NstInvhRequestModel
+                       :params (inv-plist-set (params request) :invdate (inv-date-param invdate)))
+        request)))
 
 (defun invh-enumerate-args (payload)
   "Filter args for (enumerate 'nst-invh ctx …). Like whs-enumerate-args, these are
@@ -192,6 +227,39 @@
         :sort-by     (or (inv-keyword-value (inv-param payload :sort-by)) :invdate)
         :sort-dir    (or (inv-keyword-value (inv-param payload :sort-dir)) :desc)))
 
+(defun invh-guard-sort-args (payload)
+  "Refuse an unusable sort-by/sort-dir at the ROUTE layer, as a 400.
+
+   🚨 WHY THIS EXISTS — MEASURED, NOT IMAGINED. The whitelist that actually protects
+   the ORDER BY lives in the domain (validate-invh-sort-args, nst-bl-invh.lisp:478),
+   and it signals a PLAIN ERROR:
+
+     (error \"enumerate: sort-by ~A not in whitelist ~A\" sort-by *invh-sort-whitelist*)
+
+   A plain error is not one of apidefs2's named conditions, so
+   api-status-for-condition answers 500 internal_error. The consequence is that
+   ?sort-by=password — a malformed REQUEST, and one this API publishes as a query
+   parameter — was reported to the client as the SERVER breaking, indistinguishable
+   from a crash. That is the same defect class the vendor settings suite records as
+   its K1, and it is exactly the collapse the rest of this suite refuses to accept.
+
+   THE DOMAIN CHECK STAYS, and this is not a replacement for it: the guard covers the
+   values the HTTP layer can see, while the whitelist remains the authority for every
+   other channel (:agent, :batch, a REPL caller) that reaches enumerate directly. It
+   READS the same *invh-sort-whitelist* rather than restating the columns, so the two
+   cannot drift apart — a guard holding its own copy of the list would be worse than
+   no guard.
+
+   Only a SUPPLIED and unusable value is refused. An absent sort-by is legal and
+   defaults in invh-enumerate-args, so the happy path is untouched."
+  (let ((sort-by (inv-keyword-value (inv-param payload :sort-by)))
+        (sort-dir (inv-keyword-value (inv-param payload :sort-dir))))
+    (when (and sort-by (not (assoc sort-by *invh-sort-whitelist*)))
+      (api-client-error "sort-by ~S is not sortable here; use one of ~{~A~^, ~}"
+                        sort-by (mapcar #'car *invh-sort-whitelist*)))
+    (when (and sort-dir (not (member sort-dir '(:asc :desc))))
+      (api-client-error "sort-dir must be asc or desc, got ~S" sort-dir))))
+
 
 ;;; ═══════════════════════════════════════════════════════════════════════
 ;;; SECTION 2 — The action verbs (Tier 2)
@@ -203,13 +271,61 @@
 ;;; belong to the प्रत्यय in nst-bl-invh.lisp, so the API, the internal website and
 ;;; a REPL caller all get the same answer from the same code.
 
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; THE URL CARRIES THE INVOICE NUMBER, NOT THE ROW-ID
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; Every invoice binding maps its {id} segment to :invnum. THE NUMBER IS THE
+;;; BACKBONE KEY of an invoice in this domain: it is what the vendor reads, what the
+;;; customer quotes, what the GST return carries, and what a human can type. A
+;;; surrogate ROW_ID is none of those things — it is an accident of insertion order
+;;; (the trigger even DERIVES the number from it), so it makes a poor address.
+;;;
+;;; ⚠ THE NUMBER IS UNIQUE (index INVNUM, NON_UNIQUE=0) AND IS NOW IMMUTABLE, which is
+;;; what makes it safe as an address: route-invh-update REFUSES a body-supplied
+;;; :invnum, so a client cannot rename an invoice out from under a link it published.
+;;;
+;;; 🚨 WHY THE RESOLUTION HAPPENS *HERE* AND NOT IN A VERB. The domain verbs
+;;; specialize on (id string) — fetch, !update, delete! — and AN INVOICE NUMBER AND A
+;;; ROW-ID ARE BOTH STRINGS, so no verb method can be written that tells them apart:
+;;; CLOS dispatches on type, and the type is the same. The distinction is knowable
+;;; only in the route layer, which is exactly where the URL is read.
+;;;
+;;; The verb is NOT re-addressed: it still works by row-id, and this resolves the
+;;; number to that row-id once per request. So the domain keeps its surrogate key and
+;;; the API gets a readable one.
+;;;
+;;; THE ANSWER IS THE VERB'S OWN, FOUR-VALUED. This delegates to
+;;; route-invh-fetch-by-invnum, so a number held by a SOFT-DELETED invoice answers
+;;; :C → 409 rather than 404 — the number is consumed and the row is present, so
+;;; 'there is no such invoice' would be false.
+
+(defun invh-header-from-url (request ctx)
+  "The nst-invh the URL's {id} names BY NUMBER, or the sentinel that answers for it."
+  (route-invh-fetch-by-invnum request ctx))
+
+(defun invh-request-with-header-row-id (request ctx)
+  "REQUEST whose :invheadid is the ROW-ID of the invoice the URL named by :invnum, or
+   the SENTINEL that answers for that number.
+
+   The LINE routes need the parent's row-id — the verb locates the header by it and
+   checks the (header, line) pairing against it — while the URL carries the number. The
+   substitution happens here so the verbs, and invitm-check-pairing-of, are unchanged;
+   :invnum is REMOVED from the params, so nothing downstream can mistake a number for an
+   id and silently look up the wrong column."  (let ((header (invh-header-from-url request ctx)))
+    (if (not (typep header 'nst-invh))
+        header
+        (make-instance (class-of request)
+                       :params (list* :invheadid (princ-to-string (row-id header))
+                                      (inv-params-without (params request) :invnum))))))
+
 (defun route-invh-create (request ctx)
   "कर्म = nst-invh. Make a DRAFT header.
    invnum/invdate/finyear are derived by the verb when absent (a placeholder number,
    today, the GST financial year), so a minimal body works. The NOT NULL text columns
    the caller must supply (custname, statecode, placeofsupply) are refused by the
    database with the column named → a genuine :F, not a 404."
-  (request->dispatch (invh-normalised-request request) 'make 'nst-invh ctx))
+  (request->dispatch (invh-create-normalised-request request) 'make 'nst-invh ctx))
 
 (defun route-invh-fetch (request ctx)
   "कर्म = nst-invh, addressed by :row-id (rm-row-id). Returns an nst-invh or a
@@ -258,7 +374,29 @@
    actually supplied in params change. :row-id selects the row; a string :invdate is
    coerced first, since !update would otherwise write a transport string into a DATE
    column."
-  (request->dispatch (invh-normalised-request request) '!update 'nst-invh ctx))
+  ;; 🚨 :invnum IS STRIPPED, AND IT CANNOT BE *REFUSED* — because THE ADDRESS AND A BODY
+  ;; KEY ARE THE SAME PARAM. api-params-for-request merges the path parameters and the
+  ;; JSON body into ONE params plist, so the :invnum that names the invoice in the URL is
+  ;; indistinguishable from an :invnum a client put in the body. A guard that refuses
+  ;; :invnum therefore refuses every legitimate request — which is exactly what happened
+  ;; the first time this was written.
+  ;;
+  ;; WHAT THAT COSTS, stated plainly: a client that sends invnum in the body is IGNORED
+  ;; rather than told no. The mitigation is that the response returns the row's ACTUAL
+  ;; invnum, so an attempted rename is visible in the reply instead of silently believed.
+  ;; THE GUARANTEE THAT MATTERS STILL HOLDS: the number cannot be changed OVER HTTP,
+  ;; because the param is dropped here and !update never sees it.
+  ;; ⚠ A DIRECT !update CALL (REPL :agent) could still set it — the same shape as the
+  ;; recorded :tenant-id hole, and it wants the same one-line verb guard.
+  (let ((header (invh-header-from-url request ctx)))
+    (if (not (typep header 'nst-invh))
+        header
+        (request->dispatch
+         (invh-normalised-request
+          (make-instance 'NstInvhRequestModel
+                         :params (list* :row-id (princ-to-string (row-id header))
+                                        (inv-params-without (params request) :invnum))))
+         '!update 'nst-invh ctx))))
 
 (defun route-invh-delete (request ctx)
   "कर्म = nst-invh. Soft delete, and ONLY while the header is a DRAFT — the verb's
@@ -272,7 +410,18 @@
 (defun route-invh-list (request ctx)
   "कर्म = the filtered nst-invh collection. Calls enumerate directly (not via the
    ferry) because its arguments are query filters rather than entity initargs — see
-   invh-enumerate-args. Zero rows is a SUCCESS with an empty list, not a 404."
+   invh-enumerate-args. Zero rows is a SUCCESS with an empty list, not a 404.
+
+   The sort arguments are guarded BEFORE the domain sees them, so an unusable
+   ?sort-by is a 400 rather than the 500 the whitelist's bare error produced — see
+   invh-guard-sort-args, which carries the measurement.
+
+   NOTE what is NOT validated here, deliberately: ?status passes through unvalidated.
+   invh-status-string only upcases it, so an unknown status compares against the
+   column, matches nothing, and answers 200 with [] — 'this filter selected no
+   invoices' is a legitimate answer, not a malformed request. Refusing it would turn
+   an empty result into an error, which is the collapse this API refuses elsewhere."
+  (invh-guard-sort-args (params request))
   (apply #'enumerate 'nst-invh ctx (invh-enumerate-args (params request))))
 
 
@@ -350,8 +499,7 @@
    select-invoice-items-for-header directly — would save one SELECT and give the
    aggregate its own private path to the child rows, which is exactly how a read ends
    up skipping rules the verbs enforce."
-  (let* ((req (inv-request-with-row-id-string request))
-         (header (request->dispatch req 'fetch 'nst-invh ctx)))
+  (let ((header (invh-header-from-url request ctx)))
     (if (not (typep header 'nst-invh))
         header
         (let ((lines (enumerate 'nst-invitm ctx :invheadid (row-id header))))
@@ -360,6 +508,196 @@
                              :header (domain->response header ctx)
                              :lines (mapcar (lambda (l) (domain->response l ctx)) lines))
               lines)))))
+
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; THE SPEC'S DOWNLOAD — GET /api/v1/invoices/{id}/download
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; "Generate and return a print-ready PDF." THE PRODUCER ALREADY EXISTS, and the
+;;; reason reusing it is legitimate rather than a shortcut is that THE TABLES ARE THE
+;;; SAME ONE: nst-invh mirrors DOD_INVOICE_HEADER, and the legacy view class is
+;;; declared against that very table — (clsql:def-view-class dod-Invoice-Header …
+;;; (:BASE-TABLE dod_invoice_header)), invoice/nst-dal-ihd.lisp:945 — so an invoice
+;;; created through this API is rendered by the existing public page with no mapping
+;;; step, and there is no second renderer to keep in sync. The three inputs the
+;;; pipeline needs — invnum, vendor-id, tenant-id — are all columns of that row.
+;;;
+;;; ⚠ IT DEPENDS ON THE LEGACY UI FILE. generate-invoice-ext-url lives in
+;;; invoice/nst-ui-ihd.lisp, so this route reaches from the API tier into the UI tier.
+;;; That is a deliberate trade: the alternative is a second copy of the base64
+;;; {tenant-id,invnum,vendor-id} key format, and a duplicated key format that drifts
+;;; is worse than a layering wrinkle. The honest home for the pipeline is not the UI,
+;;; and moving it — ext-url, downloadhtmlfile, generatepdf and the public page model —
+;;; is the refactor that would let this stop reaching across. NOTE ALSO the load
+;;; order: the asd lists nst-ui-ihd (line 135) AFTER this file (line 133), so the
+;;; reference is a compile-time style warning and resolves at CALL time, which is why
+;;; it is safe here.
+
+(defun invh-download-pdf-url (entity ctx)
+  "The public URL of ENTITY's print-ready PDF, or an nst-entity-unknown sentinel.
+
+   🚨 THIS SHELLS OUT AND MAKES AN OUTBOUND HTTP ROUND TRIP, so it is SLOW and it
+   needs the site to be able to FETCH ITSELF. downloadhtmlfile wgets *siteurl*
+   (\"https://www.ninestores.in\", core/dod-ini-sys.lisp:57) and generatepdf then
+   runs wkhtmltopdf over the result (core/dod-bl-utl.lisp:254,285). On a host where
+   *siteurl* points somewhere else, this renders THAT deployment's page — or fails.
+   That is a property of the pipeline, not of this route (the vendor's own download
+   and the invoice email attachment inherit it too), but an API caller meets it
+   without the browser context that hides it. The reason is documented here rather
+   than discovered by whoever first calls it in staging.
+
+   A NIL VENDOR OR TENANT IS A :U, NOT A :F. The invoice exists — the caller already
+   fetched it under its own tenant — so answering 'no such invoice' would be a lie,
+   and the pipeline cannot proceed either. That is exactly the :U read-as-:F collapse
+   this tree exists to prevent, and it reaches the client as 503 rather than 404."
+  (let ((vendor (select-vendor-by-id (vendor-id entity)))
+        (company (select-company-by-id (tenant-id entity))))
+    (if (or (null vendor) (null company))
+        (make-instance 'nst-entity-unknown
+                       :tenant-id (tenant-id entity)
+                       :reason (format nil "invoice ~A names vendor ~A in tenant ~A, but ~A no longer resolves, so its PDF cannot be produced"
+                                       (invnum entity) (vendor-id entity) (tenant-id entity)
+                                       (if (null vendor) "that vendor" "that tenant")))
+        (let* ((invnum (invnum entity))
+               (external-url (generate-invoice-ext-url invnum vendor company))
+               (htmlfile (downloadhtmlfile external-url))
+               (pdffile (generatepdf htmlfile invnum)))
+          (format nil "~A/img/temp/~A" *siteurl* pdffile)))))
+
+(defun route-invh-download (request ctx)
+  "कर्म = the print-ready PDF of one invoice header, DELIVERED AS A 302.
+
+   THE DELIVERY CHOICE, and it is the one the application already makes. generatepdf
+   returns a FILE NAME under *HHUBRESOURCESDIR*/temp/, not bytes, and the existing
+   precedent — com-hhub-transaction-invoice-public-pdf (invoice/nst-ui-ihd.lisp) —
+   answers with a redirect to the static file. This route does the same thing, so a
+   client that follows redirects receives the PDF and nothing new has to be invented.
+   THE ALTERNATIVE IS A REAL APIDEFS2 CHANGE and is deliberately not taken here:
+   :response-format knows only :json and :csv, and the dispatcher's pass-through is
+   (stringp …) only — returning BYTES would need a new format value, a bytes-aware
+   writer beside api-write-text, and an octet-vector clause in action->response. That
+   is a change to the seam all FORTY bound endpoints share, and it buys nothing this
+   route cannot already deliver; it belongs in its own change with its own tests.
+
+   The redirect is issued from HERE, in the Tier-2 route tier, which is the HTTP
+   adapter — not from the domain and not from the render layer. hunchentoot:redirect
+   sets Location + status and calls abort-request-handler, which THROWS out to
+   hunchentoot's own catch tag; apidefs2's error handling intercepts CONDITIONS, not
+   throws, so the redirect unwinds cleanly and no body is written. That is why this
+   verb never returns a value on its success path.
+
+   A sentinel from the header fetch IS the answer for the whole request, and is
+   returned unchanged so the dispatcher renders 404/409/503 as usual — a download of
+   an invoice this tenant cannot see must not become a 500.
+
+   FAILURES FROM THE PIPELINE ITSELF ARE NOT CAUGHT HERE. hhub-external-command-failed
+   and friends propagate and are classified 500, which is honest: the caller asked
+   for a PDF, the server failed to make one, and nothing about the request was wrong."
+  (let ((header (invh-header-from-url request ctx)))
+    (if (not (typep header 'nst-invh))
+        header
+        (let ((url (invh-download-pdf-url header ctx)))
+          (if (stringp url)
+              (hunchentoot:redirect url :code 302)
+              url)))))
+
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; THE SPEC'S PUBLIC VIEW — GET /api/v1/invoices/{id}/public
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; 🚨 WHAT THE SPEC ACTUALLY ASKS FOR, QUOTED, BECAUSE THE HANDOFF READ IT NARROWLY:
+;;;
+;;;   {m:'GET',p:'/api/v1/invoices/{id}/public',
+;;;    d:'Publicly accessible invoice view URL for sharing with customers directly.
+;;;       No authentication required.'}          — hhub/core/nstoresapi.html:168
+;;;
+;;; THE SUBJECT OF "No authentication required" IS THE *URL*, NOT THIS ENDPOINT. What
+;;; the endpoint RETURNS is a shareable link — "invoice view URL for sharing" — and it
+;;; is that link which must open without a session. Reading the sentence as a
+;;; requirement on the endpoint itself is what made this look unbuildable, and it is
+;;; also the reading that would be a security hole: an id-addressed, unauthenticated
+;;; invoice read lets anyone walk ROW_IDs and harvest every tenant's invoices, which is
+;;; the OWASP API1:2023(BOLA) failure this whole suite exists to keep out.
+;;;
+;;; SO THIS IS A SESSION-SCOPED READ THAT MINTS A LINK, exactly like every other route
+;;; in this file, and the PUBLIC half is the mechanism that ALREADY EXISTS:
+;;;
+;;;   GET /hhub/displayinvoicepublic?key=<base64 of "tenant-id,invnum,vendor-id">
+;;;
+;;; registered in sysuser/dod-ui-sys.lisp and served by nst-ui-ihd.lisp with NO session
+;;; check — the key IS the capability. It reads the header by invnum + company, so it
+;;; renders ANY invoice row including one this API just created, and it needs nothing
+;;; pre-stored on the row.
+;;;
+;;; ⚠ THE LINK IS DETERMINISTIC, WHICH IS WHY NOTHING IS WRITTEN. generate-invoice-ext-url
+;;; hashes tenant-id + invnum + vendor-id with no nonce and no timestamp, so the same
+;;; invoice always yields the same URL. This route therefore does NOT populate
+;;; DOD_INVOICE_HEADER.EXTERNAL_URL: a GET must not write, and there is nothing to gain,
+;;; because re-minting produces the identical value. (The column exists and is mirrored;
+;;; if a future policy wants links that can be REVOKED, that is when persistence and an
+;;; expiry — the handoff's open live-link question — start to matter. It is not needed
+;;; to serve this endpoint, and inventing it now would be inventing policy.)
+;;;
+;;; ⚠ AND THE LINK CARRIES NO EXPIRY AND NO PASSWORD, so anyone who has it can read the
+;;; invoice for as long as the row exists. That is the EXISTING behaviour of the shared
+;;; URL, unchanged by this route — stated here so a vendor handing one out knows what
+;;; they are handing out, rather than discovering it. Same footing as the PDF download's
+;;; dependency on the site's own public URL: this route exposes the mechanism that is
+;;; already deployed, it does not introduce a new one.
+
+(defclass invh-public-url-response (nst-response-model)
+  ((url
+    :initarg :url
+    :accessor public-url
+    :documentation "The shareable, sessionless URL of the invoice's public view."))
+  (:documentation
+   "The assembled outbound shape of the public-view read: one link.
+
+   A boundary type built by an action verb, which is the same sanctioned exception
+   invh-detail-response uses — (action->response …) carries a pass-through clause for a
+   ready-made nst-response-model, so an action with no single entity to ferry still has
+   a door. WITHOUT IT the alternative is returning the bare string, and a plain string
+   from a :json route reaches the client as a bare URL under an application/json
+   content-type, which is not JSON — the exact lie the :csv response format exists to
+   avoid."))
+
+(defmethod render-json ((r invh-public-url-response) (ctx domain-ctx))
+  "{\"publicUrl\": \"…\"}. One field, named for what it is rather than for the column
+   it does not come from. The outbound allowlist for this type is this method, which
+   is why the class is not given a field it does not publish."
+  (list (cons "publicUrl" (public-url r))))
+
+(defun invh-public-url-response-for (entity ctx)
+  "The public-view link for ENTITY, or an nst-entity-unknown sentinel.
+
+   The nil-vendor/tenant case is a :U for the same reason it is on the download route:
+   the invoice exists, so 'no such invoice' would be false, while no link can be minted
+   without the vendor's own identity in the key. 503, never 404."
+  (let ((vendor (select-vendor-by-id (vendor-id entity)))
+        (company (select-company-by-id (tenant-id entity))))
+    (if (or (null vendor) (null company))
+        (make-instance 'nst-entity-unknown
+                       :tenant-id (tenant-id entity)
+                       :reason (format nil "invoice ~A names vendor ~A in tenant ~A, but ~A no longer resolves, so no shareable link can be minted"
+                                       (invnum entity) (vendor-id entity) (tenant-id entity)
+                                       (if (null vendor) "that vendor" "that tenant")))
+        (make-instance 'invh-public-url-response
+                       :url (generate-invoice-ext-url (invnum entity) vendor company)))))
+
+(defun route-invh-public (request ctx)
+  "कर्म = the invoice's public-view link. A read of the SHARING handle, not of the
+   document, which is why it crosses no domain verb of its own: the row is fetched
+   under the session tenant (exactly as detail and download do), and the link is derived
+   from three of its own columns.
+
+   A sentinel from the fetch IS the answer for the whole request and is returned
+   unchanged, so an invoice this tenant cannot see is 404 and not a 500."
+  (let ((header (invh-header-from-url request ctx)))
+    (if (not (typep header 'nst-invh))
+        header
+        (invh-public-url-response-for header ctx))))
 
 
 ;;; ═══════════════════════════════════════════════════════════════════════
@@ -445,6 +783,33 @@
                        :action-verb 'route-invh-detail
                        :request-class 'NstInvhRequestModel
                        :description "One invoice WITH its line items — the header plus a nested line array, as the API spec's GET /invoices/{id} defines. Two Tier-1 crossings; a line read that could not be answered is reported as 503 rather than as an invoice with no lines."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor admin)
+                       :feature-flags '(invoice-domain)
+                       :audit-level :read
+                       :tags '(invoice api v1))
+
+;;; The spec's download. Registered HERE, with the other header actions, so that its
+;;; binding below follows its own registration in load order — the one ordering rule
+;;; register-api-route enforces.
+(register-action-route 'route-invh-download
+                       :action-verb 'route-invh-download
+                       :request-class 'NstInvhRequestModel
+                       :description "Generate and return the print-ready PDF of one invoice by :row-id, as a 302 to the rendered file. Reuses the legacy public-page + wkhtmltopdf pipeline because the new entities mirror the SAME table the legacy renderer reads; a nil vendor or tenant answers 503 (:U), never 404. Slow by nature: it renders the invoice over the site's own public URL."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor admin)
+                       :feature-flags '(invoice-domain)
+                       :audit-level :read
+                       :tags '(invoice api v1))
+
+;;; The spec's public-view link. Registered here with the other header actions, so that
+;;; its binding below follows its own registration in load order.
+(register-action-route 'route-invh-public
+                       :action-verb 'route-invh-public
+                       :request-class 'NstInvhRequestModel
+                       :description "Return the publicly accessible view URL of one invoice by :row-id, for sharing with a customer. THE ENDPOINT ITSELF IS SESSION-SCOPED — it is the LINK that opens without authentication (hhub/displayinvoicepublic?key=…, no session check), which is what the spec's 'No authentication required' describes. The link is derived from the row (tenant-id, invnum, vendor-id) and is deterministic, so nothing is written; it carries no expiry and no password, which is the existing behaviour of the shared URL. 503 when the row names a vendor or tenant that no longer resolves."
                        :output-type :json
                        :channel :http
                        :required-roles '(vendor admin)
@@ -546,7 +911,7 @@
 (register-api-route 'route-invh-detail
                     :method :get
                     :path "/hhub/api/v1/invoices/{id}"
-                    :path-params '(("id" . :row-id))
+                    :path-params '(("id" . :invnum))
                     :success-status 200
                     :auth-scope :session
                     :description "Spec: GET /api/v1/invoices/{id} — get the full invoice: the header's fields plus a nested \"lines\" array. 404 when the invoice does not exist, belongs to another tenant, or is soft-deleted; 503 (not 404) when the database could not be reached.")
@@ -554,10 +919,53 @@
 (register-api-route 'route-invh-update
                     :method :put
                     :path "/hhub/api/v1/invoices/{id}"
-                    :path-params '(("id" . :row-id))
+                    :path-params '(("id" . :invnum))
                     :success-status 200
                     :auth-scope :session
                     :description "Spec: PUT /api/v1/invoices/{id} — update the invoice header. Body: JSON object of nst-invh field names; only the fields supplied change. invdate, if present, must be YYYY-MM-DD (400 otherwise).")
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; THE SPEC'S DOWNLOAD — bound here, in the file that registers its verb
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; A SIX-segment template, so it cannot collide with any other invoice route:
+;;; api-match-route requires EQUAL segment counts, and every other invoice path is
+;;; four (/invoices), five (/invoices/{id}, /invoices/settings) or six with a
+;;; different last segment (/invoices/{id}/items). No ranking question arises at all —
+;;; the literal `download` is the only template of this shape.
+;;;
+;;; ⚠ success-status IS 302, NOT 200, and it is DECLARED rather than implied. On this
+;;; route the status does not flow through api-status-for-response at all: the verb
+;;; issues hunchentoot:redirect, which sets Location + code and aborts the handler
+;;; before apidefs2 writes anything. The 302 here is therefore DOCUMENTATION of the
+;;; contract, and it is the value a client and this suite assert.
+(register-api-route 'route-invh-download
+                    :method :get
+                    :path "/hhub/api/v1/invoices/{id}/download"
+                    :path-params '(("id" . :invnum))
+                    :success-status 302
+                    :auth-scope :session
+                    :description "Spec: GET /api/v1/invoices/{id}/download — generate and return the print-ready PDF. Answers 302 with a Location pointing at the rendered file under /img/temp/, so a client that follows redirects receives the PDF; the file is produced by rendering the invoice's own public page with wkhtmltopdf, the same pipeline the vendor download and the invoice email use. 404 when the invoice does not exist, belongs to another tenant, or is soft-deleted; 503 when the row names a vendor or tenant that no longer resolves (:U — the invoice exists, so 'no such invoice' would be false). Slow: it renders over the site's own public URL.")
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; THE SPEC'S PUBLIC VIEW — bound here, in the file that registers its verb
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; A SIX-segment template whose last segment is a literal, so like /download it cannot
+;;; collide with anything: api-match-route requires equal segment counts, and no other
+;;; invoice path ends in `public`.
+;;;
+;;; ⚠ auth-scope IS :session, AND THAT IS THE POINT OF THE READING RECORDED ABOVE. The
+;;; route that must open without a session is the URL this returns — the existing
+;;; /hhub/displayinvoicepublic?key=… — not this endpoint. Binding it :public instead
+;;; would let anyone enumerate ROW_IDs and read every tenant's invoices.
+(register-api-route 'route-invh-public
+                    :method :get
+                    :path "/hhub/api/v1/invoices/{id}/public"
+                    :path-params '(("id" . :invnum))
+                    :success-status 200
+                    :auth-scope :session
+                    :description "Spec: GET /api/v1/invoices/{id}/public — the publicly accessible invoice view URL for sharing with a customer. Returns {\"publicUrl\": \"…\"}: a deterministic link derived from the invoice's tenant, number and vendor, which opens with no session (that is the public half). Requires a session to MINT, because an id-addressed unauthenticated read would expose every tenant's invoices. 404 when the invoice does not exist, belongs to another tenant, or is soft-deleted; 503 when the row names a vendor or tenant that no longer resolves. Nothing is written — a GET does not mutate, and re-minting yields the identical URL.")
 
 ;;; ───────────────────────────────────────────────────────────────────────────
 ;;; THE THREE LINE ENDPOINTS ARE BOUND IN nst-bl-invitmapi.lisp, NOT HERE — and the

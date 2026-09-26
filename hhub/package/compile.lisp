@@ -126,6 +126,10 @@
      "core/dod-bl-rol.lisp"
      "core/dod-bl-pas.lisp"
      "core/dod-bl-utl.lisp"
+     ;; dod-ini-sys holds the globals every later file reads (including the generated
+     ;; symbol DAG), so it compiles/loads as early as it can: right after dod-bl-utl,
+     ;; whose ENCRYPT it calls at load time while building *SITEPASS*.
+     "core/dod-ini-sys.lisp"
      "core/dod-bl-pol.lisp"
      "core/hhublazy.lisp"
      "core/memoize.lisp"
@@ -151,7 +155,6 @@
      "core/dod-ui-utl.lisp"
      "core/dod-ui-pol.lisp"
      "core/dod-ui-rol.lisp"
-     "core/dod-ini-sys.lisp"
      
      ;; Orders Data Access Layer
      "order/dod-dal-odt.lisp"

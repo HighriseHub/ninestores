@@ -1,0 +1,181 @@
+#!/usr/local/bin/sbcl --script
+;;; nst-binding-order-check --- assert that every API binding follows its
+;;; action-route registration IN THE BUILD'S OWN FILE ORDER.
+;;;
+;;;   ./nst-binding-order-check              # from the repo root
+;;;   ./nst-binding-order-check --verbose    # also list the files it walked
+;;;
+;;; Exit 0 = every binding is ordered correctly. 1 = a violation, and the message
+;;; names the route, the file that binds it and the file that registers it.
+;;; 2 = the tool could not read what it needs.
+;;;
+;;; Self-contained on purpose: no quicklisp, no cl-ppcre, no image, no database.
+;;; It reads two ASCII patterns out of the sources and compares positions. (The
+;;; sibling tools in this directory are the same shape — see nst-symq.)
+;;;
+;;; ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+;;; register-api-route REFUSES a path whose action route is not already registered
+;;; (api-route-bindable-p, hhub/core/nst-bl-apidefs2.lisp). That makes the ORDER of
+;;; two top-level forms inside a loaded file a BUILD-LEVEL requirement, and the
+;;; failure is brutal: the check runs at LOAD time, so a binding that precedes its
+;;; registration ABORTS THE LOAD OF THAT FILE — and when the file is one of the API
+;;; files, the application does not come up.
+;;;
+;;; The reason it needs its own tool is that NOTHING ELSE CATCHES IT:
+;;;
+;;;   * compile-file does not EVALUATE the registrations, so the isolated compile
+;;;     recipe (knowledge/build-and-load-CONTEXT.md §6) is blind to it;
+;;;   * a name-level audit — "is every bound route registered somewhere?" — answers
+;;;     YES, because the symbol IS registered, only too late;
+;;;   * the failure appears only on a real load, which means a restart.
+;;;
+;;; This is the static stand-in invoice-api-handoff-CONTEXT.md §8.2 prescribes: walk
+;;; the build's own file order and assert the ordering. It cost a full build cycle
+;;; to learn and had been re-derived by hand four times before it became a script.
+;;;
+;;; ── WHAT IT READS ───────────────────────────────────────────────────────────
+;;; The order comes from hhub/nstores.asd's (:file …) components, because that is the
+;;; order ASDF loads them at boot (startup/load.lisp runs (ql:quickload :nstores)).
+;;; package/compile.lisp keeps a SECOND hand-maintained list, and the two are meant
+;;; to agree; where they disagree about ORDER, this tool reports the asd's answer,
+;;; which is the one the running image obeys. A file present in only one of the two
+;;; lists is a different bug, and not this tool's job.
+;;;
+;;; ── WHAT IT CANNOT SEE, STATED SO IT IS NOT TRUSTED TOO FAR ─────────────────
+;;;   * It matches the PATTERN (register-…-route 'name. A registration written some
+;;;     other way — through a macro, a loop, or a computed symbol — is invisible
+;;;     here. Every registration in this tree is literal today.
+;;;   * A mention inside a COMMENT that happens to be followed by a quoted symbol
+;;;     would be counted. Comments in these files name the functions without a
+;;;     following quote, so this has not bitten; it is the one way to fool it.
+;;;   * It checks ORDER, not reachability: a binding to a route that is registered
+;;;     correctly but whose verb is broken passes here, as it should.
+
+(defparameter *asd* "hhub/nstores.asd")
+(defparameter *source-root* "hhub/")
+
+(defun slurp (path)
+  (with-open-file (in path :external-format :utf-8)
+    (let ((s (make-string (file-length in))))
+      (subseq s 0 (read-sequence s in)))))
+
+(defun asd-file-order (path)
+  "The (:file \"…\") components of PATH, in order, as strings without quotes.
+   Reads the text rather than the form so a reader conditional or a #. in the asd
+   cannot stop the tool from reporting."
+  (let ((text (slurp path))
+        (out '())
+        (start 0))
+    (loop
+      (let ((pos (search ":file" text :start2 start)))
+        (when (null pos) (return))
+        (let* ((after (+ pos 5))
+               (q (position-if-not (lambda (c) (member c '(#\Space #\Tab #\Newline #\Return)))
+                                   text :start after)))
+          (if (and q (char= (char text q) #\"))
+              (let ((close (position #\" text :start (1+ q))))
+                (when close
+                  (push (subseq text (1+ q) close) out)
+                  (setf start (1+ close))))
+              (setf start after)))))
+    (nreverse out)))
+
+(defun comment-line-p (text pos)
+  "T when POS sits after a `;` on its own line, i.e. inside a Lisp comment.
+
+   Needed because a file's header legitimately WRITES the pattern it describes —
+   nst-bl-invhapi.lisp line 12 says
+     ;;; symbol → (register-action-route 'route-invh-<action> …) → ONE route-invh-<action>
+   which is a quoted symbol and would otherwise count as a registration."
+  (let ((line-start (or (position #\Newline text :end pos :from-end t) -1)))
+    (position #\; text :start (1+ line-start) :end pos)))
+
+(defun scan-registrations (text marker)
+  "→ (name . position) for each route registration by MARKER in TEXT, in order.
+
+   POSITION IS AN ABSOLUTE CHARACTER OFFSET, and that is load-bearing: the two
+   markers are scanned in separate passes, so a per-pass sequence number would
+   compare binding #0 against registration #1 — two different index spaces — and
+   report a violation for every correctly-ordered pair. That is exactly the bug this
+   tool had on its first run: 21 phantom violations on a tree that is in fact ordered.
+
+   The quote separates a real registration from a comment that merely names the
+   function, and comment lines are skipped explicitly as well."
+  (let ((needle (concatenate 'string "(" marker))
+        (out '())
+        (start 0))
+    (loop
+      (let ((pos (search needle text :start2 start)))
+        (when (null pos) (return))
+        (let* ((after (+ pos (length needle)))
+               (i (position-if-not (lambda (c) (member c '(#\Space #\Tab #\Newline #\Return)))
+                                   text :start after)))
+          (when (and i (char= (char text i) #\') (not (comment-line-p text pos)))
+            (let* ((name-start (1+ i))
+                   (name-end (or (position-if-not
+                                  (lambda (c) (or (alphanumericp c)
+                                                  (member c '(#\- #\! #\? #\* #\+))))
+                                  text :start name-start)
+                                 (length text))))
+              (when (> name-end name-start)
+                (push (cons (subseq text name-start name-end) pos) out))))
+          (setf start (max (1+ pos) after)))))
+    (nreverse out)))
+
+(defun check (&optional verbose)
+  (let* ((order (asd-file-order *asd*))
+         (registered (make-hash-table :test 'equal))
+         (bindings '())
+         (scanned 0))
+    (loop for rel in order
+          for idx from 0
+          for path = (concatenate 'string *source-root* rel ".lisp")
+          when (probe-file path)
+            do (incf scanned)
+               (when verbose (format t "~&  #~3D ~A~%" idx rel))
+               (let ((text (slurp path)))
+                 (loop for (name . pos) in (scan-registrations text "register-action-route")
+                       ;; FIRST registration wins: a route registered twice keeps its
+                       ;; earliest position, which is the one a binding must follow.
+                       do (unless (gethash (string-upcase name) registered)
+                            (setf (gethash (string-upcase name) registered)
+                                  (list idx pos rel))))
+                 (loop for (name . pos) in (scan-registrations text "register-api-route")
+                       do (push (list (string-upcase name) idx pos rel) bindings))))
+    (format t "~&binding-order check — ~D (:file …) components in ~A, ~D present on disk~%"
+            (length order) *asd* scanned)
+    (format t "  action routes registered : ~D~%" (hash-table-count registered))
+    (format t "  api bindings found       : ~D~%" (length bindings))
+    (when (zerop (length bindings))
+      (format t "~&cannot read any binding — is this running from the repo root?~%")
+      (return-from check 2))
+    (let ((violations '()))
+      (dolist (b (nreverse bindings))
+        (destructuring-bind (name idx pos rel) b
+          (let ((reg (gethash name registered)))
+            (cond
+              ((null reg)
+               (push (format nil "~A — bound in ~A but NEVER registered by any (register-action-route '…)"
+                             name rel)
+                     violations))
+              (t (destructuring-bind (ridx rpos rrel) reg
+                   ;; Same file: the binding must sit at a LATER CHARACTER OFFSET.
+                   ;; Different files: the registering file must come EARLIER.
+                   (unless (or (< ridx idx) (and (= ridx idx) (<= rpos pos)))
+                     (push (format nil "~A — bound in ~A (file #~D, char ~D) but registered LATER in ~A (file #~D, char ~D)"
+                                   name rel idx pos rrel ridx rpos)
+                           violations))))))))
+      (if violations
+          (progn
+            (format t "~&~%FAIL — ~D binding(s) would abort the load:~%~{  • ~A~%~}"
+                    (length violations) (nreverse violations))
+            (format t "~&A binding must FOLLOW its registration, because register-api-route~%~
+                       evaluates api-route-bindable-p at LOAD time. Move the binding down~%~
+                       or the registration up — in the file that registers the verb, which~%~
+                       is the rule every domain already follows.~%")
+            1)
+          (progn
+            (format t "~&~%PASS — every api binding follows its action-route registration in load order~%")
+            0)))))
+
+(sb-ext:exit :code (check (member "--verbose" sb-ext:*posix-argv* :test #'string=)))

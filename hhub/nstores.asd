@@ -60,6 +60,10 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "core/dod-bl-rol")
    (:file "core/dod-bl-sys")
    (:file "core/dod-bl-utl")
+   ;; dod-ini-sys holds the globals every later file reads (including the generated
+   ;; symbol DAG), so it loads as early as it can: right after dod-bl-utl, whose
+   ;; ENCRYPT it calls at load time while building *SITEPASS*.
+   (:file "core/dod-ini-sys")
    (:file "core/dod-ui-attr")
    (:file "core/dod-ui-pol")
    (:file "core/dod-ui-rol")
@@ -74,7 +78,6 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "core/nst-bl-act")
    (:file "core/nst-bl-otp")
    (:file "core/nst-sch-mig")
-   (:file "core/dod-ini-sys")
    (:file "core/nst-bl-conflodis")
    (:file "customer/nst-bl-custapi")
    (:file "invoice/nst-bl-invapi")
