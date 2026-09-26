@@ -34,7 +34,9 @@
 (defvar *chat-history* nil
   "Stores a rolling, low-overhead conversation window for contextual follow-ups.")
 
-(defvar *nst-function-symbols* (funcall (function-lookup-table)))
+;; *nst-function-symbols* (the generated symbol DAG) is declared in dod-ini-sys.lisp
+;; and populated by START-NST-SERVER, so loading this file no longer depends on the
+;; generated table.
 
 
 ;;; ============================================================================

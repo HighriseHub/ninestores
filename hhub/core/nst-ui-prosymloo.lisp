@@ -785,6 +785,40 @@
 
 
 
+;;; ============================================================================
+;;; THE ONE COMMAND — regenerate, load, refresh, report
+;;; ============================================================================
+
+(defun refresh-symbol-table (&key (system-name "nstores")
+                                  (output-file "/home/ubuntu/ninestores/hhub/core/nst-bl-funloodat.lisp")
+                                  (load-file t)
+                                  (report t))
+  "Rebuild the symbol DAG and make this image agree with it, in one call:
+
+     1. GENERATE-LOOKUP-FILE writes OUTPUT-FILE and publishes the table in
+        *NST-FUNCTION-SYMBOLS*;
+     2. the generated file is loaded, which redefines FUNCTION-LOOKUP-TABLE to
+        return the new table (what LOAD-OLD-DATA-AND-KEYWORDS and the FUNCINFO-TABLE
+        fallback read);
+     3. FUNCINFO-REFRESH re-reads it and drops the query index;
+     4. REPORT prints the coverage numbers (meta, DAG wiring, unreadable files).
+
+   Run this after changing code — but LOAD THE CHANGED FILES FIRST. Generation
+   reflects the *image* for symbols, docstrings and source locations, and the file
+   text only for the call edges; a file that was edited but not loaded still reports
+   its old location, and a new file whose symbols were never loaded is invisible.
+
+   Returns the number of entries in the fresh table."
+  (generate-lookup-file system-name output-file)
+  (when load-file
+    (load output-file :verbose nil))
+  (funcinfo-refresh)
+  (when report
+    (report-lookup-generation))
+  (length (funcinfo-table)))
+
+
+
 (defun get-symbol-type (s)
   "Determines the type of the given symbol S."
   (cond

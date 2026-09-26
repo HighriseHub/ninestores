@@ -23,6 +23,9 @@
   "The password if required")
 (defvar *dod-dbconn-spec* (list *crm-database-server* *crm-database-name* *crm-database-user* *crm-database-password*))
 
+(defvar *nst-function-symbols* nil
+  "The generated symbol DAG, populated by START-NST-SERVER via FUNCINFO-REFRESH.
+   NIL means not loaded yet; FUNCINFO-TABLE falls back to the generated file.")
 
 (defvar *HHUB-CUSTOMER-ORDER-CUTOFF-TIME* "23:59:00")
 (defvar *HHUB-DEMO-TENANT-ID* 2)
@@ -60,7 +63,6 @@
 ;; public production domain) set this to the local file server, i.e. the address nginx proxies
 ;; /file/ to, e.g. "http://127.0.0.1:4301".
 (defvar *HHUBFILESERVERURL* "http://127.0.0.1:4301")
-(defvar *sitepass* (encrypt "P@ssword1" "ninestores.in"))
 (defvar *current-customer-session* nil) 
 (defvar *customer-page-title* nil) 
 (defvar *vendor-page-title* nil) 
