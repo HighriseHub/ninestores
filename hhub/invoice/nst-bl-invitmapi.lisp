@@ -103,7 +103,13 @@
    tenant's invoice (BOLA), and with nst-entity-contradiction when the invoice is no
    longer a DRAFT. No :around uniqueness check exists: the same product twice on one
    invoice is legitimate."
-  (request->dispatch request 'make 'nst-invitm ctx))
+  ;; THE URL NAMES THE PARENT BY NUMBER; the verb wants its row-id. Resolved here, once,
+  ;; so the verb and its four-valued refusal are untouched — see
+  ;; invh-request-with-header-row-id in nst-bl-invhapi.lisp.
+  (let ((req (invh-request-with-header-row-id request ctx)))
+    (if (not (typep req 'nst-request-model))
+        req                                        ; a sentinel IS the answer (404/409/503)
+        (request->dispatch req 'make 'nst-invitm ctx))))
 
 (defun route-invitm-fetch (request ctx)
   "कर्म = nst-invitm, addressed by :row-id; the payload may also name :invheadid, in
@@ -127,15 +133,18 @@
         PUT would be refused for attempting something it was not attempting. What
         !update sees is then the same payload a flat /lines/{id} URL would have
         produced."
-  (let* ((req (inv-request-with-row-id-string request))
-         (line (fetch 'nst-invitm (inv-param (params req) :row-id) ctx)))
+  (let ((resolved (invh-request-with-header-row-id request ctx)))
+    (if (not (typep resolved 'nst-request-model))
+        resolved
+        (let* ((req (inv-request-with-row-id-string resolved))
+               (line (fetch 'nst-invitm (inv-param (params req) :row-id) ctx)))
     (let ((checked (invitm-check-pairing-of line req ctx)))
       (if (not (typep checked 'nst-invitm))
           checked
           (request->dispatch
            (make-instance 'NstInvitmRequestModel
                           :params (inv-params-without (params req) :invheadid))
-           '!update 'nst-invitm ctx)))))
+           '!update 'nst-invitm ctx)))))))
 
 (defun route-invitm-delete (request ctx)
   "कर्म = nst-invitm. Soft delete one line, and ONLY while its document is still a
@@ -144,12 +153,15 @@
    not adjusted (documented gap in the प्रत्यय layer); delete! here does NOT go
    through the header's own लोप, which removes a whole document's lines at once.
    The row-id is normalised for the same reason as in update."
-  (let* ((req (inv-request-with-row-id-string request))
-         (line (fetch 'nst-invitm (inv-param (params req) :row-id) ctx)))
+  (let ((resolved (invh-request-with-header-row-id request ctx)))
+    (if (not (typep resolved 'nst-request-model))
+        resolved
+        (let* ((req (inv-request-with-row-id-string resolved))
+               (line (fetch 'nst-invitm (inv-param (params req) :row-id) ctx)))
     (let ((checked (invitm-check-pairing-of line req ctx)))
       (if (not (typep checked 'nst-invitm))
           checked
-          (request->dispatch req 'delete! 'nst-invitm ctx)))))
+          (request->dispatch req 'delete! 'nst-invitm ctx)))))))
 
 (defun route-invitm-list (request ctx)
   "कर्म = the filtered nst-invitm collection, normally scoped by :invheadid — see
@@ -254,7 +266,7 @@
 (register-api-route 'route-invitm-create
                     :method :post
                     :path "/hhub/api/v1/invoices/{id}/items"
-                    :path-params '(("id" . :invheadid))
+                    :path-params '(("id" . :invnum))
                     :success-status 201
                     :auth-scope :session
                     :description "Spec: POST /api/v1/invoices/{id}/items — add a product line item. The invoice in the URL is located in the session tenant first (404 if it is not this tenant's, 409 if it is no longer a DRAFT). Body: nst-invitm initarg names (prd-id, prddesc, hsncode, qty, uom, price, discount, the tax rate/amount columns).")
@@ -262,7 +274,7 @@
 (register-api-route 'route-invitm-update
                     :method :put
                     :path "/hhub/api/v1/invoices/{id}/items/{item-id}"
-                    :path-params '(("id" . :invheadid) ("item-id" . :row-id))
+                    :path-params '(("id" . :invnum) ("item-id" . :row-id))
                     :success-status 200
                     :auth-scope :session
                     :description "Spec: PUT /api/v1/invoices/{id}/items/{item-id} — update a line's quantity, unit price, discount or description. The pair is verified: a line that does not belong to the named invoice answers 404, and :invheadid is stripped before the verb, so it can never move the line to another document.")
@@ -270,7 +282,7 @@
 (register-api-route 'route-invitm-delete
                     :method :delete
                     :path "/hhub/api/v1/invoices/{id}/items/{item-id}"
-                    :path-params '(("id" . :invheadid) ("item-id" . :row-id))
+                    :path-params '(("id" . :invnum) ("item-id" . :row-id))
                     :success-status 200
                     :auth-scope :session
                     :description "Spec: DELETE /api/v1/invoices/{id}/items/{item-id} — remove a line. Soft delete; 409 while the invoice is not a DRAFT, 404 when the pair does not match or the line is absent. The header's total is NOT adjusted (documented gap).")

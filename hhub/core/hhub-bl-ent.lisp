@@ -50,6 +50,23 @@
 		     :initform (make-hash-table :test 'equal)
 		     :initarg :businesssessions-ht)))
 
+;;; ── initBusinessContexts — MOVED HERE FROM core/dod-ini-sys.lisp ─────────────
+;;; It specializes on BusinessServer and BusinessContext, both defined above, and it is
+;;; CALLED at runtime by initBusinessServer (still in dod-ini-sys). Defining it here is
+;;; what lets a COLD (ql:quickload :nstores) survive: dod-ini-sys loads at component 13
+;;; and this file at 22, and a defmethod installs its specializer at LOAD time, so from
+;;; dod-ini-sys the class did not exist yet.
+(defgeneric initBusinessContexts (BusinessServer ListContextNames)
+  (:documentation "This generic function will initialize the business contexts for the business server"))
+
+(defmethod initBusinessContexts ((server BusinessServer) ListContextNames)
+  (let* ((contexts (mapcar (lambda (contextname)
+			     (let ((site (make-instance 'BusinessContext)))
+			       (setf (slot-value site 'id)  (format nil "~A" (uuid:make-v1-uuid )))
+			       (setf (slot-value site 'name) contextname)
+			       site)) ListContextNames)))
+    contexts))
+
 ;; Level 3
 ;; A business session comes after the business context. Sessions are on an organization level or company level.  
 (defclass BusinessSession ()

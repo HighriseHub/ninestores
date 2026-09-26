@@ -309,6 +309,102 @@
 
 
 ;;; ═══════════════════════════════════════════════════════════════════════════
+;;; THE SPEC'S PLACEMENT OF INVOICE SETTINGS
+;;;   PUT /hhub/api/v1/invoices/settings
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;;
+;;; nstoresapi.html files "update invoice print settings: logo, header text, footer,
+;;; GSTIN, digital signature" under the INVOICING domain, at an id-LESS path. The blob
+;;; itself has exactly one home — DOD_VEND_PROFILE.INVOICE_SETTINGS, written by the
+;;; !settings प्रत्यय — so this endpoint is a second DOOR onto the SAME WRITER, never a
+;;; second writer for one blob. That distinction is the whole reason it is safe, and it
+;;; is why this delegates to !settings instead of reaching for the column.
+;;;
+;;; ⚠ WHERE THE TARGET COMES FROM — the only question an id-less path leaves open, and
+;;; the reason this was first left unbound. NOT from the tenant: a tenant may own
+;;; several vendor rows, so "the vendor" is NOT implied by the session company, and
+;;; choosing one arbitrarily would silently edit a sibling's settings. It comes from
+;;; the VENDOR IDENTITY THE LOGIN ESTABLISHED: set-vendor-session-params
+;;; (vendor/dod-ui-ven.lisp) stores :login-vendor, which is the row the vendor UI works
+;;; on and the row dod-controller-vendor-switch-tenant re-binds when a vendor switches
+;;; tenant. So a vendor session names exactly one vendor, and that is this route's
+;;; address. A session with NO vendor identity is refused — see below.
+;;;
+;;; 🚨 IT FAILS CLOSED, AND THE BODY CANNOT MOVE THE ADDRESS. A session with no vendor
+;;; gets 401 and nothing is written; falling back to a row-id from the JSON body would
+;;; let any authenticated caller edit any vendor's blob, which is exactly the BOLA
+;;; shape the vendor suite's cross-tenant case exists to catch. So :row-id is FORCED
+;;; from the session and any inbound :row-id is dropped first.
+;;;
+;;; ⚠ THIS LIVES IN THE VENDOR API FILE, not the invoice one, and not for tidiness:
+;;; register-api-route REFUSES a path whose action route is not registered yet, and the
+;;; tree's rule is that A BINDING LIVES IN THE FILE THAT REGISTERS ITS VERB, whatever
+;;; the URL looks like — the same reason the three /invoices/{id}/items bindings are in
+;;; nst-bl-invitmapi.lisp. The URL is invoice-scoped; the verb is nst-vnd's.
+
+(defun invh-settings-session-row-id ()
+  "The logged-in VENDOR's row-id as a STRING, or NIL when the session has none.
+
+   A STRING because !settings specializes on (row-id string); an integer here would
+   reach the generic as a non-string and signal no-applicable-method — a 500 for what
+   is really 'not signed in'. princ-to-string, matching inv-row-id-param's coercion in
+   the invoice api file.
+
+   🚨 THE SESSION READ USES THE HOUSE HELPER, NOT hunchentoot:session-value DIRECTLY.
+   conflodis2-session-value (core/nst-bl-conflodis2.lisp:138) exists for exactly this
+   and its docstring says so — "Session read that tolerates a non-HTTP caller
+   (REPL/tests) → nil". Reading hunchentoot's accessor directly means that OUTSIDE an
+   HTTP request the call signals UNBOUND-VARIABLE, so 'we cannot tell who you are'
+   becomes a 500 instead of the 401 this must answer. (Found by calling this route from
+   a REPL: the check meant to prove the fail-closed path died on UNBOUND-VARIABLE before
+   it could prove anything.) One place owns that tolerance; this route uses it.
+
+   slot-value is guarded separately: a session value can be anything a stale or foreign
+   session put there. ANY FAILURE TO ESTABLISH AN IDENTITY IS NIL, and the caller
+   answers 401 with nothing written — fail closed, never fall back to a body row-id."
+  (let ((vendor (conflodis2-session-value :login-vendor)))
+    (when vendor
+      (let ((id (ignore-errors (slot-value vendor 'row-id))))
+        (when id (princ-to-string id))))))
+
+(defun vnd-params-with-session-row-id (params row-id)
+  "PARAMS with :row-id FORCED to ROW-ID, every inbound :row-id having been removed.
+
+   :row-id is in *vnd-settings-transport-keys*, so vnd-settings-payload strips it from
+   the settings object on its way past — forcing it here therefore cannot leak into the
+   blob as a section called \"row-id\". It stays in the outer plist, where rm-row-id
+   resolves the address.
+
+   Walking by #'cddr, not by pairs: params is a PLIST whose elements are alternating
+   keys and values, which is the trap vnd-settings-payload's own docstring records."
+  (list* :row-id row-id
+         (loop for (key value) on params by #'cddr
+               unless (eq key :row-id)
+                 append (list key value))))
+
+(defun route-invh-settings-update (request ctx)
+  "कर्म = the INVOICE_SETTINGS blob of the SESSION's vendor, addressed by nothing in
+   the URL. The spec's id-less placement, delegating to the same !settings प्रत्यय the
+   vendor sub-resource uses, so there is one writer and one validator for the blob.
+
+   The body is the same object the vendor endpoint takes: a JSON object with one key
+   per settings section, no wrapper. All validation is the domain's — a malformed
+   section name is refused before the row is looked up, so a bad payload writes nothing
+   whether or not the vendor exists.
+
+   Mutating the request's params is what vnd-settings-request's docstring sanctions: the
+   API layer built this request model for this one dispatch, and the ferry's contract is
+   that the request model dies at the crossing."
+  (let ((row-id (invh-settings-session-row-id)))
+    (unless row-id
+      (error 'api-not-authenticated
+             :message "no vendor identity in this session — sign in as a vendor before updating invoice settings."))
+    (setf (params request)
+          (vnd-params-with-session-row-id (params request) row-id))
+    (request->dispatch (vnd-settings-request request) '!settings 'nst-vnd ctx)))
+
+
+;;; ═══════════════════════════════════════════════════════════════════════════
 ;;; SECTION 3 — Route registration
 ;;;
 ;;; One line per inbound action. The route key IS the action symbol the dispatcher
@@ -418,6 +514,21 @@
                        :audit-level :full
                        :tags '(vendors vendor invoice settings api v1))
 
+;;; THE SPEC'S id-LESS SETTINGS ENDPOINT (see the SECTION above
+;;; route-invh-settings-update). Registered HERE, immediately before its binding, so
+;;; that the binding follows its own registration in load order — the one ordering
+;;; rule register-api-route enforces at load time.
+(register-action-route 'route-invh-settings-update
+                       :action-verb 'route-invh-settings-update
+                       :request-class 'VendorRequestModel
+                       :description "Replace the invoice-settings blob of the SESSION's vendor — the spec's PUT /api/v1/invoices/settings, which is id-less. The target is the vendor identity the login established (:login-vendor), never a row-id from the body, and a session with no vendor identity is refused with 401. Body: one key per settings section, the same object the vendor sub-resource takes. All validation is !settings'."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor)
+                       :feature-flags '(new-vendor-domain)
+                       :audit-level :full
+                       :tags '(invoice settings api v1))
+
 
 ;;; ═══════════════════════════════════════════════════════════════════════════
 ;;; SECTION 4 — Public API bindings (Ring 4)
@@ -488,3 +599,25 @@
                     :success-status 200
                     :auth-scope :session
                     :description "Replace one vendor's invoice settings by numeric row-id. THE BODY IS THE SETTINGS OBJECT — a JSON object with one key per settings section, no wrapper. Refused with the domain's own condition when the payload is not a list, when it carries the string \"undefined\" (the legacy void value for a NULL column), or when a section name is not one the shipped defaults carry; a JSON body's section keys are canonicalised so the readers find them. 404 when the vendor is not in this tenant. Returns the updated vendor profile, whose invoiceSettings field is the stored blob.")
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; THE SPEC'S id-LESS INVOICE-SETTINGS ENDPOINT — the second door onto the same blob
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; ⚠ WHY THIS DOES NOT COLLIDE WITH PUT /hhub/api/v1/invoices/{id}. The two templates
+;;; have the SAME segment count (hhub/api/v1/invoices/{id}), so api-match-route matches
+;;; both against the path /hhub/api/v1/invoices/settings. find-api-route is what decides,
+;;; and it RANKS candidates by fewest {parameter} segments: this template has ZERO and
+;;; the detail template has ONE, so this one wins deterministically. Registration order
+;;; is only the TIE-BREAK, which is the fix the docstring at apidefs2's find-api-route
+;;; describes — before it, the answer depended on which binding happened to load last
+;;; and a literal segment could silently be read as an id. So `settings` is never
+;;; resolved as an invoice row-id, and no ordering trick is needed to keep it that way.
+;;;
+;;; It also cannot collide with the vendor sub-resource path: that one is 7 segments.
+(register-api-route 'route-invh-settings-update
+                    :method :put
+                    :path "/hhub/api/v1/invoices/settings"
+                    :success-status 200
+                    :auth-scope :session
+                    :description "Spec: PUT /api/v1/invoices/settings — update the invoice print settings (logo, header text, footer, GSTIN, digital signature) of the SESSION's vendor. Id-less by design: the address is the vendor identity the login established, so no row-id is accepted in the URL or the body. Body: a JSON object with one key per settings section, no wrapper. 401 when the session carries no vendor identity; refused with the domain's own condition when the payload is malformed, which happens BEFORE the row is looked up so a bad payload writes nothing. Returns the updated vendor profile, whose invoiceSettings field is the stored blob — the same response as the vendor sub-resource, because it is the same verb.")

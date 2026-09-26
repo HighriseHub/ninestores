@@ -182,7 +182,7 @@
    (totalvalue
     :initarg :totalvalue
     :accessor totalvalue
-    :initform 0
+    :initform 0.0
     :documentation "TOTALVALUE decimal(15,2) NOT NULL with no DDL default — 0 is this class's choice, and the true value of a DRAFT with no lines yet.")
    (totalinwords
     :initarg :totalinwords
@@ -494,6 +494,14 @@
    (status
     :initarg :status
     :accessor status)
+   ;; deleted-state is CARRIED but NOT PUBLISHED: *invh-mirrored-slots* drives
+   ;; domain->response over every mirrored slot, so the slot must exist here or the
+   ;; setf signals MISSING-SLOT and every header route answers 500. render-json is
+   ;; the outbound allowlist and deliberately does not name it, exactly as
+   ;; WarehouseResponseModel does (see nst-dal-warehouse.lisp).
+   (deleted-state
+    :initarg :deleted-state
+    :accessor deleted-state)
    (external-url
     :initarg :external-url
     :accessor external-url)

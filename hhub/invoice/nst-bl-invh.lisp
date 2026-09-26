@@ -167,8 +167,8 @@
   extra parameters from signalling in the middle of a create."
   (let ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)))
     (let ((knowledge (with-db-call
-                         (select-invoice-header-by-invnum invnum tenant-id
-                                                          :include-deleted t)
+                         (nst-select-invoice-header-by-invnum invnum tenant-id
+                                                               :include-deleted t)
                        "nst-invh/?exists (invnum, tenant)")))
       (cond
         ((not (eq (bo-knowledge-truth knowledge) :T)) knowledge)
@@ -580,8 +580,34 @@
                           [is [:deleted-state] nil]]]
                      :caching *dod-database-caching* :flatp t)))
 
-(defun select-invoice-header-by-invnum (invnum tenant-id &key include-deleted)
-  "The row holding this invoice NUMBER in this tenant.
+(defun nst-select-invoice-header-by-invnum (invnum tenant-id &key include-deleted)
+  "🚨 THE `nst-` PREFIX IS LOAD-BEARING, NOT DECORATION. This was originally defined
+  WITHOUT it, as SELECT-INVOICE-HEADER-BY-INVNUM — a name the LEGACY DDD layer already
+  uses (invoice/nst-bl-ihd.lisp:21) with a DIFFERENT SIGNATURE:
+
+      legacy : (invnum company)                  ← a DOD-COMPANY object
+      mine   : (invnum tenant-id &key …)         ← an integer
+
+  Both are plain defuns in the same package, and nst-bl-invh loads at nstores.asd:140
+  while nst-bl-ihd loads at :130 — so MINE WAS THE LAST ONE LOADED AND SILENTLY REPLACED
+  THE LEGACY FUNCTION. The legacy readers (nst-bl-ihd.lisp:323, :370, :406) then passed a
+  company OBJECT into the tenant-id parameter, the object reached the SQL as a value, and
+  CLSQL refused it:
+
+      Database Error: No type conversion to SQL for DOD-COMPANY is defined for DB
+      MYSQL-DATABASE.
+
+  The read returned a Belnap sentinel, and the legacy callers dereference it — which is
+  how "the invoice page on the UI is broken" reaches a user as
+  `MISSING-SLOT ROW-ID … #<BUSINESSOBJECTUNKNOWN>` from select-all-invoice-items.
+
+  THIS IS THE TREE'S OWN RULE, and the header of this very file states it for the
+  CLASSES ("All names are new … because the legacy DDD classes still load"). It applies
+  just as much to helper FUNCTIONS: a new domain that reuses a legacy function name
+  silently REPLACES it. Prefix new names with nst-, or the next reader of this file will
+  not know which implementation they are calling either.
+
+  The row holding this invoice NUMBER in this tenant.
 
   INCLUDE-DELETED decides which question is asked:
     NIL — 'is there an invoice with this number?' (live rows, what verbs see)
@@ -613,8 +639,31 @@
 ;;; and can disagree with each other. warehouse's longhand is not a style to
 ;;; copy — it exists because W_NAME ↔ wname really does differ per field.
 ;;;
-;;; ADD A NEW COLUMN HERE, in this one list. Nothing else needs to change for
-;;; the column to survive a create, a fetch and an update.
+;;; ADD A NEW COLUMN HERE when the entity and the table both gain it — and then
+;;; ADD THE MATCHING SLOT TO NstInvhResponseModel, because that is what this list
+;;; CANNOT tell you about.
+;;;
+;;; 🚨 "NOTHING ELSE NEEDS TO CHANGE" WAS WRONG, and it cost a session. This list
+;;; drives THREE consumers, not one: the two copiers (domain↔DB, which is what the
+;;; list exists for) AND domain->response, which setfs every slot in it onto the
+;;; response model. So a slot named here but NOT declared on NstInvhResponseModel
+;;; makes every header route answer 500 with
+;;;
+;;;   the slot COM.NSTORES.APP::DELETED-STATE is missing from
+;;;   #<COM.NSTORES.APP::NSTINVHRESPONSEMODEL>
+;;;
+;;; raised from domain->response, which is nowhere near the file that was edited.
+;;; `deleted-state` sat in exactly that hole from the day this list was written.
+;;; The response model is a BOUNDARY, not a mirror: it may legitimately omit a
+;;; field (render-json is the outbound allowlist, and it does not publish
+;;; deleted-state), but it must still DECLARE it, because domain->response carries
+;;; every slot here whether or not render-json then drops it.
+;;;
+;;; This is the one place in the tree where the pattern applies — nst-whs's
+;;; domain->response is longhand, so the same drift cannot happen there. A column
+;;; added here is therefore checked by nothing: compile-file does not evaluate the
+;;; setf, and the suite in hhub/test/smoke-invoice-api.sh is the first thing that
+;;; runs it.
 
 (defparameter *invh-mirrored-slots*
   '(;; identity of the document
@@ -655,10 +704,67 @@
                  domain has created-at / updated-at instead (two concerns, see
                  nst-dal-invh.lisp).")
 
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; The domain→DB coercion, and the defect that makes it necessary
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; 🚨 A JSON DECIMAL COLUMN TYPED :float REFUSES AN INTEGER, AND JSON DELIVERS
+;;; INTEGERS. The CLSQL classes declare the decimal columns as :type float
+;;; (nst-dal-ihd.lisp's dod-Invoice-Header: TOTALVALUE, and the item class's PRICE /
+;;; TAXABLE-VALUE / TOTALITEMVAL), and CLSQL VALIDATES THE SLOT ON INSERT:
+;;;
+;;;   A CLSQL lisp code error occurred: Invalid value 0 in slot TOTALVALUE, not of
+;;;   type FLOAT.
+;;;
+;;; An API caller sends {"totalvalue": 0} — a JSON integer — which is a perfectly
+;;; ordinary way to say zero. That became a failed INSERT, surfaced to the client as
+;;; :U (503) 'the database call did not answer'. MEASURED 2026-09-26: it is why
+;;; route-invh-create could not create anything at all.
+;;;
+;;; TWO FIXES, AND THEY ARE DIFFERENT PROBLEMS:
+;;;   1. the CLASS initforms that were the integer 0 for a float column are now 0.0, so
+;;;      a caller who omits the field no longer poisons the INSERT by default;
+;;;   2. this coercion, for a caller who SUPPLIES an integer. Fixing only (1) would
+;;;      still fail every request that passes totalvalue/price/taxable-value, which is
+;;;      most of them.
+;;;
+;;; The coercion reads the DESTINATION CLASS's declared slot type rather than a list of
+;;; money columns kept here — a list would drift from the CLSQL classes the moment one
+;;; of them changes type, which is exactly the drift the mirror list already had to be
+;;; documented against.
+
+(defun nst-db-slot-type (object slot)
+  "The type SLOT declares on OBJECT's class, or NIL if it cannot be read."
+  (ignore-errors
+    (sb-mop:slot-definition-type
+     (find slot (sb-mop:class-slots (class-of object))
+           :key #'sb-mop:slot-definition-name))))
+
+(defun nst-db-float-slot-p (type)
+  "T when a CLSQL-declared slot TYPE admits floats.
+
+  🚨 IT IS NOT THE BARE SYMBOL. CLSQL declares these slots (OR NULL FLOAT) — measured
+  2026-09-26, dod-Invoice-Header TOTALVALUE — so an (eq type 'float) test is FALSE for
+  every one of them, and the coercion below silently became a NO-OP: no error, no
+  warning, just an INSERT failing exactly as before. A guard that cannot fire is worse
+  than no guard, because it reads as fixed."
+  (or (eq type 'float)
+      (and (consp type) (member 'float type))))
+
+(defun nst-coerce-for-db-slot (destination slot value)
+  "VALUE as DESTINATION's SLOT will accept it. INTEGER → float where the slot admits
+  floats. Everything else passes through untouched — this is a narrow widening, not a
+  general type system, and a wrong coercion would be worse than a failed INSERT."
+  (if (and (nst-db-float-slot-p (nst-db-slot-type destination slot))
+           (integerp value))
+      (float value)
+      value))
+
 (defun nst-copy-invoice-header-domaintodb (source destination)
   "nst-invh → dod-invoice-header."
   (dolist (slot *invh-mirrored-slots*)
-    (setf (slot-value destination slot) (slot-value source slot)))
+    (setf (slot-value destination slot)
+          (nst-coerce-for-db-slot destination slot (slot-value source slot))))
   (setf (slot-value destination 'tenant-id) (tenant-id source))
   destination)
 

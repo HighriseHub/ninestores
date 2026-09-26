@@ -686,18 +686,28 @@ a caller that has already been told `reconnected' is never handed a dead connect
 ;;;;;;;;;;;;;;;;;;;; EXPERIMENTING WITH DOMAIN DRIVEN DESIGN ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric initBusinessContexts (BusinessServer ListContextNames)
-  (:documentation "This generic function will initialize the business contexts for the business server"))
+;;; 🚨 initBusinessContexts USED TO BE DEFINED HERE, AND IT COULD NOT BE. The generic
+;;; and its one method SPECIALIZE ON BusinessServer, which is defined in
+;;; core/hhub-bl-ent.lisp — and the build order is `:serial t` with no :module forms, so
+;;; dod-ini-sys (component 13) loads BEFORE hhub-bl-ent (component 22). A method's
+;;; specializer is installed at LOAD time, so a cold `(ql:quickload :nstores)` aborted
+;;; with
+;;;     There is no class named COM.NSTORES.APP::BUSINESSSERVER
+;;; leaving startup/load.lisp's (start-das) unreached — the application came up with NO
+;;; ACCEPTOR. (initBusinessServer below still CALLS it, at runtime, which is fine: by then
+;;; hhub-bl-ent has loaded.)
+;;;
+;;; IT WAS MOVED TO hhub-bl-ent.lisp, NEXT TO THE CLASSES IT SPECIALIZES ON, rather than
+;;; moving hhub-bl-ent earlier. That was tried first and it BROKE THE LEGACY READS:
+;;; hhub-bl-ent uses the with-bo-knowledge-check macro, which is defined in
+;;; core/nst-bl-beltrusys.lisp (component 21), so loading hhub-bl-ent before it compiled
+;;; that use as a FUNCTION CALL whose arguments include the macro's own `payload` binding —
+;;; giving "The variable PAYLOAD is unbound" on every successful legacy read, and taking
+;;; the vendor UI's invoice pages and the public invoice page down with it.
+;;;
+;;; The order is therefore: beltrusys (macro) → hhub-bl-ent (classes + the method) →
+;;; and dod-ini-sys keeps only its runtime CALL.
 
-
-
-(defmethod initBusinessContexts ((server BusinessServer) ListContextNames)
-  (let* ((contexts (mapcar (lambda (contextname) 
-			     (let ((site (make-instance 'BusinessContext)))
-			       (setf (slot-value site 'id)  (format nil "~A" (uuid:make-v1-uuid )))
-			       (setf (slot-value site 'name) contextname)
-			       site)) ListContextNames)))
-    contexts))
 
     
 (defun initBusinessServer ()

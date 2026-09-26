@@ -251,9 +251,19 @@
 ;;; ───────────────────────────────────────────────────────────────────────────
 
 (defun nst-copy-invoice-item-domaintodb (source destination)
-  "nst-invitm → dod-invoice-items."
+  "nst-invitm → dod-invoice-items.
+
+   Uses nst-coerce-for-db-slot (nst-bl-invh.lisp, loaded before this file) for the same
+   reason the header copier does: the decimal columns here are :type float in the CLSQL
+   class — PRICE, TAXABLE-VALUE, TOTALITEMVAL, the tax rates and the tax amounts — and
+   CLSQL REFUSES AN INTEGER for them on INSERT. An API caller sending {\"price\": 100} or
+   {\"taxable-value\": 200} is sending ordinary JSON; without the coercion the INSERT
+   fails and the client is told :U (503) that the database did not answer. The class
+   initforms being 0.0 (fixed 2026-09-26) covers the OMITTED field; this covers the
+   SUPPLIED one, which is the common case."
   (dolist (slot *invitm-mirrored-slots*)
-    (setf (slot-value destination slot) (slot-value source slot)))
+    (setf (slot-value destination slot)
+          (nst-coerce-for-db-slot destination slot (slot-value source slot))))
   (setf (slot-value destination 'tenant-id) (tenant-id source))
   destination)
 
