@@ -144,10 +144,14 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "order/dod-dal-ord")
    (:file "order/nst-dal-Order")
    (:file "order/nst-dal-OrderItem")
+   (:file "order/nst-dal-ordh")     ; adhara island entity + boundary models (reuses dod-order).
+   (:file "order/nst-dal-orditm")   ; the line entity + boundary models (reuses dod-order-items).
    (:file "order/dod-bl-odt")
    (:file "order/dod-bl-ord")
    (:file "order/nst-bl-Order")
    (:file "order/nst-bl-OrderItem")
+   (:file "order/nst-bl-ordh")      ; Tier-1 प्रत्यय for nst-ordh (?exists + make).
+   (:file "order/nst-bl-orditm")   ; Tier-1 प्रत्यय for nst-orditm (the six verbs + the parent proof + the header's लोप helper). AFTER nst-bl-ordh: uses its selector and its status/sort/page helpers.
    (:file "order/dod-ui-odt")
    (:file "order/dod-ui-ord")
    (:file "order/nst-ui-Order")

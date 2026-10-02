@@ -162,13 +162,16 @@
      "order/dod-dal-ord.lisp"
      "order/nst-dal-Order.lisp"
      "order/nst-dal-OrderItem.lisp"
+     ;; The adhara island entities (orders batch). AFTER the two files above, because
+     ;; they reuse those ORM view classes rather than declaring new ones (D7).
+     "order/nst-dal-ordh.lisp"
+     "order/nst-dal-orditm.lisp"
      
      ;; Orders Business Layer
      "order/dod-bl-odt.lisp"
      "order/dod-bl-ord.lisp"
      "order/nst-bl-Order.lisp"
      "order/nst-bl-OrderItem.lisp"
-     
      ;; Orders UI Layer. 
      "order/dod-ui-ord.lisp"
      "order/dod-ui-odt.lisp"
@@ -188,6 +191,27 @@
      ;; Customer
      "customer/nst-dal-Customer.lisp"
      "customer/nst-bl-Customer.lisp"
+     ;;
+     ;; ⚠ THE TWO ORDER-ADHARA FILES ARE HERE, NOT IN THE ORDER BLOCK ABOVE, AND THE REASON IS
+     ;; MEASURED (S7): nst-bl-ordh.lisp calls nst-select-customer-by-id (the document prefix is
+     ;; the CUSTOMER's), which is defined in nst-bl-Customer.lisp — so compiling the order
+     ;; files in the Orders section emitted an undefined-function STYLE-WARNING that a cold
+     ;; build would carry forever, and S7's acceptance criterion is that the mutually-referencing
+     ;; header/line pair costs AT MOST ONE expected warning (the header's call to the line file's
+     ;; लोप helper, resolved at run time). This also makes the driver's order agree with
+     ;; nstores.asd, which has always listed the customer files first.
+     ;; Tier-1 प्रत्यय for the order header (orders batch): ?exists + make, the copy
+     ;; ferries, and the tenant-scoped select helpers. Needs core/nst-bl-adhara,
+     ;; core/nst-mult-logic, order/nst-dal-Order (the ORM class it reuses) and
+     ;; order/nst-dal-ordh (the entity), all earlier in this list.
+     "order/nst-bl-ordh.lisp"
+     ;; Tier-1 प्रत्यय for the ORDER LINE (S7): the six verbs, the parent proof every one of
+     ;; them runs, and the लोप helper the header's delete! calls. AFTER nst-bl-ordh.lisp,
+     ;; whose selector and status/whitelist helpers it uses — and the mutual reference back
+     ;; (the header's delete! calls this file's helper) is resolved at run time, which is the
+     ;; one expected undefined-function style-warning in the build.
+     "order/nst-bl-orditm.lisp"
+     
      "customer/dod-ui-cus.lisp"
      "customer/nst-ui-Customer.lisp"
      "customer/nst-ui-cuswall.lisp"

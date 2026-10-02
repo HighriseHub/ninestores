@@ -61,21 +61,11 @@
 ;;; ───────────────────────────────────────────────────────────────────────────
 ;;; Small helpers
 ;;; ───────────────────────────────────────────────────────────────────────────
-
-(defun nst-financial-year-label (date)
-  "The Indian/GST financial year containing DATE, as FINYEAR's varchar(9):
-  a date from 2026-04-01 to 2027-03-31 answers \"2026-2027\".
-
-  April–March is the GST default and the only rule the schema documents. A
-  tenant whose year starts in another month describes it on nst-vnd's
-  fy-start-month slot, which no verb reads yet — when one does, this function is
-  the single place to change, and the caller is make."
-  (multiple-value-bind (second minute hour day month year)
-      (clsql-sys:decode-date date)
-    (declare (ignore second minute hour day))
-    (if (>= month 4)
-        (format nil "~4,'0d-~4,'0d" year (1+ year))
-        (format nil "~4,'0d-~4,'0d" (1- year) year))))
+;;;
+;;; nst-financial-year-label USED TO LIVE HERE. It MOVED to core/dod-bl-utl.lisp
+;;; (orders batch, S0c): the order mint needs the same April-March rule, and a legal
+;;; rule must not exist twice. Same package, same symbol, so the call below is
+;;; unchanged — and dod-bl-utl loads at build position 128 / asd 62, before this file.
 
 (defun invoice-header-row-id-from-string (id)
   "Row-ids arrive as STRINGS: apidefs2 passes path params through unchanged and
@@ -733,32 +723,15 @@
 ;;; of them changes type, which is exactly the drift the mirror list already had to be
 ;;; documented against.
 
-(defun nst-db-slot-type (object slot)
-  "The type SLOT declares on OBJECT's class, or NIL if it cannot be read."
-  (ignore-errors
-    (sb-mop:slot-definition-type
-     (find slot (sb-mop:class-slots (class-of object))
-           :key #'sb-mop:slot-definition-name))))
-
-(defun nst-db-float-slot-p (type)
-  "T when a CLSQL-declared slot TYPE admits floats.
-
-  🚨 IT IS NOT THE BARE SYMBOL. CLSQL declares these slots (OR NULL FLOAT) — measured
-  2026-09-26, dod-Invoice-Header TOTALVALUE — so an (eq type 'float) test is FALSE for
-  every one of them, and the coercion below silently became a NO-OP: no error, no
-  warning, just an INSERT failing exactly as before. A guard that cannot fire is worse
-  than no guard, because it reads as fixed."
-  (or (eq type 'float)
-      (and (consp type) (member 'float type))))
-
-(defun nst-coerce-for-db-slot (destination slot value)
-  "VALUE as DESTINATION's SLOT will accept it. INTEGER → float where the slot admits
-  floats. Everything else passes through untouched — this is a narrow widening, not a
-  general type system, and a wrong coercion would be worse than a failed INSERT."
-  (if (and (nst-db-float-slot-p (nst-db-slot-type destination slot))
-           (integerp value))
-      (float value)
-      value))
+;;; ⚠ THE THREE COERCION HELPERS THAT USED TO SIT HERE MOVED TO core/dod-bl-utl.lisp (S7,
+;;; 2026-09-28): nst-db-slot-type / nst-db-float-slot-p / nst-coerce-for-db-slot. They are
+;;; GENERIC — they read a CLSQL class's declared slot type through the MOP and know nothing
+;;; about invoices — and the ORDER batch's copiers need exactly the same widening, while
+;;; order/nst-bl-orditm.lisp loads BEFORE this file and therefore cannot call anything
+;;; defined here. Same symbols, same package, so every call site in this file and in
+;;; nst-bl-invitm.lisp is unchanged. core/dod-bl-utl.lisp is build position 128 / asd 62,
+;;; ahead of every entity file, which is the whole reason it is the home for a rule with
+;;; more than one caller (D16's argument, applied to a second rule).
 
 (defun nst-copy-invoice-header-domaintodb (source destination)
   "nst-invh → dod-invoice-header."
