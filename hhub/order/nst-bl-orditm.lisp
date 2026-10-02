@@ -41,7 +41,7 @@
 ;;; THE STATUS RULE, and why it is not simply the header's rule:
 ;;;
 ;;;   make / delete!   RESTRUCTURE the document → refused unless the header is OPEN
-;;;                    (*ordh-open-statuses* = DFT and PEN, the header file's list). Adding a
+;;;                    (*order-open-statuses* = DFT and PEN, core/dod-bl-utl.lisp). Adding a
 ;;;                    line to a completed order changes what was ordered; removing one is what
 ;;;                    a cancellation is for.
 ;;;   !update          corrects a VALUE on the line → no status gate HERE, because the terminal
@@ -62,7 +62,7 @@
 ;;; MUTUAL REFERENCE WITH nst-bl-ordh.lisp: the header's delete! calls
 ;;; nst-soft-delete-order-items-for-header (the लोप helper at the bottom of this file), and
 ;;; every verb here calls the header's nst-select-order-header-by-row-id and reads
-;;; *ordh-open-statuses*. Lisp resolves both directions at run time, and BOTH build lists place
+;;; *order-open-statuses*. Lisp resolves both directions at run time, and BOTH build lists place
 ;;; nst-bl-ordh before this file, so every header symbol used here is already defined when this
 ;;; file compiles: the build's single undefined-function style-warning is the header's
 ;;; reference to the one helper defined below, which is the whole cost of the mutual reference
@@ -367,13 +367,13 @@
          :reason (format nil "Order line create: order row-id ~A is not a document this tenant can see" order-id))))
     (let* ((header (bo-knowledge-payload head))
            (status (nst-ordh-status-string (slot-value header 'status))))
-      (unless (member status *ordh-open-statuses* :test #'string=)
+      (unless (member status *order-open-statuses* :test #'string=)
         (return-from nst-order-item-create
           (make-instance 'nst-entity-contradiction
                          :tenant-id tenant-id
                          :reason (format nil "Order row-id ~A is ~A, which is not an OPEN status (~{~A~^, ~}) — a line may only be added while the order is still being built. A completed, vendor-cancelled or customer-cancelled order is a finished document; its contents move by a new document, not by added lines."
                                          order-id (or status (slot-value header 'status))
-                                         *ordh-open-statuses*))))
+                                         *order-open-statuses*))))
       (let ((args (loop for (k v) on initargs by #'cddr
                         unless (eq k :order-id) append (list k v))))
         (nst-order-item-insert ctx tenant-id order-id args)))))
@@ -392,7 +392,7 @@
        cannot name a document at all → nst-entity-nil → 404;
     2. that document must be VISIBLE IN THIS TENANT (absent, soft-deleted, or another tenant's
        all answer the same way: nst-entity-nil → 404);
-    3. its status must be in *ordh-open-statuses* → otherwise nst-entity-contradiction → 409.
+    3. its status must be in *order-open-statuses* → otherwise nst-entity-contradiction → 409.
 
   Everything else comes from the caller or from the class initforms. The NOT NULL columns with
   no default are refused by the database with the column named — the honest place for that rule,
@@ -560,13 +560,13 @@
                          row-id order-id))))
     (let* ((header (bo-knowledge-payload head))
            (status (nst-ordh-status-string (slot-value header 'status))))
-      (unless (member status *ordh-open-statuses* :test #'string=)
+      (unless (member status *order-open-statuses* :test #'string=)
         (return-from nst-order-item-soft-delete
           (make-instance 'nst-entity-contradiction
                          :tenant-id tenant-id
                          :reason (format nil "Order row-id ~A is ~A, which is not an OPEN status (~{~A~^, ~}) — a line may only be removed while the order is still being built. Nothing has been deleted. A completed order is a finished document; removing its content is what a cancellation is for."
                                          order-id (or status (slot-value header 'status))
-                                         *ordh-open-statuses*)))))
+                                         *order-open-statuses*)))))
     (let ((knowledge (with-nst-db-delete (:source "nst-orditm/delete!")
                         (setf (slot-value dbobj 'deleted-state) "Y")
                         (clsql:update-record-from-slot dbobj 'deleted-state)
@@ -591,7 +591,7 @@
       collapses them the same way.
 
   AND ONE THAT IS NOT:
-    * an order status outside *ordh-open-statuses* → nst-entity-contradiction → 409. The line is
+    * an order status outside *order-open-statuses* → nst-entity-contradiction → 409. The line is
       there and readable; what contradicts the request is that removing content from a completed
       order is what a cancellation is for.
 

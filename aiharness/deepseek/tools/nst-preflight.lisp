@@ -57,7 +57,14 @@
 ;; same list startup/load.lisp quickloads (minus clsql-mysql, which cannot load for a
 ;; non-owner), and the same lesson recorded in build-and-load-CONTEXT.md §6.
 (dolist (s (list :cl-ppcre :clsql :hunchentoot :cl-json :cl-csv :cl-who :cl-base64
-                 :ironclad :secure-random :drakma :cl-yaml))
+                 :ironclad :secure-random :drakma :cl-yaml
+                 ;; S8: :uuid was MISSING, and the gap only showed when the LEGACY order files
+                 ;; joined this list — they stamp CONTEXT_ID with (uuid:make-v1-uuid), so the
+                 ;; reader answered "Package UUID does not exist" and the whole file was
+                 ;; reported as unreadable. A dependency missing from the harness is
+                 ;; indistinguishable from a broken source file; that is the lesson this list's
+                 ;; own comment states, and it caught its own list this time.
+                 :uuid))
   (ql:quickload s :silent t))
 ;; the tree's files carry [ … ] SQL literals, so CLSQL's reader syntax must be on BEFORE
 ;; they can be read at all — otherwise every invoice file looks like a reader error
@@ -84,6 +91,11 @@
     "hhub/invoice/templates/invoicesettings.lisp"
     "hhub/customer/nst-dal-Customer.lisp"
     "hhub/customer/nst-bl-Customer.lisp"
+    ;; S8 retouched these three legacy files (the status vocabulary), so they join the change
+    ;; set: an edit to a 600-line legacy file is exactly where an unbalanced paren hides.
+    "hhub/order/dod-bl-ord.lisp"
+    "hhub/order/dod-bl-odt.lisp"
+    "hhub/order/dod-ui-odt.lisp"
     "hhub/order/nst-dal-ordh.lisp"
     "hhub/order/nst-dal-orditm.lisp"
     "hhub/order/nst-bl-ordh.lisp"

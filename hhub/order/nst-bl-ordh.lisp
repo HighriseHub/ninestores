@@ -197,15 +197,16 @@
 ;;; create — the pieces, each shallow enough to read
 ;;; ───────────────────────────────────────────────────────────────────────────
 
-(defparameter *ordh-open-statuses* '("DFT" "PEN")
-  "The statuses a NEW order may be given. DFT is what make mints (D7); PEN is accepted
-   because the legacy funnels still write it and an importer may preserve it. Anything else
-   is refused: a create that begins FINAL/PAID/CANCELLED describes a document that already
-   happened, and CMP/VCN/CCN are terminal by definition.
-
-   THREE CHARACTERS IS THE WHOLE ALPHABET HERE. STATUS is char(3) in the live table, so a
-   five-character DRAFT cannot be stored at all — the column would truncate it or refuse it,
-   and either way the entity would look fine while the row disagreed.")
+;;; ⚠ THE OPEN AND TERMINAL STATUS LISTS USED TO BE DEFINED HERE (S3 and S5). THEY MOVED TO
+;;; core/dod-bl-utl.lisp IN S8, as *order-open-statuses* / *order-terminal-statuses* with
+;;; order-open-status-p / order-terminal-status-p beside them (D17). The reason is the S8
+;;; defect rather than tidiness: the legacy layer held the literal "PEN" in seven reads while
+;;; make mints "DFT", so a new order was invisible to every legacy list — and a rule with a
+;;; copy per layer is exactly how that happens. The legacy retrofit and these verbs now read
+;;; the SAME list, and the offline check asserts this file defines no second one.
+;;;
+;;; *ordh-deletable-statuses* STAYS HERE, because it answers a different question (may this
+;;; DOCUMENT be deleted?) — see its own note below.
 
 (defparameter *ordh-forced-create-values*
   '(("N" . is-converted-to-invoice) ("N" . is-cancelled) ("N" . order-fulfilled))
@@ -348,12 +349,12 @@
    at one level, so this reads top to bottom and has no staircase to miscount."
   (multiple-value-bind (args status) (nst-order-header-prepare-args initargs)
     ;; 1. the status: DFT unless an OPEN status was supplied
-    (unless (member status *ordh-open-statuses* :test #'string=)
+    (unless (member status *order-open-statuses* :test #'string=)
       (return-from nst-order-header-create
         (make-instance 'nst-entity-contradiction
                        :tenant-id tenant-id
                        :reason (format nil "~S is not a status a new order may have: a create mints DFT, and only the OPEN statuses ~{~A~^, ~} may be supplied. The column is three characters wide, so DRAFT could not be stored either."
-                                       status *ordh-open-statuses*))))
+                                       status *order-open-statuses*))))
     (setf args (list* :status status
                       (loop for (k v) on args by #'cddr unless (eq k :status) append (list k v))))
     ;; 2. the customer, IN THIS TENANT
@@ -640,15 +641,16 @@
 ;;;    it refuses every legitimate request, which is exactly what happened the first time
 ;;;    that guard was written (invoice/nst-bl-invhapi.lisp:377-383).
 
-(defparameter *ordh-terminal-statuses* '("CMP" "VCN" "CCN")
-  "The terminal triple (D7). D8: content may change at ANY status except these, and the
-   three are terminal by definition — an order that is completed, vendor-cancelled or
-   customer-cancelled has finished moving.")
+;;; ⚠ *order-terminal-statuses* USED TO BE DEFINED HERE TOO (S5). It moved with the open list —
+;;; see the note above *order-open-statuses*. What stays here is only the DELETABLE question,
+;;; which is genuinely this verb's own:
 
 (defparameter *ordh-deletable-statuses* '("DFT")
-  "The statuses from which a header may be SOFT-deleted. A SECOND LIST, not an alias of
-   *ordh-open-statuses*: may-this-be-deleted and may-its-content-change are different
-   questions, and the invoice batch keeps them apart too.
+  "The statuses from which a header may be SOFT-deleted. A SEPARATE LIST from the shared
+   *order-open-statuses*: may-this-be-deleted and may-its-content-change are different
+   questions, and the invoice batch keeps them apart too. The offline check asserts this list
+   is a SUBSET of the shared open one — a deletable status that was not open would let a
+   finished order be deleted, which no verb could then explain.
 
    ⚠ IT IS NARROWER THAN THE OPEN PAIR, AND THAT IS A CORRECTION TO THE STORY FILE, NOT A
    TYPO. D8 said delete is open-only and O4 said an open order may be deleted, while S5's
@@ -912,7 +914,7 @@
    nothing — the property S5's acceptance criterion proves by re-reading the row."
   ;; 1. the status gate (D8): content may move at any status except the terminal triple
   (let ((status (nst-ordh-status-string (slot-value dbobj 'status))))
-    (when (member status *ordh-terminal-statuses* :test #'string=)
+    (when (member status *order-terminal-statuses* :test #'string=)
       (return-from nst-order-header-update
         (make-instance 'nst-entity-contradiction
                        :tenant-id tenant-id

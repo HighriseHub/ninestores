@@ -532,9 +532,13 @@
        (resident (nst-src-symbols-in-quoted-list
                   (nst-read-file-string "/home/ubuntu/ninestores/hhub/core/nst-bl-adhara.lisp")
                   "*reserved-initargs*"))
-       (terminal (nst-src-status-codes bl "*ordh-terminal-statuses*"))
+       ;; S8: the OPEN and TERMINAL vocabularies moved to core/dod-bl-utl.lisp and are read
+       ;; THERE — reading them from the order BL would now find nothing and quietly make the
+       ;; last two checks in this section vacuous.
+       (core (nst-read-file-string "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"))
+       (terminal (nst-src-status-codes core "*order-terminal-statuses*"))
        (deletable (nst-src-status-codes bl "*ordh-deletable-statuses*"))
-       (open (nst-src-status-codes bl "*ordh-open-statuses*")))
+       (open (nst-src-status-codes core "*order-open-statuses*")))
   (format t "  info  ~D slots; policy ~D writable / ~D internal-only / ~D never / ~D stripped; ~D control keys; statuses open [~{~A ~}] terminal [~{~A ~}] deletable [~{~A ~}]~%"
           (length slots) (length writable) (length internal) (length never) (length stripped)
           (length controls) open terminal deletable)
@@ -575,6 +579,85 @@
   (let ((bad (remove-if (lambda (s) (member s open :test #'string=)) deletable)))
     (chk-true (format nil "every DELETABLE status is also an OPEN one — else a closed order could be deleted (bad: ~{~A~^, ~})" bad)
               (null bad))))
+
+; ── 13. the ORDER status vocabulary has ONE home, and the legacy layer reads it (S8) ──
+;;; The defect S8 exists to fix was not a typo: the new API mints STATUS='DFT' while seven
+;;; legacy reads tested the literal 'PEN', so an order created through the new API was
+;;; INVISIBLE to every legacy list, count and view. The fix is one vocabulary in core plus a
+;;; retrofit of those reads — and the failure mode of the FIX is equally quiet: one read left
+;;; behind, or a second copy of the list, reproduces the same invisibility. So this section
+;;; asserts the shapes that make the defect impossible, in SOURCE, with no database:
+;;;
+;;;   * core owns the two sets and the two predicates, and the codes are the three-character
+;;;     codes the char(3) column can hold;
+;;;   * no entity file defines its own copy of either set (the duplicate is what drifted);
+;;;   * NO read anywhere under hhub/ tests STATUS against the literal 'PEN' — the retrofit's
+;;;     completion criterion, as a tree-wide count;
+;;;   * the CMP equality sites that remain are named and counted, because they are the
+;;;     deliberately-untouched COMPLETED reads (CMP + fulfilled Y) and nothing else;
+;;;   * the legacy creation paths still WRITE 'PEN' (AC (c): the funnels are not this story).
+
+(defun nst-src-count-of (needle text)
+  "How many times NEEDLE occurs in TEXT — a plain substring count. Used for the status
+   literals, where 'none left' is the property being asserted."
+  (loop with n = (length needle) with start = 0 with c = 0
+        for i = (search needle text :start2 start)
+        while i do (incf c) (setf start (+ i n))
+        finally (return c)))
+
+(defun nst-src-count-in-files (needle paths)
+  (loop for path in paths sum (nst-src-count-of needle (nst-read-file-string path))))
+
+(format t "~&the ORDER status vocabulary, and the legacy retrofit~%")
+(let* ((core (nst-read-file-string "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"))
+       (ord  (nst-read-file-string "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp"))
+       (odt  (nst-read-file-string "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp"))
+       (ui   (nst-read-file-string "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp"))
+       (blh  (nst-read-file-string "/home/ubuntu/ninestores/hhub/order/nst-bl-ordh.lisp"))
+       (blm  (nst-read-file-string "/home/ubuntu/ninestores/hhub/order/nst-bl-orditm.lisp"))
+       (open (nst-src-status-codes core "*order-open-statuses*"))
+       (terminal (nst-src-status-codes core "*order-terminal-statuses*")))
+  (format t "  info  open [~{~A ~}] terminal [~{~A ~}]~%" open terminal)
+  (chk-true "core/dod-bl-utl.lisp defines BOTH sets and BOTH predicates (S8/D17)"
+            (and (search "(defparameter *order-open-statuses*" core)
+                 (search "(defparameter *order-terminal-statuses*" core)
+                 (search "(defun order-open-status-p" core)
+                 (search "(defun order-terminal-status-p" core)))
+  (chk-true "the open set is exactly DFT and PEN — the new API's code and the legacy code, which is the whole point"
+            (and (member "DFT" open :test #'string=) (member "PEN" open :test #'string=)
+                 (= 2 (length open))))
+  (chk-true "the two sets are disjoint, and every code is THREE characters (STATUS is char(3))"
+            (and (null (intersection open terminal :test #'string=))
+                 (every (lambda (x) (= 3 (length x))) (append open terminal))))
+  (chk-true "no ENTITY file keeps a private copy of either set — a second copy is exactly how the two drifted apart"
+            (and (not (search "(defparameter *ordh-open-statuses*" blh))
+                 (not (search "(defparameter *ordh-terminal-statuses*" blh))
+                 (not (search "(defparameter *ordh-open-statuses*" blm))
+                 (not (search "(defparameter *ordh-terminal-statuses*" blm))))
+  (chk-true "the adhara order files GATE on the shared list rather than on a literal"
+            (and (search "*order-open-statuses*" blh) (search "*order-terminal-statuses*" blh)
+                 (search "*order-open-statuses*" blm)))
+  (let ((pen-eq (nst-src-count-in-files "[= [:status] \"PEN\"]"
+                                        (list "/home/ubuntu/ninestores/hhub/core/dod-bl-utl.lisp"
+                                              "/home/ubuntu/ninestores/hhub/order/dod-bl-ord.lisp"
+                                              "/home/ubuntu/ninestores/hhub/order/dod-bl-odt.lisp"
+                                              "/home/ubuntu/ninestores/hhub/order/dod-ui-odt.lisp"))))
+    (chk-true (format nil "NO read in the retrofitted files tests STATUS against the literal PEN (found ~D) — one left behind reproduces the S8 defect silently" pen-eq)
+              (zerop pen-eq)))
+  (let ((in-ord (nst-src-count-of "[in [:status] *order-open-statuses*]" ord))
+        (in-odt (nst-src-count-of "[in [:status] *order-open-statuses*]" odt)))
+    (chk-true (format nil "the OPEN reads use the shared set: ~D in dod-bl-ord (1 pending count + 3 fulfilled-branch clauses), ~D in dod-bl-odt" in-ord in-odt)
+              (and (= 4 in-ord) (= 3 in-odt))))
+  (let ((cmp-ord (nst-src-count-of "[= [:status] \"CMP\"]" ord))
+        (cmp-odt (nst-src-count-of "[= [:status] \"CMP\"]" odt)))
+    (chk-true (format nil "the CMP equality sites that remain are the named COMPLETED reads and the fulfilled branches: ~D + ~D = 6, and no more" cmp-ord cmp-odt)
+              (= 6 (+ cmp-ord cmp-odt))))
+  (chk-true "the legacy item VIEW gates on order-open-status-p — without it a DFT item renders as neither Pending nor Fulfilled"
+            (and (search "order-open-status-p" ui)
+                 (zerop (nst-src-count-of "(equal status \"PEN\")" ui))))
+  (chk-true "the legacy CREATION paths still write PEN (AC (c): the funnels are S8b's business, not S8's)"
+            (and (plusp (nst-src-count-of ":status \"PEN\"" ord))
+                 (plusp (nst-src-count-of ":status \"PEN\"" odt)))))
 
 (format t "~&=== ~D checks, ~D failures ===~%" *checks* *failures*)
 (format t "S0c OFFLINE: ~A~%" (if (zerop *failures*) "PASS" "FAIL"))

@@ -180,7 +180,10 @@
 					  (status (slot-value odt 'status))
 					  (prd-qty (slot-value odt 'prd-qty))
 					  (pricewith-discount (calculate-order-item-cost odt)))
-				     (cl-who:htm (:tr  (cond ((and (equal status "PEN") (equal fulfilled "N")) 
+				     (cl-who:htm (:tr  (cond ;; S8/D17: the OPEN set, not the literal PEN — an order created through the new
+							     ;; API carries DFT, and without this its items render as NEITHER
+							     ;; Pending NOR Fulfilled, i.e. two empty cells.
+							     ((and (order-open-status-p status) (equal fulfilled "N")) 
 							      (cl-who:htm (:td  :height "12px" (cl-who:str (format nil "Pending")))
 									  (:td  :height "12px" 
 										(:a  :data-bs-toggle "modal" :data-bs-target (format nil "#orditemedit-modal~A" prd-id) :data-toggle "tooltip" :title "Edit"  :href "#" :onclick "orderitemeditclick(this.id);" :id (format nil "btneditorderitem_~A" prd-id) :name (format nil "btneditorderitem~A" prd-id)  (:i :class "fa-regular fa-pen-to-square"))
@@ -189,6 +192,9 @@
 										(:a  :data-bs-toggle "modal" :data-bs-target (format nil "#custdeleteorderitem-modal~A" item-id) :data-toggle "tooltip" :title "Delete Order Item"  :href "#"  :id (format nil "btndeleteorditem_~A" item-id) :name (format nil "btndeleteorditem~A" item-id) (:i :class "fa-regular fa-trash-can"))
 										(modal-dialog-v2 (format nil "custdeleteorderitem-modal~A" item-id) (cl-who:str (format nil "Delete Order Item")) (modal.cust-delete-order-item odt ordid)))))
 							     
+							     ;; LEFT ALONE ON PURPOSE (S8): the completed pair. A cancelled item falls
+							     ;; through to no branch and renders blank — the pre-existing
+							     ;; behaviour for VCN/CCN, recorded here rather than changed.
 							     ((and (equal status "CMP") (equal fulfilled "Y"))
 							      (cl-who:htm
 							       (:td  :height "12px" (cl-who:str (format nil "Fulfilled")))

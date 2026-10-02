@@ -91,6 +91,11 @@
     (first (clsql:select [count [*]] :from 'dod-vendor-order :where 
 		[and [= [:deleted-state] "N"]
 		[= [:tenant-id] tenant-id]
+		;; LEFT ALONE ON PURPOSE (S8): COMPLETED is the pair (CMP, fulfilled Y), NOT the
+		;; open set and NOT the terminal set — a cancelled order is terminal and is not
+		;; completed, so widening this to either set would count it wrongly. It is listed
+		;; in S8 so that it reads as a decision rather than an oversight, and the offline
+		;; check allows this one function to keep its literal.
 		[= [:status] "CMP"]
 		[= [:fulfilled] "Y"]
 		[= [:vendor-id] vendor-id]
@@ -105,7 +110,9 @@
     (first (clsql:select [count [*]] :from 'dod-vendor-order :where 
 		[and [= [:deleted-state] "N"]
 		[= [:tenant-id] tenant-id]
-		[= [:status] "PEN"]
+		;; S8/D17: the OPEN set, not the literal PEN — otherwise an order placed through
+		;; the new API (STATUS DFT) is never counted as pending.
+		[in [:status] *order-open-statuses*]
 		[= [:fulfilled] "N"]
 		[= [:vendor-id] vendor-id]
 		[=[:order-id] order-id]]    :caching nil :flatp t ))))
@@ -124,14 +131,18 @@
 	 (strfromdate (get-date-string-mysql (clsql-sys:date- (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays))))
 	 (strtodate (get-date-string-mysql (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays))))
 	 (vendor-id (slot-value vendor-instance 'row-id))
-	 (status (if (equal fulfilled "N") "PEN" "CMP")))
+	 ;; S8/D17: UNFULFILLED MEANS THE OPEN SET, NOT the literal PEN — an order created through
+	 ;; the new API carries DFT, and a bare [= status "PEN"] would hide every one of them.
+	 (status-clause (if (equal fulfilled "N")
+			    [in [:status] *order-open-statuses*]
+			    [= [:status] "CMP"])))
 	 (clsql:select [order-id] :from  'dod-vendor-orders :where
 		       [and [= [:tenant-id] tenant-id]
 		       [between [:created] strfromdate strtodate ]
 		       [= [:vendor-id] vendor-id]
 		       [= [:deleted-state] "N"]
 		       [= [:fulfilled] fulfilled]
-		       [= [:status] status]]  :order-by '( ([row-id] :desc)) 
+		       status-clause]  :order-by '( ([row-id] :desc)) 
 		       :caching nil :flatp t)))
 
 
@@ -140,14 +151,18 @@
 	 (strfromdate (get-date-string-mysql (clsql-sys:date- (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays))))
 	 (strtodate (get-date-string-mysql (clsql-sys:date+ (clsql-sys:get-date) (clsql-sys:make-duration :day recordsfordays))))
 	 (vendor-id (slot-value vendor-instance 'row-id))
-	 (status (if (equal fulfilled "N") "PEN" "CMP")))
+	 ;; S8/D17: UNFULFILLED MEANS THE OPEN SET, NOT the literal PEN — an order created through
+	 ;; the new API carries DFT, and a bare [= status "PEN"] would hide every one of them.
+	 (status-clause (if (equal fulfilled "N")
+			    [in [:status] *order-open-statuses*]
+			    [= [:status] "CMP"])))
 	 (clsql:select  'dod-vendor-orders :where
 			[and [= [:tenant-id] tenant-id]
 			[between [:created] strfromdate strtodate ]
 			[= [:vendor-id] vendor-id]
 			[= [:deleted-state] "N"]
 			[= [:fulfilled] fulfilled]
-			[= [:status] status]] :limit rowcount :order-by '( ([row-id] :desc)) 
+			status-clause] :limit rowcount :order-by '( ([row-id] :desc)) 
 			:caching nil :flatp t)))
     
 
@@ -156,14 +171,18 @@
 (defun get-orders-for-vendor-by-shipped-date (vendor-instance shipped-date company &optional (fulfilled "N"))
   (let* ((tenant-id (slot-value company 'row-id))
 	 (vendor-id (slot-value vendor-instance 'row-id))
-	 (status (if (equal fulfilled "N") "PEN" "CMP")))
+	 ;; S8/D17: UNFULFILLED MEANS THE OPEN SET, NOT the literal PEN — an order created through
+	 ;; the new API carries DFT, and a bare [= status "PEN"] would hide every one of them.
+	 (status-clause (if (equal fulfilled "N")
+			    [in [:status] *order-open-statuses*]
+			    [= [:status] "CMP"])))
 
 	   (clsql:select 'dod-vendor-orders :where
 	    [and [= [:tenant-id] tenant-id]
 		  [= [:vendor-id] vendor-id]
 		  [= [:shipped-date] shipped-date]
 		  [= [:fulfilled] fulfilled]
-		  [= [:status] status]] 
+		  status-clause] 
 			  :caching nil :flatp t)))
 
 

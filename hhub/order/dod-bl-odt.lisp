@@ -41,6 +41,9 @@
   (first (clsql:select [count [*]] :from 'dod-order-items :where 
 		[and [= [:deleted-state] "N"]
 		[= [:tenant-id] tenant-id]
+		;; LEFT ALONE ON PURPOSE (S8): COMPLETED is the pair (CMP, fulfilled Y). A
+		;; cancelled order is terminal and NOT completed, so neither the open nor the
+		;; terminal set belongs here; the offline check allows this one literal.
 		[= [:status] "CMP"]
 		[= [:fulfilled] "Y"]
 		[=[:order-id] order-id]]    :caching nil :flatp t ))))
@@ -53,7 +56,9 @@
   (first (clsql:select [count [*]] :from 'dod-order-items :where 
 		[and [= [:deleted-state] "N"]
 		[= [:tenant-id] tenant-id]
-		[= [:status] "PEN"]
+		;; S8/D17: the OPEN set, not the literal PEN — an order created through the new
+		;; API carries DFT, and a bare equality would hide every one of its items.
+		[in [:status] *order-open-statuses*]
 		[= [:fulfilled] "N"]
 		[=[:order-id] order-id]]    :caching nil :flatp t ))))
 
@@ -68,7 +73,8 @@
 		[and [= [:deleted-state] "N"]
 		     [= [:tenant-id] tenant-id]
 		     [= [:vendor-id] vendor-id]
-		     [= [:status] "PEN"]
+		     ;; S8/D17: the OPEN set (see count-order-items-pending).
+		     [in [:status] *order-open-statuses*]
 		     [= [:fulfilled] "N"]
 		     [=[:prd-id] product-id]]    :caching nil :flatp t )))
 
@@ -90,6 +96,7 @@
 	     (vendor-id (slot-value vendor-instance 'row-id)))
  (clsql:select 'dod-order-items  :where
 	       [and [= [:deleted-state] "N"]
+	       ;; LEFT ALONE ON PURPOSE (S8): the completed pair, as above.
 	       [= [:status] "CMP"]
 	       [= [:fulfilled] "Y"]
 	       [in [:order-id] (get-orderids-for-vendor vendor-instance company "Y")]
@@ -106,7 +113,8 @@
  (clsql:select 'dod-order-items  :where
 	       [and [= [:deleted-state] "N"]
 	       [between [:created] strfromdate strtodate]
-	       [= [:status] "PEN"]
+	       ;; S8/D17: the OPEN set (see count-order-items-pending).
+	       [in [:status] *order-open-statuses*]
 	       [= [:fulfilled] "N"]
 	       ;; [in [:order-id] (get-orderids-for-vendor vendor-instance company fulfilled recordsfordays)]
 	       [= [:tenant-id] tenant-id]

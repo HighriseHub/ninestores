@@ -629,6 +629,68 @@ before this batch**. The migration calls functions that did not exist until toda
 must be RESTARTED (ASDF recompiles the changed files) before the migration can compile or run** —
 and per the standing rule, never by loading the file into the live image.
 
+### S8 — DONE (2026-09-28): the status vocabulary gets ONE home, and the legacy layer learns DFT
+
+**The defect, restated because the fix is only meaningful against it:** the new API mints
+`STATUS='DFT'` while **seven legacy reads tested the literal `"PEN"`** — so an order created
+through the new API was invisible to every legacy list, count and view. Not a typo: a rule with
+one spelling per layer.
+
+**WHAT LANDED.** `core/dod-bl-utl.lisp` now owns the vocabulary (D17):
+`*order-open-statuses*` = `("DFT" "PEN")`, `*order-terminal-statuses*` = `("CMP" "VCN" "CCN")`,
+and the predicates `order-open-status-p` / `order-terminal-status-p`. Then:
+
+| File | Retrofit |
+|---|---|
+| `order/dod-bl-ord.lisp` | `count-vendor-orders-pending` → the OPEN set; the three `(status (if (equal fulfilled N) …))` reads become clause-valued (`status-clause`): **the OPEN set when unfulfilled, CMP when fulfilled**; `count-vendor-orders-completed` **left alone, and labelled** (COMPLETED is the pair CMP+fulfilled Y — a cancelled order is terminal and is NOT completed, so widening it to either set would count it wrongly) |
+| `order/dod-bl-odt.lisp` | three pending reads → the OPEN set; two completed reads left alone, labelled |
+| `order/dod-ui-odt.lisp` | the item display gate `(and (equal status "PEN") …)` → `order-open-status-p` — without this a DFT item renders as NEITHER Pending NOR Fulfilled, i.e. two empty cells |
+| `order/nst-bl-ordh.lisp`, `order/nst-bl-orditm.lisp` | **their private copies ARE DELETED** and both now read the shared lists. `*ordh-deletable-statuses*` (DFT only) stays: it answers a different question |
+
+**⚠ THE AC (a) DEPENDENCY, STATED RATHER THAN DISCOVERED LATER.** "A DFT order appears in the
+legacy vendor pending list" needs TWO halves, and S8 is only one of them: the **filters** (done —
+`IN ('DFT','PEN')`) and **the rows**. The vendor list reads `DOD_VENDOR_ORDERS`, so a new order
+appears there only once the vendor rows exist and carry DFT — which is **S9–S11 (`nst-vordh`) and
+the D14 assembly in S12/S13**. The order-side and item-side lists are satisfied by S8 alone.
+
+**VERIFIED — and this story has DATA, not just a source check.**
+* The live vocabulary, measured across all three tables: **CMP 383 / PEN 102 / VCN 1** on
+  `DOD_ORDER`, **1063 / 192 / 4** on `DOD_ORDER_ITEMS`, **387 / 72 / 4** on `DOD_VENDOR_ORDERS` —
+  and **ZERO rows of DFT or CCN anywhere**, so AC (a) is reachable only after the API creates one
+  (which needs the image: S16).
+* **AC (b) IS MEASURED, NOT ASSERTED**: the retrofitted predicate returns the SAME COUNT as the
+  literal it replaces, on every table the retrofitted reads touch —
+  `STATUS='PEN'` **95/179/63** vs `STATUS IN ('DFT','PEN')` **95/179/63** for
+  order/items/vendor rows, with the completed counts (383/1063/387) untouched.
+* **And the membership itself**: against a five-row probe of the whole vocabulary,
+  `IN ('DFT','PEN')` matches **DFT and PEN and nothing else** (1,1,0,0,0) — the code the API mints
+  is inside the set the legacy reads now use, which is the point of the story.
+* `nst-verify-doc-numbering.lisp` gained **section 13** (10 checks; **126 checks, 0 failures**):
+  core owns both sets and both predicates; the open set is exactly DFT+PEN; both sets disjoint with
+  three-character codes; **no entity file keeps a private copy**; **no read anywhere under `hhub/`
+  tests STATUS against the literal PEN** (a tree-wide count — the retrofit's completion criterion);
+  the six surviving `CMP` equality sites are named and counted; the item view gates on the
+  predicate; and the legacy **creation** paths still write PEN (AC (c)). **Mutation-tested four
+  ways**: one OPEN read reverted (2 checks fire), a private copy of the list re-introduced, the UI
+  gate reverted, and the completed read widened to the terminal set — each fails with the check
+  that names it, and all files were restored byte-identical.
+* Preflight **PASS**, and it caught **its own gap** while doing this: the three legacy files were
+  added to its change set, and `dod-bl-ord.lisp` then failed to READ — *"Package UUID does not
+  exist"* — because `:uuid` was missing from the harness's dependency list. **A dependency missing
+  from the harness is indistinguishable from a broken source file**, which is the lesson that
+  list's own comment already stated; fixed, and all three files are now reader-checked
+  (47 / 22 / 19 forms).
+
+**NOT YET VERIFIED:** the runtime behaviour of the retrofitted clauses — CLSQL rendering
+`[in [:status] *order-open-statuses*]` (the in-tree shape, already shipped in
+`dod-bl-odt.lisp`'s `get-completed-order-items-for-vendor`) and every legacy page that reads it.
+That needs the image and belongs to **S16**, alongside the API-side suites.
+
+**LEDGER:** the S8 AC's own wording should be split the way the dependency note above is —
+its half (a) is not reachable by this story alone. And `count-vendor-orders-completed` remains a
+literal CMP+fulfilled pair by decision; if a future status means "completed" too, it must be added
+there deliberately, which the section-13 count will force.
+
 ### S7 — DONE (2026-09-28): `nst-bl-orditm.lisp` — the six प्रत्यय, and the लोप cascade
 
 **A NEW FILE, `hhub/order/nst-bl-orditm.lisp`** (29 top-level forms, registered in **both** build

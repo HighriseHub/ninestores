@@ -1623,3 +1623,53 @@ corresponding universal time."
            (integerp value))
       (float value)
       value))
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; The order STATUS vocabulary — one home for a rule the legacy layer and the
+;;; adhara verbs must agree about (D17, story S8)
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; WHY THIS IS IN CORE AND NOT IN EITHER ORDER FILE: STATUS is the one column the whole
+;;; order feature branches on — the adhara verbs (make, !update, delete!, the line verbs),
+;;; the legacy vendor and item reads, and the legacy item VIEW that renders Pending or
+;;; Fulfilled — and it is char(3), so a wrong string is not a wrong answer but an empty
+;;; result set. Before this, the open set existed as the literal "PEN" in seven legacy
+;;; reads while the new API minted "DFT", so an order created through the new API was
+;;; INVISIBLE to every legacy list. That is the defect S8 exists to fix, and a rule with
+;;; two spellings is how it happened.
+;;;
+;;; THE VOCABULARY IS THREE CHARACTERS WIDE, MEASURED: STATUS is char(3) on DOD_ORDER,
+;;; DOD_ORDER_ITEMS and DOD_VENDOR_ORDERS, so "DRAFT" could not be stored at all. The
+;;; five codes below are the live vocabulary.
+
+(defparameter *order-open-statuses* '("DFT" "PEN")
+  "The statuses in which an order is still being built: DFT (minted by the new API's make)
+   and PEN (what every legacy creation path writes). An OPEN order may receive lines, may be
+   edited, and is what 'pending' means in every legacy list.
+
+   ⚠ SHARED, DELIBERATELY: the adhara verbs (nst-bl-ordh.lisp, nst-bl-orditm.lisp) and the
+   retrofitted legacy reads all read THIS list. A second copy anywhere would re-open the
+   S8 defect, whose shape was exactly that: the new code said DFT, the old code said PEN, and
+   neither was wrong on its own.")
+
+(defparameter *order-terminal-statuses* '("CMP" "VCN" "CCN")
+  "The statuses in which the order has finished moving: CMP completed, VCN cancelled by the
+   vendor, CCN cancelled by the customer. Content may not change and the document may not be
+   deleted — what a finished order needs is a new document, not an edit (D8).")
+
+(defun order-open-status-p (status)
+  "Is STATUS one of *order-open-statuses*? Accepts a string, a keyword or a symbol, and
+   upcases first, because the legacy layer passes strings and the adhara verbs may carry
+   keywords. NIL (a NULL column, which char(3) DEFAULT NULL permits) is NOT open — an order
+   with no status is not an order anyone may act on."
+  (and status
+       (member (string-upcase (string status)) *order-open-statuses* :test #'string=)
+       t))
+
+(defun order-terminal-status-p (status)
+  "Is STATUS one of *order-terminal-statuses*? The same coercion as order-open-status-p, and
+   the same rule about NIL: an unknown status is neither open nor terminal, and the callers
+   that must not proceed treat 'not open' as the refusal."
+  (and status
+       (member (string-upcase (string status)) *order-terminal-statuses* :test #'string=)
+       t))
