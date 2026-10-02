@@ -419,7 +419,7 @@
     registered-address billing-address shipping-address registered-state
     registered-city registered-zipcode kyc-status kyc-verified-date
     kyc-verified-by kyc-documents blacklisted-vendors last-order-date
-    total-orders total-spent loyalty-points)
+    total-orders total-spent loyalty-points doc-prefix)
   "Scalar dod_cust_profile business columns shared by nst-customer, the
    response model and the copy ferries, kept in one list so the three never
    drift. row-id is listed (written read-only: domaintodb skips it). Excludes
@@ -498,7 +498,8 @@
     (last-order-date . "lastOrderDate")
     (total-orders . "totalOrders")
     (total-spent . "totalSpent")
-    (loyalty-points . "loyaltyPoints"))
+    (loyalty-points . "loyaltyPoints")
+    (doc-prefix . "docPrefix"))
   "camelCase wire key per response slot; drives render-json.")
 
 
@@ -619,6 +620,62 @@
                              (bo-knowledge-truth knowledge)))))))))
 
 ;;; !update — hydrate, CLOS partial-update from supplied initargs, persist.
+;;; ---------------------------------------------------------------------------
+;;; DOC_PREFIX — R1 (the value) and R3 (the freeze). S0d.
+;;; ---------------------------------------------------------------------------
+
+(defun nst-customer-document-count (cust-id tenant-id)
+  "How many DOCUMENTS carry this customer's prefix, within TENANT-ID.
+
+   ORDERS are the only document type that carries one today; when a procurement request
+   or another type gains a prefix, this is the one place to add it — and the R3 freeze
+   below is why it must not be forgotten.
+
+   TENANT-SCOPED even though ROW_ID alone would find the rows: the caller has already
+   proved the customer is in this tenant, and a count that could see another tenant's
+   documents is the BOLA shape this codebase keeps refusing."
+  (first (clsql:query
+          (format nil "SELECT COUNT(*) FROM `DOD_ORDER` ~
+                        WHERE `CUST_ID` = ~D AND `TENANT_ID` = ~D"
+                  cust-id tenant-id)
+          :flatp t)))
+
+(defun nst-customer-doc-prefix-refusal (cust-id tenant-id current requested)
+  "NIL when REQUESTED may be stored as CUST-ID's DOC_PREFIX; otherwise the Belnap
+   sentinel explaining the refusal.
+
+   BOTH RULES REFUSE WITH A CONTRADICTION RATHER THAN SIGNALLING. The domain has no way
+   to say 400, and signalling here would reach the client as a 500 — reporting the
+   CALLER's mistake as a server fault, which is the classifier gap the story file
+   records as F13. A contradiction is this domain's own vocabulary for \"understood and
+   refused\", and the sentinel ferry already renders it as 409.
+
+   R1 -- THE CHARSET IS LOAD-BEARING, NOT COSMETIC. A document number's delimiter is
+   '-', so a prefix containing '-' (or digits that mimic the financial year) would make
+   the number ambiguous to anything that splits it. The column is varchar(8) and never
+   char(8) for the same family of reason: char pads a space into every number built
+   from it.
+
+   R3 -- THE PREFIX IS A SERIES' IDENTITY, SO IT FREEZES. Once a document carries it, an
+   override is refused. Numbers already minted stay valid either way, because each
+   embeds the prefix it was minted with; but a change would silently break every
+   lookup-by-prefix and leave the customer's current prefix disagreeing with its own
+   history."
+  (when (and requested (not (equal requested current)))
+    (cond
+      ((not (nst-doc-prefix-valid-p requested))
+       (make-instance 'nst-entity-contradiction
+                      :tenant-id tenant-id
+                      :reason (format nil "~S is not a usable document prefix: a prefix must be 3 to 8 characters of A-Z and 0-9 only, with no separators, because '-' is the document number's own delimiter."
+                                      requested)))
+      ((plusp (nst-customer-document-count cust-id tenant-id))
+       (make-instance 'nst-entity-contradiction
+                      :tenant-id tenant-id
+                      :reason (format nil "the document prefix of customer ~D is frozen: ~D document(s) already carry ~S, so changing it would break every lookup by that prefix. It can only be set before the first document exists."
+                                      cust-id (nst-customer-document-count cust-id tenant-id)
+                                      current)))
+      (t nil))))
+
 (defmethod !update ((entity-class (eql 'nst-customer)) (row-id string) (ctx domain-ctx)
                     &rest update-args)
   (let* ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
@@ -628,6 +685,18 @@
                        :reason (format nil "Customer row-id ~A not found" row-id))
         (let ((entity (make-instance 'nst-customer :tenant-id tenant-id)))
           (nst-copy-customer-dbtodomain dbobj entity)          ;; hydrate current state
+          ;; R1/R3 -- DOC_PREFIX is an IDENTITY, not a label: validate the value and freeze
+          ;; it once a document carries it, BEFORE anything is written. The current value
+          ;; comes from DBOBJ, already fetched tenant-scoped, rather than a second read.
+          ;; (return-from !update ...) is the whole edit on purpose: a wrapping conditional
+          ;; would re-indent every line of this method, and re-nesting is what broke the
+          ;; parens of the ordnum-identity migration. A defmethod body has an implicit
+          ;; block named by the generic function -- verified, not assumed.
+          (let ((refusal (nst-customer-doc-prefix-refusal
+                          (parse-integer row-id) tenant-id
+                          (slot-value dbobj 'doc-prefix)
+                          (getf update-args :doc-prefix))))
+            (when refusal (return-from !update refusal)))
           (apply #'reinitialize-instance entity update-args)   ;; partial update
           (nst-copy-customer-domaintodb entity dbobj)
           (let ((knowledge (with-nst-db-update (:source "nst-customer/!update")

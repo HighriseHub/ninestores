@@ -497,6 +497,15 @@
    (loyalty-points
     :initarg :loyalty-points
     :accessor loyalty-points)
+   (doc-prefix
+    ;; S0d: the customer's DOCUMENT PREFIX (DOD_CUST_PROFILE.DOC_PREFIX varchar(8)),
+    ;; allocated by the ordnum-identity migration or on first use, and used to build
+    ;; document numbers: ORD-<DOC_PREFIX>-<FY>-<REF>. Declared here because the entity
+    ;; must carry it for the override to be possible at all; the RULES that govern an
+    ;; override (3-8 chars of A-Z0-9, frozen once a document exists) live in
+    ;; nst-customer's !update, not in this declaration.
+    :initarg :doc-prefix
+    :accessor doc-prefix)
    (company
     :initarg :company
     :accessor company)
@@ -739,6 +748,14 @@
    (loyalty-points
     :initarg :loyalty-points
     :accessor loyalty-points)
+   (doc-prefix
+    ;; a SLOT HERE IS NOT OPTIONAL: *nst-customer-business-fields* drives
+    ;; domain->response, which setfs every field in the list onto THIS class. A field in
+    ;; the list with no slot here signals MISSING-SLOT on every customer response — the
+    ;; exact defect that took the whole invoice API down (see F-series T4 in the story
+    ;; file, and nst-verify-customer-fields.lisp, which now asserts it).
+    :initarg :doc-prefix
+    :accessor doc-prefix)
    (company
     :initarg :company
     :accessor company)
@@ -1194,6 +1211,12 @@
               :FOREIGN-KEY row-id
               :SET nil)))
     
+   (doc-prefix
+    ;; varchar(8) in the DB, and NEVER char(8): char pads with spaces, and the pad
+    ;; would land inside every document number built from it.
+    :type (string 8)
+    :column "DOC_PREFIX"
+    :initarg :doc-prefix)
   (:base-table dod_cust_profile))
 
 

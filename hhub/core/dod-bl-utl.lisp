@@ -548,6 +548,25 @@ when it leaves nothing behind."
 ;;; should call this, not copy it.
 ;;; ═══════════════════════════════════════════════════════════════════════════
 
+(defun nst-row-id-from-string (id)
+  "ID as an integer row-id, or NIL when the string cannot address a row at all.
+
+  NIL IS A NOT-FOUND FACT, NOT A MALFORMED REQUEST. /orders/abc asks for something that
+  cannot exist, which is :F → 404; treating it as a bad boundary (:U → 503) would tell the
+  client the server is broken when the client simply asked for nothing.
+
+  ⚠ THE ONE HOME (decided 2026-09-28). Five copies of this guard already existed —
+  vendor-row-id-from-string (vendor/nst-bl-vnd.lisp:460), warehouse-row-id-from-string,
+  product-row-id-from-string, invoice-header-row-id-from-string (invoice/nst-bl-invh.lisp),
+  invoice-item-row-id-from-string (invoice/nst-bl-invitm.lisp) — and the order verbs are the
+  sixth CALL SITE rather than the sixth copy. It lives HERE because dod-bl-utl is build
+  position 128 / asd 62: before nst-bl-adhara (149/90) and before every domain file, so
+  nothing can load ahead of it. Re-pointing the existing five is a separate change: each sits
+  in a different loading-sensitive file and deserves its own build/load proof (PENDING-WORK)."
+  (when (stringp id)
+    (handler-case (parse-integer id :junk-allowed nil)
+      (error () nil))))
+
 (defun escape-like-wildcards (str)
   "Escapes MySQL LIKE metachars so name-like input is treated literally.
 
@@ -1030,5 +1049,627 @@ corresponding universal time."
 
 
 
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; DOCUMENT NUMBERING (orders batch, S0c) — the FY rule, the counter, the reference
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;;
+;;; Design: aiharness/deepseek/skills/order-adhara-stories-CONTEXT.md § S0c, and the
+;;; F1 decision record in its §10.
+;;;
+;;; WHY IT LIVES HERE: this file is build position 128 / asd 62 — before
+;;; nst-bl-adhara (149/90) and before every domain file — so no caller can load
+;;; ahead of these definitions. The order mint, the S8b legacy funnels and the
+;;; invoice settings' own aspirational invoice-number-format all need them, and this
+;;; section is the single home that stops the April-March rule existing twice.
+
+(defun nst-date-ymd (date)
+  "YEAR, MONTH and DAY for a date as it actually reaches this system.
+
+  ⚠ THIS EXISTS BECAUSE decode-date'S CONTRACT DIFFERS BY TYPE, which is measured,
+  not assumed (2026-09-28, SBCL + this CLSQL):
+
+    (clsql-sys:decode-date <a clsql-sys:date struct>)  => 4 values
+        (day month year day-of-week)          e.g. (1 4 2026 3) for 2026-04-01
+    (clsql-sys:decode-date <a wall-time>)              => 6 values
+        (second minute hour day month year)
+    (clsql-sys:decode-date <a universal-time integer>) => ERRORS
+
+  So a function that destructures six values is correct for a wall-time and WRONG for
+  a DATE column — and a DATE column is exactly what the ORM yields here
+  (`dod-order`'s `ord-date` and `dod-invoice-header`'s `invdate` are both declared
+  `:type clsql:date`). That mismatch is a crash (month comes back NIL), not a wrong
+  answer, which is the only reason it was noticed.
+
+  A DATE struct carries ONE slot (MJD), so `date-ymd` is the accessor for it, and it
+  is the one used here — returning (year month day), verified against a December date
+  so that a year/month/day mix-up cannot pass by luck."
+  (cond
+    ((typep date 'clsql-sys:date)
+     (values-list (multiple-value-list (clsql-sys:date-ymd date))))
+    ;; a JSON or URL parameter arrives as a string, and parse-datestring yields a
+    ;; clsql:date — the same shape the ORM gives, so it re-enters the branch above
+    ((stringp date)
+     (values-list (multiple-value-list
+                   (clsql-sys:date-ymd (clsql-sys:parse-datestring date)))))
+    (t
+     (error "cannot read a calendar date from ~S (type ~S). This accepts a CLSQL ~
+             date struct (what a DATE column yields through the ORM) or an ISO ~
+             string (what a JSON or URL parameter yields) — and nothing else, ~
+             MEASURED: in this CLSQL, decode-date answers a DATE struct with 4 ~
+             values (day month year day-of-week) and SIGNALS for a wall-time and for ~
+             a universal-time integer, so there is no third contract to fall back on."
+            date (type-of date)))))
+
+(defun nst-financial-year-label (date)
+  "The Indian/GST financial year containing DATE, as FINYEAR's varchar(9):
+  a date from 2026-04-01 to 2027-03-31 answers \"2026-2027\".
+
+  MOVED HERE from invoice/nst-bl-invh.lisp, where it was first written: the ORDER
+  mint needs the same rule, and this is a LEGAL rule (the Indian April-March year) —
+  the worst kind to hold two copies of. Same package and same symbol, so its one
+  caller (nst-bl-invh.lisp's make) needed no change at all.
+
+  April-March is the GST default and the only rule the schema documents. A tenant
+  whose year starts in another month describes it on nst-vnd's fy-start-month slot,
+  which no verb reads yet — when one does, this function is the single place to
+  change, and the callers are make and the order mint."
+  (multiple-value-bind (year month day)
+      (nst-date-ymd date)
+    (declare (ignore day))
+    (if (>= month 4)
+        (format nil "~4,'0d-~4,'0d" year (1+ year))
+        (format nil "~4,'0d-~4,'0d" (1- year) year))))
+
+(defun nst-financial-year-short (date)
+  "The same financial year in the SHORT form a document number carries: a date from
+  2026-04-01 to 2027-03-31 answers \"2026-27\".
+
+  DERIVED from nst-financial-year-label rather than recomputed, so the April-March
+  rule keeps exactly one implementation and only its rendering differs — a number
+  needs 7 characters where FINYEAR's column is varchar(9)."
+  (let ((label (nst-financial-year-label date)))
+    (format nil "~A-~A" (subseq label 0 4) (subseq label 7 9))))
+
+(defun nst-financial-year-month (date)
+  "The calendar month of DATE as two digits, for the {MM} token the shipped invoice
+  template already uses (\"INV-YYYY-MM-{counter}\")."
+  (multiple-value-bind (year month day)
+      (nst-date-ymd date)
+    (declare (ignore year day))
+    (format nil "~2,'0D" month)))
+
+(defparameter *nst-doc-ref-alphabet* "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+  "The 32 symbols a document reference is drawn from: digits 2-9 plus A-Z less the
+  look-alikes I and O, with 0 and 1 absent alongside them because 0/O and 1/I/L are
+  what make a reference unreadable when it is said aloud — and saying it aloud is a
+  primary use of this number (the customer quotes it to the vendor over the phone).
+
+  EXACTLY 32 SYMBOLS, ON PURPOSE: a reference is built one byte at a time, taking
+  (mod byte 32), so the alphabet must be a power of two or the mapping is biased.
+  The acceptance criterion in the story file encodes this exact set:
+  ^ORD-[A-Z0-9]{3,8}-[0-9]{4}-[0-9]{2}-[2-9A-HJ-NP-Z]{6}$")
+
+(defun nst-doc-ref-key ()
+  "The document-reference key, read from DOD_SYS_SECRET. FAILS CLOSED when absent.
+
+  It is NOT in hhub/core/extkeys.lisp, where this tree keeps its other secrets,
+  because THAT FILE IS TRACKED: a key in git would let anyone who can read the
+  repository enumerate every reference in the system, which is the whole property the
+  permutation exists to provide.
+
+  A missing key is an ERROR, never a default. A fallback value would make every
+  reference guessable while the system looked healthy."
+  (let ((rows (handler-case
+                  (clsql:query
+                   "SELECT SECRET_VALUE FROM DOD_SYS_SECRET WHERE SECRET_NAME = 'DOC_REF_KEY'"
+                   :flatp t)
+                (error (c)
+                  (error "cannot read the document-reference key: ~A. If DOD_SYS_SECRET ~
+                          does not exist yet, run the 28092026-create-doc-counter ~
+                          migration." c)))))
+    (or (first rows)
+        (error "DOD_SYS_SECRET holds no DOC_REF_KEY row, so no document reference can ~
+                be minted. Run the 28092026-create-doc-counter migration (it seeds the ~
+                key). Refusing to mint under a default key."))))
+
+(defun nst-doc-sql-token-safe-p (value)
+  "True when VALUE can be interpolated into a SQL literal safely: uppercase letters,
+  digits and hyphen only.
+
+  EVERY value that reaches the counter statements passes through this, because those
+  statements are built as strings — CLSQL has no parameterised form for the
+  LAST_INSERT_ID idiom they depend on — so this guard, and not the caller's
+  discipline, is what stops a future caller turning a document type into SQL."
+  (and (stringp value)
+       (plusp (length value))
+       (every (lambda (c)
+                (or (char<= #\A c #\Z) (char<= #\0 c #\9) (char= c #\-)))
+              value)))
+
+(defun nst-next-doc-counter (doc-type scope-kind scope-id finyear &optional tenant-id)
+  "The next integer in the series (DOC-TYPE, SCOPE-KIND, SCOPE-ID, FINYEAR), allocated
+  atomically. Creates the series row on first use, so no seeding is needed.
+
+  ⚠ THE LAST_INSERT_ID(expr) IDIOM IS LOAD-BEARING, NOT A FLOURISH. The obvious
+  version — UPDATE ... SET `LAST_SEQ` = `LAST_SEQ` + 1, then SELECT `LAST_SEQ` — is a
+  lost-update race under autocommit: another session can bump the row between the two
+  statements, and this caller then reads ITS value and mints a duplicate number.
+  MySQL's LAST_INSERT_ID(expr) sets a SESSION-LOCAL value and returns it, so the pair
+  below is correct WITHOUT a transaction; INSERT ... ON DUPLICATE KEY makes the first
+  statement idempotent and takes the row lock that serialises concurrent callers.
+
+  ⚠ EVERY IDENTIFIER IS BACKTICK-QUOTED AND THE SEQUENCE COLUMN IS `LAST_SEQ` — keep
+  both. The column was named LAST_VALUE in the first version and MySQL 8.0 RESERVES
+  that word (it is a window function), so the migration's CREATE failed with Error
+  1064 until it was renamed; the backticks are what stop the next column added here
+  from being stopped by a word the server has since claimed. The DDL lives in
+  installation/upgrades/nst-dbu-doc-counter.lisp — KEEP THE TWO IN STEP."
+  (dolist (s (list doc-type scope-kind finyear))
+    (unless (nst-doc-sql-token-safe-p s)
+      (error "~S is not a safe document-numbering token: only A-Z, 0-9 and - are ~
+              allowed, because these values are interpolated into SQL." s)))
+  (unless (integerp scope-id)
+    (error "a counter scope id must be an integer, not ~S." scope-id))
+  (when (and tenant-id (not (integerp tenant-id)))
+    (error "a counter tenant id must be an integer or NIL, not ~S." tenant-id))
+  (clsql:execute-command
+   (format nil "INSERT INTO `DOD_DOC_COUNTER` ~
+                  (`DOC_TYPE`, `SCOPE_KIND`, `SCOPE_ID`, `TENANT_ID`, `FINYEAR`, `LAST_SEQ`) ~
+                VALUES ('~A', '~A', ~D, ~A, '~A', LAST_INSERT_ID(1)) ~
+                ON DUPLICATE KEY UPDATE `LAST_SEQ` = LAST_INSERT_ID(`LAST_SEQ` + 1)"
+           doc-type scope-kind scope-id
+           (if tenant-id (format nil "~D" tenant-id) "NULL")
+           finyear))
+  (let ((value (first (clsql:query "SELECT LAST_INSERT_ID()" :flatp t))))
+    (if (integerp value) value (parse-integer (princ-to-string value)))))
+
+(defun nst-doc-reference (counter &key (tenant-id 0) (scope-kind "CUSTOMER")
+                                       (scope-id 0) (doc-type "ORDER") (finyear "")
+                                       (length 6) (key nil))
+  "COUNTER rendered as a non-sequential, unguessable reference LENGTH characters long.
+
+  KEY overrides the DOD_SYS_SECRET key, and exists so the OFFLINE CHECK can exercise
+  the permutation without a database — and so that check never has to redefine
+  nst-doc-ref-key, which would clobber the real accessor in any image it was loaded
+  into. NIL (the production path) reads the stored key.
+
+  WHY NOT THE COUNTER ITSELF: a sequential suffix tells every vendor how many orders
+  the customer placed with ITS COMPETITORS. DOD_ORDER is the customer's document and
+  DOD_VENDOR_ORDERS copies its number (D20), so a vendor holding ...-00001 and later
+  ...-00005 infers four orders elsewhere — with no request to rate-limit, which is why
+  rate limiting was never a fix. See the F1 decision record in the story file's §10.
+
+  DETERMINISTIC: the same (key, tenant, scope, doc-type, finyear, counter) always
+  renders the same reference, so a migration's dry run reproduces its real run.
+
+  ⚠ NOT INJECTIVE: an HMAC truncated to LENGTH characters is a random function, so two
+  counters CAN collide (birthday bound — at 6 characters, roughly one expected
+  collision per million references system-wide). The unique index on ORDNUM catches it
+  and the mint retries with the next counter, which is why that retry is not
+  decoration. Raising the {ref:N} width in the template removes the risk without a
+  code change.
+
+  THE INPUT IS LENGTH-PREFIXED so that two different field splits cannot render the
+  same message (\"A|BC\" and \"AB|C\" are one string otherwise), which would make the
+  reference depend on the delimiter not occurring inside a field."
+  (let ((mac (ironclad:make-hmac
+              (ironclad:ascii-string-to-byte-array (or key (nst-doc-ref-key))) :sha256)))
+    (dolist (field (list (princ-to-string tenant-id) scope-kind
+                         (princ-to-string scope-id) doc-type finyear
+                         (princ-to-string counter)))
+      (let ((s (princ-to-string field)))
+        (ironclad:update-hmac mac
+                              (ironclad:ascii-string-to-byte-array
+                               (format nil "~D:~A" (length s) s)))))
+    (let ((digest (ironclad:hmac-digest mac)))
+      (when (> length (length digest))
+        (error "a document reference of ~D characters needs ~D digest bytes, but ~
+                HMAC-SHA-256 yields ~D." length length (length digest)))
+      (let ((out (make-string length)))
+        (dotimes (i length out)
+          (setf (aref out i)
+                (aref *nst-doc-ref-alphabet* (mod (aref digest i) 32))))))))
+
+(defun nst-doc-number-values-lookup (values name)
+  "VALUE for token NAME in VALUES, an alist of (name . string), or NIL."
+  (cdr (assoc name values :test #'string-equal)))
+
+(defun nst-doc-number-pad (value width)
+  "VALUE padded to WIDTH. A DIGIT-ONLY value is zero-padded; any other value must
+  ALREADY be exactly that long, and a mismatch is an ERROR rather than a silent pad —
+  padding a reference with a character outside its alphabet would produce a number
+  that its own validator rejects."
+  (cond ((null width) value)
+        ((= (length value) width) value)
+        ((> (length value) width)
+         (error "document-number value ~S is longer than its declared width ~D."
+                value width))
+        ((every #'digit-char-p value)
+         (concatenate 'string (make-string (- width (length value))
+                                           :initial-element #\0)
+                      value))
+        (t (error "document-number value ~S is shorter than its declared width ~D, ~
+                   and it is not a number, so it cannot be padded — it must be ~
+                   GENERATED at that width." value width))))
+
+(defun nst-format-doc-number (template values)
+  "Render TEMPLATE with a SINGLE LEFT-TO-RIGHT PASS, substituting either a braced
+  {token} / {token:width} or one of the bare tokens YYYY and MM.
+
+  ONE PASS IS THE POINT: a substituted value is never re-scanned, so a customer prefix
+  that happens to contain the letters of a token cannot be expanded a second time
+  (a prefix of \"YYYY\" would otherwise corrupt its own number). The bare tokens exist
+  because the shipped invoice template already uses them unbraced
+  (invoice-number-format is \"INV-YYYY-MM-{counter}\").
+
+  AN UNKNOWN OR MISSING TOKEN IS AN ERROR, never emitted literally and never left
+  blank: a document number that silently says {prefix} is worse than a refusal, and it
+  is the kind of thing that reaches a customer."
+  (let ((out (make-string-output-stream))
+        (i 0)
+        (n (length template)))
+    (flet ((emit (name width)
+             (let ((value (nst-doc-number-values-lookup values name)))
+               (unless value
+                 (error "document-number template ~S names {~A}, for which no value was ~
+                         supplied. Known names: ~{~A~^, ~}."
+                        template name (mapcar #'car values)))
+               (princ (nst-doc-number-pad value width) out))))
+      (loop while (< i n) do
+        (let ((c (char template i)))
+          (cond
+            ((char= c #\{)
+             (let ((close (position #\} template :start i)))
+               (unless close
+                 (error "document-number template ~S has an unclosed { at position ~D."
+                        template i))
+               (let* ((spec (subseq template (1+ i) close))
+                      (colon (position #\: spec))
+                      (name (if colon (subseq spec 0 colon) spec))
+                      (width (when colon (parse-integer (subseq spec (1+ colon))))))
+                 (emit name width)
+                 (setf i (1+ close)))))
+            ((and (<= (+ i 4) n) (string-equal "YYYY" (subseq template i (+ i 4))))
+             (emit "YYYY" nil)
+             (incf i 4))
+            ((and (<= (+ i 2) n) (string-equal "MM" (subseq template i (+ i 2))))
+             (emit "MM" nil)
+             (incf i 2))
+            (t (princ c out)
+               (incf i))))))
+    (get-output-stream-string out)))
+
+(defun nst-doc-number-token-width (template name &optional default)
+  "The width declared for {NAME} — or {NAME:n} — in TEMPLATE; DEFAULT when NAME
+  appears without a width, NIL when it does not appear at all.
+
+  The CALLER needs this for {ref:n}: the reference must be GENERATED at that length,
+  because padding one afterwards would introduce a symbol outside its alphabet."
+  (let ((i 0)
+        (n (length template))
+        (needle (format nil "{~A" name)))
+    ;; ⚠ THE LOOP IS THE LAST FORM, ON PURPOSE. Its (return …) exits the LOOP with the
+    ;; value; a trailing form after it would discard that value and the function would
+    ;; answer NIL for every template — which is how this was written first, and the
+    ;; "token absent → NIL" expectation hid it.
+    (loop while (< i n) do
+      (if (and (<= (+ i (length needle)) n)
+               (string-equal needle (subseq template i (+ i (length needle)))))
+          (let* ((spec-start (1+ i))
+                 (close (position #\} template :start spec-start)))
+            (if (null close)
+                (return nil)
+                (let* ((spec (subseq template spec-start close))
+                       (colon (position #\: spec)))
+                  (return (if colon
+                              (parse-integer (subseq spec (1+ colon)))
+                              default)))))
+          (incf i)))))
+
+(defparameter *nst-order-number-format* "ORD-{prefix}-{fy}-{ref:6}"
+  "The ORDER number's shape, as a CODE DEFAULT rather than a settings lookup.
+
+  ⚠ WHY NOT THE VENDOR'S SETTINGS BLOB, which is where the sibling
+  invoice-number-format lives: an ORDER IS THE CUSTOMER'S DOCUMENT AND CAN SPAN
+  SEVERAL VENDORS (one DOD_ORDER, N DOD_VENDOR_ORDERS rows, VENDOR_ID on the items),
+  so 'the vendor's order-number format' names nothing determinate — there is no
+  single vendor to ask. The key order-number-format does sit in
+  *invoice-settings*' invoice-general-settings beside the invoice's own, added by S0c
+  as the shared token vocabulary; whether it should STAY there, become a tenant-level
+  setting, or be removed as a setting that changes nothing is recorded as an open
+  question in the story file rather than silently decided here.
+
+  The shape is still DATA: nst-format-doc-number renders it, {ref:N} reads its width
+  from it, and a caller may pass a different template without touching this default.")
+
+(defun nst-doc-prefix-valid-p (value)
+  "True when VALUE can be a customer's DOC_PREFIX: 3 to 8 characters, A-Z and 0-9 only.
+
+  ⚠ THE CHARSET IS LOAD-BEARING, NOT COSMETIC. A document number's delimiter is '-',
+  so a prefix containing '-' — or digits that mimic the financial year — would make
+  the number ambiguous to anything that splits it, which is why no code may ever parse
+  a number by splitting it (F14). And it is why the stored column must be VARCHAR(8)
+  and never CHAR(8): CHAR pads with SPACES, and the pad would land inside every number
+  as 'ORD-XYZCORP -2026-27-…'.
+
+  The 3-character floor is the one R1 fixed: 'XYZ' is recognisable, 'XY' is not."
+  (and (stringp value)
+       (<= 3 (length value) 8)
+       (every (lambda (c) (or (char<= #\A c #\Z) (char<= #\0 c #\9))) value)))
+
+(defun nst-doc-prefix-tokens (name)
+  "NAME split into uppercase alphanumeric words. \"A.B. Traders\" -> (\"A\" \"B\" \"TRADERS\")."
+  (let ((tokens '())
+        (current (make-string-output-stream)))
+    (flet ((flush ()
+             (let ((s (get-output-stream-string current)))
+               (when (plusp (length s)) (push s tokens)))))
+      (loop for ch across (or name "")
+            do (if (or (char<= #\A ch #\Z) (char<= #\a ch #\z) (char<= #\0 ch #\9))
+                   (princ ch current)
+                   (flush)))
+      (flush))
+    (nreverse (mapcar #'string-upcase tokens))))
+
+(defun nst-doc-prefix-base (name &optional (max-length 8))
+  "NAME reduced to a prefix BASE of 3 to MAX-LENGTH characters, taking WHOLE WORDS:
+  \"XYZ CORP LIMITED\" -> \"XYZCORP\", which is the requester's own worked example and
+  the reason this is word-based rather than a slice of the name.
+
+  ⚠ NOT THE FIRST 8 CHARACTERS. That version was written first and the offline check
+  caught it: \"XYZ CORP LIMITED\" sliced to 8 gives \"XYZCORPL\" — gibberish to the
+  vendor reading the number aloud, where \"XYZCORP\" is the company's own short name.
+  The rules, in order:
+    * the FIRST word, truncated to MAX-LENGTH if it alone is longer;
+    * then each following word, while the total stays within MAX-LENGTH;
+    * if the total is still under 3 characters, take just enough characters from the
+      NEXT word to reach 3 (so \"A.B. Traders\" -> \"ABT\", not a refusal);
+    * NIL when the name holds fewer than 3 alphanumerics at all — a refusal, because a
+      2-character prefix is not an identity.
+
+  A DERIVATION, NOT AN ALLOCATION — which is precisely why it collides, and why
+  nst-doc-prefix-candidates exists."
+  (let ((tokens (nst-doc-prefix-tokens name)))
+    (when tokens
+      (let ((result "")
+            (firstp t))
+        (dolist (tok tokens)
+          (cond
+            (firstp
+             (setf result (subseq tok 0 (min max-length (length tok)))
+                   firstp nil))
+            ((<= (+ (length result) (length tok)) max-length)
+             (setf result (concatenate 'string result tok)))
+            ((< (length result) 3)
+             (setf result (concatenate 'string result
+                                       (subseq tok 0 (min (- 3 (length result))
+                                                          (length tok)))))
+             (return))
+            (t (return))))
+        (when (>= (length result) 3)
+          result)))))
+
+(defun nst-doc-prefix-candidates (name)
+  "The base for NAME, then the deterministic de-duplication ladder (R2):
+
+    base            XYZCORP
+    6 + 2-digit      XYZCOR01 … XYZCOR99     (base truncated to 6, probe 01..99)
+    5 + 3-digit      XYZC001 … XYZC999       (base truncated to 5, probe 001..999)
+
+  ALWAYS INSIDE varchar(8), always recognisable, and ALWAYS THE SAME ORDER — which is
+  what makes a re-run reproducible and lets a dry run predict exactly which suffix a
+  customer will receive.
+
+  ⚠ DE-DUPLICATED, AND THAT IS NOT PADDING: the two rungs can collide for a base whose
+  sixth character is a digit — base \"XYZCO0\" gives \"XYZCO001\" from BOTH the 6+2 and
+  the 5+3 rung. The ladder is a HEURISTIC anyway; the UNIQUE index on DOC_PREFIX is the
+  guarantee, and a duplicate inside one ladder would waste a rung and confuse the dry
+  run's report." 
+  (let ((base (nst-doc-prefix-base name)))
+    (when base
+      (remove-duplicates
+       (cons base
+             (append (loop for n from 1 to 99
+                           collect (format nil "~A~2,'0D" (subseq base 0 (min 6 (length base))) n))
+                     (loop for n from 1 to 999
+                           collect (format nil "~A~3,'0D" (subseq base 0 (min 5 (length base))) n))))
+       :test #'string= :from-end t))))
+
+(defun nst-allocate-doc-prefix (name &optional taken)
+  "The first candidate for NAME that is not already in TAKEN — a list of stored prefix
+  strings, compared case-insensitively. NIL when the whole ladder is taken, which the
+  caller must report as a refusal: inventing a value would defeat the reason the prefix
+  exists (it is the document series' identity, not a free-text label)."
+  (let ((used (mapcar #'string-upcase taken)))
+    (find-if (lambda (candidate) (not (member candidate used :test #'string=)))
+             (nst-doc-prefix-candidates name))))
+
+(defun nst-doc-prefix-taken ()
+  "Every DOC_PREFIX already stored, so allocation can avoid them.
+
+  `clsql:query … :flatp t` returns a FLAT list of the column's values — one scalar per
+  row, NOT a list per row — which is the same convention get-vendors-by-orderid in
+  order/dod-bl-ord.lisp relies on when it maps select-vendor-by-id over the result.
+
+  ⚠ IT FAILS LOUDLY BEFORE THE COLUMN EXISTS rather than reporting an empty list: an
+  empty list would let allocation hand out a prefix that is already in use on a
+  database where the column is simply missing. The ALTER is the migration's first
+  step, and this message is what a caller sees if it is not."
+  (handler-case
+      (clsql:query "SELECT `DOC_PREFIX` FROM `DOD_CUST_PROFILE` WHERE `DOC_PREFIX` IS NOT NULL"
+                   :flatp t)
+    (error (c)
+      (error "cannot read the stored document prefixes: ~A. If DOD_CUST_PROFILE has no ~
+              DOC_PREFIX column yet, the ordnum-identity migration has not been applied ~
+              (its first step is that ALTER)." c))))
+
+(defun nst-doc-prefix-read (cust-id)
+  "The stored DOC_PREFIX for CUST-ID, or NIL when it has none yet."
+  (first (clsql:query (format nil "SELECT `DOC_PREFIX` FROM `DOD_CUST_PROFILE` ~
+                                    WHERE `ROW_ID` = ~D" cust-id)
+                      :flatp t)))
+
+(defun nst-doc-prefix-assign (cust-id name)
+  "Allocate a prefix for CUST-ID from NAME and STORE it — the lazy allocation R2 chose
+  over touching the six places that create a customer row. Returns the prefix, and
+  SIGNALS rather than improvising when NAME yields no usable base or the ladder is
+  exhausted.
+
+  The STORE is a plain UPDATE of that one column, so it cannot disturb any other
+  customer field. A caller inside a transaction gets atomicity for free; a caller
+  outside one accepts that a crash between the UPDATE and the return would leave a
+  prefix allocated-but-unused — which costs a rung of the ladder, not a duplicate."
+  (let ((base (nst-doc-prefix-base name)))
+    (unless base
+      (error "customer ~D has no usable document prefix: its name (~S) holds fewer ~
+              than 3 alphanumeric characters, so nothing recognisable can be derived. ~
+              Set DOC_PREFIX by hand for this customer." cust-id name))
+    (let ((chosen (nst-allocate-doc-prefix name (nst-doc-prefix-taken))))
+      (unless chosen
+        (error "every document prefix candidate for customer ~D (~S) is already taken. ~
+                Set DOC_PREFIX by hand for this customer." cust-id base))
+      (clsql:execute-command
+       (format nil "UPDATE `DOD_CUST_PROFILE` SET `DOC_PREFIX` = '~A' WHERE `ROW_ID` = ~D"
+               chosen cust-id))
+      chosen)))
+
+(defun nst-order-number-for (template customer-prefix order-date tenant-id cust-id
+                                      &key counter key)
+  "The next ORDER number for CUST-ID on ORDER-DATE, allocated from the counter and
+  rendered through TEMPLATE.
+
+  THE THREE CALLERS GO THROUGH HERE — the ordnum-identity migration, nst-ordh's make and
+  the S8b legacy funnels — so the series cannot fork into a second implementation.
+  CUSTOMER-PREFIX is the customer's DOC_PREFIX (S0d); the counter is scoped per
+  (customer, financial year), and the reference width comes from the template, which is
+  what makes {ref:6} versus {ref:8} a data change rather than a code change.
+
+  :COUNTER SUPPLIES the sequence value instead of allocating one, and it exists for the
+  DRY RUN: allocating writes to DOD_DOC_COUNTER, so a dry run must not call the
+  allocator — and if it assembled the number any other way, the dry run and the real run
+  would be different code paths and the review would be worthless. Both paths render
+  through this one function.
+  :KEY is passed to nst-doc-reference and exists for the offline check, which has no
+  database to read the stored key from."
+  (let* ((fy (nst-financial-year-short order-date))
+         (seq (or counter (nst-next-doc-counter "ORDER" "CUSTOMER" cust-id fy tenant-id)))
+         (ref-width (or (nst-doc-number-token-width template "ref") 6))
+         (ref (nst-doc-reference seq :tenant-id (or tenant-id 0)
+                                 :scope-kind "CUSTOMER" :scope-id cust-id
+                                 :doc-type "ORDER" :finyear fy :length ref-width
+                                 :key key)))
+    (nst-format-doc-number
+     template
+     (list (cons "PREFIX" (or customer-prefix ""))
+           (cons "FY" fy)
+           (cons "REF" ref)
+           (cons "COUNTER" (princ-to-string seq))
+           (cons "YYYY" (subseq (nst-financial-year-label order-date) 0 4))
+           (cons "MM" (nst-financial-year-month order-date))))))
+
+
+
+
+
+
+
 ;;;; Virtual host related things ;;;; 
   
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; The DB-slot coercion — INTEGER → float where the CLSQL class admits floats (S7)
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; MOVED HERE FROM invoice/nst-bl-invh.lisp, where the invoice batch wrote it after
+;;; MEASURING the defect: CLSQL's view classes declare the money and rate columns (OR NULL
+;;; FLOAT) and VALIDATE ON INSERT, so an ordinary JSON integer — {price: 100} — is refused,
+;;; and the refusal reaches the client as :U (503) "the database call did not answer". The
+;;; invoice batch lost a day to it twice: once for the OMITTED field (fixed by the 0.0
+;;; class initforms) and once for the SUPPLIED one (fixed by this coercion).
+;;;
+;;; WHY IT IS IN CORE AND NOT IN EITHER ENTITY FILE: it is generic (a CLSQL class's declared
+;;; slot type, read through the MOP — it knows nothing about invoices or orders), it has two
+;;; callers in two different files today, and the ORDER files load BEFORE the invoice's, so
+;;; a version living in nst-bl-invh.lisp is unreachable from them. Build position 128 / asd
+;;; 62 puts this ahead of every entity file — the same argument as D16's row-id guard.
+;;;
+;;; The coercion reads the DESTINATION CLASS's declared type rather than a hand-kept list of
+;;; money columns: a list would drift from the CLSQL classes the moment one of them changes
+;;; type, which is exactly the drift the mirror lists already had to be documented against.
+
+(defun nst-db-slot-type (object slot)
+  "The type SLOT declares on OBJECT's class, or NIL if it cannot be read."
+  (ignore-errors
+    (sb-mop:slot-definition-type
+     (find slot (sb-mop:class-slots (class-of object))
+           :key #'sb-mop:slot-definition-name))))
+
+(defun nst-db-float-slot-p (type)
+  "T when a CLSQL-declared slot TYPE admits floats.
+
+  🚨 IT IS NOT THE BARE SYMBOL. CLSQL declares these slots (OR NULL FLOAT) — measured
+  2026-09-26 against dod-Invoice-Header TOTALVALUE — so an (eq type 'float) test is FALSE for
+  every one of them, and the coercion below silently became a NO-OP: no error, no warning,
+  just an INSERT failing exactly as before. A guard that cannot fire is worse than no guard,
+  because it reads as fixed."
+  (or (eq type 'float)
+      (and (consp type) (member 'float type))))
+
+(defun nst-coerce-for-db-slot (destination slot value)
+  "VALUE as DESTINATION's SLOT will accept it. INTEGER → float where the slot admits floats.
+  Everything else passes through untouched — a narrow widening, not a general type system:
+  a wrong coercion would be worse than a failed INSERT."
+  (if (and (nst-db-float-slot-p (nst-db-slot-type destination slot))
+           (integerp value))
+      (float value)
+      value))
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; The order STATUS vocabulary — one home for a rule the legacy layer and the
+;;; adhara verbs must agree about (D17, story S8)
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; WHY THIS IS IN CORE AND NOT IN EITHER ORDER FILE: STATUS is the one column the whole
+;;; order feature branches on — the adhara verbs (make, !update, delete!, the line verbs),
+;;; the legacy vendor and item reads, and the legacy item VIEW that renders Pending or
+;;; Fulfilled — and it is char(3), so a wrong string is not a wrong answer but an empty
+;;; result set. Before this, the open set existed as the literal "PEN" in seven legacy
+;;; reads while the new API minted "DFT", so an order created through the new API was
+;;; INVISIBLE to every legacy list. That is the defect S8 exists to fix, and a rule with
+;;; two spellings is how it happened.
+;;;
+;;; THE VOCABULARY IS THREE CHARACTERS WIDE, MEASURED: STATUS is char(3) on DOD_ORDER,
+;;; DOD_ORDER_ITEMS and DOD_VENDOR_ORDERS, so "DRAFT" could not be stored at all. The
+;;; five codes below are the live vocabulary.
+
+(defparameter *order-open-statuses* '("DFT" "PEN")
+  "The statuses in which an order is still being built: DFT (minted by the new API's make)
+   and PEN (what every legacy creation path writes). An OPEN order may receive lines, may be
+   edited, and is what 'pending' means in every legacy list.
+
+   ⚠ SHARED, DELIBERATELY: the adhara verbs (nst-bl-ordh.lisp, nst-bl-orditm.lisp) and the
+   retrofitted legacy reads all read THIS list. A second copy anywhere would re-open the
+   S8 defect, whose shape was exactly that: the new code said DFT, the old code said PEN, and
+   neither was wrong on its own.")
+
+(defparameter *order-terminal-statuses* '("CMP" "VCN" "CCN")
+  "The statuses in which the order has finished moving: CMP completed, VCN cancelled by the
+   vendor, CCN cancelled by the customer. Content may not change and the document may not be
+   deleted — what a finished order needs is a new document, not an edit (D8).")
+
+(defun order-open-status-p (status)
+  "Is STATUS one of *order-open-statuses*? Accepts a string, a keyword or a symbol, and
+   upcases first, because the legacy layer passes strings and the adhara verbs may carry
+   keywords. NIL (a NULL column, which char(3) DEFAULT NULL permits) is NOT open — an order
+   with no status is not an order anyone may act on."
+  (and status
+       (member (string-upcase (string status)) *order-open-statuses* :test #'string=)
+       t))
+
+(defun order-terminal-status-p (status)
+  "Is STATUS one of *order-terminal-statuses*? The same coercion as order-open-status-p, and
+   the same rule about NIL: an unknown status is neither open nor terminal, and the callers
+   that must not proceed treat 'not open' as the refusal."
+  (and status
+       (member (string-upcase (string status)) *order-terminal-statuses* :test #'string=)
+       t))

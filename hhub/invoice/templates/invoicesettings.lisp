@@ -30,6 +30,15 @@
 
     (invoice-general-settings
       (invoice-number-format "INV-YYYY-MM-{counter}")
+      ;; The ORDER number's shape, alongside the invoice's — one vocabulary, two
+      ;; document types with OPPOSITE legal requirements. The invoice keeps
+      ;; {counter} because GST wants a consecutive serial (and a MySQL trigger mints
+      ;; INVNUM today regardless); orders use {ref:6}, a NON-SEQUENTIAL reference,
+      ;; because a sequential one would tell every vendor how many orders its
+      ;; customer placed with its COMPETITORS — see the F1 decision record in
+      ;; aiharness/deepseek/skills/order-adhara-stories-CONTEXT.md §10.
+      ;; The tokens are rendered by nst-format-doc-number (core/dod-bl-utl.lisp).
+      (order-number-format "ORD-{prefix}-{fy}-{ref:6}")
       (default-currency "USD")
       (date-format "MM/DD/YYYY")
       (time-zone "America/New_York")

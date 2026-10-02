@@ -575,6 +575,148 @@ should be reclassified as a design choice when the suite is next edited.
 
 ---
 
+## 7. The ORDERS batch — designed and scheduled, **no code written yet**
+
+**Read `order-adhara-stories-CONTEXT.md` FIRST** — it is the design and the story list, and its §0
+is a RESUME-HERE running order. Recorded here only so a fresh session finds it from the ledger.
+
+**What is DONE (do not redo — this cost a full design cycle):** the design is frozen and the rulings
+are closed. All three live tables are measured against their view classes (`DOD_ORDER` 58/58,
+`DOD_ORDER_ITEMS` 30/32, `DOD_VENDOR_ORDERS` 26 declared vs 60 live). Every data question is
+answered. Three design errors were found by measuring instead of assuming, and they are the reason
+the story file opens with a warning:
+
+* **`installation/hhubplatform.sql` is NOT the live schema for these tables** — it hides that live
+  `STATUS` is `char(3)` (so the create-script's `DEFAULT 'DRAFT'` is *unstorable*), that `ORDNUM`
+  has **no** unique key, and that `DOD_ORDER` has **no `VENDOR_ID` column at all**.
+* **There is no order number in the database at all**: 485/485 orders and 462/462 vendor rows have a
+  NULL `ORDNUM`, so the migration must *invent* numbers, not backfill them. A copy-from-parent
+  repair is powerless — running it by hand returned `Changed: 0`.
+* **`{counter}` has no backing store anywhere in the tree**, and the invoice's own
+  `invoice-number-format` is aspirational because a MySQL trigger overwrites `INVNUM` (see §1d).
+
+**S0c is DONE and verified offline (2026-09-28)** — `DOD_DOC_COUNTER` + `DOD_SYS_SECRET` and the
+whole numbering family, 37/0 from `../tools/nst-verify-doc-numbering.lisp`. **Two things it leaves
+for a human:**
+
+1. **RE-RUN the migration** — `("28092026-create-doc-counter")` via `(apply-migrations user pass)`, or
+   the DDL by hand. The FIRST run failed: the DDL named the sequence column `LAST_VALUE`, which
+   MySQL 8.0 reserves (a window function), so the CREATE died with `Error 1064`. The column is
+   `LAST_SEQ` now and every identifier is backtick-quoted; nothing was recorded and neither table
+   was created (the version is written only after the function returns), so **the re-run is clean and
+   idempotent**. Until it runs, every mint fails closed by design (a clear message, never a default
+   key), so a "cannot read the document-reference key" error IS this item and not a bug.
+2. **Re-run the invoice suite after the next restart.** The function S0c moved
+   (`nst-financial-year-label`) destructured six values from `clsql-sys:decode-date`, which in this
+   CLSQL returns **four** for a DATE struct — so `make 'nst-invh` without a caller-supplied
+   `:finyear` signalled a TYPE-ERROR. The suite supplies `:finyear`, so that path has never run;
+   it now computes the year via `nst-date-ymd`. **Verified offline, not against the image.**
+
+**S0b is written (2026-09-28)** — `28092026-ordnum-identity`, with a dry run — and needs
+APPLYING, which is the human's step because it writes 485 numbers and freezes 7 prefixes:
+
+⚠ **RESTART THE IMAGE FIRST.** The migration calls `nst-doc-prefix-*`, `nst-order-number-for` and
+`*nst-order-number-format*`, none of which exist in the running image until it is restarted.
+Compiling the migration before that reports "undefined function NST-DOC-PREFIX-BASE" and
+"NST-ORDER-NUMBER-FOR … wants exactly five" — the stale image, not a broken migration. (Those are
+style-warnings, but SBCL sets `failure-p` for warnings too, so SLIME says "Compilation failed".)
+
+**Tell which build is live by CONTENT first, timestamp second** — build-and-load-CONTEXT.md §7.3.
+
+```sh
+# 1. the decisive check: does the cached build CONTAIN the new code?
+strings /home/hunchentoot/.cache/common-lisp/sbcl-2.6.8-linux-x64/home/ubuntu/ninestores/hhub/core/dod-bl-utl.fasl   | grep -c nst-doc-prefix-base           # 0 = the cache predates this batch
+# 2. WHEN was it built, and when did the process start?
+stat -c '%y %n' /home/hunchentoot/.cache/common-lisp/sbcl-2.6.8-linux-x64/home/ubuntu/ninestores/hhub/core/dod-bl-utl.fasl
+ps -eo pid,user,lstart,cmd | grep '[s]bcl'
+```
+
+⚠ **COMPARE FULL DATES, NOT TIMES OF DAY.** Measured 2026-09-28 and got it wrong once by doing
+exactly that: source edits at **2026-09-28 17:03**, cache fasls at **2026-09-27 17:36** — 24 hours
+OLDER, while a `%H:%M:%S` listing made them look like the same 17:36 and "fine". So BOTH were stale:
+
+* the cache fasl (2026-09-27 17:36) predates the edits;
+* the process (started 2026-09-28 06:57) predates them too.
+
+**A restart is therefore sufficient AND necessary:** ASDF compares source against its own cached
+fasl, sees the source is newer, and recompiles `dod-bl-utl.lisp` and `nst-sch-mig.lisp` — which is
+what puts BOTH the new functions AND the new `*migrations*` entry into the image. Run the content
+check above again afterwards; `0` there after a restart means the wrong cache is in play, not a
+missing edit. (A `(compile-production)` alone would NOT fix the image: it writes fasls beside the
+sources, which is not the build the server loads.)
+
+**Probe the image AFTER the restart — the last line is the one that bites silently:**
+
+```lisp
+(fboundp 'nst-doc-prefix-base)                      ; T expected
+(fboundp 'nst-next-doc-counter)                     ; T
+(boundp '*nst-order-number-format*)                 ; T
+(assoc "28092026-ordnum-identity" *migrations* :test #'string=)   ; NON-NIL, or apply-migrations
+                                                    ; will not know the migration exists — the
+                                                    ; registry comes from the IMAGE while
+                                                    ; load-upgrade-files reads from DISK (§7.3)
+```
+
+```lisp
+(load-upgrade-files *upgrade-files-directory*)        ; the migration file is not in the asd
+(let ((*nst-ordnum-migration-dry-run* t)) (migrate-2026Sep-ordnum-identity))   ; READ THIS FIRST
+(apply-migrations "hhubadmin" "<password>")            ; then apply
+```
+The dry run writes nothing and prints the prefix table (expect `GCUST837`, `DEMO`, `KND`, `GUEST`,
+`LGI`, `CUST17`, `PAWAN` — all distinct, so no de-duplication) and the number range per
+(customer, FY). `../tools/nst-verify-doc-numbering.lisp` predicts those seven prefixes offline, so
+the dry run can be checked against it. Take the `mysqldump` of `DOD_ORDER`, `DOD_VENDOR_ORDERS` and
+`DOD_CUST_PROFILE` first — 485, 462 and 25 rows.
+
+**One product question is still open, and it is not an engineering one:** `order-number-format` sits
+in the per-VENDOR `*invoice-settings*` blob, but an order is the CUSTOMER's document and can span
+vendors, so the order mint uses the code default `*nst-order-number-format*` instead — which makes
+that settings key **a setting that changes nothing**. Recommendation: remove it (the tree has already
+deleted one dead settings key); alternatives are a tenant-level settings store, or leaving it as
+documentation.
+
+**What REMAINS:** every other story, S0d next (the prefix on the customer entity and profile page). The per-story running order, dependencies and the
+human-side needs are §0 of the story file. Three notes for whoever starts:
+
+* **The first story (S0c) is deliberately cross-domain** — it touches
+  `invoice/templates/invoicesettings.lisp` and `vendor/nst-bl-vnd.lisp` — so it needs its own commit
+  and the guard that the invoice's existing format renders unchanged (T5).
+* **R2–R4 are taken as recommended but stay vetoable until S0b is APPLIED** (they are marked ✅ TAKEN
+  in the story file's S0b section).
+* **S0b writes values that have never existed** and freezes customer prefixes. Take the `mysqldump`
+  of `DOD_ORDER`, `DOD_VENDOR_ORDERS` and `DOD_CUST_PROFILE` before applying it, and satisfy its
+  dry-run criterion; the customer-population join in the story file's §9 is what validates the
+  de-duplication rule against real names.
+
+---
+
+## 8. Two files are COMPILED but never LOADED — found by the preflight's registration check
+
+**The check:** `../tools/nst-preflight.lisp` §3 asserts that every `hhub/**` file a change set adds
+appears in **both** `package/compile.lisp` and `nstores.asd`. A file in the first only is compiled
+to a project-local fasl that nothing serves — it looks built and does nothing.
+
+**What it found, 2026-09-28:**
+
+1. **`invoice/nst-bl-gstr1.lisp` — the whole GSTR-1 collector — is in `compile.lisp:284` and ABSENT
+   from `nstores.asd`.** The server loads through `(ql:quickload :nstores)`, so it has never had
+   this file; nothing else in the tree references its functions either. ⚠ **This is the likely
+   explanation of the note in `gst-gstr-compliance-CONTEXT.md` that the collector "was never run
+   against a session"** — it is not merely unexercised, it is not loaded. **Decide and fix:** add
+   it to the asd (if it is meant to be live) or remove it from `compile.lisp` (if it is not), then
+   confirm with a restart and `(fboundp '<one of its functions>)`.
+2. **`order/dod-dal-otk.lisp`** declares `clsql:def-view-class dod-order-track` against
+   `dod_order_track` — **the same table `order/dod-dal-odt.lisp` also maps** (as
+   `dod-order-items-track`). Two classes for one table, one of them never loaded. Probably
+   superseded; recorded rather than guessed, because deleting the wrong one breaks the order-track
+   reads that do work.
+
+**Not to be "fixed" blindly:** the two lists differ in 13 places and MOST are legitimate (`test/*`
+is compile-only by design; `core/nst-sch-mig.lisp`, `dod-sto-zip.lisp` and `stock/dod-dal-stk.lisp`
+are loaded but never compiled, which ASDF handles on load). The check is narrow for that reason.
+
+---
+
 ## Not a defect, but easy to trip over
 
 * **The smoke-suite base.** `http://hunchentoot.local` answers **404 for every `/hhub/`
