@@ -128,7 +128,7 @@
 (defun generateotp&redirect (persona purpose phone context)
   :description "This function will generate OTP, save it to the session, send SMS to the phone number with OTP message and then redirect to OTP entering page, also remembering the context where to redirect after entering the OTP successfully."
   (let ((otp (random 999999))
-	(session-id (hhub-random-password 8)))
+	(session-id (hhub-random-token 8)))
     ;; Set the otp to the session value 
     (funcall *otp-store* :set
 	     :session-id session-id 

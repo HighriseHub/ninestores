@@ -573,7 +573,7 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 				   :row-id prd-id
 				   ;; PRODUCT-CODE carries a UNIQUE index and is never taken from
 				   ;; the file: an update cannot re-code a product's identity.
-				   :product-code (format nil "PRD-~A" (hhub-random-password 10))
+				   :product-code (format nil "PRD-~A" (hhub-random-token 10))
 				   :prd-name prd-name
 				   ;; DESCRIPTION IS NOT IN products.csv — it is rich text owned by
 				   ;; the UI editor. Bound to NIL, never read back and never written
@@ -1322,7 +1322,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 (defun createmodelforvendoraddnewproduct ()
   (let ((catglist (hhub-get-cached-product-categories))
-	(charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
+	(charcountid1 (format nil "idchcount~A" (hhub-random-token 3))))
     (function (lambda ()
       (values catglist charcountid1)))))
 

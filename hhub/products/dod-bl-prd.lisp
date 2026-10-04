@@ -272,7 +272,7 @@
 				    :approved-flag "N"
 				    :approval-status "PENDING"
 				    :prd-type prd-type
-				    :product-code (format nil "PRD-~A" (hhub-random-password 10))
+				    :product-code (format nil "PRD-~A" (hhub-random-token 10))
 				    :deleted-state "N")))
 
 (defun create-bulk-products (modelfunc)
@@ -936,7 +936,7 @@
    :void-value expression is evaluated ONCE, when the class is defined, so it
    would hand every product the SAME code and the unique key would reject the
    second insert. See the note on nst-prd in dod-dal-prd.lisp."
-  (format nil "PRD-~A" (hhub-random-password 10)))
+  (format nil "PRD-~A" (hhub-random-token 10)))
 
 (defun select-product-by-code (product-code &key include-deleted)
   "Lookup by PRODUCT_CODE — the only identity the database enforces on
