@@ -17,7 +17,17 @@
 ;;;
 ;;;   1. HMAC-SHA256 over the payload, keyed with the VENDOR'S OWN SALT, plus a
 ;;;      five-minute expiry carried INSIDE the signed bytes.
-;;;   2. A password (the vendor's last four phone digits) with an attempt limit.
+;;;   2. A password (four digits of a phone number) with an attempt limit — THE CUSTOMER's
+;;;      phone since 2026-10-03, the VENDOR's before that.
+;;;
+;;; AND TWO THINGS ADDED SINCE, both in here because neither is reachable over HTTP from an
+;;; agent: the SERVER-SIDE RENDER token that lets the PDF pipeline through the gate (§9),
+;;; and the resolution of "which customer is this invoice's", which the password needs now
+;;; that it is the customer's number (§6).
+;;;
+;;; ⚠ WHAT THIS FILE DOES NOT COVER: the page model itself (it needs a live HTTP request for
+;;; hunchentoot:parameter), so the wiring from "customer resolved" to "gate asked" is pinned
+;;; in §6b by reading the source, and the four PDF call sites are pinned by review only.
 ;;;
 ;;; Neither can be tested through HTTP without reloading the live image, which an agent
 ;;; cannot restart here (sudo is refused). INVOICE-EXT-AUTHORISE therefore takes the
@@ -168,9 +178,9 @@
         (chk-true "and the reason mentions expiry"
                   (lambda () (and (search "expired" why) t))))))
 
-  ;; ── 6. THE PASSWORD: NORMALISATION ────────────────────────────────────────
-  ;; The vendor's stored phone is the source of truth; the customer may type the whole
-  ;; number or just the last four, and both must work.
+  ;; ── 6. THE PASSWORD: NORMALISATION, AND WHOSE NUMBER IT IS ────────────────
+  ;; The stored phone is the source of truth; the customer may type the whole number or
+  ;; just the last four, and both must work.
   (format t "~&=== 6. the password's digits ===~%")
   (chk "the last four of a bare number" (invoice-ext-four-digits "9999999990") "9990")
   (chk "the last four of a full number" (invoice-ext-four-digits "+91 99999 99990") "9990")
@@ -178,7 +188,45 @@
   (chk "fewer than four is nothing" (invoice-ext-four-digits "999") nil)
   (chk "nil is nothing" (invoice-ext-four-digits nil) nil)
   (chk "letters only is nothing" (invoice-ext-four-digits "abcd") nil)
-  (chk "vendor 1's expected password" (invoice-ext-password-digits vendor) "9990")
+  ;; 🚨 THE PASSWORD IS THE CUSTOMER'S, NOT THE VENDOR'S (changed 2026-10-03). The vendor's
+  ;; own number is printed on every invoice it issues, so it protected the invoice from
+  ;; everyone EXCEPT the person who should be reading it. This section pins the source: the
+  ;; gate resolves the invoice's customer and takes THAT row's phone.
+  (let* ((cust (invoice-ext-customer-of-invoice invnum company))
+	 (custdigits (invoice-ext-password-digits cust))
+	 (vendordigits (invoice-ext-password-digits vendor)))
+    (chk-true "the invoice's own customer resolves" (lambda () (and cust t)))
+    (chk "the customer the gate resolves IS the header's own custid"
+         (slot-value cust 'row-id)
+         (slot-value (select-invoice-header-by-invnum invnum company) 'custid))
+    (chk "the expected password is the last four of the CUSTOMER's phone"
+         custdigits (invoice-ext-four-digits (slot-value cust 'phone)))
+    (chk-true "…and it is four digits, so the gate has something to compare"
+              (lambda () (and custdigits (= 4 (length custdigits)) t)))
+    (format t "~&  (customer ~A -> ~A · vendor ~A -> ~A)~%"
+            (slot-value cust 'name) custdigits (slot-value vendor 'name) vendordigits)
+    ;; And the gate really does compare against the CUSTOMER's value: the vendor's own
+    ;; digits are not accepted for a customer whose phone ends differently.
+    (when (and custdigits vendordigits (not (equal custdigits vendordigits)))
+      (let ((tok "NST-VERIFY-WHOSE-NUMBER-1"))
+        (chk "the VENDOR's own digits are refused by the customer's gate"
+             (nth-value 0 (invoice-ext-authorise tok custdigits vendordigits t)) :prompt)
+        (chk "…and the customer's are then accepted"
+             (nth-value 0 (invoice-ext-authorise tok custdigits custdigits t)) :granted))))
+
+  (format t "~&=== 6b. the gate reads the customer, in the source as well ===~%")
+  ;; ⚠ THESE TWO ARE SOURCE CHECKS, NOT BEHAVIOURAL ONES, AND THAT IS DELIBERATE: handing
+  ;; INVOICE-EXT-PASSWORD-DIGITS a VENDOR object still ANSWERS (with the vendor's digits)
+  ;; rather than erroring, so a revert to the wrong party is silent wherever the two numbers
+  ;; happen to end alike. The positive half makes the negative half non-vacuous.
+  (let ((src (with-open-file (s "/home/ubuntu/ninestores/hhub/invoice/nst-ui-ihd.lisp")
+	       (let ((str (make-string (file-length s))))
+		 (subseq str 0 (read-sequence str s))))))
+    (chk-true "the page's gate resolves the INVOICE's customer"
+              (lambda () (and (search "(invoice-ext-customer-of-invoice" src) t)))
+    (chk "…and never hands the password check the vendor"
+         (and (search "(invoice-ext-password-digits (getf grant :vendor))" src) nil)
+         nil))
 
   ;; ── 7. THE GATE ───────────────────────────────────────────────────────────
   ;; Keys are per-token; these strings are this script's own, so no live customer's
@@ -272,7 +320,162 @@
               (lambda () (and (search "3 attempt" html) t)))
     ;; The prompt must never contain the answer.
     (chk-true "it does NOT reveal the expected digits"
-              (lambda () (null (search "9990" html)))))
+              (lambda () (null (search "9990" html))))
+    ;; 🚨 AND IT MUST NAME THE RIGHT PARTY (changed 2026-10-03). A prompt that asks for the
+    ;; VENDOR's number makes the customer type digits that cannot match — which spends one
+    ;; of five attempts and can lock them out of their own invoice.
+    (chk-true "it asks for the number the invoice was BILLED TO, not the vendor's"
+              (lambda () (and (search "billed to" html)
+                              (null (search "vendor's registered phone" html))
+                              t))))
+
+  ;; ── 9. THE RENDER TOKEN: THE PDF PIPELINE MUST NOT MEET THE PASSWORD WALL ──
+  ;; The PDF pipeline renders an invoice by FETCHING ITS OWN PUBLIC PAGE (ext-url →
+  ;; downloadhtmlfile → wkhtmltopdf). wget has no browser session and nobody to type a
+  ;; password, so once the page acquired its gate the fetch came back with the PROMPT and
+  ;; every PDF in the system became a picture of a four-digit form — the emailed
+  ;; attachment, the vendor's Download button and the API's /download. The fix is a fifth
+  ;; SIGNED field marking a server-side render token, and this section is its evidence.
+  (format t "~&=== 9. the server-side render token ===~%")
+  (let* ((plain-key (key-of (generate-invoice-ext-url invnum vendor company)))
+	 (render-key (key-of (generate-invoice-ext-url invnum vendor company :render t))))
+    (let ((plain (nth-value 0 (invoice-ext-key-parse plain-key))))
+      (chk "a customer's link still parses" (and plain t) t)
+      (chk "…and it is NOT a render token" (getf plain :render) nil)
+      (chk "…and it is still a real key to the right invoice" (getf plain :invnum) invnum))
+    (let ((tok (nth-value 0 (invoice-ext-key-parse render-key))))
+      (chk "a render link parses" (and tok t) t)
+      (chk "…and it IS a render token" (getf tok :render) t)
+      (chk "…naming the same invoice" (getf tok :invnum) invnum))
+    ;; THE MARKER IS INSIDE THE SIGNATURE, which is the whole reason it is safe: a customer
+    ;; cannot add it to their own link, and cannot strip it off one of ours.
+    (let* ((expires (+ (get-universal-time) 300))
+	   (plain-payload (invoice-ext-key-payload invnum vendor company expires))
+	   (render-payload (invoice-ext-key-payload invnum vendor company expires t)))
+      ;; Read POSITIONALLY, the way the verifier reads it, rather than by searching the
+      ;; text: a `(search …)` here would pass on a marker that landed in the wrong field.
+      (chk "the marker is the payload's FIFTH field"
+           (nth 4 (first (cl-csv:read-csv render-payload :skip-first-p t :map-fn #'identity)))
+           invoice-ext-render-marker)
+      (chk "a plain payload has no fifth field"
+           (nth 4 (first (cl-csv:read-csv plain-payload :skip-first-p t :map-fn #'identity)))
+           nil)
+      (chk "ADDING the marker to a signed payload is refused"
+           (nth-value 1 (invoice-ext-key-parse
+                         (format nil "~A.~A"
+                                 (invoice-ext-b64-encode
+                                  (format nil "~A,~A" plain-payload invoice-ext-render-marker))
+                                 (invoice-ext-key-signature plain-payload vendor))))
+           "the link is not one this system issued")
+      (chk "STRIPPING the marker off a signed payload is refused"
+           (nth-value 1 (invoice-ext-key-parse
+                         (format nil "~A.~A"
+                                 (invoice-ext-b64-encode
+                                  (subseq render-payload 0 (1- (length render-payload))))
+                                 (invoice-ext-key-signature render-payload vendor))))
+           "the link is not one this system issued"))
+    ;; THE DECISION ITSELF, driven directly: this is the seam the page uses.
+    (let ((token "NST-VERIFY-RENDER-1"))
+      (chk "a render token is GRANTED with no password at all"
+           (nth-value 0 (invoice-ext-authorise-grant (list :render t) token "9990" nil nil))
+           :granted)
+      (chk "…and it spends no attempt"
+           (nth-value 2 (invoice-ext-authorise-grant (list :render t) token "9990" nil nil)) 5)
+      (chk "…and a wrong password is not even consulted"
+           (nth-value 0 (invoice-ext-authorise-grant (list :render t) token "9990" "1111" t))
+           :granted)
+      (chk "the SAME token without the marker still asks for the password"
+           (nth-value 0 (invoice-ext-authorise-grant (list :render nil) token "9990" nil nil))
+           :prompt)
+      (chk "…and a plain NIL grant asks too, rather than being granted by accident"
+           (nth-value 0 (invoice-ext-authorise-grant nil token "9990" nil nil)) :prompt)))
+
+  ;; ── 10. THE VENDOR'S SHARE ICON: DOES IT KNOW BEFORE THE CUSTOMER DOES? ─────
+  ;; The bug this section exists for: EXTERNAL_URL is a STORED link and a link lives five
+  ;; minutes, so the vendor copies a dead one, sends it, and the CUSTOMER is the one who
+  ;; finds out. The fix is a red icon plus a title that names the NEXT button, so the vendor
+  ;; knows before sharing and can re-issue it by saving the invoice.
+  (format t "~&=== 10. the vendor's share icon knows before the customer does ===~%")
+  (let* ((freshkey (generate-invoice-ext-url invnum vendor company))
+         (fresh freshkey)
+         (dot (position #\. fresh :from-end t))
+         (forged (concatenate 'string (subseq fresh 0 (1+ dot)) "deadbeef"))
+         ;; THE VENDOR'S COMMONEST CASE, and the one the report was about: a link that is
+         ;; simply OLD. A saved link is at least five minutes old the moment anyone looks at
+         ;; it, so this — not :unusable — is what the icon usually shows.
+         (expiredurl (let ((*invoice-ext-link-lifetime-seconds* -1))
+                       (generate-invoice-ext-url invnum vendor company)))
+         ;; The LEGACY format, built here rather than read from a row: unsigned
+         ;; base64("tenant,invnum,vendor") with no expiry field. Measured 2026-10-03, the only
+         ;; two non-empty EXTERNAL_URL values in tenant 2 are exactly this shape — and a live
+         ;; row is the WRONG fixture, because the vendor re-saving it (which is the fix flow)
+         ;; would turn the fixture valid and the check would rot into a false PASS.
+         (legacy (format nil "~A/hhub/displayinvoicepublic?key=~A"
+                         *siteurl*
+                         (invoice-ext-b64-encode
+                          (format nil "tenant-id,invnum,vendor-id~C~A,~A,~A"
+                                  #\linefeed (slot-value company 'row-id) invnum
+                                  (slot-value vendor 'row-id))))))
+    (chk "a just-minted link reads :valid" (invoice-ext-url-status fresh) :valid)
+    (chk "…and is still :valid a second before it dies"
+         (invoice-ext-url-status fresh (+ (get-universal-time)
+                                          (1- *invoice-ext-link-lifetime-seconds*)))
+         :valid)
+    (chk "…and :expired a second after"
+         (invoice-ext-url-status fresh (+ (get-universal-time)
+                                          (1+ *invoice-ext-link-lifetime-seconds*)))
+         :expired)
+    (chk "a link minted already-past its expiry reads :expired"
+         (invoice-ext-url-status expiredurl) :expired)
+    (chk "an empty column is :unusable" (invoice-ext-url-status "") :unusable)
+    (chk "nil is :unusable" (invoice-ext-url-status nil) :unusable)
+    (chk "a URL with no key at all is :unusable"
+         (invoice-ext-url-status (format nil "~A/hhub/displayinvoicepublic" *siteurl*)) :unusable)
+    (chk "a key with no signature is :unusable"
+         (invoice-ext-url-status (format nil "~A/hhub/displayinvoicepublic?key=abcdef" *siteurl*))
+         :unusable)
+    ;; :UNUSABLE IS NOT A COSMETIC THIRD STATE — it is the legacy links, and the customer
+    ;; would be refused. Tying the two together is the point.
+    (chk "a legacy unsigned link reads :unusable" (invoice-ext-url-status legacy) :unusable)
+    (chk "…and the CUSTOMER's verifier refuses it too"
+         (nth-value 1 (invoice-ext-key-parse (invoice-ext-key-of-url legacy)))
+         "the link is malformed")
+    ;; ⚠ AND THIS FUNCTION IS NOT A GATE. A corrupted signature still carries a live expiry,
+    ;; so the icon says :valid while the customer would be refused — which is exactly why the
+    ;; page's authorisation stays INVOICE-EXT-KEY-PARSE and not this.
+    (chk "a link with a junk signature still reads :valid…"
+         (invoice-ext-url-status forged) :valid)
+    (chk "…and the GATE refuses it (display is not authorisation)"
+         (nth-value 1 (invoice-ext-key-parse (invoice-ext-key-of-url forged)))
+         "the link is not one this system issued")
+    ;; ── AND THE ICON IS RENDERED, NOT GREPPED ──────────────────────────────
+    ;; The actions menu writes to *standard-output*, so the harness can capture the real
+    ;; markup and assert the CLASS — a source-text check could not tell a wired colour from a
+    ;; dead binding.
+    (let ((cust (invoice-ext-customer-of-invoice invnum company)))
+      (flet ((menu (url)
+               (handler-case
+                   (let ((*standard-output* (make-string-output-stream)))
+                     (invoice-header-actions-menu url "DRAFT" "NST-VERIFY-SESSION" cust)
+                     (get-output-stream-string *standard-output*))
+                 (error (c) (format nil "RENDER-FAILED: ~A" c)))))
+        (let ((okhtml (menu fresh))
+              (oldhtml (menu expiredurl))
+              (badhtml (menu legacy)))
+          (chk-true "the actions menu renders offline"
+                    (lambda () (and (search "fa-solid fa-link" okhtml) t)))
+          (chk-true "a VALID link is NOT red"
+                    (lambda () (null (search "text-danger" okhtml))))
+          (chk-true "an EXPIRED link IS red"
+                    (lambda () (and (search "fa-solid fa-link text-danger" oldhtml) t)))
+          (chk-true "…and says EXPIRED, naming the control that fixes it"
+                    (lambda () (and (search "EXPIRED" oldhtml) (search "press NEXT" oldhtml) t)))
+          (chk-true "an UNUSABLE link IS red"
+                    (lambda () (and (search "fa-solid fa-link text-danger" badhtml) t)))
+          (chk-true "…and its title says what to do (press NEXT)"
+                    (lambda () (and (search "press NEXT" badhtml) t)))
+          (chk-true "…and a valid link's title is still the plain one"
+                    (lambda () (and (search "Share LIVE Invoice Link" okhtml) t)))))))
 
   (format t "~&~%════════ ~D passed, ~D failed ════════~%" *pass* *fail*)
   (sb-ext:exit :code (if (zerop *fail*) 0 1)))

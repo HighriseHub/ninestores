@@ -498,9 +498,18 @@ expiry — see §6.1a for the two things that are load-bearing.
 
 > ### ✅ IMPLEMENTED 2026-09-26 — **NOT YET LIVE** (needs an image reload)
 > Both prerequisites in §6.1a are now built, and both mechanisms are proven:
-> `../tools/nst-verify-invoice-public-link.lisp` runs **74 checks, 0 failures**, offline
-> against the real database. Full mechanism + seven measured traps:
-> `knowledge/invoice-public-link-CONTEXT.md`.
+> `../tools/nst-verify-invoice-public-link.lisp` runs **116 checks, 0 failures**, offline
+> against the real database (74 when this entry was written). Full mechanism + seven
+> measured traps: `knowledge/invoice-public-link-CONTEXT.md`.
+>
+> ⚠ **THREE CHANGES SINCE, 2026-10-03, all in that KB file:** the password is now the
+> **CUSTOMER's** last 4 phone digits, not the vendor's (§4 — the vendor's number is printed
+> on every invoice they issue, so it protected the invoice from everyone except its own
+> addressee); and a signed **`:render`** token lets the PDF pipeline through the gate, which
+> it needed because the pipeline renders an invoice by FETCHING ITS OWN PUBLIC PAGE — every
+> attached/downloaded PDF had become a picture of the password form. And the vendor's share
+> icon now goes RED on an expired link with a title naming the NEXT button — before that, the
+> customer was the one who discovered a dead link.
 >
 > | What | Where |
 > |---|---|
@@ -714,6 +723,54 @@ to a project-local fasl that nothing serves — it looks built and does nothing.
 **Not to be "fixed" blindly:** the two lists differ in 13 places and MOST are legitimate (`test/*`
 is compile-only by design; `core/nst-sch-mig.lisp`, `dod-sto-zip.lisp` and `stock/dod-dal-stk.lisp`
 are loaded but never compiled, which ASDF handles on load). The check is narrow for that reason.
+
+---
+
+## 9. The vendor Settings page — **designed, parked by decision (2026-10-03), no code written**
+
+**The ask:** the six settings items on `dodvendprofile` (`hhub/vendor/dod-ui-ven.lisp:1958–1973`)
+— My Groups, Contact Information, E-Commerce Shipping Methods, E-Commerce Payment Methods,
+E-Commerce Payment Gateway, UPI Settings — re-homed into the sidebar's Settings node, with
+room for **20+ further settings** without the sidebar becoming a wall.
+
+**Where the design lives:** `vendor-settings-CONTEXT.md` (same directory) — the whole design,
+plus the invoice-settings mechanism it is modelled on traced to file:line, eight traps in that
+precedent not to inherit, the ten registration/build steps, four open decisions and the file map.
+**Enter there to resume; nothing about this item is in this ledger's other sections.**
+
+**What is DONE (do not redo):**
+
+- The constraint that caused the original exile is identified and no longer applies to a page:
+  a modal cannot be a sidebar link (not linkable, not bookmarkable, and BS5 modal z-index 1055
+  over an open offcanvas 1045 fights the body scroll lock). The six items are page content now,
+  not modal triggers — four of the six are modals today (`dod-ui-ven.lisp:778, 924, 953, 1041`).
+- `hhubvendorshipmethods` (`:1996–2010`) confirmed to be the *same* shape one level down (five
+  sub-items, four modals), so the design had to be recursive rather than hand-built per level.
+- The route needs no new dispatcher: `/hhub/dodvendprofile` already exists (`dod-ui-sys.lisp:1086`)
+  and already receives an unused `?context=` from the sidebar (`:151`) — **zero edits to
+  `dod-ui-sys.lisp`, no new controller, no new save action.**
+- **The payment-method flags are already session-cached at login** (`dod-ui-ven.lisp:2541–2559`,
+  `:login-vendor-settings-ht`), so neither the sidebar nor the Payment Methods pane needs a DB
+  read. The per-page cost objection that motivated the exile does not hold.
+- **A per-key setter already exists** — `nst-save-vendor-invoiceprintsetting`
+  (`hhub/invoice/nst-ui-ihd.lisp:233`), read-modify-write across the row and the session. Granular
+  saving is a call, not new machinery.
+- `DOD_VENDOR_SETTINGS` is **not** this page's store: it is schema from the parked AI
+  decision-registry line (`nst-bl-vaisettings`), no Lisp reader or writer, rows = 0. See §3 below
+  and `nst-bl-vaisettings-CONTEXT.md` §3–5. Do not build a generic k/v surface for this page — it
+  destroys the response-model field-allowlist property that keeps `password`/`salt` off the wire.
+
+**What REMAINS:** all of it — no file in `hhub/` has been touched. The build sequence is §6 of
+`vendor-settings-CONTEXT.md` (registry → asd + `compile.lisp` → template vars/loader/getter in
+`dod-ini-sys.lisp:182, 597–608` → template file → model/widget at `dod-ui-ven.lisp:1934/1946` →
+sidebar node at `:147–151` → the write seam → six redirects at `:908, 944, 1021, 1025, 1037,
+1089, 1140`).
+
+**Blocking decisions (owner):** the Shipping Methods sub-settings shape (nested `?context` level
+vs a sub-accordion inside its pane); whether the filter box should search values or only section
+labels; blob column vs a dedicated `settings` column; and whether
+`dodvendprofile?context=` stays canonical or a `/hhub/dodvendsettings` route is introduced once
+the old hub page is retired.
 
 ---
 

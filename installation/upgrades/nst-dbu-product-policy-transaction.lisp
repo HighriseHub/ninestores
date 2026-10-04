@@ -354,7 +354,7 @@
    policy and covers the same feature. Two reasons, both concrete:
 
      * that function reads its params as an ALIST with string keys and looks up a
-       \\"prdcount\\" the UI computed before calling it; the API hands a policy a PLIST
+      prdcount the UI computed before calling it; the API hands a policy a PLIST
        from the ferry and has no pre-parsed count. It would read a NIL company and
        RETURN T — an authorization check that silently permits, which is the worst
        possible failure for one.
@@ -386,7 +386,7 @@
        "CREATE"
        :policy-id policy-id
        :trans-func "api POST /hhub/api/v1/catalog/products/bulk"
-       :tenant-id tenant-id)))
+       :tenant-id tenant-id))
 
     ;; --- TEMPLATE : GET /hhub/api/v1/catalog/products/template ---
     (let ((policy-id
@@ -401,4 +401,4 @@
        "READ"
        :policy-id policy-id
        :trans-func "api GET /hhub/api/v1/catalog/products/template"
-       :tenant-id tenant-id)))
+       :tenant-id tenant-id))))
