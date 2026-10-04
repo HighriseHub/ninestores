@@ -1667,6 +1667,14 @@ corresponding universal time."
       (float value)
       value))
 
+(defun nst-db-slot-value-from-domain (source slot)
+  "SLOT's value on a DOMAIN entity SOURCE, or NIL when the create never bound it.
+
+  ⚠ `slot-value` on an UNBOUND slot SIGNALS, and a create binds only the fields the caller sent —
+  so an unguarded read here made every POST /orders a 500 AFTER the number was minted.
+  Tool: nst-verify-order-create.lisp"
+  (if (slot-boundp source slot) (slot-value source slot)))
+
 ;;; ───────────────────────────────────────────────────────────────────────────
 ;;; The order STATUS vocabulary — one home for a rule the legacy layer and the
 ;;; adhara verbs must agree about (D17, story S8)

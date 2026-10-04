@@ -774,6 +774,51 @@ the old hub page is retired.
 
 ---
 
+## 10. 🚨 `UPDATED` IS FROZEN BY THE ORDER WRITE — F8's `ETag`/`If-Match` is INERT · found 2026-10-04 (S16)
+
+**Measured, through `hhub/test/smoke-order-vendor-api.sh --write`:** a vendor `PUT` changes
+`COMMENTS`, leaves `ORD_DATE` **byte-identical** (T9 is genuinely defeated — good), and leaves
+`UPDATED` **unchanged** (`13:06:23 → 13:06:23`).
+
+**Cause.** `dod-vendor-order` declares `(updated :column "UPDATED")`
+(`hhub/order/nst-dal-vordh.lisp:352`) and `!update` writes with
+`(clsql:update-records-from-instance …)` (`hhub/order/nst-bl-vordh.lisp:666`), which writes
+**every storable slot** — so `UPDATED` is assigned EXPLICITLY from the value the read returned,
+and an explicit assignment beats `ON UPDATE CURRENT_TIMESTAMP`. `dod-order` has the same shape
+(`hhub/order/nst-dal-Order.lisp:747`, write at `nst-bl-ordh.lisp:325`), so BOTH channels share it.
+
+**Why the tree's own claim is wrong rather than merely optimistic.** `nst-bl-ordh.lisp:890` says
+the write *"cannot touch UPDATED: the mirrored list does not carry it (D19)"*. The mirrored list
+drives `domain->response` — the JSON boundary. The SQL write is driven by the CLSQL class's
+storable slots. Two different mechanisms, and only the second reaches the column.
+
+**Consequence — F8 is decorative on the order endpoints.** The vendor channel's ETag is built from
+`UPDATED` (`hhub/order/nst-bl-vordhapi.lisp:213`), so the validator NEVER changes: a genuine
+concurrent write can never trip the 412 and the last writer wins silently — the defect F8 exists to
+close. The suite's stale-token 412 proves the COMPARISON works; it cannot prove a detector that has
+nothing to detect. The data is not corrupt (it freezes at a real past value); it is useless as a
+version.
+
+**Fix shape, verified against the installed CLSQL.** `clsql:update-records` is exported
+(`sql/fdml.lisp:204`) and takes `:av-pairs`/`:where`, so the write can NAME its own columns and
+simply omit `UPDATED` — `ON UPDATE` then fires again. ⚠ `ord-date` MUST stay in that column set: it
+is what keeps AC (f)'s byte-identity green, so T9 and F8 pull in opposite directions here and only
+a named column set satisfies both.
+
+**Test:** `hhub/test/smoke-order-vendor-api.sh --write` encodes it as `KNOWN` (S16 AC (d)) and flips
+to `PASS` with a note the day the fix lands. **Not fixed in S16 — recorded by decision.**
+
+**⚠ AND THE SAME SUITE DAMAGED THE DATA IT WAS TESTING, WHICH IS ITS OWN LESSON.** Its first
+cleanup restored `COMMENTS` with a hand-written `UPDATE … SET COMMENTS=…` that OMITTED `ORD_DATE`,
+so `ON UPDATE` fired and moved the fixture's `ORD_DATE` to `now()` — twice, before it was noticed.
+The suite that exists to prove T9 does not fire had fired it. **Measured idiom for ANY hand-written
+writer:** `SET x=…, ORD_DATE=ORD_DATE` → PRESERVED; omitting it → MOVED. (`SET x=x` proves nothing:
+MySQL skips the auto-update when no column actually changes, so a no-op is not a control.) Both
+fixture rows were restored to `ORD_DATE='2026-10-04 00:00:00'`, their API-created shape, and the
+round trip was re-verified byte-exact.
+
+---
+
 ## Not a defect, but easy to trip over
 
 * **The smoke-suite base.** `http://hunchentoot.local` answers **404 for every `/hhub/`

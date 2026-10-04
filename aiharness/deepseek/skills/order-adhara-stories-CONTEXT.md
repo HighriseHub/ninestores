@@ -5,54 +5,214 @@ order to the Paninian (adhara) grammar — i.e. writing `nst-ordh` / `nst-orditm
 `nst-vordh`, their प्रत्यय, their routes or their smoke tests — or you are about to build
 the `order → invoice` compound verb and need to know what it waits on.
 
-**Status:** DESIGN SETTLED 2026-09-27. **S0 CLOSED** — all three live tables are measured
-against their view classes (§3) and every data question is answered (§3b). **No code
-written. Nothing is blocked.** The batch's headline discovery is in §3b: **there is no order
-number anywhere in the database** — 485 of 485 orders and 462 of 462 vendor rows have a NULL
-`ORDNUM`, so S0b must *invent* 485 numbers, not merely backfill them. The ORDNUM design is
-now specified as `ORD-<DOC_PREFIX>-<FY>-<seq>`: a **document prefix** on the customer, system
--prefilled and customer-overridable, with a global `UNIQUE (ORDNUM)`. That dissolves the
-per-tenant/global conflict the first design hit — but it exposed two prerequisites this batch
-must now carry: a **counter table** (`{counter}` has no backing store anywhere in the tree) and
-the existing **number-format template** (`invoice-number-format`, `invoicesettings.lisp:32`),
-which the prefix must JOIN as a token rather than replace. **A standards review (OWASP API Top 10 / NIST / Google AIP / RFC / WCAG) was done before the first story — §10, nineteen findings, of which F1-F6 change acceptance criteria in stories not yet written.** The rulings are closed — R1
-(`DOC_PREFIX varchar(8)`, never `char`) is DECIDED, R2–R4 are taken as recommended — so **S0c is
-fully unblocked and needs nothing from the database**, while S0b is writable now and only wants
-its dry-run data before it is APPLIED.
+**Status: DESIGN SETTLED 2026-09-27 · IMPLEMENTED THROUGH S14 (2026-10-04).** Both channels are live
+code with their acceptance criteria verified **offline**: the customer's (`nst-ordh` + `nst-orditm`)
+and the **vendor's** (`nst-vordh` — its own file, `vendor-orders-adhara-CONTEXT.md`, decisions
+V1–V15). **S15 (build + offline load) and S16 (the four smoke suites) remain**; S17 (the
+`invoice (ord ctx)` compound verb) is out of this batch. What is left is mostly **live** verification
+— a session-scoped 401/404 sweep and the AC (f) `ORD_DATE` assertion — which is exactly what S16 is
+for. The batch's headline discovery, and the reason it was worth the work, is §3b: **there was no
+order number anywhere in the database** — 485 of 485 orders and 462 of 462 vendor rows had a NULL
+`ORDNUM`. They have one now: `ORD-<DOC_PREFIX>-<FY>-<seq>`, from a per-customer document prefix,
+permuted non-sequentially so the series is not a competitor-enumeration oracle (F1), with `uk_ordnum`
+enforcing uniqueness. Both prerequisites this batch had to carry are DONE and APPLIED: the counter
+table `DOD_DOC_COUNTER` (+ `DOD_SYS_SECRET.DOC_REF_KEY`) and the existing number-format template,
+which the prefix JOINs as a `{prefix}` token rather than replaces. **The standards review is §10**
+(OWASP API Top 10 / NIST / Google AIP / RFC / WCAG — nineteen findings): read F1–F6 before changing
+behaviour, and read **F3** before touching authorization, because S14's seeded policy rows are
+**carried, not enforced** (D18) and must not be mistaken for a control.
 
 ---
 
-## 0. RESUME HERE — starting 2026-09-28 15:30 IST, one story per pass
+## 0. RESUME HERE — state of play at 2026-10-04, for a NEW session
 
-**Nothing is blocked and no code has been written.** The design is frozen; the rulings are closed
-(R1 decided, R2–R4 taken); the schema is measured. What follows is the running order, and the
-dependencies are real, not conveniences:
+**Enter here, then open `vendor-orders-adhara-CONTEXT.md` if you are touching the vendor channel.**
+Every verdict below cites the check that produced it, and **every check named is OFFLINE** — no
+session, no server, no database write. The two stories that remain are mostly about *live*
+confirmation.
 
-| # | Story | Depends on | Needs from the human |
-|---|---|---|---|
-| **1** | **S0c** — the document-number vocabulary | **nothing at all** | ✅ **DONE 2026-09-28** (see the S0c block). Only the migration still needs APPLYING. |
-| **2** | **S0b** — the identity migrations (prefix column, allocation, mint, keys) | S0c | the customer-population join **before APPLYING** (not before writing) |
-| **3** | **S0d** — `DOC_PREFIX` on the customer entity + profile page | S0b (the column) | — |
-| **3b** | **S0e** — the §10 standards findings (**read §10 first**) | nothing | **two decisions left: F12 (PUT vs PATCH) and F16 (does `POST /orders` include OTP + wallet?)**. F1 is resolved (§10's decision record). |
-| **4** | **S1, S2** — the two DAL files (`nst-ordh`, `nst-orditm`) | nothing (pure classes) | ✅ **DONE 2026-09-28** |
-| **5** | **S3–S6** — the header's six प्रत्यय, ferry, render | S1, S0c | S3 ✅ **DONE**; S4 ✅ **DONE**; S5–S6 next |
-| **6** | **S7** — the line's six प्रत्यय | S2, S3–S6 | — |
-| **7** | **S8, S8b** — the legacy `DFT` retrofit, and the funnels that mint | S0b, S0d | — |
-| **8** | **S9/S10/S11, S12–S16** — the vendor entity, routes, bindings, seeds, build, suites | everything above | one live `PEN` order as a fixture; a `mysqldump` of the three tables before S0b is APPLIED |
+### Where the code is (all of it, by story)
 
-**Why S0c is first:** it is the only story that needs nothing — no database, no dump, no new entity
-— and both the order mint *and* the invoice's own aspirational `invoice-number-format` have been
-missing it. It builds the counter table and the template renderer that everything else calls.
+| file | what it is | story |
+|---|---|---|
+| `hhub/order/nst-dal-ordh.lisp` | island entity + boundary models for `DOD_ORDER` (reuses the `dod-order` class, D7) | S1 |
+| `hhub/order/nst-dal-orditm.lisp` | the same for `DOD_ORDER_ITEMS` | S2 |
+| `hhub/order/nst-bl-ordh.lisp` | the header's six प्रत्यय, the ferries, the field policy, `render-json` | S3–S6 |
+| `hhub/order/nst-bl-orditm.lisp` | the line's six प्रत्यय + the parent proof | S7 |
+| `hhub/order/nst-bl-ordhapi.lisp` | the customer channel: 9 action routes, 7 bindings, the D14 assembly, the 412 seam | S12/S13 |
+| `hhub/order/nst-bl-orditmapi.lisp` | the two line endpoints | 〃 |
+| `hhub/order/nst-dal-vordh.lisp` | NEW class `dod-vendor-order` over **all 60** live columns + the vendor island | S9 |
+| `hhub/order/nst-bl-vordh.lisp` | the VENDOR channel's six प्रत्यय (V8/V9/V10 live here) | S10 |
+| `hhub/order/nst-bl-vordhapi.lisp` | the vendor channel: 3 routes + 3 bindings | S11 |
+| `hhub/order/dod-bl-ord.lisp`, `dod-dal-ord.lisp` | legacy, touched only: the status vocabulary, the ORDNUM slot | S8/S8b |
+| `hhub/core/dod-bl-utl.lisp` | the ONE home of the status lists, the mint, `nst-coerce-for-db-slot` | S8 |
+| `hhub/core/nst-sch-mig.lisp` | the `*migrations*` registry + the ABAC seed helpers | S0c/S14 |
+| `hhub/core/dod-ui-pol.lisp` | the ten order-API policy FUNCTIONS the S14 seed names | S14 |
+| `installation/upgrades/` | `nst-dbu-doc-counter`, `nst-dbu-ordnum-identity`, `nst-dbu-order-invariants`, `nst-dbu-ordapi-policy-transaction` | S0c/S0b/S14 |
 
-**§10 is the standards review (OWASP API Top 10 · NIST · Google AIP · RFC · WCAG), written 2026-09-28
-before the first story.** Nineteen findings; **F1–F6 change the acceptance criteria of stories we are
-about to write**, so read it before S1 and settle F1/F12/F16 as decisions rather than mid-implementation.
+**Tools — run these before claiming anything** (all offline, all exit non-zero on failure):
+`aiharness/deepseek/tools/` `nst-preflight.lisp` · `nst-binding-order-check` · `nst-offline-load.lisp`
+· `nst-verify-doc-numbering.lisp` · `nst-order-mirror-check.lisp` · `nst-vordh-mirror-check.lisp` ·
+`nst-vordh-route-probe.lisp` · `nst-verify-abac-seed.lisp`.
 
-**Two things to settle at the start of the pass, not mid-story:** R2–R4 are still vetoable until
-S0b is applied (they are marked ✅ TAKEN in § S0b), and the S0c commit is deliberately
-**cross-domain** — it touches `invoice/templates/invoicesettings.lisp` and
-`vendor/nst-bl-vnd.lisp` — so its acceptance criterion (e) is *the invoice's existing
-`invoice-number-format` renders exactly as before*. That is the guard against T5.
+### Story status — what is DONE, and what "done" rests on
+
+| story | verdict |
+|---|---|
+| **S0/S0b/S0c/S0d** | ✅ **DONE and APPLIED.** 486/486 orders numbered, 0 NULL, all distinct; `uk_ordnum`, `uk_cust_doc_prefix`, `uk_vo_order_vendor`, `uk_order_context_id` all UNIQUE; `DELETED_STATE` NOT NULL on the three tables. One duplicate was produced by the backfill and re-minted by the human. |
+| **S1–S7** | ✅ DONE. The two islands and the twelve प्रत्यय (6 header + 6 line). |
+| **S8/S8b** | ✅ DONE. The status vocabulary has ONE home; the legacy funnels stopped minting a second number. |
+| **S9** | ✅ DONE. `dod-vendor-order` covers **60/60** live columns, none missing, none phantom; the legacy class untouched. `nst-vordh-mirror-check` **16/16**, mutation-tested. |
+| **S10** | ✅ DONE. Six verbs, triple-scoped; the NULL-ORDNUM 404 is structural; AC (f) is satisfied **by construction** (see the traps below). |
+| **S11** | ✅ DONE. Three routes + three bindings; the assembly rewired to `(make 'nst-vordh …)` and the interim writer DELETED. **S13 (c) CLOSED** by `nst-vordh-route-probe` **12/12** against the loaded route table. |
+| **S12/S13** | ✅ DONE. 9 action routes, 7 bound paths. AC (a) — the 401/404 sweep — is **S16's by design** (it needs a session). |
+| **S14** | ⚠️ **WRITTEN + VERIFIED, NOT APPLIED.** Ten policy+transaction pairs (one per BOUND endpoint) + the ten policy functions. `nst-verify-abac-seed` **8/8**, mutation-tested 3 ways. **Apply it, then `(refreshiamsettings)`** — see below. |
+| **S15** | ✅ **DONE 2026-10-04 (offline).** The driver reports **Total 149 · Compiled 1 · Skipped 148 · Failed 0** (`1+148+0 = 149`), run in a THROWAWAY SBCL after quickloading `:nstores` — the live image's precondition — so it cannot touch what the server serves. The one stale file was `core/dod-ui-pol.lisp`, exactly what S14 edited. ⚠ **The 119 style warnings are 6 + 113**: 6 real (`PARAMS` unused, in pre-existing policy stubs) and 113 `redefining … in DEFUN`, because the driver's `handler-bind` wraps the `load` of the fresh fasl as well as the compile and the file was already in the image. 9/9 order files in BOTH lists in the same relative order; binding check PASS (52); offline load `STAGE: LOADED`. Tool: `tools/nst-compile-production.lisp`. |
+| **S16** | ⏭ **NEXT — the four smoke suites, and the only place the remaining ACs can be proven.** |
+| **S17** | ⛔ out of this batch: the `invoice (ord ctx)` compound verb. |
+
+### The immediate next actions, in order
+
+1. **S14 apply.** Re-run `(apply-migrations "hhubuser" "…")` — it now works (see the shadowing trap
+   below) — or call the migration function directly for a surgical apply. Then **`(refreshiamsettings)`**
+   or a restart: the policy/transaction tables are memoized at startup (ABAC trap 10), so without it
+   the rows are in MySQL and invisible. Measured before the fix: **0 rows written, no version recorded**,
+   so the re-run is clean and idempotent.
+2. ~~**S15 `compile-production`**, then `nst-binding-order-check`, then the offline load.~~ ✅ **DONE 2026-10-04** — see the S15 row above; `S16` is the remaining pass.
+3. **S16 the four suites.** The assertions that are still unproven LIVE, and the fixtures each needs:
+   * **AC (c)** a second vendor in the same tenant cannot see the first's rows — needs **two vendor
+     logins, sequentially** (the tree caps concurrent vendor logins at 2, oldest evicted);
+   * **AC (e)** a vendor row whose ORDNUM is NULL answers 404 — needs a NULL-ORDNUM fixture (the live
+     table has none left: the backfill numbered all 466);
+   * **AC (f)** after `PUT /vendor/orders/{ordnum}`, **`ORD_DATE` byte-identical and `UPDATED` advanced**
+     — the only assertion that can see the T9 corruption, and the reason it is in the AC list at all;
+   * **AC (g)** a terminal row refuses the update. Not a corner case: **387 of 466 live vendor rows are
+     `CMP`**, 4 are `VCN`;
+   * the **401/404 sweep** over all ten bound paths (S13 a), the **412** seam, `?include-deleted`
+     ignored, and the page cap (default 50, capped at 200).
+
+### Open decisions that need the human (not bugs — choices)
+
+| # | question | where |
+|---|---|---|
+| **V8** | the vendor may write exactly **four** fields (`:order-fulfilled :shipped-date :comments :external-url`). Deliberately narrow: no money, no addresses, no lifecycle. Widening is one line. | `nst-bl-vordh.lisp` |
+| — | **8 live vendor rows whose header order is soft-deleted** — the vendor channel still shows them. The honest fix is that the CUSTOMER channel's `delete!` cascades to vendor rows; it currently does not. | `nst-bl-ordh.lisp` |
+| — | **No nested lines on the vendor detail.** A vendor needs to know *what* to ship; serving it needs a vendor-scoped line read in `nst-bl-orditm.lisp` (that entity's enumerate filters by order, not vendor). | S11 note |
+| — | **Per-vendor tax totals are not computed** — the vendor row's `TOTAL_*` columns keep 0.00, because copying the ORDER's totals into one vendor's slice would overstate it. Per-vendor arithmetic is a later pass. | `ordhapi` V15 note |
+| — | **The customer channel emits no ETag**, so its `If-Match` is unusable (the vendor channel does emit one). | `ordhapi` |
+| **F12/F16** | PUT vs PATCH, and whether `POST /orders` includes OTP + wallet — still open from the standards review. | §10 |
+
+### The verification recipe — copy-paste, in this order
+
+```sh
+cd /home/ubuntu/ninestores
+XDG_CACHE_HOME=$PWD/.asdf-cache sbcl --noinform --non-interactive --load aiharness/deepseek/tools/nst-preflight.lisp
+aiharness/deepseek/tools/nst-binding-order-check
+sbcl --noinform --non-interactive --load aiharness/deepseek/tools/nst-vordh-mirror-check.lisp
+sbcl --noinform --non-interactive --load aiharness/deepseek/tools/nst-verify-abac-seed.lisp
+XDG_CACHE_HOME=$PWD/.asdf-cache sbcl --noinform --non-interactive --load aiharness/deepseek/tools/nst-verify-doc-numbering.lisp
+# the two that LOAD the tree (seconds from a warm fasl cache, minutes from cold):
+XDG_CACHE_HOME=/tmp/nst-fresh-cache sbcl --noinform --non-interactive --load aiharness/deepseek/tools/nst-offline-load.lisp
+XDG_CACHE_HOME=/tmp/nst-fresh-cache sbcl --noinform --non-interactive --load aiharness/deepseek/tools/nst-vordh-route-probe.lisp
+```
+
+**Prerequisite for the two tree-loading tools** (one-time, and `/tmp` is ephemeral):
+
+```sh
+mkdir -p /tmp/nst-asdf/clsql-dist
+cp -rp /home/ubuntu/quicklisp/dists/quicklisp/software/clsql-20221106-git /tmp/nst-asdf/clsql-dist/
+chmod -R u+w /tmp/nst-asdf/clsql-dist
+```
+
+⚠ **A check whose INPUT is missing must FAIL, not pass.** Every tool above is written that way; if one
+of them ever reports "skipped", treat it as a failure and fix the harness.
+
+### Traps this batch paid for — each cost real time, none is obvious
+
+1. **NEVER DEFINE A MIGRATION HELPER IN AN UPGRADE FILE.** `apply-migrations` calls
+   `load-upgrade-files` FIRST, so upgrade files load **after** `core/nst-sch-mig.lisp` and their
+   definitions **silently win**. The first policy seed carried its own copies of all five ABAC helpers,
+   written before the helpers moved — so the canonical `insert-auth-policy`, the one that escapes every
+   string through `sql-literal`, **was never called**, and a `DESCRIPTION` containing an apostrophe
+   (`"…the session customer's orders…"`) ended the SQL literal and died with **Error 1064** while the
+   escaping sat in the image, correct and fbound. The five definitions are deleted; the rule is now in
+   the ABAC skill. **When an escaping helper appears not to work, check who is defined before you.**
+2. **A NEW `hhub/**` FILE NEEDS FOUR REGISTRATIONS, NOT TWO**: `hhub/package/compile.lisp`,
+   `hhub/nstores.asd`, **and both lists inside `nst-preflight.lisp`** (`*files*` for reader balance and
+   SQL quoting, `*hhub-new-files*` for the build-registration check). They are separate lists; a file in
+   the first but not the second is balanced and then **silently skipped** — a pass that means nothing.
+3. **TOOLS THAT READ `hhub/**` SOURCES NEED CLSQL'S READER SYNTAX.** The tree is full of `[= …]` SQL
+   literals; with a stubbed package the reader answers `Package [ does not exist` and the tool reports a
+   **healthy file as unreadable** — the same lesson `nst-preflight.lisp:55-71` records for a missing
+   dependency. Either quickload clsql, or use a readtable with `[`/`]` as whitespace (what
+   `nst-vordh-mirror-check.lisp` does; `ql:quickload :clsql` collides over uffi here).
+4. **A probe must be `(in-package :nstores)` AFTER the tree loads** — the tree has ONE package, and a
+   probe left in `CL-USER` fails with `FIND-API-ROUTE is undefined` *after* a four-minute load, which
+   reads exactly like a missing binding.
+5. **THE DATABASE IS `STRICT_TRANS_TABLES`, SO AN OVER-LONG VALUE IS Error 1406, NOT A TRUNCATION** —
+   and `apply-migrations` catches per-migration and CONTINUES without recording the version, leaving a
+   seed that re-runs forever, half-applied. Widths that bite: `DOD_AUTH_POLICY.DESCRIPTION` 100,
+   `.NAME` 50, `DOD_BUS_TRANSACTION.NAME/URI/TRANS_FUNC` 100, `TRANS_TYPE` 15,
+   `DOD_SCHEMA_MIGRATIONS.version` 50. `nst-verify-abac-seed.lisp` checks all of them.
+6. **`TRANS_FUNC` IS THE LOOKUP KEY, NOT `NAME`**, and `insert-bus-transaction` defaults it to a string
+   derived from the trans-TYPE alone — so omitting it gives every READ endpoint ONE key. The convention
+   is `"api <METHOD> <path>"` with `{ordnum}` kept, while `URI` must be the **collection prefix** (a
+   template URI never matches a real request).
+7. **SBCL IS SILENT ABOUT AN UNUSED *REQUIRED* PARAMETER** (it warns about `let` bindings and about
+   `&optional`/`&key`). Neither `ql:quickload :silent t` nor the offline-load log shows it — the human's
+   build did. The sweep is `compile-file` per file with `*error-output*` captured; and when the warning
+   points at a **redundant carrier** (two functions each took a `tenant-id` they never used), DELETE the
+   parameter rather than silencing it.
+8. **`~:[FAIL (~D problem(s))~;PASS (~D check(s))~]` CONSUMES ONLY ONE ARGUMENT AFTER THE CONDITIONAL** —
+   so the FAIL branch prints the *check* count labelled "problem(s)", and a failing run reads
+   `FAIL (10 problem(s))` when it had two. Three files in this batch lost time to it; **a report that
+   lies about its own numbers is worse than no report.**
+9. **A FORM-WALKING CHECKER IS CODE, AND NEEDS THE SAME SUSPICION AS THE CODE IT CHECKS.** Four bugs in
+   one checker: a positional argument read as "the leading strings" when it was a `let` VARIABLE
+   (`order-uri`); plist keywords paired from the head instead of after the positionals; a dotted
+   `(cons label (cons value width))` read as a list; and two misplaced parens that silently turned an
+   enclosing `if` into a four-argument form — which the compiler reports as
+   *"Error while parsing arguments to special operator IF"*, not as a paren error.
+10. **AC (f)'s MECHANISM IS THE MIRROR LIST, NOT A SPECIAL CASE.** `!update` writes the row WHOLE, and
+    `ord-date` is in `*vordh-mirrored-slots*` — so the value read is written back, which is what defeats
+    `ON UPDATE CURRENT_TIMESTAMP` (T9, **vendor-only**: the header's `ORD_DATE` is a `date`). Reading a
+    `timestamp` as `clsql:date` DROPS the time of day, so the round trip would move the row to midnight
+    while looking correct — hence `(string 30)` (V5).
+11. **A VENDOR SESSION'S TENANT NEEDS NO WORK FROM AN API FILE**: `make-action-domain-ctx` builds it
+    from `conflodis2-login-company`, which resolves vendor → customer → user. And read the session with
+    `conflodis2-session-value`, **never** `hunchentoot:session-value` directly — outside a request the
+    direct call signals UNBOUND-VARIABLE, so "we cannot tell who you are" becomes a 500 instead of 401.
+12. **The scope filter's HOME is fixed by the grammar**: `fetch` and `delete!` are congruent at three
+    fixed arguments (no `&key`), so a vendor-id CANNOT ride them — it rides `enumerate`, `?exists`, and
+    `!update`'s `&rest` (consumed BEFORE the field policy, the S12 lesson), and the ROUTE narrows the
+    other two.
+
+### Live image and database state (measured 2026-10-04)
+
+* The running image is the process started **07:46**, reloaded in place around **14:03** — so it
+  **predates S11 and S14**. `GET /hhub/api/v1/orders` answers **401** (routes present) while
+  `PUT /hhub/api/v1/vendor/orders/ORD-…` answers **404 `no_such_endpoint`** (vendor routes absent).
+  Reload (`(asdf:load-system :nstores)`, which preserves sessions) or restart before expecting them.
+* **S14 is unapplied**: 0 order-API policies, 0 order-API transactions, **no version row** — a clean,
+  idempotent re-run. After applying: **`(refreshiamsettings)`** or restart.
+* Data: **486 orders, 0 NULL ORDNUM, all distinct**; 466 vendor rows, 460 distinct numbers (an order
+  spanning two vendors legitimately shares one); **387 vendor rows `CMP`, 75 `PEN`, 4 `VCN`**; 8 vendor
+  rows live whose header is soft-deleted.
+
+### Uncommitted, and the commit convention
+
+Branch `cus/feat/tax123-order-with-taxes`, **in sync with origin**; the last commits are `2004b20`
+(HSN GST rates), `264b8bd` (checkpoint), `bd56cad` (order-invariants), `37d67f0` (S12/S13).
+**58 paths are uncommitted**, including everything this batch added: the three vendor files, the four
+tools, `nst-bl-ordhapi.lisp` and `dod-ui-pol.lisp` edits, `nst-sch-mig.lisp` (registry + descriptions),
+`nst-preflight.lisp`, the four upgrades, and both context files.
+
+⚠ **Two junk files to delete** (untracked leftovers of a failed patch, not from this batch):
+`hhub/order/dod-ui-ord.lisp.orig` and `hhub/order/dod-ui-ord.lisp.rej`.
+
+**Commit convention, as the human set it: THREE LINES** — subject, blank, one body line. Not a
+paragraph. Work is done **one story per pass**, and the human tests in the browser between passes.
+
 
 **Design authority / copy source:** the invoice batch, `nst-invh` + `nst-invitm`
 (commits `5a0b61c`, `f018cbe`, `feb5a5f`, `e0c934e`). Its decisions and its state of play
@@ -1566,6 +1726,53 @@ ranking resolves both (the `/invoices/settings` vs `/invoices/{id}` precedent);
 `insert-bus-transaction` pair per bound endpoint, registered in `*migrations*`.
 **AC**: (a) idempotent; (b) each transaction links to its **own** `:policy-id`; (c) the
 header states plainly that the seam is a no-op and these rows are carried, not enforced (D18).
+
+#### S14 — WRITTEN, VERIFIED, NOT YET APPLIED (2026-10-04)
+
+**Delivered:** `installation/upgrades/nst-dbu-ordapi-policy-transaction.lisp` — **ten pairs**, one per
+BOUND endpoint (the seven customer paths and the three vendor paths), skipping the two deliberately
+unbound item routes because a transaction row describes an ADDRESSABLE path; registered in
+`*migrations*` as `"04102026-order-api-policies"` (27 chars). **Also delivered: TEN POLICY FUNCTIONS**
+in `hhub/core/dod-ui-pol.lisp` (group "ORDER API") — the `POLICY_FUNC` each row names.
+
+**AC (a) ✓** idempotent: both helpers skip by NAME and return the existing ROW_ID (measured, not
+assumed). **AC (b) ✓** each transaction is created in the same `let` as its own policy and passes
+`:policy-id policy-id`; the checker asserts that structurally. **AC (c) ✓** the header states the
+no-op seam (D18) and F3's accepted risk.
+
+**Two defects the FIRST version of the seed shipped with, both found by a human reading it, both now
+checked mechanically** — and both belong to the "a check that cannot fail is not a check" ledger:
+
+1. **Seven of ten `DESCRIPTION` values were 102-165 characters against a `varchar(100)` column**, on a
+   server running **`STRICT_TRANS_TABLES`** — so applying it would have raised Error 1406, and
+   `apply-migrations` catches per-migration and CONTINUES while never recording the version, leaving a
+   permanently re-running, half-applied seed. **The ABAC skill's claim that MySQL truncates silently
+   was STALE and is corrected in place** (§4, §5, and the version-length note); `MAX(LENGTH(DESCRIPTION))`
+   in the live table is 97, so nothing had ever probed the limit.
+2. **All ten `POLICY_FUNC` values pointed at functions that did not exist.** Every pre-existing API
+   seed names a real function, and a policy whose function is missing DENIES EVERY CALL on the day the
+   PEP starts consulting the rows (the skill's traps 2 and 14) — i.e. the seed would have looked
+   complete and refused everything later. The ten functions now exist.
+
+**The checker:** `aiharness/deepseek/tools/nst-verify-abac-seed.lisp` — **8 checks, 0 problems**,
+mutation-tested in three directions (an over-long description; a `POLICY_FUNC` that does not exist; two
+endpoints sharing one `TRANS_FUNC`), each mutation caught and named. It compares every string against
+the MEASURED column width, resolves the `let`-bound URI variables rather than assuming literals, checks
+that every `POLICY_FUNC` has a `defun`, and asserts the `TRANS_FUNC` shape apidefs2 builds
+(`"api <METHOD> <path>"`, `{ordnum}` kept) with `URI` as the collection prefix.
+
+⚠ **FOUR BUGS IN THE CHECKER ITSELF before it worked** — worth recording because they are the same
+mistake in different clothes: reading a positional argument as "the leading strings" (the URI is a
+`let` variable), pairing plist keywords from the head instead of after the positionals, a dotted
+`(cons label (cons value width))` read as a list, and two misplaced parens that silently turned an
+enclosing `if` into a 4-argument form. A form-walking checker is code, and it needs the same
+suspicion as the code it checks.
+
+**Applying it is a LIVE WRITE and has NOT been done.** It is ten `INSERT`s into `DOD_AUTH_POLICY` and
+ten into `DOD_BUS_TRANSACTION`, tenant 1, idempotent. ⚠ **`(refreshiamsettings)` (or a restart) is
+required afterwards**, or the running image's memoized caches keep answering as though the rows were
+absent — the ABAC skill's trap 10. `apply-migrations` should NOT be used casually here: it applies
+EVERY pending migration, including other workstreams' rows.
 
 ### S15 — Build registration and the offline load
 The nine files in **both** `hhub/package/compile.lisp` and `hhub/nstores.asd`, DAL → BL →

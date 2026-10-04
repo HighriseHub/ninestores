@@ -229,8 +229,11 @@
                      :params (ordh-plist-set (params request) :row-id (ordh-row-id-param request)))))
 
 (defun ordh-nested-param (entry key)
-  "Read KEY from ONE NESTED body object ENTRY — a decoded-JSON alist with string keys, or a
+  "Read KEY from ONE NESTED body object ENTRY — a decoded-JSON alist, a string-keyed alist, or a
    keyword-keyed plist (the offline/agent spelling).
+
+   ⚠ A DECODED ENTRY'S KEYS ARE **SYMBOLS**, NOT STRINGS (cl-json interns each JSON key as a
+   keyword): the string-only test that stood here made every POST /orders a 400 for every spelling.
 
    TWO SPELLINGS ARE TRIED, and the second is not decoration: the shared body-key normaliser
    (api-camel->lisp-name) turns \"taxableValue\" into :TAXABLEVALUE, which IS the entity's own
@@ -246,8 +249,11 @@
          (let* ((camel (api-camel->lisp-name (symbol-name key)))
                 (flat (remove #\- camel)))
            (cdr (assoc-if (lambda (k)
-                            (and (stringp k)
-                                 (or (string-equal k camel) (string-equal k flat))))
+                            ;; ⚠ SYMBOL keys, and hyphens off BOTH sides: api-camel->lisp-name
+                            ;; turns "PRD-ID" into "P-R-D-I-D". Tool: nst-verify-order-create.lisp
+                            (let ((n (cond ((stringp k) k)
+                                           ((symbolp k) (symbol-name k)))))
+                              (and n (string-equal (remove #\- n) flat))))
                           entry))))
         (t nil)))
 
@@ -1033,77 +1039,133 @@
     (nreverse totals)))
 
 ;;; ───────────────────────────────────────────────────────────────────────────
-;;; THE INTERIM VENDOR-ROW WRITER — S9-S11 WILL MOVE THIS
+;;; THE VENDOR ROWS — WRITTEN BY nst-vordh's OWN make SINCE S11
 ;;; ───────────────────────────────────────────────────────────────────────────
 ;;;
-;;; 🚨 INTERIM HOME, ON PURPOSE, AND IT IS A DEBT WITH A NAME. DOD_VENDOR_ORDERS is the vendor
-;;; channel's table, its entity is nst-vordh, and its own प्रत्यय (make/fetch/enumerate/!update/
-;;; delete! with a vendor-scoped session) is S9-S11. Until that exists, the D14 assembly still has to
-;;; stamp one row per distinct vendor or the hole §3b measured reopens for every order this API
-;;; creates ('at least 23 orders have no vendor row at all and are therefore invisible to the vendor
-;;; channel by construction'). So the row is written HERE, by the smallest possible function, and
-;;; promoted to nst-vordh's make in S9-S11 — this function then DELETES, it does not get called.
+;;; 🚨 THE INTERIM WRITER IS GONE, AND THIS NOTE IS WHAT REMAINS OF IT. Until S10/S11 existed, the
+;;; function that used to sit here (ordh-vendor-order-insert) wrote the row with the LEGACY
+;;; 26-column class, because the vendor entity's own प्रत्यय did not exist yet — and the D14 assembly
+;;; still had to stamp one row per distinct vendor or the hole §3b measured reopens for every order
+;;; this API creates ('at least 23 orders have no vendor row at all and are therefore invisible to
+;;; the vendor channel by construction'). Its own header called itself a debt with a name and said
+;;; that it 'then DELETES, it does not get called'. It is deleted; (make 'nst-vordh …) is the only
+;;; writer now, which is what stops two writers drifting apart (§5 V6) — exactly the shape that let
+;;; the ORDNUM hole reopen once already.
 ;;;
-;;; WHY THE LEGACY CLASS AND NOT A NEW ONE: the live table has 60 columns against this class's 26
-;;; (§3), but the columns this writer needs are all declared on it, and S9's decision is explicit —
-;;; nst-vordh gets its OWN class and 'the legacy dod-vendor-orders class stays untouched for the
-;;; legacy UI, because extending it in place would change a live SELECT's column list as a side
-;;; effect of an order change'. One slot WAS added (ORDNUM, below, with its reason); nothing else.
+;;; WHAT THE PROMOTION BOUGHT, beyond one owner: the interim writer could only reach the columns the
+;;; legacy class declares, so SHIPCITY / SHIPSTATE / SHIPZIPCODE, the four billing columns and the
+;;; whole tax block stayed NULL on every API-created vendor row. nst-vordh's class covers all 60 live
+;;; columns, so the row is now self-sufficient — a vendor can ship and be taxed from its own row
+;;; without reading the customer's header (V15).
+;;;
+;;; ⚠ THE ORDER'S TOTALS ARE STILL DELIBERATELY NOT COPIED. ORDER_AMT carries THIS VENDOR's line
+;;; total (one cart may span vendors), while the five TOTAL_* columns on the header are the ORDER's
+;;; figures: writing the order's tax totals into one vendor's row would overstate that vendor's slice
+;;; by every other vendor's share. Those columns keep the 0.00 defaults the legacy writer left them;
+;;; per-vendor tax totals are a later pass's arithmetic, and inventing it here would be a number
+;;; nobody asked for.
 
-(defun ordh-vendor-order-insert (header vendor-id vendor-total ctx tenant-id)
-  "ONE vendor row for HEADER: the fields persist-vendor-orders writes (dod-bl-ord.lisp:578) plus the
-   minted ORDNUM. Returns T or a sentinel.
+(defun ordh-vendor-row-date (value)
+  "A header date value → the YYYY-MM-DD STRING nst-vordh's timestamp slots take, NIL for NIL.
+
+   ⚠ THIS IS NOT A FORMATTING PREFERENCE. The vendor class declares ORD_DATE / REQ_DATE /
+   SHIPPED_DATE `(string 30)` precisely so that a value read from the row can be written back
+   byte-identically, which is what stops the column's ON UPDATE CURRENT_TIMESTAMP moving the order
+   date on every vendor update (V5 / T9 — vendor-only: the header's own ORD_DATE is a `date`).
+   A clsql:date OBJECT here would fail CLSQL's slot-type validation on the INSERT; the YYYY-MM-DD
+   string is what the column parses and what it will hand back.
+
+   The handler-case is the same defensiveness nst-ordh-version-token carries for these columns: a
+   value that cannot be formatted is printed rather than raised on, because a slightly ugly date
+   beats a 500 that refuses the whole order after its header and lines are already written."
+  (when value
+    (if (stringp value)
+        value
+        (handler-case (get-datestr-from-obj-yyyymmdd value)
+          (error () (princ-to-string value))))))
+
+(defun ordh-vendor-row-initargs (header vendor-id vendor-total)
+  "Initargs for (make 'nst-vordh …): the header's fields that belong to ONE VENDOR's slice.
 
    ⚠ THE VENDOR-ID IS ONE THIS TENANT JUST RESOLVED (ordh-line-vendor, through
-   select-vendor-by-id-in-tenant), never the legacy's unscoped read, and the row's TENANT-ID is the
-   session's own — so a vendor row written here cannot name a vendor of another tenant. The legacy's
-   own vendor lookup (select-vendor-by-id) has no tenant predicate at all; that is a pre-existing BOLA
-   shape in the legacy layer, and this writer does not inherit it.
+   select-vendor-by-id-in-tenant), never the legacy's unscoped read — and nst-vordh's make resolves it
+   AGAIN, in the session tenant, before writing. The legacy's own vendor lookup (select-vendor-by-id)
+   has no tenant predicate at all; that is a pre-existing BOLA shape in the legacy layer, and this
+   path does not inherit it.
 
-   ⚠ THE ORDNUM STAMP IS D20 AND IT IS THE POINT OF THIS FUNCTION: the number is denormalised INTO
-   every vendor row, one row per (order, vendor), which is why S0b puts its unique index on DOD_ORDER
-   only. Without the stamp, a vendor row holds no way to address the order the customer quotes.
-   ⚠ THE SHIP ADDRESS IS NOW A REAL ONE, which is a difference from every legacy vendor row rather
-   than a detail: the legacy header's addresses were NEVER WRITTEN (the silent initarg/INSERT trap in
-   the assembly note above), so it handed this column a NIL. An API-created order carries the address
-   the client supplied, and that is what is stamped here.
-   ⚠ THE OTHER ADDRESS COLUMNS THE LEGACY LEAVES ALONE ARE STILL LEFT ALONE: SHIPZIPCODE / SHIPCITY /
-   SHIPSTATE and the four billing columns are declared on the class and are NOT set, because
-   persist-vendor-orders does not set them — it passes one ship-address string. Filling them would be
-   an unstated policy change; S9's nst-vordh is where that decision belongs."
-  (let ((row (make-instance 'dod-vendor-orders
-                            :order-id (row-id header)
-                            :cust-id (cust-id header)
-                            :vendor-id vendor-id
-                            :ordnum (ordnum header)          ; D20
-                            :status "PEN"                    ; the legacy writer's status, see the assembly note
-                            :fulfilled "N"
-                            :ord-date (ord-date header)
-                            :req-date (req-date header)
-                            :shipped-date (shipped-date header)
-                            :ship-address (or (ship-addr-full header)
-                                              (ship-address-short header))
-                            :payment-mode (payment-mode header)
-                            :order-amt vendor-total
-                            :shipping-cost (float (or (shipping-cost header) 0.0))
-                            :storepickupenabled (storepickupenabled header)
-                            :deleted-state "N"
-                            :tenant-id tenant-id)))
-    (let ((knowledge (with-nst-db-create (:source "nst-ordhapi/vendor-order (interim for nst-vordh)")
-                        (clsql:update-records-from-instance row)
-                        row)))
-      (if (eq (bo-knowledge-truth knowledge) :T)
-          t
-          (domain-sentinel-from-knowledge
-           knowledge ctx
-           :reason (format nil "Order create: the order and its lines are written, but the VENDOR row for vendor ~A could not be (see the provenance). The vendor channel cannot address this order until that row exists — re-running the create with the same idempotency key will NOT repeat it, so this needs the row written by hand or the create repeated with a new key after the cause is fixed." vendor-id))))))
+   ⚠ THE ORDNUM STAMP IS D20: the number is denormalised INTO every vendor row, one row per (order,
+   vendor), which is why S0b puts its unique index on DOD_ORDER only. It is passed, never minted —
+   make REFUSES a create without one.
 
-(defun ordh-create-vendor-rows (lines header ctx tenant-id)
+   ⚠ THE SHIP ADDRESS IS THE ONE THE CLIENT SUPPLIED, which is a difference from every legacy vendor
+   row rather than a detail: the legacy header's addresses were NEVER WRITTEN (the silent
+   initarg/INSERT trap the assembly note records), so it handed this column a NIL. The legacy
+   writer's own choice is preserved — it passed (or ship-addr-full ship-address-short)."
+  (list :order-id (row-id header)
+        :cust-id (cust-id header)
+        :vendor-id vendor-id
+        :ordnum (ordnum header)                                  ; D20
+        :context-id (context-id header)
+        :cust-name (cust-name header)
+        :created-by-user-id (created-by-user-id header)
+        ;; the schedule. status/fulfilled/deleted-state are FORCED by make, not passed.
+        :ord-date (ordh-vendor-row-date (ord-date header))
+        :req-date (ordh-vendor-row-date (req-date header))
+        :shipped-date (ordh-vendor-row-date (shipped-date header))
+        :expected-delivery-date (expected-delivery-date header)
+        :order-type (order-type header)
+        :order-source (order-source header)
+        ;; where it goes, and where it is billed (the legacy writer wrote the first only)
+        :ship-address-short (or (ship-addr-full header) (ship-address-short header))
+        :ship-addr-full (ship-addr-full header)
+        :ship-city (ship-city header)
+        :ship-state (ship-state header)
+        :ship-zipcode (ship-zipcode header)
+        :bill-address-short (bill-address-short header)
+        :bill-addr-full (bill-addr-full header)
+        :bill-city (bill-city header)
+        :bill-state (bill-state header)
+        :bill-zipcode (bill-zipcode header)
+        :country (country header)
+        :bill-same-as-ship (bill-same-as-ship header)
+        :storepickupenabled (storepickupenabled header)
+        ;; tax identity and place of supply — for the vendor's own row these are what its invoice is
+        ;; built from, so they travel with the slice rather than being looked up later
+        :gst-number (gst-number header)
+        :gst-org-name (gst-org-name header)
+        :place-of-supply (place-of-supply header)
+        :place-of-supply-code (place-of-supply-code header)
+        :supply-type (supply-type header)
+        :reverse-charge-applicable (reverse-charge-applicable header)
+        :eway-bill-required (eway-bill-required header)
+        :tds-applicable (tds-applicable header)
+        :tds-amount (tds-amount header)
+        ;; money: THIS VENDOR's line total, plus the order's shipping cost (the legacy writer's
+        ;; choice, kept rather than quietly changed; per-vendor shipping is its own question)
+        :order-amt vendor-total
+        :shipping-cost (float (or (shipping-cost header) 0.0))
+        :payment-mode (payment-mode header)
+        :comments (comments header)))
+
+(defun ordh-create-vendor-rows (lines header ctx)
   "One row per distinct vendor, LAST in the assembly — so a refused line leaves no orphan vendor row
-   (S12 AC e). Returns T or the first sentinel."
+   (S12 AC e). Returns T, or the first sentinel.
+
+   Each row is written by nst-vordh's own make (S11), whose :around is idempotent on
+   (order-id, vendor-id) — the table's own uk_vo_order_vendor — so a RETRIED create returns the row
+   that already exists instead of meeting the unique key as a raw INSERT failure after this order's
+   header and lines were already written (D14 is not transactional).
+
+   ⚠ TENANT-ID IS NOT A PARAMETER, for the reason nst-vendor-order-insert records at length: the
+   tenant travels ON THE ENTITY (from the ctx, नियम-1) and make reads it there, so an argument would
+   be a SECOND ANSWER to 'whose row is this' — and the quiet failure that hides is a row whose
+   TENANT_ID contradicts the entity it was built from. The sibling steps of this assembly
+   (ordh-create-header, ordh-create-lines) still take tenant-id because they USE it; this one does
+   not, and a parameter kept only to match its neighbours is the one that drifts."
   (dolist (cell (ordh-vendor-line-totals lines))
-    (let ((written (ordh-vendor-order-insert header (car cell) (cdr cell) ctx tenant-id)))
-      (unless (eq written t)
+    (let ((written (apply #'make 'nst-vordh ctx
+                          (ordh-vendor-row-initargs header (car cell) (cdr cell)))))
+      (unless (typep written 'nst-vordh)
         (return-from ordh-create-vendor-rows written))))
   t)
 
@@ -1213,7 +1275,7 @@
                           (let ((lines (ordh-create-lines plans header ctx)))
                             (if (not (listp lines))
                                 lines
-                                (let ((vendors (ordh-create-vendor-rows lines header ctx tenant-id)))
+                                (let ((vendors (ordh-create-vendor-rows lines header ctx)))
                                   (if (eq vendors t)
                                       (ordh-detail-response-for header lines ctx)
                                       vendors)))))))))))))
