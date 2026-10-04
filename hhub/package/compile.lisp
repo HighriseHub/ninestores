@@ -166,6 +166,10 @@
      ;; they reuse those ORM view classes rather than declaring new ones (D7).
      "order/nst-dal-ordh.lisp"
      "order/nst-dal-orditm.lisp"
+     ;; The VENDOR channel's island (S9). Unlike the two above it DECLARES ITS OWN view class
+     ;; over all 60 DOD_VENDOR_ORDERS columns (the legacy dod-vendor-orders covers 26), so it
+     ;; does not depend on order/dod-dal-ord.lisp — but it sits here with its siblings.
+     "order/nst-dal-vordh.lisp"
      
      ;; Orders Business Layer
      "order/dod-bl-odt.lisp"
@@ -211,6 +215,13 @@
      ;; (the header's delete! calls this file's helper) is resolved at run time, which is the
      ;; one expected undefined-function style-warning in the build.
      "order/nst-bl-orditm.lisp"
+     ;; Tier-1 प्रत्यय for the VENDOR ORDER (S10): the six verbs over nst-vordh, the copy ferries and
+     ;; the vendor-scoped selectors. AFTER nst-bl-ordh.lisp, and that is a real dependency rather
+     ;; than tidiness — it REUSES the header's shared helpers (nst-ordh-sort-column with its own
+     ;; whitelist, nst-ordh-page-limit, nst-ordh-status-string, nst-ordh-internal-channel-p,
+     ;; nst-ordh-consume-control-key, nst-order-header-if-match-refusal, nst-ordh-json-flag/-date)
+     ;; rather than growing second copies that could disagree with them.
+     "order/nst-bl-vordh.lisp"
      ;; THE TWO ORDER API FILES FOLLOW, AND THEY BELONG TO THIS BLOCK FOR THE REASON THE COMMENT
      ;; ABOVE GIVES (S7): they are Tier-2 routes onto the verbs in nst-bl-ordh/nst-bl-orditm, which
      ;; this list places here, so keeping the four order files adjacent keeps ONE rationale in one
@@ -225,6 +236,10 @@
      ;; same way the header's call to the item file's लोप helper is.
      "order/nst-bl-ordhapi.lisp"
      "order/nst-bl-orditmapi.lisp"
+     ;; S11: the VENDOR channel's three routes and their bindings. LAST of the order api files because
+     ;; it binds the vendor paths and calls both nst-bl-vordh (its verbs) and nst-bl-ordh (the shared
+     ;; param/sort/page/If-Match helpers it reuses instead of copying).
+     "order/nst-bl-vordhapi.lisp"
      
      "customer/dod-ui-cus.lisp"
      "customer/nst-ui-Customer.lisp"

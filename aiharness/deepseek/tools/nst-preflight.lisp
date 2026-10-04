@@ -64,6 +64,12 @@
                  ;; reported as unreadable. A dependency missing from the harness is
                  ;; indistinguishable from a broken source file; that is the lesson this list's
                  ;; own comment states, and it caught its own list this time.
+                 ;; S14: :parenscript was MISSING, and the gap showed the moment a file that READS the
+                 ;; parenscript package joined the change set — hhub/core/dod-ui-pol.lisp, where the
+                 ;; order API's policy functions live. The reader answered "Package PARENSCRIPT does
+                 ;; not exist" and the check reported a perfectly good file as unreadable, which is
+                 ;; the same lesson the :uuid entry below records, learned the same way, twice.
+                 :parenscript
                  :uuid))
   (ql:quickload s :silent t))
 ;; the tree's files carry [ … ] SQL literals, so CLSQL's reader syntax must be on BEFORE
@@ -98,8 +104,25 @@
     "hhub/order/dod-ui-odt.lisp"
     "hhub/order/nst-dal-ordh.lisp"
     "hhub/order/nst-dal-orditm.lisp"
+    ;; S9: the VENDOR channel's island. Its own view class over all 60 DOD_VENDOR_ORDERS columns,
+    ;; so unlike its two siblings it declares a class rather than reusing one — a 60-slot class is
+    ;; exactly where a dropped paren hides, and the registration check below is what would notice
+    ;; it missing from a build list.
+    "hhub/order/nst-dal-vordh.lisp"
+    "aiharness/deepseek/tools/nst-vordh-mirror-check.lisp"
     "hhub/order/nst-bl-ordh.lisp"
     "hhub/order/nst-bl-orditm.lisp"
+    ;; S10: the vendor channel's six प्रत्यय. Reuses the header's shared helpers, so its LOAD ORDER
+    ;; after nst-bl-ordh.lisp is a dependency, not tidiness — and at this size, with flat
+    ;; early-return steps, an unbalanced paren is exactly what this check exists to catch.
+    "hhub/order/nst-bl-vordh.lisp"
+    ;; S11: the vendor channel's routes and bindings, plus the assembly rewire in nst-bl-ordhapi.lisp
+    ;; (the interim writer that file used to hold is DELETED, so its own balance matters more now).
+    "hhub/order/nst-bl-vordhapi.lisp"
+    ;; S11's live-table probe: what the LOADED route table resolves for the vendor and customer paths
+    ;; (S13 c). It belongs in this list so a paren dropped in the probe is caught here rather than by
+    ;; a four-minute load that ends in a reader error.
+    "aiharness/deepseek/tools/nst-vordh-route-probe.lisp"
     ;; S12/S13: the order's Tier-2 routes, the assembler, and the two files that carry the bindings.
     ;; A binding written in the wrong position inside its own file aborts the LOAD (not the compile),
     ;; which is why nst-binding-order-check exists beside this list; these two are here so the reader
@@ -111,6 +134,21 @@
     ;; the compiler never sees it — this reader check is the only structural check it gets.
     "installation/upgrades/nst-dbu-ordnum-identity.lisp"
     "installation/upgrades/nst-dbu-order-invariants.lisp"
+    ;; S14: the ABAC seed for the order API's ten bound endpoints. An upgrade file is deliberately in
+    ;; NEITHER build list — load-upgrade-files compiles it from disk — so this reader check is the
+    ;; only structural check it ever gets, which is exactly why it belongs in this list.
+    "installation/upgrades/nst-dbu-ordapi-policy-transaction.lisp"
+    ;; S14 also EDITED an existing core file: the ten policy functions the seed's POLICY_FUNC values
+    ;; name (a policy row pointing at a function that does not exist denies every call once the PEP
+    ;; lands — the defect the first version of the seed shipped with).
+    "hhub/core/dod-ui-pol.lisp"
+    "aiharness/deepseek/tools/nst-verify-abac-seed.lisp"
+    ;; S14 ALSO deleted 100 lines from THIS one: its own older copies of the five ABAC seed helpers,
+    ;; which load-upgrade-files loaded AFTER core/nst-sch-mig.lisp and therefore SHADOWED. The
+    ;; canonical insert-auth-policy escapes every string through sql-literal; those copies did not,
+    ;; so an apostrophe in a DESCRIPTION ended the SQL literal (Error 1064 on the order API seed).
+    ;; A 100-line deletion in an upgrade file is exactly where a reader check earns its place.
+    "installation/upgrades/nst-dbu-policy-transaction.lisp"
     ;; D20: the one legacy class touched — the ORDNUM slot added to dod-vendor-orders so the assembly
     ;; can stamp the minted number into every vendor row.
     "hhub/order/dod-dal-ord.lisp"
@@ -242,7 +280,13 @@
   '("order/nst-dal-ordh.lisp" "order/nst-dal-orditm.lisp" "order/nst-bl-ordh.lisp"
     ;; S12/S13's two new files: check 3 asserts each is in compile.lisp AND nstores.asd, which is the
     ;; check that catches "compiled to a project-local fasl nobody serves".
-    "order/nst-bl-ordhapi.lisp" "order/nst-bl-orditmapi.lisp")
+    "order/nst-bl-ordhapi.lisp" "order/nst-bl-orditmapi.lisp"
+    ;; S9's vendor island. ⚠ THIS LIST IS SEPARATE FROM *FILES* ON PURPOSE, and a file in *FILES*
+    ;; but NOT here is checked for balance and skipped for registration — a silent pass, which is
+    ;; the failure mode §4 below exists to catch. Both lists must be added to, per new file.
+    "order/nst-dal-vordh.lisp"
+    "order/nst-bl-vordh.lisp"
+    "order/nst-bl-vordhapi.lisp")
   "The hhub/** files this BATCH has added. Each needs TWO registrations — package/compile.lisp
    (what compile-production compiles) and nstores.asd (what the SERVER actually loads) — and
    until this section existed, nothing checked the second one. A file in the first list only is

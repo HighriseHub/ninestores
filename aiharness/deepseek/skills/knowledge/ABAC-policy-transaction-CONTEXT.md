@@ -75,7 +75,7 @@ Both the method (uppercased) and the **path template including `/hhub` and `{id}
 
 ## 4. Column constraints that bite
 
-Measured from the live `hhubdb` schema. MySQL runs non-strict, so **an over-long value is silently truncated**, and a truncated value then never matches what the code holds.
+Measured from the live `hhubdb` schema. 🧨 **CORRECTED 2026-10-04 — THIS DATABASE IS STRICT, AND THE OLD CLAIM HERE ("MySQL runs non-strict, so an over-long value is silently truncated") COST A SEED FILE SEVEN ROWS.** Measured: `SELECT @@global.sql_mode` answers `ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION`. Under `STRICT_TRANS_TABLES` an over-long value is **Error 1406**, not a truncation — and the failure mode is worse than a refused migration: `apply-migrations` catches per-migration and CONTINUES while never recording the version, so the seed re-runs forever, half-applied. The limit had never been probed: `MAX(LENGTH(DESCRIPTION))` in `DOD_AUTH_POLICY` is **97** of 100. Check any seed file with `aiharness/deepseek/tools/nst-verify-abac-seed.lisp`, which compares every string against the MEASURED width and exits 1 naming the row that does not fit.
 
 | Column | Type | Trap |
 |---|---|---|
@@ -88,7 +88,7 @@ Measured from the live `hhubdb` schema. MySQL runs non-strict, so **an over-long
 | `DOD_BUS_TRANSACTION.TRANS_FUNC` | `varchar(100)` | **the lookup key** |
 | `DOD_SCHEMA_MIGRATIONS.version` | `varchar(50)` **UNIQUE** | 🚨 see below |
 
-🚨 **`DOD_SCHEMA_MIGRATIONS.version` is `varchar(50)` and is compared for equality against the string in `*migrations*`.** `apply-migrations` (`core/nst-sch-mig.lisp:83`) skips a migration whose version is `(member version applied :test #'string=)`. MySQL truncates anything longer, so **a version string over 50 characters can never match its stored form and the migration re-runs on every `apply-migrations` call.**
+🚨 **`DOD_SCHEMA_MIGRATIONS.version` is `varchar(50)` and is compared for equality against the string in `*migrations*`.** `apply-migrations` (`core/nst-sch-mig.lisp:83`) skips a migration whose version is `(member version applied :test #'string=)`. ⚠ **CORRECTED 2026-10-04:** the mechanism is NOT truncation-under-a-non-strict-mode — the server is STRICT, so an over-long version now **raises Error 1406** rather than being stored short. Either way the rule is the same and it is the reason to keep versions short: **a version string over 50 characters can never match its stored form, and the migration re-runs on every `apply-migrations` call** (or fails to record at all).
 
 A real instance exists: `"01092026-insert-vendor-order-cancel-policy-and-transaction"` is **57 characters** and is stored as `"01092026-insert-vendor-order-cancel-policy-and-tra"` (50). It is idempotent, so nothing breaks — but it re-executes every run. **Always verify `length(version) <= 50`.**
 
@@ -256,6 +256,8 @@ Create `installation/upgrades/nst-dbu-<domain>-policy-transaction.lisp`. Structu
 
 The helpers live in `core/nst-sch-mig.lisp:117-214`. Both calls are **idempotent** (`auth-policy-inserted-p` / `bus-transaction-inserted-p` skip an existing live row), so re-running is safe.
 
+🚨 **2026-10-04 — ONE HELPER, ONE DEFINITION: AN UPGRADE FILE SHADOWED THE CANONICAL HELPERS AND BROKE `DESCRIPTION`s CONTAINING AN APOSTROPHE.** `installation/upgrades/nst-dbu-policy-transaction.lisp` — the first policy seed — carried **its own copies** of all five helpers (`auth-policy-inserted-p`, `bus-transaction-inserted-p`, `auth-policy-id-by-name`, `insert-auth-policy`, `insert-bus-transaction`). They were written before the helpers moved into `core/nst-sch-mig.lisp`, and they were never removed. Because `apply-migrations` calls `load-upgrade-files` **FIRST**, that file is loaded *after* `nst-sch-mig.lisp` on every run, so **its older copies overwrote the canonical ones**, and the canonical `insert-auth-policy` — the one that escapes every string through `sql-literal`, doubling single quotes — **was never called**. The symptom is what makes this worth reading: a seed whose first `DESCRIPTION` read *"List the session customer's orders…"* died with **Error 1064** and the offending SQL printed with the apostrophe **unescaped**, even though `sql-literal` was present, correct and fbound in the image — *the escaping was in the image the whole time and was never reached*. The five definitions are now DELETED from that file (117 lines changed), with the reason recorded in place. **Two lessons: never re-define a migration helper in an upgrade file — upgrade files load AFTER the canonical ones and silently win; and when an escaping helper appears not to work, check WHO IS DEFINED BEFORE YOU, not whether the helper is right.**
+
 ### Step 3 — register the migration
 
 Add a `(version fn description)` triple to `*migrations*` at `core/nst-sch-mig.lisp:12`.
@@ -278,7 +280,7 @@ Add a `(version fn description)` triple to `*migrations*` at `core/nst-sch-mig.l
 2. **`POLICY_FUNC` must exist** — it is interned in `:nstores` and must be `fboundp`. Seeding a policy whose function was never written denies every call.
 3. **`params` keys are STRINGS** (`"uri"`, `"company"`) — not keywords.
 4. **`{id}` in `URI` never matches** — store the collection prefix.
-5. **`varchar` truncation** — `DOD_SCHEMA_MIGRATIONS.version` 50, `DOD_AUTH_POLICY.NAME` 50, `DESCRIPTION` 100, `DOD_BUS_TRANSACTION.TRANS_FUNC` 100. MySQL is non-strict here; over-long values are **silently truncated**.
+5. **`varchar` limits** — `DOD_SCHEMA_MIGRATIONS.version` 50, `DOD_AUTH_POLICY.NAME` 50, `DESCRIPTION` 100, `DOD_BUS_TRANSACTION.NAME`/`URI`/`TRANS_FUNC` 100, `TRANS_TYPE` 15, `POLICY_FUNC` 255. ⚠ **THE MODE IS STRICT (corrected 2026-10-04): AN OVER-LONG VALUE IS Error 1406, NOT A SILENT TRUNCATION.** The version column is compared for equality, so an over-long version re-runs forever whichever mode is in force. Check with `aiharness/deepseek/tools/nst-verify-abac-seed.lisp`.
 6. **One policy per transaction** — the tree is explicit that a policy is never shared between transactions.
 7. **A broken policy fails closed** — `has-permission` converts any error to a deny. Good for safety, bad for debugging: read `*HHUBBUSINESSFUNCTIONSLOGFILE*`.
 8. **Seeding ≠ enforcing on the API** (§7).

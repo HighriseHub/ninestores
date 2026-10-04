@@ -146,12 +146,14 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "order/nst-dal-OrderItem")
    (:file "order/nst-dal-ordh")     ; adhara island entity + boundary models (reuses dod-order).
    (:file "order/nst-dal-orditm")   ; the line entity + boundary models (reuses dod-order-items).
+   (:file "order/nst-dal-vordh")    ; the VENDOR row entity + boundary models (S9). Declares its OWN view class over all 60 columns; the legacy dod-vendor-orders stays untouched.
    (:file "order/dod-bl-odt")
    (:file "order/dod-bl-ord")
    (:file "order/nst-bl-Order")
    (:file "order/nst-bl-OrderItem")
    (:file "order/nst-bl-ordh")      ; Tier-1 प्रत्यय for nst-ordh (?exists + make).
    (:file "order/nst-bl-orditm")   ; Tier-1 प्रत्यय for nst-orditm (the six verbs + the parent proof + the header's लोप helper). AFTER nst-bl-ordh: uses its selector and its status/sort/page helpers.
+   (:file "order/nst-bl-vordh")    ; Tier-1 प्रत्यय for the VENDOR ORDER (S10). AFTER nst-bl-ordh, whose shared helpers it reuses rather than copies (sort whitelist, page cap, status string, control-key consumption, If-Match, JSON conventions).
    ;; Tier-2 action routes + Ring-4 bindings for the order: the customer's five header endpoints and
    ;; the two line endpoints. ordhapi FIRST — itemapi reuses its param readers, its sort/page guards
    ;; and its ordnum→row-id resolver. Each binding sits in the file that registers its verb, AFTER
@@ -162,6 +164,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    ;; (warehouse/nst-bl-whsapi, below) at RUN time only.
    (:file "order/nst-bl-ordhapi")
    (:file "order/nst-bl-orditmapi")
+   (:file "order/nst-bl-vordhapi")  ; the VENDOR channel's three routes + bindings (S11). LAST of the order api files: it calls nst-bl-vordh's verbs and nst-bl-ordh's shared helpers.
    (:file "order/dod-ui-odt")
    (:file "order/dod-ui-ord")
    (:file "order/nst-ui-Order")

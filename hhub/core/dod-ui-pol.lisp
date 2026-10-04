@@ -342,6 +342,59 @@
    configuration (gateway credentials and UPI settings)."
   (%com-hhub-policy-tenant-may-transact params "update vendor payment methods"))
 
+;; ── ORDER API ───────────────────────────────────────────────────────────────
+;; The ten BOUND endpoints of the orders batch. They are seeded as ABAC policies by
+;; installation/upgrades/nst-dbu-ordapi-policy-transaction.lisp, and that file NAMES each function
+;; below as its POLICY_FUNC: a policy row pointing at a function that does not exist DENIES EVERY
+;; CALL on the day the PEP starts consulting it (the ABAC skill's traps 2 and 14, and the reason the
+;; seed file's slugs were wrong until this group existed). Until that day these are CARRIED, not
+;; enforced (D18) — nothing in the tree consults the rows yet.
+(defun com-hhub-policy-api-orders-list (&optional (params nil))
+  "GET /hhub/api/v1/orders — list the session customer's orders."
+  (%com-hhub-policy-tenant-may-transact params "list orders"))
+
+(defun com-hhub-policy-api-orders-create (&optional (params nil))
+  "POST /hhub/api/v1/orders — place an order for the session's customer, with
+   its lines."
+  (%com-hhub-policy-tenant-may-transact params "create order"))
+
+(defun com-hhub-policy-api-orders-read (&optional (params nil))
+  "GET /hhub/api/v1/orders/{ordnum} — read one order and its lines."
+  (%com-hhub-policy-tenant-may-transact params "read order"))
+
+(defun com-hhub-policy-api-orders-update (&optional (params nil))
+  "PUT /hhub/api/v1/orders/{ordnum} — update one order's content. The verb
+   refuses a terminal order and the fields no channel may write."
+  (%com-hhub-policy-tenant-may-transact params "update order"))
+
+(defun com-hhub-policy-api-orders-delete (&optional (params nil))
+  "DELETE /hhub/api/v1/orders/{ordnum} — soft-delete a draft order and its lines."
+  (%com-hhub-policy-tenant-may-transact params "delete order"))
+
+(defun com-hhub-policy-api-orders-item-update (&optional (params nil))
+  "PUT /hhub/api/v1/orders/{ordnum}/items/{item-id} — update one order line,
+   addressed by the order number and the line's row-id."
+  (%com-hhub-policy-tenant-may-transact params "update order item"))
+
+(defun com-hhub-policy-api-orders-item-delete (&optional (params nil))
+  "DELETE /hhub/api/v1/orders/{ordnum}/items/{item-id} — soft-delete one order
+   line, addressed by the order number and the line's row-id."
+  (%com-hhub-policy-tenant-may-transact params "delete order item"))
+
+(defun com-hhub-policy-api-vendor-orders-list (&optional (params nil))
+  "GET /hhub/api/v1/vendor/orders — list the session vendor's OWN order rows."
+  (%com-hhub-policy-tenant-may-transact params "list vendor orders"))
+
+(defun com-hhub-policy-api-vendor-orders-read (&optional (params nil))
+  "GET /hhub/api/v1/vendor/orders/{ordnum} — read one vendor order slice, scoped
+   to the session vendor."
+  (%com-hhub-policy-tenant-may-transact params "read vendor order"))
+
+(defun com-hhub-policy-api-vendor-orders-update (&optional (params nil))
+  "PUT /hhub/api/v1/vendor/orders/{ordnum} — update the session vendor's own
+   slice: fulfilment, shipped date, comments and a tracking URL."
+  (%com-hhub-policy-tenant-may-transact params "update vendor order"))
+
 
 (defun com-hhub-policy-customer-address (&optional (params nil))
   :documentation "This policy governs updating the invoice item by the vendor"
