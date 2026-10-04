@@ -376,7 +376,19 @@
 (defun persist-order(modelfunc)
   (multiple-value-bind
 	(order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments context-id customer-id order-type  order-source customer-name tenant-id) (funcall modelfunc)
-    (clsql:update-records-from-instance (make-instance 'dod-order
+    ;; ── S8b: THE ORDER NUMBER IS MINTED HERE, AND A REFUSAL FAILS THE CREATE ──
+    ;; Every order this funnel ever wrote had ORDNUM NULL, because nothing on the path ever
+    ;; passed one: the number IS the address the vendor channel and the new API quote (D4), so
+    ;; an order without one is a row nobody can ask about. It is minted from the customer's
+    ;; DOC_PREFIX (allocated on first use, R2) through the ONE mint in core/dod-bl-utl.lisp, and
+    ;; a refusal RAISES *before the INSERT* — nothing is written and no orphan header is left.
+    ;; A NULL here would look exactly like a successful order, which is worse than a failure.
+    (multiple-value-bind (ordnum refusal)
+	(nst-mint-order-number-for-customer customer-id tenant-id order-date)
+      (when refusal
+	(error "persist-order: refusing to create an order without its number — ~A. The order was NOT written; fix the cause (a customer with no derivable DOC_PREFIX, an exhausted prefix ladder, or an unreachable DOD_SYS_SECRET/DOD_DOC_COUNTER) and retry." refusal))
+      (clsql:update-records-from-instance (make-instance 'dod-order
+						       :ordnum ordnum
 						       :ord-date order-date
 						       :req-date request-date
 						       :shipped-date shipped-date
@@ -409,7 +421,7 @@
 						       :order-type order-type
 						       :order-source order-source
 						       :customer-name customer-name
-						       :tenant-id tenant-id)))) 
+						       :tenant-id tenant-id))))) 
 
 
 (defun create-order (modelfunc)
@@ -439,7 +451,7 @@
 			  (let* ((vitems (filter-opref-items-by-vendor vendor order-pref-list))
 				 (total (get-opref-items-total-for-vendor vendor vitems))) 
 			    
-			    (persist-vendor-orders (slot-value order 'row-id) cust-id (slot-value vendor 'row-id) tenant-id order-date request-date ship-date ship-address "PREPAID"  total shipping-cost "Y")))  vendors)
+			    (persist-vendor-orders (slot-value order 'row-id) cust-id (slot-value vendor 'row-id) tenant-id order-date request-date ship-date ship-address "PREPAID"  total shipping-cost "Y" (slot-value order 'ordnum))))  vendors)
       
 		))))
 
@@ -551,7 +563,7 @@
 		     (order-disp-str (create-order-email-content vproducts vitems custinst order-id shipping-cost total payment-mode))
 		     (shipstr (process-shipping-information-for-email shipping-info))) 
       		
-		(persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost orderpickupinstore)
+		(persist-vendor-orders order-id cust-id vendor-id  tenant-id order-date request-date ship-date ship-address payment-mode total shipping-cost orderpickupinstore (slot-value order 'ordnum))
 		;; Save the UPI Transaction 
 		(when utrnum (save-upi-transaction total utrnum (format nil "#ORD:~A" order-id) custinst vendor company-instance (slot-value custinst 'phone)))
 		;;Send a mail to the vendor
@@ -575,7 +587,7 @@
 	(save-vendor-orders-in-db order  order-date request-date shipped-date shipaddr payment-mode  orderpickupinstore  order-items shopcart-products  shipping-info shipping-cost  temp-customer customer company utrnum)
     order-id))))
    
-(defun persist-vendor-orders(order-id cust-id vendor-id tenant-id ord-date req-date ship-date ship-address payment-mode order-amt shipping-cost orderpickupinstore)
+(defun persist-vendor-orders(order-id cust-id vendor-id tenant-id ord-date req-date ship-date ship-address payment-mode order-amt shipping-cost orderpickupinstore ordnum)
  (clsql:update-records-from-instance (make-instance 'dod-vendor-orders
 					 :order-id order-id
 					 :cust-id cust-id
@@ -590,6 +602,12 @@
 					 :order-amt order-amt
 					 :shipping-cost shipping-cost
 					 :storepickupenabled orderpickupinstore
+					 ;; S8b/D20: THE NUMBER IS DENORMALISED INTO EVERY VENDOR ROW. One row
+					 ;; per (order, vendor), so N rows of a multi-vendor order legitimately
+					 ;; carry the same number — which is why the unique index goes on
+					 ;; DOD_ORDER only. Without it the vendor channel cannot address an
+					 ;; order the customer quotes, and the row is a dead end.
+					 :ordnum ordnum
 					 :deleted-state "N"
 					 :tenant-id tenant-id )))
 

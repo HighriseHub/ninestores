@@ -46,6 +46,9 @@
 	 (cancel-reason nil)
 	 (external-url "NIL")
 	 (is-converted-to-invoice "NO")
+	 ;; S8b AC (d): a PRE-CREATION placeholder, inert for the same reason as the cart's (S8b) —
+	 ;; create-model-for-showcustomerupipage renders a payment page for an order that does not
+	 ;; exist yet, and this plist is never written to a column.
 	 (ordnum "000")
 	 (order-fulfilled " ")
 	 (status "DRAFT")

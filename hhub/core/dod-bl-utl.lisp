@@ -496,6 +496,49 @@ when it leaves nothing behind."
        (encrypt password salt)))
 
 
+(defun hhub-random-token (length)
+  "A URL-, form-, HTML- and JS-SAFE random token of LENGTH characters, drawn from
+   [a-z0-9], from the cryptographic generator (SECURE-RANDOM, not *RANDOM-STATE*).
+
+   🚨 USE THIS — NOT HHUB-RANDOM-PASSWORD — FOR ANYTHING THAT IS AN IDENTIFIER. The two are
+   not interchangeable, and the difference is a live bug, not a style preference: since
+   commit 6cb4c3d (2026-09-13) 'fix the random-password alphabet' widened RANDOM-PASSWORD's
+   charset to 89 characters INCLUDING SYMBOLS, deliberately, so that a generated password can
+   satisfy an OWASP character-class rule. Every identifier minted from it became a
+   time bomb, because it is required to contain at least one special character drawn from
+   !@#$%^&*()-_=+[]{};:,.?/ :
+
+     &   truncates a query string — '?k=A&B' arrives as 'A'
+     #   turns the rest of the URL into a fragment, never sent to the server
+     %   starts a percent-escape, so the value is mis-decoded or rejected
+     +   is a SPACE in a form body (application/x-www-form-urlencoded)
+     ?   /  .  [  ]  break a CSS or JS selector, and [] appear in a JS index expression
+
+   MEASURED CONSEQUENCE (2026-10-03): the invoice wizard mints its session key as
+   'NST000' + RANDOM-PASSWORD 10, passes it through a redirect query string and a hidden form
+   field, and looks it up in the session hash — so whenever a hostile character appeared the
+   key came back different, GETHASH missed, and the page died with
+   'the slot COM.NSTORES.APP::INVOICEHEADER is missing from the object NIL'. Roughly half of
+   all new-invoice attempts were affected, and only new invoices: an existing one uses its
+   real INVNUM as the key, which is clean.
+
+   ⚠ THIS IS NOT A PASSWORD GENERATOR. 36 characters of alphabet is ample for an identifier
+   (36^10 ≈ 3.6e15) but it cannot satisfy a password-complexity rule, by construction.
+   Reach for HHUB-RANDOM-PASSWORD when you want a password; reach for this when you want a
+   name, a key, a code or a file-name component."
+  (let ((alphabet "abcdefghijklmnopqrstuvwxyz0123456789"))
+    (let ((n (length alphabet))
+          ;; Rejection sampling: 256 is not a multiple of 36, so mapping every byte would
+          ;; favour the low letters. Draws at or above the largest multiple are discarded.
+          (limit (* 36 (floor 256 36))))
+      (with-output-to-string (out)
+        (loop repeat length
+              do (block draw
+                   (loop for b = (aref (secure-random:bytes 1 secure-random:*generator*) 0)
+                         do (when (< b limit)
+                              (princ (char alphabet (mod b n)) out)
+                              (return-from draw)))))))))
+
 (defun hhub-random-password (length)
   "Returns a random password of LENGTH characters.
 
@@ -1673,3 +1716,63 @@ corresponding universal time."
   (and status
        (member (string-upcase (string status)) *order-terminal-statuses* :test #'string=)
        t))
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; The order-number MINT as one call (S8b) — for the callers that hold only an id
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; WHY THIS EXISTS BESIDE nst-order-number-for: that function mints from a PREFIX, and obtaining
+;;; the prefix needs the CUSTOMER — a name to derive one from on first use (R2's lazy allocation).
+;;; The adhara create path holds the customer's ORM row and resolves the name from its slots
+;;; (nst-customer-document-name, order/nst-bl-ordh.lisp). The LEGACY funnels hold only a cust-id,
+;;; and they load BEFORE the customer and order BL files, so neither that resolver nor the
+;;; tenant-scoped customer selector is reachable from them. This function therefore resolves the
+;;; name in SQL from the id — and its precedence is the ordnum-identity migration's own COALESCE,
+;;; so the backfill and a first order cannot disagree about which name a customer's prefix comes
+;;; from. Two spellings of one rule, forced by what the caller holds and named rather than hidden;
+;;; if the row-holding form ever becomes reachable from here, one of them should go.
+
+(defun nst-customer-name-for-prefix (cust-id tenant-id)
+  "The customer name a DOC_PREFIX is derived from, or NIL when that row is not in TENANT-ID.
+
+   TENANT-SCOPED DELIBERATELY: a prefix derived from another tenant's customer row would write a
+   value derived from data this tenant cannot see, and the migration's own query is scoped the same
+   way. A NIL answer is not an error — it means the caller must not allocate (see the mint below)."
+  (first (clsql:query
+          (format nil "SELECT COALESCE(NULLIF(`LEGAL_COMPANY_NAME`, \'\'), ~
+                                        NULLIF(`LEGAL_NAME`, \'\'), ~
+                                        NULLIF(`COMPANY_NAME`, \'\'), ~
+                                        `NAME`) ~
+                        FROM `DOD_CUST_PROFILE` ~
+                       WHERE `ROW_ID` = ~D AND `TENANT_ID` = ~D"
+                  cust-id tenant-id)
+          :flatp t)))
+
+(defun nst-mint-order-number-for-customer (cust-id tenant-id ord-date)
+  "The next ORDNUM for CUST-ID on ORD-DATE, reading or allocating its DOC_PREFIX first.
+   Returns (values NUMBER REFUSAL-REASON) — exactly one of which is non-NIL.
+
+   ⚠ THIS IS THE S8b FIX, AND THE REASON IT RETURNS A REFUSAL RATHER THAN WRITING NULL IS THE WHOLE
+   POINT: the two legacy funnels (persist-order and persist-vendor-orders) never wrote ORDNUM at all,
+   so every order they created was unaddressable — the number is the ADDRESS the vendor channel and
+   the new API both quote. A funnel that cannot mint must therefore FAIL THE CREATE, not proceed with
+   a NULL: an order with no address is worse than no order, because it looks like a success.
+
+   The prefix is allocated on FIRST USE, lazily, exactly as the adhara create path does (R2) — the
+   alternative was touching the six places that create a customer row. Both the read and the
+   allocation are the ones S0d landed; nothing here re-implements them.
+   A customer row that cannot be seen, or a name that yields no usable prefix, comes back as a
+   refusal string the caller raises on."
+  (handler-case
+      (let* ((row-name (nst-customer-name-for-prefix cust-id tenant-id))
+             (prefix (or (nst-doc-prefix-read cust-id)
+                         (and row-name (nst-doc-prefix-assign cust-id row-name)))))
+        (cond
+          ((null prefix)
+           (values nil (format nil "customer ~D has no DOC_PREFIX and none could be allocated~@[ (its name ~S yields no usable base)~]"
+                               cust-id row-name)))
+          (t
+           (values (nst-order-number-for *nst-order-number-format* prefix ord-date tenant-id cust-id)
+                   nil))))
+    (error (c)
+      (values nil (format nil "the order number could not be minted for customer ~D (~A)" cust-id c)))))

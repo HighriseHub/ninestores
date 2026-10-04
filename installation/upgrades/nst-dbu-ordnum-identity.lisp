@@ -169,9 +169,16 @@
                                              tid cust-id
                                              :counter seq)))
           (incf minted)
+          ;; ⚠ (1+ (SECOND series)) WAS THE BUG THAT MADE THIS MIGRATION FAIL, FOUND BY ITS OWN DRY
+          ;; RUN ON 2026-10-02 — the entry is (first-number last-number COUNT), and the code
+          ;; incremented the LAST NUMBER, which is the minted string "ORD-…". The type error
+          ;; ('The value "ORD-DEMO-2022-23-2VZ6PV" is not of type NUMBER') fired on the SECOND order
+          ;; of every series, i.e. after the first number of that series had been written — which is
+          ;; exactly the partial state the live database was left in: prefixes allocated, four
+          ;; numbers minted, counters burned, no version row. The COUNT is the third element.
           (let ((series (gethash key per-series)))
             (if series
-                (setf (gethash key per-series) (list (first series) number (1+ (second series))))
+                (setf (gethash key per-series) (list (first series) number (1+ (third series))))
                 (setf (gethash key per-series) (list number number 1))))
           (unless dry
             (clsql:execute-command
@@ -221,7 +228,14 @@
     (let ((keys '()))
       (maphash (lambda (k v) (push (cons k v) keys)) per-series)
       (dolist (entry (sort keys #'string< :key (lambda (e) (format nil "~A" (car e)))))
-        (destructuring-bind ((cust-id . fy) (from to count)) entry
+        ;; ⚠ THE LAMBDA LIST IS (KEY FROM TO COUNT), NOT (KEY (FROM TO COUNT)) — the second bug its
+        ;; own dry run found (2026-10-02): the per-series entry is (cons key value) where the value
+        ;; is the LIST (from to count), so an entry has FOUR elements and the nested two-element
+        ;; pattern signalled 'too many elements … exactly 2 expected, but got 4' AFTER the whole
+        ;; migration had run. The report is the last thing this function does, so the failure looked
+        ;; like a migration failure while the work itself had completed — exactly the kind of lie the
+        ;; dry run exists to expose before a real run leaves the database half-done.
+        (destructuring-bind ((cust-id . fy) from to count) entry
           (format t "  customer ~D  ~A  ~D number(s):  ~A … ~A~%" cust-id fy count from to))))
     (unless dry
       (format t "~&ordnum-identity done. Verify: ~
