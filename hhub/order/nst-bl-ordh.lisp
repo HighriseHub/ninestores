@@ -911,7 +911,17 @@
 (defun nst-order-header-update (ctx tenant-id channel dbobj update-args)
   "The update as a SEQUENCE OF STEPS that each return early with a refusal, FLAT ON PURPOSE
    (file header). Every refusal happens before any write, so a refused update has written
-   nothing — the property S5's acceptance criterion proves by re-reading the row."
+   nothing — the property S5's acceptance criterion proves by re-reading the row.
+
+   ⚠ THE CONTROL KEYS ARE CONSUMED BEFORE THE FIELD POLICY, AND THAT ORDER IS A FIX (S12).
+   Written the other way round — policy first, control key second — `:if-match` reached
+   `nst-order-header-field-refusal` as an ordinary key, was refused as an escalation, and so
+   EVERY If-Match update answered 409 with 'the :http channel may not write :IF-MATCH'. The
+   precondition was therefore unusable through the verb no matter what the route did. Found by
+   reading the S12 route against this function, not by running it, and the S12 route had already
+   worked around it by asking nst-order-header-if-match-refusal itself; with this fix the verb
+   is also correct for the DIRECT callers (a REPL, an :agent, a batch job) that never pass a
+   route, which is the whole reason the control keys exist as a concept."
   ;; 1. the status gate (D8): content may move at any status except the terminal triple
   (let ((status (nst-ordh-status-string (slot-value dbobj 'status))))
     (when (member status *order-terminal-statuses* :test #'string=)
@@ -920,16 +930,18 @@
                        :tenant-id tenant-id
                        :reason (format nil "Order update refused: this order is ~A, which is terminal, so its content is frozen. Nothing has been written. A completed, vendor-cancelled or customer-cancelled order is a finished document — the way to change what it says is a new document, not an edit to this one."
                                        (or status (slot-value dbobj 'status)))))))
-  ;; 2. what this channel may write — the identity keys first, so a stripped key is never
-  ;;    reported as an escalation
-  (let ((args (nst-ordh-strip-identity-initargs update-args)))
-    (let ((refusal (nst-order-header-field-refusal args tenant-id channel)))
-      (when refusal (return-from nst-order-header-update refusal)))
-    ;; 3. the version precondition, if the route supplied one
-    (multiple-value-bind (expected args) (nst-ordh-consume-control-key args :if-match)
+  ;; 2. the transport preconditions come out FIRST — see the docstring: they are not entity
+  ;;    state and the field policy below must never see them
+  (multiple-value-bind (expected args) (nst-ordh-consume-control-key update-args :if-match)
+    ;; 3. what this channel may write — the identity keys stripped first, so a stripped key is
+    ;;    never reported as an escalation
+    (let ((args (nst-ordh-strip-identity-initargs args)))
+      (let ((refusal (nst-order-header-field-refusal args tenant-id channel)))
+        (when refusal (return-from nst-order-header-update refusal)))
+      ;; 4. the version precondition, if the route supplied one
       (let ((refusal (nst-order-header-if-match-refusal dbobj expected tenant-id)))
         (when refusal (return-from nst-order-header-update refusal)))
-      ;; 4. hydrate, apply, write, answer
+      ;; 5. hydrate, apply, write, answer
       (nst-order-header-update-write ctx tenant-id dbobj args))))
 
 (defmethod !update ((entity-class (eql 'nst-ordh)) (row-id string) (ctx domain-ctx)

@@ -33,6 +33,17 @@
    (order-id
     :TYPE integer
     :initarg :order-id)
+
+   ;; ORDNUM (D20). THE LIVE COLUMN PREDATES THIS CLASS: DOD_VENDOR_ORDERS.ORDNUM is varchar(50) NULL
+   ;; and arrived by migrate-2026March-modify-vendor-order-table, so the class was 34 columns behind
+   ;; the table and could not carry the number at all — which is why the D14 assembly had no way to
+   ;; stamp it into a vendor row, and why every one of the 462 rows is NULL. The slot is added here
+   ;; because the API's interim vendor-row writer needs it NOW; S9's nst-vordh gets its OWN class over
+   ;; all 60 live columns (the decision recorded at §3 of the orders story), and this one stays the
+   ;; legacy UI's.
+   (ordnum
+    :type (string 50)
+    :initarg :ordnum)
    
    (order
     :accessor get-order
