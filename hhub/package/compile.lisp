@@ -211,6 +211,20 @@
      ;; (the header's delete! calls this file's helper) is resolved at run time, which is the
      ;; one expected undefined-function style-warning in the build.
      "order/nst-bl-orditm.lisp"
+     ;; THE TWO ORDER API FILES FOLLOW, AND THEY BELONG TO THIS BLOCK FOR THE REASON THE COMMENT
+     ;; ABOVE GIVES (S7): they are Tier-2 routes onto the verbs in nst-bl-ordh/nst-bl-orditm, which
+     ;; this list places here, so keeping the four order files adjacent keeps ONE rationale in one
+     ;; place. ordhapi comes FIRST because orditmapi reuses its param readers, its sort/page guards
+     ;; and its ordnum→row-id resolver; itemapi registers route-orditm-* and then binds its two
+     ;; paths, and that ORDER INSIDE THE FILE is a load-order requirement rather than tidiness
+     ;; (register-api-route refuses a binding whose action route is not registered yet — see the
+     ;; note at the end of nst-bl-ordhapi.lisp SECTION 6).
+     ;; ⚠ EXPECTED cross-file style warning: these two call select-product-by-id and
+     ;; get-gstvalues-for-product, which live in the Products block BELOW this one in both lists, and
+     ;; select-vendor-by-id-in-tenant, which lives in the Vendor block — resolved at load time, the
+     ;; same way the header's call to the item file's लोप helper is.
+     "order/nst-bl-ordhapi.lisp"
+     "order/nst-bl-orditmapi.lisp"
      
      "customer/dod-ui-cus.lisp"
      "customer/nst-ui-Customer.lisp"

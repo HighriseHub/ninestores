@@ -152,6 +152,16 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "order/nst-bl-OrderItem")
    (:file "order/nst-bl-ordh")      ; Tier-1 प्रत्यय for nst-ordh (?exists + make).
    (:file "order/nst-bl-orditm")   ; Tier-1 प्रत्यय for nst-orditm (the six verbs + the parent proof + the header's लोप helper). AFTER nst-bl-ordh: uses its selector and its status/sort/page helpers.
+   ;; Tier-2 action routes + Ring-4 bindings for the order: the customer's five header endpoints and
+   ;; the two line endpoints. ordhapi FIRST — itemapi reuses its param readers, its sort/page guards
+   ;; and its ordnum→row-id resolver. Each binding sits in the file that registers its verb, AFTER
+   ;; that registration: register-api-route refuses a binding whose action route is not yet
+   ;; registered, at LOAD time, and the refusal aborts the load of the file it is in.
+   ;; ⚠ These reach select-product-by-id / get-gstvalues-for-product (Products, below),
+   ;; select-vendor-by-id-in-tenant (Vendor, below) and the Belnap sentinel ferry
+   ;; (warehouse/nst-bl-whsapi, below) at RUN time only.
+   (:file "order/nst-bl-ordhapi")
+   (:file "order/nst-bl-orditmapi")
    (:file "order/dod-ui-odt")
    (:file "order/dod-ui-ord")
    (:file "order/nst-ui-Order")

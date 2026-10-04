@@ -100,6 +100,20 @@
     "hhub/order/nst-dal-orditm.lisp"
     "hhub/order/nst-bl-ordh.lisp"
     "hhub/order/nst-bl-orditm.lisp"
+    ;; S12/S13: the order's Tier-2 routes, the assembler, and the two files that carry the bindings.
+    ;; A binding written in the wrong position inside its own file aborts the LOAD (not the compile),
+    ;; which is why nst-binding-order-check exists beside this list; these two are here so the reader
+    ;; balance check covers them, since a route file is exactly where a deep nesting would hide one.
+    "hhub/order/nst-bl-ordhapi.lisp"
+    "hhub/order/nst-bl-orditmapi.lisp"
+    ;; S8b retouched the identity migration (two bugs its own dry run found), so it joins the
+    ;; change set: it is an upgrade file, deliberately NOT in either build list, which means
+    ;; the compiler never sees it — this reader check is the only structural check it gets.
+    "installation/upgrades/nst-dbu-ordnum-identity.lisp"
+    "installation/upgrades/nst-dbu-order-invariants.lisp"
+    ;; D20: the one legacy class touched — the ORDNUM slot added to dod-vendor-orders so the assembly
+    ;; can stamp the minted number into every vendor row.
+    "hhub/order/dod-dal-ord.lisp"
     "hhub/package/compile.lisp"
     "hhub/nstores.asd"
     "installation/upgrades/nst-dbu-doc-counter.lisp"
@@ -225,7 +239,10 @@
 ;;; ── 3. build registration: a new hhub/** file needs BOTH lists ──────────────
 
 (defparameter *hhub-new-files*
-  '("order/nst-dal-ordh.lisp" "order/nst-dal-orditm.lisp" "order/nst-bl-ordh.lisp")
+  '("order/nst-dal-ordh.lisp" "order/nst-dal-orditm.lisp" "order/nst-bl-ordh.lisp"
+    ;; S12/S13's two new files: check 3 asserts each is in compile.lisp AND nstores.asd, which is the
+    ;; check that catches "compiled to a project-local fasl nobody serves".
+    "order/nst-bl-ordhapi.lisp" "order/nst-bl-orditmapi.lisp")
   "The hhub/** files this BATCH has added. Each needs TWO registrations — package/compile.lisp
    (what compile-production compiles) and nstores.asd (what the SERVER actually loads) — and
    until this section existed, nothing checked the second one. A file in the first list only is

@@ -560,7 +560,10 @@
                                        (invnum entity) (vendor-id entity) (tenant-id entity)
                                        (if (null vendor) "that vendor" "that tenant")))
         (let* ((invnum (invnum entity))
-               (external-url (generate-invoice-ext-url invnum vendor company))
+               ;; :RENDER T — the fetch is the server itself and there is no customer at
+               ;; the other end to answer the public page's password prompt. Without the
+               ;; marker this route answers a PDF OF THE PASSWORD FORM.
+               (external-url (generate-invoice-ext-url invnum vendor company :render t))
                (htmlfile (downloadhtmlfile external-url))
                (pdffile (generatepdf htmlfile invnum)))
           (format nil "~A/img/temp/~A" *siteurl* pdffile)))))
@@ -631,21 +634,27 @@
 ;;; renders ANY invoice row including one this API just created, and it needs nothing
 ;;; pre-stored on the row.
 ;;;
-;;; ⚠ THE LINK IS DETERMINISTIC, WHICH IS WHY NOTHING IS WRITTEN. generate-invoice-ext-url
-;;; hashes tenant-id + invnum + vendor-id with no nonce and no timestamp, so the same
-;;; invoice always yields the same URL. This route therefore does NOT populate
-;;; DOD_INVOICE_HEADER.EXTERNAL_URL: a GET must not write, and there is nothing to gain,
-;;; because re-minting produces the identical value. (The column exists and is mirrored;
-;;; if a future policy wants links that can be REVOKED, that is when persistence and an
-;;; expiry — the handoff's open live-link question — start to matter. It is not needed
-;;; to serve this endpoint, and inventing it now would be inventing policy.)
+;;; ⚠ CORRECTED 2026-10-03 — BOTH CLAIMS BELOW WERE TRUE WHEN WRITTEN (2026-09-26) AND ARE
+;;; NOT ANY MORE, and they are the two facts this route's own policy turns on:
 ;;;
-;;; ⚠ AND THE LINK CARRIES NO EXPIRY AND NO PASSWORD, so anyone who has it can read the
-;;; invoice for as long as the row exists. That is the EXISTING behaviour of the shared
-;;; URL, unchanged by this route — stated here so a vendor handing one out knows what
-;;; they are handing out, rather than discovering it. Same footing as the PDF download's
-;;; dependency on the site's own public URL: this route exposes the mechanism that is
-;;; already deployed, it does not introduce a new one.
+;;;   1. THE LINK IS NO LONGER DETERMINISTIC. generate-invoice-ext-url now signs a payload
+;;;      that CARRIES AN EXPIRY, so every mint differs from every other and re-minting does
+;;;      NOT reproduce the stored value. (It was: base64 of tenant-id + invnum + vendor-id,
+;;;      with no nonce and no timestamp.)
+;;;   2. THE LINK NOW CARRIES BOTH AN EXPIRY AND A PASSWORD. Five minutes, and the last four
+;;;      digits of the CUSTOMER's phone, with five attempts.
+;;;
+;;; THIS ROUTE STILL WRITES NOTHING, and the reason is unchanged: a GET must not write. But
+;;; the consequence is now worth stating plainly rather than by omission — the link this
+;;; endpoint hands out is NOT the one in DOD_INVOICE_HEADER.EXTERNAL_URL and is NOT renewed
+;;; by any later save, so a caller who takes it away and uses it in six minutes gets an
+;;; expired page. Re-fetching this endpoint is how you get a live one.
+;;;
+;;; ⚠ AND REVOCATION IS STILL POSSIBLE BUT STILL NOT BUILT: nothing here can be killed
+;;; before its own expiry, because the token is self-validating and there is no per-invoice
+;;; generation for the verifier to compare against. That is the open question the handoff
+;;; records, and it is the one decision that would let the lifetime be lengthened safely —
+;;; see knowledge/invoice-public-link-CONTEXT.md §3.
 
 (defclass invh-public-url-response (nst-response-model)
   ((url

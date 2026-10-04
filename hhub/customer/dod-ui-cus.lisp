@@ -3036,6 +3036,14 @@ Only shows sections based on availability flags and customer type."
 	 (cancel-reason nil)
 	 (external-url "NIL")
 	 (is-converted-to-invoice "NO")
+	 ;; S8b AC (d): THIS "000" IS A PRE-CREATION PLACEHOLDER, AND IT IS INERT — the screen is the
+	 ;; read-only CART (create-model-for-custshowshopcartreadonly), shown BEFORE any order row
+	 ;; exists, so there is no minted number to display yet; the plist feeds createorderobject for
+	 ;; RENDERING only and nothing here is ever written to a column. It is deliberately NOT
+	 ;; deleted: after S8b every order the funnels create carries a real ORDNUM, and a blank cell
+	 ;; on a preview page is worse than an obvious placeholder. Contrast the old failure mode the
+	 ;; AC warns about — a placeholder shown NEXT TO a stored number — which cannot happen here
+	 ;; because this page has no stored row.
 	 (ordnum "000")
 	 (order-type (gethash "order-type" orderparams-ht))
 	 (order-fulfilled " ")

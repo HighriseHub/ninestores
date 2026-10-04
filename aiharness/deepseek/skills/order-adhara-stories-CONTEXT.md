@@ -573,7 +573,10 @@ as documentation of the intended shape. **Recommendation: (a)**, because a custo
 setting that silently does nothing is worse than no setting. The shape stays DATA either way —
 `nst-format-doc-number` renders whatever template it is handed.
 
-**PART 2 DONE (2026-09-28): the migration.** `installation/upgrades/nst-dbu-ordnum-identity.lisp`,
+🚨 **THE CLAIM BELOW WAS WRONG, AND WAS MEASURED WRONG ON 2026-10-02 — see the boxed correction
+immediately under it. `28092026-ordnum-identity` has NEVER completed.**
+
+~~**PART 2 DONE (2026-09-28): the migration.**~~ `installation/upgrades/nst-dbu-ordnum-identity.lisp`,
 registered as `("28092026-ordnum-identity" …)`. Five ordered steps: the `DOC_PREFIX` ALTER;
 prefix allocation for the customers who have orders; the 485-number mint; the vendor-row copy
 (which returned `Changed: 0` when run by hand and is meaningful now that the parents have numbers);
@@ -1160,6 +1163,109 @@ a count that could see another tenant's documents is the BOLA shape this codebas
 `"docPrefix"` in the customer JSON. Additive for clients, and the value is inside document numbers
 anyway — but it is a change to an existing API's response shape, so it is stated rather than slipped in.
 
+### 🚨 S0b PART 2 WAS NEVER DONE — MEASURED 2026-10-02 (found while starting S8b)
+
+The paragraph above records the ordnum-identity migration as DONE. **It is not, and the live database
+says so in five independent ways:**
+
+| measured | value |
+|---|---|
+| `DOD_SCHEMA_MIGRATIONS` for `28092026-ordnum-identity` | **0 rows** (the migration harness records a version only on SUCCESS) |
+| `DOD_ORDER` rows with `ORDNUM IS NULL` | **482 of 486** |
+| `DOD_VENDOR_ORDERS` rows with `ORDNUM IS NULL` | **463 of 463** |
+| a unique index on `DOD_ORDER.ORDNUM` | **does not exist** (only PRIMARY and non-unique keys) |
+| `DOD_CUST_PROFILE.DOC_PREFIX` | 7 of 25 customers — exactly the 7 that own orders |
+| `DOD_DOC_COUNTER` | 2 rows, `LAST_SEQ` 3 and 4 (customer 12 and customer 1, FY 2022-23) |
+
+**The shape of the evidence is the diagnosis**: allocated prefixes, 4 minted numbers and burned counter
+values are the PARTIAL PROGRESS of a run that then failed — which is consistent with how the harness
+behaves (the version row is written last) and with the 4 numbered orders being the oldest two of each of
+the two customers whose counters advanced. So: the migration **ran, did part of the work, and failed**,
+and the failure was recorded as success in this file.
+
+**WHY IT MATTERS FOR THE WHOLE BATCH, not just for S0b.** `ORDNUM` is the ADDRESS the new API is built
+on (D4, D20). Today `GET /orders/{ordnum}` can address **4 of 486** orders; the other 482 are reachable
+only by row-id, which no HTTP route exposes. And the unique index that S0b was going to add — the real
+guard against a duplicate number, as opposed to the mint's pre-check-and-retry — is absent, so nothing
+but the retry loop stands between a birthday collision and two orders sharing an address.
+
+**THE FIX IS A RE-RUN, NOT A REWRITE**: the migration is idempotent by design (it mints only for rows
+whose ORDNUM is NULL and allocates a prefix only where `DOC_PREFIX IS NULL`), and its own dry run writes
+nothing. The order is: `mysqldump` the four tables, dry run, apply, then re-measure the six numbers in
+the table above. ⚠ Note what `apply-migrations` would ALSO apply while it is there:
+`20092026-insert-product-bulk-policies` is the one other pending entry, so a harness run has a scope it
+did not ask for — decide deliberately between running the harness (both) and applying this one migration
+and recording its version row.
+
+### 🚨 S0b PART 2 — APPLIED 2026-10-03: the data is done, the KEYS are blocked, and one duplicate was found
+
+**What was run, in order:** `mysqldump` of the four tables (438K, kept in `/tmp` — ⚠ ephemeral, copy it
+out if it is to outlive the session) → the migration's dry run (two bugs fixed below) → the REAL run
+via a one-off script that calls `migrate-2026Sep-ordnum-identity` and then records its version with the
+harness's own statement. `apply-migrations` was DELIBERATELY NOT used: it would also have applied
+`20092026-insert-product-bulk-policies`, an unrelated ABAC seed.
+
+**TWO BUGS ITS OWN DRY RUN FOUND, BOTH IN THIS FILE, BOTH FIXED (and this is the whole argument for a
+dry run that shares the code path):**
+1. **The counter bookkeeping** — the `per-series` entry is `(first last count)` and the code did
+   `(1+ (second series))`, incrementing the minted NUMBER (a string) instead of the COUNT. The type
+   error `The value "ORD-DEMO-2022-23-2VZ6PV" is not of type NUMBER` fired on the SECOND order of every
+   series — which is exactly the partial state the live database was found in.
+2. **The summary destructure** — `((key) (from to count))` against a four-element entry, signalling
+   AFTER all the writes. Since the harness records a version only on success, bug 2 alone would have
+   left a completed migration permanently "pending" and re-running forever.
+
+**THE DATA IS MIGRATED — MEASURED AFTER THE RUN:**
+
+| table | before | after |
+|---|---|---|
+| `DOD_ORDER` NULL ORDNUM | 482 of 486 | **0 of 486**, **485 distinct** |
+| `DOD_VENDOR_ORDERS` NULL ORDNUM | 463 of 463 | **0 of 463**, 456 distinct (vendor rows legitimately repeat, D20) |
+| customers with a `DOC_PREFIX` | 7 | 7 (no new allocation was needed — every order-owning customer already had one) |
+
+**🚨 AND THE MIGRATION STOPPED AT ITS LAST STEP, FOR A PRIVILEGE REASON:**
+`Error 1142 / ALTER command denied to user 'hhubuser'@'localhost' for table 'DOD_ORDER'` — the account
+holds `SELECT, INSERT, UPDATE, DELETE` only. So **the three unique keys (`uk_ordnum`,
+`uk_cust_doc_prefix`, `uk_vo_order_vendor`) were NOT added**, and the version row is therefore
+**deliberately unrecorded** (`0` rows) — the honest state, because the migration is not complete. Fix:
+`GRANT ALTER ON hhubdb.* TO 'hhubuser'@'localhost';` (or run the three ALTERs as a DBA), then re-run —
+the data half is idempotent (nothing left to mint) and the keys step is what remains.
+
+**🚨 AND THE KEYS STEP WOULD HAVE FAILED ANYWAY, WHICH IS THE DESIGN WORKING AS INTENDED: the backfill
+produced ONE DUPLICATE `ORDNUM`.** Rows **81 and 201** (customer 1, tenant 2, FY 2023-24) both carry
+`ORD-DEMO-2023-24-XNEBWE`. S0b adds the keys LAST *"so they VALIDATE the steps above"* — and they just
+did: a unique index cannot be built over that data, so the defect is caught here rather than in the
+field.
+
+**THE DUPLICATE IS NOT A REFERENCE COLLISION, AND NOT THE ALLOCATOR'S IDIOM — BOTH MEASURED:**
+* recomputing `nst-doc-reference` for counters 1..119 of that exact series **with the live key** gives
+  **119 distinct references, no collision** (and a width sweep at 4/5/6/7/8 over 1000 counters is clean);
+* the allocator was exercised against the live tables **three times in a row**: three DISTINCT numbers,
+  and `LAST_SEQ` advanced by exactly 3 (`4 → 7`), with the prefix reused and no refusal.
+⇒ 119 rows and 119 counter increments yielding 118 distinct references means the allocator handed out
+one sequence value twice during the backfill; the allocator's own SQL
+(`INSERT … ON DUPLICATE KEY UPDATE LAST_SEQ = LAST_INSERT_ID(LAST_SEQ + 1)`, then `SELECT
+LAST_INSERT_ID()`) is the correct atomic idiom and behaves correctly on repeat, so the leading
+hypothesis is a mid-loop connection event (a reconnected session answers `LAST_INSERT_ID()` with its own
+stale value). **The systemic fixes are the unique index (which would refuse the second write) and the
+pre-check-and-retry that the live `make` path already has — the BACKFILL has no such check, which is why
+it wrote the duplicate silently.**
+**Before the keys can be added, that one row must be re-minted** (allocate a fresh counter value and
+UPDATE the row); that is a two-line repair using the same mint.
+
+**AND S8b'S OWN CODE PATH IS NOW VERIFIED AGAINST THE LIVE DATABASE** — `nst-mint-order-number-for-customer`
+returned three well-formed numbers in the live series and advanced the counter correctly. That is the
+one part of S8b that could be tested without an image, and it passes. ⚠ The probe BURNED three counter
+values on purpose (4→7 for customer 1, FY 2026-27); the numbers are printed, not stored, and the series
+is non-sequential by design, so the gap is invisible.
+
+⚠ **AND AN ENVIRONMENT TRAP THAT COST A CYCLE**: the offline DB harness needs the writable clsql dist copy
+at `/tmp/nst-asdf/clsql-dist/clsql-20221106-git/` (nst-offline-load.lisp §3 explains why — clsql-mysql
+declares its C component with output-files in an unwritable source directory). `/tmp` is ephemeral, so
+after a cleanup or a reboot that copy is GONE and every offline DB run dies with
+`OPERATION-ERROR while invoking #<COMPILE-OP> on … clsql_mysql`, which reads like a broken library and is
+really a missing directory. Recreate it with the three commands in that file's header.
+
 **PART 2 (still to do): the profile page** — `customer/templates/customerprofile.html`: display the
 prefix, the override input (with a hidden `id`, the lesson the warehouse form had to learn), and
 F18's accessibility bits (a real label, programmatic error text, no colour-only signalling).
@@ -1271,6 +1377,14 @@ existing `"000"` literal in the render path (`customer/dod-ui-cus.lisp:3039`,
 real minted number is worse than either alone; (e) `daily` order creation
 (`run-daily-orders-batch`, `dod-bl-ord.lisp:602` → `create-order-from-pref` → `persist-order`)
 is covered by the same choke point, and one batch-created order is checked by hand.
+⚠ **CORRECTED 2026-10-02 BY RECONNAISSANCE, BEFORE IT COULD MISLEAD: THE BATCH PATH CANNOT RUN AT ALL.**
+`create-order-from-pref` (`:424`) supplies **12 values to `create-order`'s 28-variable
+`multiple-value-bind`, in the wrong order** — position 2 puts the CUSTOMER where `request-date` is
+expected — so `customer` binds to NIL and `(slot-value customer 'row-id)` at `:418` signals
+MISSING-SLOT *before any row is written*. Its only entry point is the superadmin route
+`^/hhub/rundailyordersbatch`. So AC (e) is not reachable by teaching the funnels to mint: the batch
+needs its value list repaired first, and that is now its own decision (see the S12 reconnaissance
+section below). The other four S8b ACs are unaffected.
 
 ### S9 / S10 / S11 — `nst-vordh` (vendor channel): DAL, BL, api
 `nst-vordh` over `DOD_VENDOR_ORDERS`, scoped by `VENDOR_ID = :login-vendor` **and** the
@@ -1287,6 +1401,140 @@ a row to another vendor or tenant, and cannot change `ORDNUM`; (e) a vendor orde
 `ORDNUM` is NULL → **404, not a guess**; (f) **after `PUT`, `ORD_DATE` is byte-identical**
 and `UPDATED` advanced — the T9 / D21 assertion, which is the only way this corruption
 becomes visible; (g) `!update` on a terminal status is refused.
+
+### S12/S13 — PREPARATION (2026-10-02): the shopcart path, measured, before writing a route
+
+The legacy checkout is the behavioural specification for `POST /orders`, so it was measured line by
+line before the API layer was written. Five findings, each of which changes how the endpoint must
+be built. **Nothing here is inferred from the create-script or from the code's names** — the
+mutable-value semantics were reproduced in a throwaway SBCL, and every column below was read off
+the CLSQL classes.
+
+1. 🚨 **THE LEGACY PATH DOES NOT PERSIST WHAT IT APPEARS TO — TWO SILENT INITARG MISMATCHES.**
+   `persist-order` passes `:shipaddr :shipzipcode :shipcity :shipstate :billaddr :billzipcode
+   :billcity :billstate :billsameasship :gstnumber :gstorgname :customer-name`, and the `dod-order`
+   view class declares **`:ship-address-short :ship-addr-full :ship-city … :cust-name :gst-number
+   :gst-org-name`**. `persist-order-items` passes `:cgst/:sgst/:igst` where that class declares
+   **`:cgst-rate/:sgst-rate/:igst-rate`**. CLSQL's `initialize-instance` on `standard-db-object` has
+   `&allow-other-keys`, so the keywords are **accepted and discarded**, and `attribute-value-pairs`
+   then **omits the unbound slots from the INSERT**.
+   ⇒ **every shopcart order has NULL addresses, NULL GST fields, NULL `CUSTNAME`, and NULL GST
+   RATES**, as do `SHIPPED_DATE`, `TOTAL_DISCOUNT` and `TOTAL_TAX` (no code ever writes those keys).
+   **The adhara entities and their list-driven copiers write by SLOT NAME, so the API will produce
+   the complete row the legacy never did** — that is a difference to state, not to apologise for.
+2. **THE CART IS A SESSION LIST OF UNSAVED `dod-order-items` INSTANCES** (`:login-shopping-cart`,
+   `:order-id` NIL, built by `create-odtinst-shopcart` `dod-bl-odt.lisp:221`), not a cart table and
+   not a cart class. It is emptied (`NIL`, not `'()`) only on the success branch, and the checkout
+   reads prices and tax from those session objects — which is why **an API request must not be able
+   to supply them**: add-to-cart snapshots `current-price`/`current-discount`, and
+   `update-gst-for-order-lineitem` computes the tax on the ship-methods page.
+3. **THE TAX IS COMPUTED AGAINST ONE VENDOR FOR EVERY LINE.** `(update-gst-for-order-lineitem
+   lineitem itemproduct (string-upcase shipstate) (string-upcase vstate))` with
+   `vstate = (slot-value singlevendor 'state)` — so a multi-vendor cart gets one vendor's state for
+   all of it, while `save-vendor-orders-in-db` then writes one row per distinct vendor. The API must
+   compute **per line against that line's own vendor state**.
+4. **THE VENDOR LOOKUP IS NOT TENANT-SCOPED.** `get-shopcart-vendorlist` uses
+   `select-vendor-by-id` (`vendor/dod-bl-ven.lisp:230`), which filters only `deleted-state` and
+   `row-id`. The batch already has the fix (`select-vendor-by-id-in-tenant`,
+   `vendor/nst-bl-vnd.lisp:470`). The API uses the scoped one; the legacy read is a live BOLA shape
+   and belongs on the F17-style inventory of legacy writers.
+5. **THE DAILY-BATCH PATH IS DEAD AS WRITTEN** — see the correction to S8b AC (e) above. Its
+   misaligned 12-into-28 value list means `run-daily-orders-batch` cannot create an order today.
+
+**And the gap list a public endpoint inherits from the UI flow** (all measured, none hypothetical):
+no idempotency (a fresh v1 uuid per request, so a double submit is two orders), no totals
+re-validation (the header total is a `fround` of the cart's own sums while the lines are unrounded —
+they can disagree by up to 50 paise), no empty-cart guard (an empty cart still writes a header with
+no lines), no payload guard (a direct hit on the action is a 500), no stock check (the decrement can
+go negative), no DB transaction (a mid-path failure leaves an orphan header), and per-vendor email /
+web-push / UPI writes that are part of the create rather than a consequence of it.
+
+### S12 + S13 — DONE (2026-10-02, CUSTOMER CHANNEL): the order routes and their bindings
+
+**Two new files**: `order/nst-bl-ordhapi.lisp` (59 top-level forms) and `order/nst-bl-orditmapi.lisp`
+(15). The legacy `dod-vendor-orders` class gained ONE slot (`ordnum`, D20 — the live column is
+`varchar(50)` and the class predated it); nothing else outside the two files changed except the two
+build lists and the preflight's change set.
+
+**Delivered surface** — 9 action routes, **7 bound paths** (the vendor 3 belong to S9-S11):
+
+| method | path | route |
+|---|---|---|
+| GET / POST | `/hhub/api/v1/orders` | `route-ordh-list` · `route-ordh-create` (201) |
+| GET / PUT / DELETE | `/hhub/api/v1/orders/{ordnum}` | `route-ordh-detail` · `-update` · `-delete` |
+| PUT / DELETE | `/hhub/api/v1/orders/{ordnum}/items/{item-id}` | `route-orditm-update` · `-delete` |
+
+`route-orditm-list` / `-fetch` are registered and deliberately unbound (lines reach the wire
+through the nested detail array; the spec publishes no line GET).
+
+**AC COVERAGE, stated rather than implied.**
+
+* S12 (a) the create requires no row-id ✓ — it is addressed by nothing, and the payload is the body.
+* S12 (b) no route renders — **with ONE DOCUMENTED EXCEPTION**: the 412 path writes the response
+  itself (`api-write-json`), because the classifier knows no 412 and the shared files are not this
+  change's to edit. Every other route returns a domain result and lets the dispatcher reverse-ferry it.
+* S12 (c) `:ordnum` and `:order-id` are stripped from update payloads ✓ — and in both cases AFTER the
+  address has been resolved and (for a line) after the PAIRING has been verified, which is the invoice's
+  measured rule: a verb guard that refuses the key its own address carries refuses every legitimate
+  request.
+* S12 (d) 401 fail-closed is the API layer's (`api-authenticate`, before any route runs) ✓; a session
+  that has a company but **no customer** answers a sentinel (404) from the route's D5 narrowing, which
+  is the deliberate difference between 'not signed in' (401) and 'not your order' (404).
+* S12 (e) the assembly writes header → lines → vendor rows, and the vendor rows are written LAST so a
+  refused line leaves no orphan vendor row ✓.
+* S13 (a) the 401/404 sweep needs a session and the vendor channel, so it is **S16's**, not claimable
+  here; the offline probe confirms the two deliberately-unbound item paths answer
+  `404 no_such_endpoint` ✓.
+* S13 (b) path params beat the body by `api-params-for-request`'s own precedence ✓.
+* S13 (c) `/vendor/orders` vs `/orders` shadowing is **not yet testable** — the vendor paths do not
+  exist. It belongs to S9-S11.
+* S13 (d) `nst-binding-order-check` **PASS** ✓ (re-run by the reviewer, not only by the implementer).
+
+**A REAL DEFECT IN S5 WAS FOUND BY WRITING THIS LAYER, AND IS FIXED.** `nst-order-header-update` ran
+the FIELD POLICY before CONSUMING the control keys, so `:if-match` was refused as a mass-assignment
+escalation and **every If-Match update would have answered 409** naming `:IF-MATCH` — while the
+validator the API itself issued was perfectly valid. The control keys are now consumed first and the
+field policy never sees them (nst-bl-ordh.lisp), which also makes the verb correct for the DIRECT
+callers a route never covers. The route keeps its own pre-check anyway, because only the route can
+answer **412** rather than a sentinel's 409; it calls the SAME function the verb calls, and the key is
+then passed to the verb as well so the domain re-checks immediately before the write.
+
+**THE FIVE RECONNAISSANCE CORRECTIONS, AS APPLIED.** (1) The legacy column set is recorded as the
+legacy's **INTENT, not its output**: the file states the initarg trap, that the entities and copiers
+write by SLOT NAME, and that this route therefore produces addresses, GST identity and CUSTNAME the
+legacy never wrote — a fix, not a divergence. (2) **Vendor resolution is `select-vendor-by-id-in-tenant`**,
+never the legacy's unscoped `select-vendor-by-id` — the file quotes that function's own BOLA warning,
+because the row's TENANT_ID is the session's and a vendor row here cannot name another tenant's vendor.
+(3) **Tax is computed PER LINE against that line's own vendor**, both state strings upcased exactly as
+the legacy call site does, the vendor's `state` slot used and `gst-state-code` deliberately NOT used as
+a fallback (choosing between two state columns is a GST decision, not a route's). (4) The **daily batch
+is no longer described as a working funnel** anywhere in the file. (5) `route-ordh-update` now **passes
+`:if-match` into `!update`** *and* keeps its 412 pre-check — the key is safe to pass only because the
+domain fix above landed, which is now a documented cross-file dependency: a revert would make If-Match
+PUTs 409 again (412 would still hold, since the route writes that itself). The double SELECT on a PUT
+that carries a validator is the price of answering 412 rather than 409.
+
+**VERIFIED (offline, and only offline).** Preflight **PASS** (both files reader-checked and in BOTH
+build lists); `nst-verify-doc-numbering.lisp` **126 checks, 0 failures**; `nst-order-mirror-check.lisp`
+**PASS**; `nst-binding-order-check` **PASS**; and **`nst-offline-load.lisp` printed `STAGE: LOADED`
+and exited 0** — the whole tree compiled from source and LOADED, which is the only evidence that the
+load-time `register-api-route` refusals did not fire and that the asd order is right. The implementer
+additionally probed the live registries in that scratch image: all nine routes registered with
+`:channel :http`, all five+two paths resolving to the intended route, and three paths that should not
+exist (`GET …/items/{id}`, `GET …/items`, `POST …/items`) answering 404 `no_such_endpoint`.
+
+**NOT VERIFIED — and nothing here has run against the domain:** the create assembly end to end, the
+two 412 paths, the sentinel→status mapping, `abort-request-handler`'s throw, `product-vendor` faulting
+on the tax copy, and the live nullability of `DOD_ORDER.CUSTNAME`. All of that is **S16**, with a
+session and a database.
+
+**LEDGER (opened by S12/S13):** the 412 belongs in `apidefs2`'s classifier as a condition class rather
+than in the route; `ordh-nested-param`'s two-spelling lookup exists because
+`api-camel->lisp-name("totalItemVal")` is `:TOTAL-ITEM-VAL` while the entity's initarg is
+`:TOTALITEMVAL` — a shared-seam wart, recorded not fixed; an ORDNUM containing `/` would be
+unaddressable as a single `{ordnum}` segment (the live format is hyphen-only, but a hand-set
+`DOC_PREFIX` could break it); and the interim vendor-row writer in this file is promoted to the
+`nst-vordh` प्रत्यय in S9-S11, which is also where the vendor channel's three routes and bindings go.
 
 ### S12 — Tier-2 action verbs + `register-action-route`
 `route-ordh-create` (the D14 assembly) / `-list` / `-detail` / `-update` / `-delete`,
