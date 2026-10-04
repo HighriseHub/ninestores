@@ -2107,7 +2107,7 @@ Only shows sections based on availability flags and customer type."
 	      (:input :id "email" :class "form-control" :type "email" :class "form-control" :name "email" :value email :placeholder "Email" :data-error "That email address is invalid" :tabindex (+ tabindex 1)))))))
 
 (defun display-shipping&billing-widget (address zipcode city state )
-  (let ((charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
+  (let ((charcountid1 (format nil "idchcount~A" (hhub-random-token 3))))
     (cl-who:with-html-output-to-string (*standard-output* nil)
       ;; Row for Shipping and Billing Address. 
       (with-html-div-row

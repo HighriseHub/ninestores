@@ -233,7 +233,7 @@
          (entity (apply #'make-instance 'nst-invh :tenant-id tenant-id initargs))
          (dbobj (make-instance 'dod-invoice-header)))
     (unless (invnum entity)
-      (setf (invnum entity) (format nil "NST000~A" (hhub-random-password 10))))
+      (setf (invnum entity) (format nil "NST000~A" (hhub-random-token 10))))
     (unless (invdate entity)
       (setf (invdate entity) (clsql-sys:get-date)))
     (unless (finyear entity)

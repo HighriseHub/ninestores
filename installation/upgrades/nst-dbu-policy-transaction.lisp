@@ -22,107 +22,24 @@
 (in-package :nstores)
 
 ;;; ---------------------------------------------------------------------------
-;;; Convenience helpers - all of them are idempotent / safe to run twice.
+;;; 🚨 THE HELPER DEFINITIONS THAT USED TO SIT HERE ARE DELETED (2026-10-04), AND THIS
+;;; COMMENT IS THE REASON — they were a SECOND COPY of helpers that already live in
+;;; hhub/core/nst-sch-mig.lisp: auth-policy-inserted-p, bus-transaction-inserted-p,
+;;; auth-policy-id-by-name, insert-auth-policy, insert-bus-transaction.
+;;;
+;;; WHY DELETING THEM FIXES A LIVE BUG rather than merely tidying: apply-migrations calls
+;;; load-upgrade-files FIRST, so this file is loaded AFTER core/nst-sch-mig.lisp — which means
+;;; its older copies OVERWROTE the canonical ones for the rest of the run. The canonical
+;;; insert-auth-policy escapes every string through sql-literal (single quotes doubled); these
+;;; copies did not, so an apostrophe in a DESCRIPTION terminated the SQL literal and the seed
+;;; died with Error 1064 — measured on 2026-10-04 on the order API seed, whose first
+;;; description reads "the session customer's orders". The escaping was in the image the whole
+;;; time and was never called: ONE HELPER, ONE DEFINITION.
+;;;
+;;; The helpers are always available when this file runs: they are defined at asd load time by
+;;; core/nst-sch-mig.lisp, which is also the file that defines apply-migrations and
+;;; load-upgrade-files. Nothing here needs to define them again.
 ;;; ---------------------------------------------------------------------------
-
-(defun auth-policy-inserted-p (name tenant-id)
-  "Non-nil if a live (not soft-deleted) policy with NAME exists."
-  (let ((result (clsql:query
-                 (format nil
-                         "SELECT COUNT(*) FROM DOD_AUTH_POLICY
-                          WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N'"
-                         name tenant-id)
-                 :flatp t)))
-    (> (first result) 0)))
-
-(defun bus-transaction-inserted-p (name tenant-id)
-  "Non-nil if a live (not soft-deleted) transaction with NAME exists."
-  (let ((result (clsql:query
-                 (format nil
-                         "SELECT COUNT(*) FROM DOD_BUS_TRANSACTION
-                          WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N'"
-                         name tenant-id)
-                 :flatp t)))
-    (> (first result) 0)))
-
-(defun auth-policy-id-by-name (name tenant-id)
-  "Return the ROW_ID of the LIVE policy named NAME, or NIL."
-  (let ((result (clsql:query
-                 (format nil
-                         "SELECT ROW_ID FROM DOD_AUTH_POLICY
-                          WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N'
-                          LIMIT 1"
-                         name tenant-id)
-                 :flatp t)))
-    (and result (first result))))
-
-(defun insert-auth-policy (name description policy-func &key (tenant-id 1) (active-flg "Y"))
-  "Insert a policy row unless one with NAME already exists.
-   Returns the policy ROW_ID (existing or freshly inserted)."
-  (if (auth-policy-inserted-p name tenant-id)
-      (progn
-        (format t "  policy ~A already exists - skipping~%" name)
-        (auth-policy-id-by-name name tenant-id))
-      (progn
-        (clsql:execute-command
-         (format nil
-                 "INSERT INTO DOD_AUTH_POLICY
-                    (NAME, DESCRIPTION, POLICY_FUNC, CREATED_BY, ACTIVE_FLG, DELETED_STATE, TENANT_ID)
-                  VALUES
-                    ('~A', '~A', '~A', NULL, '~A', 'N', ~D)"
-                 name description policy-func active-flg tenant-id))
-        (format t "  inserted policy ~A~%" name)
-        (auth-policy-id-by-name name tenant-id))))
-
-(defun insert-bus-transaction (transaction-name uri trans-type
-                               &key policy-id policy-name policy-description policy-func
-                                    (trans-func nil) (abac-subject-id nil)
-                                    (tenant-id 1) (active-flg "Y"))
-  "Insert a transaction row (and, if its governing policy does not exist yet,
-   insert that policy too). Idempotent on transaction NAME.
-
-   Either pass :policy-id (the AUTH_POLICY_ID you already know) or pass
-   :policy-name, :policy-description, :policy-func to have the policy created
-   implicitly and linked.
-
-  Returns the transaction ROW_ID (existing or freshly inserted)."
-  (unless trans-func
-    (setf trans-func (concatenate 'string "com-hhub-transaction-" trans-type)))
-  (let* ((effective-policy-id
-           (if policy-id
-               policy-id
-               (insert-auth-policy policy-name policy-description policy-func
-                                   :tenant-id tenant-id :active-flg active-flg))))
-    (unless effective-policy-id
-      (error "Could not resolve AUTH_POLICY_ID for transaction ~A. Pass :policy-id or :policy-name." transaction-name))
-    (if (bus-transaction-inserted-p transaction-name tenant-id)
-        (progn
-          (format t "  transaction ~A already exists - skipping~%" transaction-name)
-          (let ((res (clsql:query
-                      (format nil
-                              "SELECT ROW_ID FROM DOD_BUS_TRANSACTION
-                               WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N' LIMIT 1"
-                              transaction-name tenant-id)
-                      :flatp t)))
-            (and res (first res))))
-        (progn
-          (clsql:execute-command
-           (format nil
-                   "INSERT INTO DOD_BUS_TRANSACTION
-                      (NAME, URI, AUTH_POLICY_ID, TRANS_TYPE, CREATED_BY, ACTIVE_FLG, DELETED_STATE, TENANT_ID, TRANS_FUNC, ABAC_SUBJECT_ID)
-                    VALUES
-                      ('~A', '~A', ~D, '~A', NULL, '~A', 'N', ~D, '~A', ~A)"
-                   transaction-name uri effective-policy-id trans-type active-flg tenant-id
-                   trans-func (if abac-subject-id (format nil "~D" abac-subject-id) "NULL")))
-          (format t "  inserted transaction ~A (~A) linked to policy ~D~%"
-                  transaction-name uri effective-policy-id)
-          (let ((res (clsql:query
-                      (format nil
-                              "SELECT ROW_ID FROM DOD_BUS_TRANSACTION
-                               WHERE NAME = '~A' AND TENANT_ID = ~D AND DELETED_STATE = 'N' LIMIT 1"
-                              transaction-name tenant-id)
-                      :flatp t)))
-            (and res (first res)))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Standalone runner - applies ALL policy/transaction migrations registered

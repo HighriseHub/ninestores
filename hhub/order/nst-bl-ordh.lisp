@@ -143,8 +143,11 @@
    BOTH batches can reach it. The 0.0 class initforms cover the OMITTED field; this covers
    the SUPPLIED one, and fixing only one of the two leaves most requests failing."
   (dolist (f *ordh-mirrored-slots*)
+  ;; ⚠ GUARDED: an optional field is UNBOUND on a fresh entity and `slot-value` SIGNALS on it.
+  ;; See nst-db-slot-value-from-domain (core/dod-bl-utl.lisp).
     (setf (slot-value destination f)
-          (nst-coerce-for-db-slot destination f (slot-value source f))))
+          (nst-coerce-for-db-slot destination f
+                                  (nst-db-slot-value-from-domain source f))))
   (setf (slot-value destination 'tenant-id) (slot-value source 'tenant-id))
   destination)
 

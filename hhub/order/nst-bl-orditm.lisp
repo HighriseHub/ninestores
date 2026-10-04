@@ -271,8 +271,11 @@
    core/dod-bl-utl.lisp (moved there in S7) because the header's copier needs it too and the
    order files load before the invoice's."
   (dolist (f *orditm-mirrored-slots*)
+  ;; ⚠ GUARDED: an optional field is UNBOUND on a fresh entity and `slot-value` SIGNALS on it.
+  ;; See nst-db-slot-value-from-domain (core/dod-bl-utl.lisp).
     (setf (slot-value destination f)
-          (nst-coerce-for-db-slot destination f (slot-value source f))))
+          (nst-coerce-for-db-slot destination f
+                                  (nst-db-slot-value-from-domain source f))))
   (setf (slot-value destination 'tenant-id) (slot-value source 'tenant-id))
   destination)
 

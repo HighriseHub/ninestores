@@ -184,7 +184,7 @@
 	 (idtextarea (format nil "~Atextarea~A" (gensym "hhub") prd-id))
 	 (idisserviceproduct (format nil "idserviceproduct~A~A" (gensym "hhub") prd-id))
 	 (prdcategory (when catg-id (search-prdcatg-in-list catg-id catglist)))
-	 (charcountid1 (format nil "idchcount~A" (hhub-random-password 3))))
+	 (charcountid1 (format nil "idchcount~A" (hhub-random-token 3))))
  (cl-who:with-html-output (*standard-output* nil)
    (with-html-div-row 
      (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"

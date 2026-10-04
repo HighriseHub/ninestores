@@ -1249,7 +1249,7 @@ dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form (form-name form-action  &body body) 
     :documentation "Arguments: form-action - the form's action, body - any additional hidden form input elements."
-    `(let ((formid (format nil "id~A~A" ,form-name (hhub-random-password 3))))
+    `(let ((formid (format nil "id~A~A" ,form-name (hhub-random-token 3))))
        (cl-who:with-html-output (*standard-output* nil) 
 	 (:form :class ,form-name :id formid :name ,form-name  :method "POST" :action ,form-action :novalidate "novalidate" :role "form" :enctype "multipart/form-data" 
 		,@body)))))
