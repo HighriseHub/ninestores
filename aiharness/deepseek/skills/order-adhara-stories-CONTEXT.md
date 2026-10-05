@@ -58,14 +58,11 @@ attempts, the wrong fixes) is in `archive/order-adhara-stories-NARRATIVE-2026-10
 
 ### The immediate next actions, in order
 
-1. **Restart the image** (never an in-image load: the S16 fixes are a `defclass` change across three
-   files, and reloading a class-defining file can wedge `ensure-class` for the process life, T6).
-2. **`smoke-order-header-api.sh --write`** — this is AC (a) of S16: the create's first `201`, a minted
-   `ORDNUM`, its lines, its vendor row, the idempotency replay, then cleanup. From a machine with no
-   mysql client it needs `NS_ALLOW_NO_SQL=1` (the rows are still removed over the API; the product
-   stock can only be restored where SQL exists).
-3. **Run the items suite**, then **write the consolidated one** (`smoke-order-api.sh`: both sessions,
-   the full lifecycle, the BOLA cases, O3 asserted as `KNOWN`).
+1. ~~Restart the image~~ ✅ done 2026-10-05, and ~~`--write` for AC (a)~~ ✅ **PROVEN** — the create
+   answers 201 with a minted number, the replay and the full lifecycle. See the S16 entry in §6.
+2. **Run the items suite** (`smoke-order-items-api.sh`, written and unrun), then **write the
+   consolidated one** (`smoke-order-api.sh`: both sessions, the full lifecycle, the BOLA cases, O3
+   asserted as `KNOWN`).
 4. **Write S16's verdict into §6**, then close the batch against §8. Then this file can be retired to
    `archive/` — but note that **10 `.lisp` files cite its path**, so that move needs those headers
    repointed in the same change.
@@ -436,21 +433,44 @@ reaching `STAGE: LOADED`. **Trap:** the driver's handler wraps the LOAD as well 
 recompiled file reported **119 style warnings of which 6 were real** — read `Compiled`/`Skipped`/
 `Failed`, never `Style Warnings`. **Tool:** `nst-compile-production.lisp`.
 
-### S16 — the four smoke suites · ⏳ IN PROGRESS 2026-10-04
-**Proven live:** the header suite (33 checks, 0 fail — the sweep, the reads, the guards, the status
-gates, F5's field half, the 412, BOLA with no existence oracle) and the vendor suite (30 / 0 / 1 KNOWN
-— AC (c) in one session, AC (e) with a manufactured NULL-ORDNUM row, AC (g) on `CMP` and `VCN`, and
-AC (f)'s `ORD_DATE` byte-identity).
-**⚠ STILL OPEN:** AC (a) the create's `201` (needs an image restart), the items suite (written, not
-run), the consolidated suite (not written), and O3's window.
-**🚨 THE THREE DEFECTS S16 FOUND, and the fact they shared:** the create had **never once worked over
-HTTP**. (1) `ordh-nested-param` tested body keys for STRINGS while cl-json yields SYMBOLS — every
-`POST /orders` was a 400; (2) the three domaintodb copiers read unbound slots — a 500 *after* the
-number had been minted; (3) 90 entity slots lacked initforms — the vendor-row builder signalled. Fixed
-by `nst-db-slot-value-from-domain`, the initforms, and a symbol-key comparison.
-**Tool:** `nst-verify-order-create.lisp` (23 checks, mutation-tested both ways).
-⚠ **The `UPDATED`/F8 defect is KNOWN**: `UPDATED` is frozen by the write itself, so the vendor ETag
-never changes and `If-Match` cannot detect a concurrent write — recorded in `PENDING-WORK §10`.
+### S16 — the four smoke suites · ⏳ IN PROGRESS (AC (a) PROVEN 2026-10-05)
+**✅ AC (a) IS PROVEN: the API created its first order.** `POST /orders → 201`, `rowId 497`,
+`ORD-DEMO-2026-27-SFTR3E` — the minted number matching the documented shape — followed by the F6
+idempotency replay answering **the same rowId**, the order reading back by its number, an empty cart
+refused `400`, a product that is not this tenant's `404`, `PUT 200`, `DELETE 200`, and the row
+invisible afterwards. **Header suite: 44 PASS / 0 FAIL / 1 SKIP.**
+**Also proven live:** the vendor suite (30 / 0 / 1 KNOWN — AC (c) in ONE session, AC (e) with a
+manufactured NULL-ORDNUM row, AC (g) on `CMP` and `VCN`, AC (f)'s `ORD_DATE` byte-identity), and the
+header suite's whole read half (sweep, reads, guards, status gates, F5's field half, 412, BOLA with
+no existence oracle).
+**⚠ STILL OPEN:** the items suite (written, not run), the consolidated suite (not written), O3's
+window, and the `UPDATED`/F8 defect below.
+
+**🚨 THE FOUR DEFECTS S16 FOUND — and the fact they shared: THE CREATE HAD NEVER ONCE WORKED.**
+1. `ordh-nested-param` tested body keys for **strings** while cl-json yields **symbols** → every
+   `POST /orders` was a 400.
+2. The three domaintodb copiers read **unbound** slots → a 500, after the number was minted.
+3. **90 entity slots had no initform** → the vendor-row builder signalled (the HTTP ctx has `:ACTOR NIL`).
+4. `nst-vendor-order-insert` returned `bind-generated-row-id`'s value — the id **STRING** — instead of
+   the entity, so the assembly answered `"471"` and `render-json` (no method for a string) 500'd
+   **after a fully successful write**.
+Fixed by `nst-db-slot-value-from-domain` (`core/dod-bl-utl.lisp`), the 90 initforms, a symbol-key
+comparison, and the one-word return. **Every one was found by RUNNING, never by reading** — and each
+was invisible from the BL. **Tool:** `nst-verify-order-create.lisp` (23 checks, mutation-tested).
+
+**TWO CASCADE FACTS, both measured in the same run:** the header's `delete!` **does** cascade to its
+LINES (S7's लोप — every line of the deleted order was `DELETED_STATE='Y'`), and it **does not** cascade
+to the VENDOR rows, which is §0's long-standing open item, now with a live reproduction. The header
+suite asserts the first and prints the second.
+
+**⚠ AND ONE DEFECT WAS THE SUITE'S OWN:** its lifecycle cleared the cleanup key after the API's
+DELETE, but that DELETE is a **soft** one — the rows are still in the table — so the SQL hard-delete
+never ran and every `--write` run left its order, line and vendor row behind. Fixed: the key is kept
+and the physical removal is `restore_rows`' job, by row-id, on the success path exactly as on the
+failure path.
+
+⚠ **`UPDATED`/F8 is KNOWN**: the write freezes `UPDATED`, so the vendor ETag never changes and
+`If-Match` cannot detect a concurrent write — `PENDING-WORK §10`.
 
 ### S17 — the `invoice (ord ctx)` compound verb · ⛔ OUT OF THIS BATCH
 What the batch unblocks. Blocked on D14's atomicity seam and the invoice-side `create-with-lines` gap.
