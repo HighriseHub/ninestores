@@ -1,5 +1,11 @@
 # The public invoice link — signed, expiring, password-gated
 
+**Read this when:** a public invoice link will not open or asks for a password · its
+expiry or attempt limit · a customer says "this link is expired" while the vendor's page
+looks fine · the emailed or attached PDF is a picture of the PASSWORD FORM · the vendor's
+share icon is red, or needs to stop being red · changing
+`*invoice-ext-link-lifetime-seconds*` or `*invoice-ext-max-attempts*`.
+
 **Verified 2026-10-03** against the real database, offline, with no image reload
 (`../tools/nst-verify-invoice-public-link.lisp`, 116 checks). Where this file states a
 measurement, that tool is the evidence; where it states a design decision, the reasoning

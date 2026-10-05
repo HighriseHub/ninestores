@@ -1,14 +1,19 @@
----
-name: ninestores-actor-model
-description: Nine Stores actor model (hhub/core/nst-bl-act.lisp) — mailboxes, behaviours, ask/reply, retries, dead letters, supervision, and the send-email-async path. Load before writing, wiring or debugging an actor or any fire-and-forget job (email, SMS/WhatsApp, S3, webhook) in hhub; it carries the API, the invariants and the traps, and points at the full KB article.
-whenToUse: Adding a background or fire-and-forget job to hhub (email, SMS/WhatsApp notification, S3 object, webhook); converting a raw sb-thread:make-thread into actor work; debugging an actor that stopped processing, dropped messages, retried, dead-lettered, or blocked its caller.
----
+# SKILL: Nine Stores actor model
 
-# Nine Stores actor model
+**Read this when:** you are adding a background or fire-and-forget job to hhub (email,
+SMS/WhatsApp notification, S3 object, webhook); converting a raw
+`sb-thread:make-thread` into actor work; debugging an actor that stopped processing,
+dropped messages, retried, dead-lettered, or blocked its caller.
 
-Authoritative detail: **`aiharness/deepseek/skills/knowledge/nst-bl-act-CONTEXT.md`**.
-Read that before changing the framework or a behaviour; this file is the orientation
-and the checklist.
+**Status:** the five invariants, the checklist and the debugging table were verified
+2026-09-23 against `hhub/core/nst-bl-act.lisp`; the suite is
+`hhub/test/hhub-tst-act.lisp` (PASS exit 0, FAIL exit 1).
+
+**Applies to:** `hhub/core/nst-bl-act.lisp`, every behaviour and its registration, and
+the `send-email-async` / notification paths.
+
+**Authoritative detail:** `nst-bl-act-CONTEXT.md`. Read that before changing the
+framework or a behaviour; this file is the orientation and the checklist.
 
 ## Files
 

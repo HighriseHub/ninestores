@@ -93,20 +93,33 @@ an asd entry (`nstores.asd:50`). Three traps:
    A `(compile-production)` that writes `/…/hhub/products/x.fasl` and reports
    *Compiled: 7, Failed: 0* changes **nothing** the running server can see.
 
-   **How to tell which build is live** — the answer is a timestamp, not an opinion:
+   **How to tell which build is live** — the answer is a fact about the cache, not an
+   opinion. **CORRECTED 2026-10-05**, moved here from `PENDING-WORK-CONTEXT.md` §7 (which
+   now points here): the recipe below used to compare *times of day*, which is one of the
+   two traps it now warns about.
 
    ```sh
-   ls -la --time-style=+%H:%M:%S \
-     /home/hunchentoot/.cache/common-lisp/sbcl-2.6.8-linux-x64/home/ubuntu/ninestores/hhub/core/nst-sch-mig.fasl
+   # 1. the decisive check: does the cached build CONTAIN the new code?
+   strings /home/hunchentoot/.cache/common-lisp/sbcl-2.6.8-linux-x64/home/ubuntu/ninestores/hhub/core/nst-sch-mig.fasl \
+     | grep -ci nst-doc-prefix-base        # 0 = the cache predates this batch
+   # 2. WHEN was it built, and when did the process start?
+   stat -c '%y %n' /home/hunchentoot/.cache/common-lisp/sbcl-2.6.8-linux-x64/home/ubuntu/ninestores/hhub/core/nst-sch-mig.fasl
    ps -eo pid,user,lstart,cmd | grep '[s]bcl'
    ```
 
-   Compare against your edit times. **Cost a real hour on 2026-09-20:** an edit to
-   `nst-sch-mig.lisp` (which holds the `*migrations*` registry) sat uncompiled for
-   eight minutes, `apply-migrations` ran "successfully" and applied nothing, and
-   the failure was invisible — the migration list comes from **the image**, while
-   `load-upgrade-files` reads its functions from **disk**, so the two disagree
-   silently.
+   Two traps here, each of which has produced a wrong answer:
+
+   * **`grep -c` is case-sensitive and SBCL writes the symbol UPPERCASE**, so it answers
+     `0` even when the code IS present. Use `grep -ci`.
+   * **COMPARE FULL DATES, NOT TIMES OF DAY.** A file built on a different day can carry
+     the same time of day, so `--time-style=+%H:%M:%S` makes a stale build and a fresh one
+     look identical. Use `stat -c '%y'` (full date and time), never the time alone.
+
+   **Cost a real hour on 2026-09-20:** an edit to `nst-sch-mig.lisp` (which holds the
+   `*migrations*` registry) sat uncompiled for eight minutes, `apply-migrations` ran
+   "successfully" and applied nothing, and the failure was invisible — the migration list
+   comes from **the image**, while `load-upgrade-files` reads its functions from **disk**,
+   so the two disagree silently.
 
    **The reliable fix is a restart**, and it is also the only one that clears a
    stale registry: a new process loads through ASDF, which recompiles anything whose

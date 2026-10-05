@@ -14,6 +14,13 @@ code — most of the sharp edges below already cost hours once.
 exercised against the running server that day; everything else is *reasoned, not
 yet run*.
 
+**⚠ Added 2026-10-05 — two shared-core changes are NOT in this file** (it predates them):
+`api-params-and-route-matching-CONTEXT.md` owns them — `api-query-params` (before
+2026-09-12 the API layer did **not read the query string at all**, so every filtering
+endpoint was unreachable over HTTP) and the route-matching change with the
+`template`-vs-`{id}` collision. Read that file before changing `api-params-for-request`,
+`api-query-params`, `find-api-route` or `api-route-param-count`.
+
 ---
 
 ## 1. Where things live

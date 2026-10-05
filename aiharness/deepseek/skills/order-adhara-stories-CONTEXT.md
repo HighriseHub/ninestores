@@ -5,22 +5,32 @@ order to the Paninian (adhara) grammar — i.e. writing `nst-ordh` / `nst-orditm
 `nst-vordh`, their प्रत्यय, their routes or their smoke tests — or you are about to build
 the `order → invoice` compound verb and need to know what it waits on.
 
-**Status: DESIGN SETTLED 2026-09-27 · IMPLEMENTED THROUGH S14 (2026-10-04).** Both channels are live
-code with their acceptance criteria verified **offline**: the customer's (`nst-ordh` + `nst-orditm`)
-and the **vendor's** (`nst-vordh` — its own file, `vendor-orders-adhara-CONTEXT.md`, decisions
-V1–V15). **S15 (build + offline load) and S16 (the four smoke suites) remain**; S17 (the
-`invoice (ord ctx)` compound verb) is out of this batch. What is left is mostly **live** verification
-— a session-scoped 401/404 sweep and the AC (f) `ORD_DATE` assertion — which is exactly what S16 is
-for. The batch's headline discovery, and the reason it was worth the work, is §3b: **there was no
-order number anywhere in the database** — 485 of 485 orders and 462 of 462 vendor rows had a NULL
-`ORDNUM`. They have one now: `ORD-<DOC_PREFIX>-<FY>-<seq>`, from a per-customer document prefix,
-permuted non-sequentially so the series is not a competitor-enumeration oracle (F1), with `uk_ordnum`
-enforcing uniqueness. Both prerequisites this batch had to carry are DONE and APPLIED: the counter
-table `DOD_DOC_COUNTER` (+ `DOD_SYS_SECRET.DOC_REF_KEY`) and the existing number-format template,
-which the prefix JOINs as a `{prefix}` token rather than replaces. **The standards review is §10**
-(OWASP API Top 10 / NIST / Google AIP / RFC / WCAG — nineteen findings): read F1–F6 before changing
-behaviour, and read **F3** before touching authorization, because S14's seeded policy rows are
-**carried, not enforced** (D18) and must not be mistaken for a control.
+**Status: DESIGN SETTLED 2026-09-27 · IMPLEMENTED THROUGH S15 (2026-10-04) · S16 IN PROGRESS
+(AC (a) PROVEN live 2026-10-05).** Both channels are live code with their acceptance criteria verified
+**offline**: the customer's (`nst-ordh` + `nst-orditm`) and the **vendor's** (`nst-vordh` — its own
+file, `vendor-orders-adhara-CONTEXT.md`, decisions V1–V15). Left in S16: the items suite (written,
+unrun) and the consolidated suite (not written); S17 (the `invoice (ord ctx)` compound verb) is out of
+this batch. The batch's headline discovery is §3b: **there was no order number anywhere in the
+database** — 485 of 485 orders and 462 of 462 vendor rows had a NULL `ORDNUM`. They have one now:
+`ORD-<DOC_PREFIX>-<FY>-<seq>`, from a per-customer document prefix, permuted non-sequentially so the
+series is not a competitor-enumeration oracle (F1), with `uk_ordnum` enforcing uniqueness. Both
+prerequisites are DONE and APPLIED: the counter table `DOD_DOC_COUNTER` (+ `DOD_SYS_SECRET.DOC_REF_KEY`)
+and the existing number-format template, which the prefix JOINs as a `{prefix}` token rather than
+replaces.
+
+**The standards review** (OWASP API Top 10 / NIST / Google AIP / RFC / WCAG — twenty findings, F20
+pre-existing) is now its own file, `knowledge/order-standards-review-CONTEXT.md`: read F1–F6 before
+changing behaviour and **F3** before touching authorization, because S14's seeded policy rows are
+**carried, not enforced** (D18) and are not a control. **The offline harness**: the copy-paste recipe is
+in §0 below; how a checker is proved, the four classes of checker bug, the registration rule and what no
+offline check can do are in `knowledge/offline-checker-methodology-CONTEXT.md`.
+**The narrative** behind every verdict below is in `archive/order-adhara-stories-NARRATIVE-2026-10-04.md`
+(2127 lines, snapshot of 2026-10-04) — read it to re-derive a verdict, not to start work.
+
+**Applies to:** the nine `hhub/order/` files, `hhub/core/dod-bl-utl.lisp`, `hhub/core/dod-ui-pol.lisp`,
+`hhub/core/nst-sch-mig.lisp`, the four
+`installation/upgrades/nst-dbu-{doc-counter,ordnum-identity,order-invariants,ordapi-policy-transaction}.lisp`
+migrations, `hhub/test/smoke-order-*.sh`, and the offline harness under `aiharness/deepseek/tools/`.
 
 ---
 
@@ -28,19 +38,16 @@ behaviour, and read **F3** before touching authorization, because S14's seeded p
 
 **Enter here, then open `vendor-orders-adhara-CONTEXT.md` if you are touching the vendor channel.**
 Every verdict below cites the check that produced it, and **every check named is OFFLINE** — no
-session, no server, no database write. The two stories that remain are mostly about *live*
-confirmation.
+session, no server, no database write.
 
 ### Where the code is (all of it, by story)
 
 | file | what it is | story |
 |---|---|---|
-| `hhub/order/nst-dal-ordh.lisp` | island entity + boundary models for `DOD_ORDER` (reuses `dod-order`, D7) | S1 |
-| `hhub/order/nst-dal-orditm.lisp` | the same for `DOD_ORDER_ITEMS` | S2 |
+| `hhub/order/nst-dal-ordh.lisp` · `hhub/order/nst-dal-orditm.lisp` | island entities + boundary models for `DOD_ORDER` (reuses `dod-order`, D7) and `DOD_ORDER_ITEMS` | S1/S2 |
 | `hhub/order/nst-bl-ordh.lisp` | the header's six प्रत्यय, the ferries, the field policy, `render-json`, the domaintodb copier | S3–S6 |
 | `hhub/order/nst-bl-orditm.lisp` | the line's six प्रत्यय + the parent proof + its copier | S7 |
-| `hhub/order/nst-bl-ordhapi.lisp` | the customer channel: 9 action routes, 7 bindings, the D14 assembly, the 412 seam, the nested body readers | S12/S13 |
-| `hhub/order/nst-bl-orditmapi.lisp` | the two line endpoints | 〃 |
+| `hhub/order/nst-bl-ordhapi.lisp` · `hhub/order/nst-bl-orditmapi.lisp` | the customer channel: 9 action routes, 7 bindings, the D14 assembly, the 412 seam, the nested body readers · then the two line endpoints | S12/S13 |
 | `hhub/order/nst-dal-vordh.lisp` | class `dod-vendor-order` over **all 60** live columns + the vendor island | S9 |
 | `hhub/order/nst-bl-vordh.lisp` | the VENDOR channel's six प्रत्यय (V8/V9/V10 live here) + its copier | S10 |
 | `hhub/order/nst-bl-vordhapi.lisp` | the vendor channel: 3 routes + 3 bindings + `vordh-row-from-url` + the ETag | S11 |
@@ -52,23 +59,21 @@ confirmation.
 
 ### Story status
 
-**S0–S15 DONE; S16 IN PROGRESS.** §6 is the per-story record — what each story is, its AC, its verdict
-and the trap it paid for. The narrative behind every one of those verdicts (the counts, the first
-attempts, the wrong fixes) is in `archive/order-adhara-stories-NARRATIVE-2026-10-04.md`.
+**S0–S15 DONE; S16 IN PROGRESS (AC (a) proven 2026-10-05).** §6 is the per-story record — what each
+story is, its AC, its verdict and the trap it paid for.
 
 ### The immediate next actions, in order
 
 1. ~~Restart the image~~ ✅ done 2026-10-05, and ~~`--write` for AC (a)~~ ✅ **PROVEN** — the create
-   answers 201 with a minted number, the replay and the full lifecycle. See the S16 entry in §6.
-2. **Run the items suite** (`smoke-order-items-api.sh`, written and unrun), then **write the
-   consolidated one** (`smoke-order-api.sh`: both sessions, the full lifecycle, the BOLA cases, O3
-   asserted as `KNOWN`).
-4. **Write S16's verdict into §6**, then close the batch against §8. Then this file can be retired to
-   `archive/` — but note that **10 `.lisp` files cite its path**, so that move needs those headers
-   repointed in the same change.
-5. **The KNOWN items**: `UPDATED`/F8 is frozen so the vendor ETag never changes (`PENDING-WORK §10`) ·
-   O3's partial-write window · the `IS_CONVERTED_TO_INVOICE` refusal has no fixture · the vendor
-   channel cannot reach its own LINES.
+   answers 201 with a minted number, the replay and the full lifecycle (S16, §6).
+2. **Run the items suite** (`smoke-order-items-api.sh`, written and unrun), then **write the consolidated
+   one** (`smoke-order-api.sh`: both sessions, the full lifecycle, the BOLA cases, O3 asserted as `KNOWN`).
+3. **Write S16's verdict into §6**, then close the batch against §8 and retire this file to `archive/` —
+   but note that **10 `.lisp` files cite its path**, so that move needs those headers repointed in the
+   same change.
+4. **The KNOWN items**: `UPDATED`/F8 is frozen so the vendor ETag never changes (`PENDING-WORK §10`) ·
+   O3's partial-write window · the `IS_CONVERTED_TO_INVOICE` refusal has no fixture · the vendor channel
+   cannot reach its own LINES.
 
 ### Open decisions that need the human (not bugs — choices)
 
@@ -79,7 +84,7 @@ attempts, the wrong fixes) is in `archive/order-adhara-stories-NARRATIVE-2026-10
 | — | **No nested lines on the vendor detail.** A vendor needs to know *what* to ship; serving it needs a vendor-scoped line read in `nst-bl-orditm.lisp` (that entity's enumerate filters by order, not vendor). | S11 note |
 | — | **Per-vendor tax totals are not computed** — the vendor row's `TOTAL_*` columns keep 0.00, because copying the ORDER's totals into one vendor's slice would overstate it. Per-vendor arithmetic is a later pass. | `ordhapi` V15 note |
 | — | **The customer channel emits no ETag**, so its `If-Match` is unusable (the vendor channel does emit one). | `ordhapi` |
-| **F12/F16** | PUT vs PATCH, and whether `POST /orders` includes OTP + wallet — still open from the standards review. | §10 |
+| **F12/F16** | PUT vs PATCH, and whether `POST /orders` includes OTP + wallet — still open from the standards review. | §10 record |
 
 ### The verification recipe — copy-paste, in this order
 
@@ -103,97 +108,47 @@ cp -rp /home/ubuntu/quicklisp/dists/quicklisp/software/clsql-20221106-git /tmp/n
 chmod -R u+w /tmp/nst-asdf/clsql-dist
 ```
 
-⚠ **A check whose INPUT is missing must FAIL, not pass.** Every tool above is written that way; if one
-of them ever reports "skipped", treat it as a failure and fix the harness.
+⚠ **A check whose INPUT is missing must FAIL, not pass** — the rule, its evidence (`nst-preflight.lisp:55-71`) and the four classes of checker bug are in `knowledge/offline-checker-methodology-CONTEXT.md` §1–§2.
 
 ### Traps this batch paid for — each cost real time, none is obvious
 
-1. **NEVER DEFINE A MIGRATION HELPER IN AN UPGRADE FILE.** `apply-migrations` calls
-   `load-upgrade-files` FIRST, so upgrade files load **after** `core/nst-sch-mig.lisp` and their
-   definitions **silently win**. The first policy seed carried its own copies of all five ABAC helpers,
-   written before the helpers moved — so the canonical `insert-auth-policy`, the one that escapes every
-   string through `sql-literal`, **was never called**, and a `DESCRIPTION` containing an apostrophe
-   (`"…the session customer's orders…"`) ended the SQL literal and died with **Error 1064** while the
-   escaping sat in the image, correct and fbound. The five definitions are deleted; the rule is now in
-   the ABAC skill. **When an escaping helper appears not to work, check who is defined before you.**
-2. **A NEW `hhub/**` FILE NEEDS FOUR REGISTRATIONS, NOT TWO**: `hhub/package/compile.lisp`,
-   `hhub/nstores.asd`, **and both lists inside `nst-preflight.lisp`** (`*files*` for reader balance and
-   SQL quoting, `*hhub-new-files*` for the build-registration check). They are separate lists; a file in
-   the first but not the second is balanced and then **silently skipped** — a pass that means nothing.
-3. **TOOLS THAT READ `hhub/**` SOURCES NEED CLSQL'S READER SYNTAX.** The tree is full of `[= …]` SQL
-   literals; with a stubbed package the reader answers `Package [ does not exist` and the tool reports a
-   **healthy file as unreadable** — the same lesson `nst-preflight.lisp:55-71` records for a missing
-   dependency. Either quickload clsql, or use a readtable with `[`/`]` as whitespace (what
-   `nst-vordh-mirror-check.lisp` does; `ql:quickload :clsql` collides over uffi here).
-4. **A probe must be `(in-package :nstores)` AFTER the tree loads** — the tree has ONE package, and a
-   probe left in `CL-USER` fails with `FIND-API-ROUTE is undefined` *after* a four-minute load, which
-   reads exactly like a missing binding.
-5. **THE DATABASE IS `STRICT_TRANS_TABLES`, SO AN OVER-LONG VALUE IS Error 1406, NOT A TRUNCATION** —
-   and `apply-migrations` catches per-migration and CONTINUES without recording the version, leaving a
-   seed that re-runs forever, half-applied. Widths that bite: `DOD_AUTH_POLICY.DESCRIPTION` 100,
-   `.NAME` 50, `DOD_BUS_TRANSACTION.NAME/URI/TRANS_FUNC` 100, `TRANS_TYPE` 15,
-   `DOD_SCHEMA_MIGRATIONS.version` 50. `nst-verify-abac-seed.lisp` checks all of them.
-6. **`TRANS_FUNC` IS THE LOOKUP KEY, NOT `NAME`**, and `insert-bus-transaction` defaults it to a string
-   derived from the trans-TYPE alone — so omitting it gives every READ endpoint ONE key. The convention
-   is `"api <METHOD> <path>"` with `{ordnum}` kept, while `URI` must be the **collection prefix** (a
-   template URI never matches a real request).
-7. **SBCL IS SILENT ABOUT AN UNUSED *REQUIRED* PARAMETER** (it warns about `let` bindings and about
-   `&optional`/`&key`). Neither `ql:quickload :silent t` nor the offline-load log shows it — the human's
-   build did. The sweep is `compile-file` per file with `*error-output*` captured; and when the warning
-   points at a **redundant carrier** (two functions each took a `tenant-id` they never used), DELETE the
-   parameter rather than silencing it.
-8. **`~:[FAIL (~D problem(s))~;PASS (~D check(s))~]` CONSUMES ONLY ONE ARGUMENT AFTER THE CONDITIONAL** —
-   so the FAIL branch prints the *check* count labelled "problem(s)", and a failing run reads
-   `FAIL (10 problem(s))` when it had two. Three files in this batch lost time to it; **a report that
-   lies about its own numbers is worse than no report.**
-9. **A FORM-WALKING CHECKER IS CODE, AND NEEDS THE SAME SUSPICION AS THE CODE IT CHECKS.** Four bugs in
-   one checker: a positional argument read as "the leading strings" when it was a `let` VARIABLE
-   (`order-uri`); plist keywords paired from the head instead of after the positionals; a dotted
-   `(cons label (cons value width))` read as a list; and two misplaced parens that silently turned an
-   enclosing `if` into a four-argument form — which the compiler reports as
-   *"Error while parsing arguments to special operator IF"*, not as a paren error.
-10. **AC (f)'s MECHANISM IS THE MIRROR LIST, NOT A SPECIAL CASE.** `!update` writes the row WHOLE, and
-    `ord-date` is in `*vordh-mirrored-slots*` — so the value read is written back, which is what defeats
-    `ON UPDATE CURRENT_TIMESTAMP` (T9, **vendor-only**: the header's `ORD_DATE` is a `date`). Reading a
-    `timestamp` as `clsql:date` DROPS the time of day, so the round trip would move the row to midnight
-    while looking correct — hence `(string 30)` (V5).
-11. **A VENDOR SESSION'S TENANT NEEDS NO WORK FROM AN API FILE**: `make-action-domain-ctx` builds it
-    from `conflodis2-login-company`, which resolves vendor → customer → user. And read the session with
-    `conflodis2-session-value`, **never** `hunchentoot:session-value` directly — outside a request the
-    direct call signals UNBOUND-VARIABLE, so "we cannot tell who you are" becomes a 500 instead of 401.
-12. **The scope filter's HOME is fixed by the grammar**: `fetch` and `delete!` are congruent at three
-    fixed arguments (no `&key`), so a vendor-id CANNOT ride them — it rides `enumerate`, `?exists`, and
-    `!update`'s `&rest` (consumed BEFORE the field policy, the S12 lesson), and the ROUTE narrows the
-    other two.
+1. **NEVER DEFINE A MIGRATION HELPER IN AN UPGRADE FILE.** `apply-migrations` calls `load-upgrade-files` FIRST, so upgrade files load **after** `core/nst-sch-mig.lisp` and their definitions **silently win**. The first policy seed carried its own copies of all five ABAC helpers, so the canonical `insert-auth-policy` — the one that escapes every string through `sql-literal` — **was never called**, and a `DESCRIPTION` containing an apostrophe (`"…the session customer's orders…"`) ended the SQL literal and died with **Error 1064** while the escaping sat in the image, correct and fbound. The five definitions are deleted; the rule is now in `knowledge/ABAC-policy-transaction-CONTEXT.md`. **When an escaping helper appears not to work, check who is defined before you.**
+2. **A NEW `hhub/**` FILE NEEDS FOUR REGISTRATIONS, NOT TWO**: `hhub/package/compile.lisp`, `hhub/nstores.asd`, **and both lists inside `nst-preflight.lisp`** (`*files*` for reader balance and SQL quoting, `*hhub-new-files*` for the build-registration check). They are separate lists; a file in the first but not the second is balanced and then **silently skipped** — a pass that means nothing.
+3. **TOOLS THAT READ `hhub/**` SOURCES NEED CLSQL'S READER SYNTAX.** The tree is full of `[= …]` SQL literals; with a stubbed package the reader answers `Package [ does not exist` and the tool reports a **healthy file as unreadable** — the same lesson `nst-preflight.lisp:55-71` records for a missing dependency. Either quickload clsql, or use a readtable with `[`/`]` as whitespace (what `nst-vordh-mirror-check.lisp` does; `ql:quickload :clsql` collides over uffi here).
+4. **A probe must be `(in-package :nstores)` AFTER the tree loads** — the tree has ONE package, and a probe left in `CL-USER` fails with `FIND-API-ROUTE is undefined` *after* a four-minute load, which reads exactly like a missing binding.
+5. **THE DATABASE IS `STRICT_TRANS_TABLES`, SO AN OVER-LONG VALUE IS Error 1406, NOT A TRUNCATION** — and `apply-migrations` catches per-migration and CONTINUES without recording the version, leaving a seed that re-runs forever, half-applied. Widths that bite: `DOD_AUTH_POLICY.DESCRIPTION` 100, `.NAME` 50, `DOD_BUS_TRANSACTION.NAME/URI/TRANS_FUNC` 100, `TRANS_TYPE` 15, `DOD_SCHEMA_MIGRATIONS.version` 50. `nst-verify-abac-seed.lisp` checks all of them.
+6. **`TRANS_FUNC` IS THE LOOKUP KEY, NOT `NAME`**, and `insert-bus-transaction` defaults it to a string derived from the trans-TYPE alone — so omitting it gives every READ endpoint ONE key. The convention is `"api <METHOD> <path>"` with `{ordnum}` kept, while `URI` must be the **collection prefix** (a template URI never matches a real request).
+7. **SBCL IS SILENT ABOUT AN UNUSED *REQUIRED* PARAMETER** (it warns about `let` bindings and about `&optional`/`&key`). Neither `ql:quickload :silent t` nor the offline-load log shows it — the human's build did. The sweep is `compile-file` per file with `*error-output*` captured; and when the warning points at a **redundant carrier** (two functions each took a `tenant-id` they never used), DELETE the parameter rather than silencing it.
+8. **`~:[FAIL (~D problem(s))~;PASS (~D check(s))~]` CONSUMES ONLY ONE ARGUMENT AFTER THE CONDITIONAL** — so the FAIL branch prints the *check* count labelled "problem(s)", and a failing run reads `FAIL (10 problem(s))` when it had two. Three files in this batch lost time to it; **a report that lies about its own numbers is worse than no report.**
+9. **A FORM-WALKING CHECKER IS CODE, AND NEEDS THE SAME SUSPICION AS THE CODE IT CHECKS.** Four bugs in one checker: a positional argument read as "the leading strings" when it was a `let` VARIABLE (`order-uri`); plist keywords paired from the head instead of after the positionals; a dotted `(cons label (cons value width))` read as a list; and two misplaced parens that silently turned an enclosing `if` into a four-argument form — which the compiler reports as *"Error while parsing arguments to special operator IF"*, not as a paren error.
+10. **AC (f)'s MECHANISM IS THE MIRROR LIST, NOT A SPECIAL CASE.** `!update` writes the row WHOLE, and `ord-date` is in `*vordh-mirrored-slots*` — so the value read is written back, which is what defeats `ON UPDATE CURRENT_TIMESTAMP` (T9, **vendor-only**: the header's `ORD_DATE` is a `date`). Reading a `timestamp` as `clsql:date` DROPS the time of day, so the round trip would move the row to midnight while looking correct — hence `(string 30)` (V5).
+11. **A VENDOR SESSION'S TENANT NEEDS NO WORK FROM AN API FILE**: `make-action-domain-ctx` builds it from `conflodis2-login-company`, which resolves vendor → customer → user. And read the session with `conflodis2-session-value`, **never** `hunchentoot:session-value` directly — outside a request the direct call signals UNBOUND-VARIABLE, so "we cannot tell who you are" becomes a 500 instead of 401.
+12. **The scope filter's HOME is fixed by the grammar**: `fetch` and `delete!` are congruent at three fixed arguments (no `&key`), so a vendor-id CANNOT ride them — it rides `enumerate`, `?exists`, and `!update`'s `&rest` (consumed BEFORE the field policy, the S12 lesson), and the ROUTE narrows the other two.
 
 ### Live image and database state (measured 2026-10-04, 23:00)
 
-* The running image still started **07:46** (PID 1919) and has been reloaded in place since, so it
-  carries the nested-param fix but **not** the copier guard or the initforms. That is why the create
-  now reaches the write half and dies there: restart before the next attempt.
+* ⚠ *Superseded 2026-10-05:* the image then running had started **07:46** (PID 1919), carrying the
+  nested-param fix but **not** the copier guard or the initforms, so the create died in the write half.
 * **The API has created orders**: `rowId 491` (`ORD-DEMO-2026-27-XZ64UY`, `DFT`) was the first, left
   behind by a 500 that fired *after* the header and the line were written. It has been removed and the
-  product's stock restored, so the database has **no DFT order and no orphan**.
-* **Ordnums are live**: 0 NULL on `DOD_ORDER` (489 rows) and 0 NULL on `DOD_VENDOR_ORDERS` (468).
-* Vendor rows: `CMP` 387 · `PEN` 75 · `VCN` 4 · 9 soft-deleted. `IS_CONVERTED_TO_INVOICE='Y'`: 0 rows.
-* The four customer logins that work: **`9999999999` (profile 1, DEMO, 208 orders)** — the best
-  fixture set — `9448613099` (27), `9999950355` (3). ⚠ `9972022281` has NO password at all, in either
-  credential table, so no password can authenticate it. The vendor login is `9999999990`.
+  product's stock restored, so the database has **no DFT order and no orphan**. **Ordnums are live**: 0
+  NULL on `DOD_ORDER` (489 rows) and 0 NULL on `DOD_VENDOR_ORDERS` (468). Vendor rows: `CMP` 387 ·
+  `PEN` 75 · `VCN` 4 · 9 soft-deleted. `IS_CONVERTED_TO_INVOICE='Y'`: 0 rows.
+* The four customer logins that work: **`9999999999` (profile 1, DEMO, 208 orders)** — the best fixture
+  set — `9448613099` (27), `9999950355` (3). ⚠ `9972022281` has NO password at all, in either credential
+  table, so no password can authenticate it. The vendor login is `9999999990`.
 
 ### Committed, and the commit convention
 
 Three commits on 2026-10-04, each with a **two-line** message (subject, then one body line — no blank
-separator; note this makes `git log --oneline` show both lines):
-
-* `833392a` — S15/S16: the create path fixed, the three suites, both new tools
-* `f8107fb` — S1–S14's remaining files (the vendor channel, the build lists, the ABAC seed)
-* `e9d8019` — token hygiene: nine call sites off `hhub-random-password`
-
-**28 paths remain uncommitted**: another workstream in flight (the `CustomerUser` entity, `wallets/`,
+separator; note this makes `git log --oneline` show both lines): `833392a` (S15/S16: the create path
+fixed, the three suites, both new tools) · `f8107fb` (S1–S14's remaining files: the vendor channel, the
+build lists, the ABAC seed) · `e9d8019` (token hygiene: nine call sites off `hhub-random-password`).
+**28 paths remain uncommitted** — another workstream in flight (the `CustomerUser` entity, `wallets/`,
 `products/pricing/`, `paninigrammar/`, the `site/public/*` files) and junk that must NOT be committed
-(`.asdf-cache/`, `*.bak`, `out.txt`, `response`, `hhub/temp/`, the deleted Emacs lock file). One
-change is deliberately uncommitted: `installation/deploysite.sh`'s `DEST_BASE`, which looks
-environment-specific.
+(`.asdf-cache/`, `*.bak`, `out.txt`, `response`, `hhub/temp/`, the deleted Emacs lock file); one
+deliberate exception, `installation/deploysite.sh`'s `DEST_BASE`, looks environment-specific. Full list:
+archive §"Uncommitted, and the commit convention".
 
 ## 1. 🚨 READ THIS BEFORE TRUSTING ANY SCHEMA IN THE TREE
 
@@ -208,10 +163,9 @@ design decisions were wrong because it was believed.** Measured against the live
 | `VENDOR_ID` / `USER_ID` on the header | **neither column exists** | A vendor channel **cannot** scope the header by `VENDOR_ID`. `VENDOR_ID` lives only on `DOD_ORDER_ITEMS` and `DOD_VENDOR_ORDERS`. |
 | `INVNUM` on the header | **`INVOICE_NUMBER`** (+ `INVOICE_DATE`) | The order→invoice seam is named `IS_CONVERTED_TO_INVOICE` + `INVOICE_NUMBER` + `INVOICE_DATE`. |
 
-**Lesson to carry: measure the live table, then design.** The two ORDER view classes
-turned out to be exact (§3) — the drift was entirely in the create-script. Where a
-create-script and a live dump disagree, **the dump wins and the create-script is treated
-as historical intent**.
+**Lesson to carry: measure the live table, then design.** The two ORDER view classes turned out to be
+exact (§3) — the drift was entirely in the create-script. Where a create-script and a live dump
+disagree, **the dump wins and the create-script is treated as historical intent**.
 
 ---
 
@@ -222,9 +176,9 @@ as historical intent**.
 | **D1** | **Scope: THREE entities.** `nst-ordh` = `DOD_ORDER` (the customer's order); `nst-orditm` = `DOD_ORDER_ITEMS` (its lines); `nst-vordh` = `DOD_VENDOR_ORDERS` (the per-vendor slice, one row per vendor on a multi-vendor order). **Deferred**: `DOD_ORDER_TRACK`, `DOD_ORDER_ITEMS_TRACK`. |
 | **D2** | **Naming.** Symbols `nst-ordh` / `nst-orditm` / `nst-vordh`; models `NstOrdhRequestModel`/`NstOrdhResponseModel`, `NstOrditmRequestModel`/`NstOrditmResponseModel`, `NstVordhRequestModel`/`NstVordhResponseModel`; files `order/nst-dal-ordh.lisp`, `nst-dal-orditm.lisp`, `nst-dal-vordh.lisp`, `nst-bl-ordh.lisp`, `nst-bl-orditm.lisp`, `nst-bl-vordh.lisp`, `nst-bl-ordhapi.lisp`, `nst-bl-orditmapi.lisp`, `nst-bl-vordhapi.lisp`. `nst-ord` was rejected: one letter from the legacy `nst-dal-Order.lisp` on disk, and D16 exists to stop exactly that collision. `nst-ordv` was rejected in favour of **`nst-vordh`**, the name the requester chose. |
 | **D3** | **HTTP surface.** <br>**Customer channel**: `POST /orders`, `GET /orders`, `GET /orders/{ordnum}` (aggregate, nested lines), `PUT /orders/{ordnum}`, `DELETE /orders/{ordnum}`, `PUT /orders/{ordnum}/items/{item-id}`, `DELETE /orders/{ordnum}/items/{item-id}`. <br>**Vendor channel**: `GET /vendor/orders`, `GET /vendor/orders/{ordnum}`, `PUT /vendor/orders/{ordnum}` — the live vendor family already carries `/api/v1/vendor/profile`, `/payment`, `/shipping` (`vendor/nst-bl-vndapi.lisp`), and the spec has **no** vendor-orders endpoint at all, so these paths are ours. <br>**Registered but deliberately unbound**: `route-orditm-list`, `route-orditm-fetch` (lines reach the wire through the nested `GET /orders/{ordnum}`). <br>**Out of scope**: cart endpoints (a different aggregate), `/fulfill`, `/cancel`, `/orders/batch/daily`, `/orders/calendar`. |
-| **D4** | **`ORDNUM` is the address, and it is the CROSS-PARTY key.** Both channels address by it, because the vendor learns it from the customer ("the customer might send email or call the vendor and ask about the order based on the ORDNUM"). It is therefore: minted by `make` (D6), **immutable over HTTP** (stripped from every update payload, the invoice's §4b trap), and the URL-resolution step happens in the ROUTE layer (`ordh-header-from-url`), because a verb method cannot tell a number from a row-id — both are strings. ⚠ **The column is NULL on 485 of 485 existing orders (§3b), so this decision is not yet realisable in the data.** It becomes real only at S0b part 1; until then every existing order is unaddressable and the route answers 404 for all of them. |
+| **D4** | **`ORDNUM` is the address, and it is the CROSS-PARTY key.** Both channels address by it, because the vendor learns it from the customer ("the customer might send email or call the vendor and ask about the order based on the ORDNUM"). It is therefore: minted by `make` (D6), **immutable over HTTP** (stripped from every update payload, the invoice's §4b trap), and the URL-resolution step happens in the ROUTE layer (`ordh-header-from-url`), because a verb method cannot tell a number from a row-id — both are strings. ⚠ **Uniqueness licenses an ADDRESS, never a TENANT-LESS QUERY** (F2): every resolution stays `WHERE ORDNUM = ? AND TENANT_ID = ?`. ⚠ **The column is NULL on 485 of 485 existing orders (§3b), so this decision was not realisable in the data until S0b part 1**: before that every existing order was unaddressable and the route answered 404 for all of them. |
 | **D5** | **अधिकरण and scope.** Customer and vendor are **in the SAME tenant**: `:login-customer-company` is the customer row's `company` JOIN (`customer/dod-ui-cus.lisp:3603,3628`) and the customer's placement path passes that company as `DOD_ORDER.TENANT_ID` (`dod-ui-cus.lisp:2586,2619`). So नियम-1 is unchanged — tenant = session login company — and the parties are a scope **narrowing inside it**: <br>• customer session → `CUST_ID = :login-customer-id` on `nst-ordh`; <br>• vendor session → `VENDOR_ID = :login-vendor`'s row-id **on `nst-vordh`**, never on the header (the column does not exist, §1). <br>**Scope is read from the SESSION, never the payload**; an inbound `:vendor-id`/`:cust-id` is ignored, not honoured and not refused (the body-supplied-`invnum` trap). An order naming neither the session's customer nor its vendor is **404, not 403**. <br>⚠ **Inferred from code paths, not measured** — no DB access. One live `DOD_ORDER` row plus its `:login-customer-company` confirms it. **If a live row contradicts it, stop and re-open D5**, because every scope filter is built on it. |
-| **D6** | **`ORDNUM` is minted as `ORD-<DOC_PREFIX>-<FY>-<REF>`** — e.g. `ORD-XYZCORP-2026-27-7K4M2Q`. `DOC_PREFIX` is a **document prefix on the CUSTOMER** (`DOD_CUST_PROFILE.DOC_PREFIX varchar(8)`, system-prefilled, customer-overridable, globally unique), intended as the identity prefix for every document that customer owns. `FY` is the short April–March form derived from `ORD_DATE` (there is **no `FINYEAR` column** on the live table); the published suffix is **`{ref:6}`** — a non-sequential, unguessable rendering (F1's decision record) of a counter scoped **per (customer, document type, financial year)**, so `ORD-XYZCORP-2026-27-7K4M2Q` rather than `...-00001`. A caller-supplied `:ordnum` is stripped. Because the prefix is globally unique, **`UNIQUE (ORDNUM)` is GLOBAL** and a number-only lookup is legitimate — orders and invoices agree in shape (`INVNUM` is global too, via its embedded row-id). **The shape is DATA, not code**: it renders through the number-format template that already exists (`invoice-number-format`, `invoice/templates/invoicesettings.lisp:32`), extended with `{prefix}`, `{fy}` and `{ref:6}` tokens and an `order-number-format` sibling key. ⚠ **Two prerequisites ride with this decision:** a **counter table** (`{counter}` has no backing store anywhere — S0b §C) and the prefix allocator. **The prefix must be ALLOCATED, never derived on the fly** — derivations collide (`XYZ Corp Limited`, `XYZ Corporation`), and a colliding prefix fails the global index. |
+| **D6** | **`ORDNUM` is minted as `ORD-<DOC_PREFIX>-<FY>-<REF>`** — e.g. `ORD-XYZCORP-2026-27-7K4M2Q`. `DOC_PREFIX` is a **document prefix on the CUSTOMER** (`DOD_CUST_PROFILE.DOC_PREFIX varchar(8)`, system-prefilled, customer-overridable, globally unique), intended as the identity prefix for every document that customer owns. `FY` is the short April–March form derived from `ORD_DATE` (there is **no `FINYEAR` column** on the live table); the published suffix is **`{ref:6}`** — a non-sequential, unguessable rendering (F1's decision record) of a counter scoped **per (customer, document type, financial year)**, so `ORD-XYZCORP-2026-27-7K4M2Q` rather than `...-00001`. A caller-supplied `:ordnum` is stripped. Because the prefix is globally unique, **`UNIQUE (ORDNUM)` is GLOBAL**, and the number-only lookup that licenses is an **address**, not a tenant-less query (F2). **The shape is DATA, not code**: it renders through the number-format template that already exists (`invoice-number-format`, `invoice/templates/invoicesettings.lisp:32`), extended with `{prefix}`, `{fy}` and `{ref:6}` tokens and an `order-number-format` sibling key. ⚠ **Two prerequisites ride with this decision:** a **counter table** (`{counter}` has no backing store anywhere — S0b §C) and the prefix allocator. **The prefix must be ALLOCATED, never derived on the fly** — derivations collide (`XYZ Corp Limited`, `XYZ Corporation`), and a colliding prefix fails the global index. |
 | **D7** | **The status vocabulary gains a code, and the legacy layer learns it.** `make` writes **`"DFT"`**; the legacy creation paths keep writing **`"PEN"`** (`dod-bl-ord.lisp:386,564`, `dod-bl-odt.lisp:166`) and are not changed. Therefore **open = `("DFT" "PEN")`** and terminal = `("CMP" "VCN" "CCN")`, as shared lists (D17). The legacy filters must be taught `DFT` — that is S8, with its sites enumerated there. |
 | **D8** | **Status gates.** Header `make` → `DFT`. `nst-orditm` `make` and `delete!` → **header must be open**. `nst-vordh` `make` → mirrors its parent order's status. `!update` on any entity → allowed at any status **except terminal**. Header `delete!` and vendor-order `delete!` → **open only**. Two separate lists for the two questions ("may this be deleted?" vs "may its content change?"), as the invoice deliberately keeps them separate. ⚠ **S5 CORRECTED THE HEADER HALF: header `delete!` is `DFT`-only, not open-only** — S5's own AC said so, and a `PEN` row is a PLACED order whose vendor rows would be orphaned. See the S5 section. |
 | **D9** | **No new ORM class for `nst-ordh`/`nst-orditm`** — `dod-order` and `dod-order-items` are verified exact against the live tables (§3). For `nst-vordh`, `dod-vendor-orders` declares 26 columns against 60 live: **`nst-vordh` gets its own class** and the legacy one is left alone for the legacy UI (§3, S9). |
@@ -252,9 +206,9 @@ Measured with `SHOW CREATE TABLE`, never from the create-script:
   at all**, two address sets, the invoice seam (`IS_CONVERTED_TO_INVOICE`, `INVOICE_NUMBER`,
   `INVOICE_DATE`), and `EXTERNAL_URL` as the ONE `utf8mb3` column in a `utf8mb4` table — a join or
   compare on it can raise *illegal mix of collations*.
-* **`dod-order-items`** — 30 declared / 32 live, the two omitted being `CREATED`/`UPDATED`
-  (DB-managed). Reused as-is. **No FK on `ORDER_ID` and no unique key anywhere** — which is why every
-  line verb proves its parent in code (S7).
+* **`dod-order-items`** — 30 declared / 32 live, the two omitted being `CREATED`/`UPDATED` (DB-managed).
+  Reused as-is. **No FK on `ORDER_ID` and no unique key anywhere** — which is why every line verb
+  proves its parent in code (S7).
 * **`dod-vendor-orders`** — the legacy class declares **26 of 60** live columns, zero phantom, so the
   vendor entity got its own class (S9).
 
@@ -295,183 +249,61 @@ Both build lists carry all nine; the per-file map is in §0.
 | **O1** | ~~The `DOD_VENDOR_ORDERS` dump~~ — **CLOSED 2026-09-27.** The drift is measured (26 declared / 60 live, 34 missing, zero phantom columns) and the class decision is made: `nst-vordh` gets its own class and the legacy one is left alone (S9). | Resolved; the only residue is the data question in §9 item 1. |
 | **O2** | **Re-pointing the five existing row-id guards at the new `nst-row-id-from-string`.** | **Not in this batch.** Each sits in a different loading-sensitive domain file, and a mechanical re-point across five domains is its own commit with its own build/load proof. Ledger it in `PENDING-WORK-CONTEXT.md` when S0b lands. |
 | **O3** | **The partial-write window on `POST /orders`** (D14). | Document as a KNOWN; assert in the suite that a refused line leaves a header (i.e. make the gap VISIBLE and measured rather than assumed harmless). If you want it fixed here, say so — it is a change to the seam all ~40 bound endpoints share. |
-| **O4** | **Does `DELETE /orders/{ordnum}` exist for a customer?** | Yes for an **open** order by its own customer (D8). The spec defines no order DELETE, so this is an addition — the invoice precedent is the opposite (`route-invh-delete` registered but unbound, because GST forbids deleting an issued invoice). An order has no such legal bar **before** invoicing; after `IS_CONVERTED_TO_INVOICE = 'Y'` it should refuse with a contradiction, like an issued invoice. ⚠ **S5 CORRECTED THIS: not "an open order" but a `DFT` one** — `PEN` is a placed order, and only `DFT` is deletable. |
+| **O4** | **Does `DELETE /orders/{ordnum}` exist for a customer?** | Yes for a **`DFT`** order by its own customer (D8, corrected by S5 — not "an open order": `PEN` is a placed order). The spec defines no order DELETE, so this is an addition — the invoice precedent is the opposite (`route-invh-delete` registered but unbound, because GST forbids deleting an issued invoice). An order has no such legal bar **before** invoicing; after `IS_CONVERTED_TO_INVOICE = 'Y'` it should refuse with a contradiction, like an issued invoice. |
 
 ---
 
 ## 6. Stories — one entry each: what it is · its AC · the verdict · the trap it paid for
 
-**⚠ THE NARRATIVE THAT USED TO FILL THIS SECTION IS IN
-`archive/order-adhara-stories-NARRATIVE-2026-10-04.md`** (a 2127-line snapshot of 2026-10-04). It is
-kept because the accounting behind each verdict — the row counts, the first attempts that failed, the
-fixes that were wrong before they were right — is evidence of *how* these numbers were reached, and
-because the corpus archives rather than deletes. What follows is the same verdicts compressed to what
-a session needs in order to START work. Read the archive when you need to re-derive a verdict.
+**⚠ The narrative that used to fill this section is in `archive/order-adhara-stories-NARRATIVE-2026-10-04.md`** (2127 lines) — the row counts, the failed first attempts, the fixes that were wrong before they were right. The entries below are the same verdicts compressed to what a session needs in order to START work.
 
 ### S0 — measure the live schema · ✅ CLOSED 2026-09-27
-`dod-order` (58 declared / 58 live) and `dod-order-items` (30 / 32, the two omitted being the
-DB-managed timestamps) were exact and are reused as-is; `dod-vendor-orders` declared 26 columns
-against 60 live, which is why the vendor entity got its own class (S9). **Trap it paid for:** §1 —
-`installation/hhubplatform.sql` is FICTION for these tables, and believing it produced three wrong
-design decisions. **Deliverable: §1 and §3, which are the reason to measure `SHOW CREATE TABLE` first.**
-
+`dod-order` (58 declared / 58 live) and `dod-order-items` (30 / 32, the two omitted being the DB-managed timestamps) were exact and are reused as-is; `dod-vendor-orders` declared 26 columns against 60 live, which is why the vendor entity got its own class (S9). **Trap it paid for:** §1 — `installation/hhubplatform.sql` is FICTION for these tables, and believing it produced three wrong design decisions. **Deliverable: §1 and §3, which are the reason to measure `SHOW CREATE TABLE` first.**
 ### S0b — the identity migrations · ✅ APPLIED 2026-10-03
-`DOC_PREFIX varchar(8)` on `DOD_CUST_PROFILE` plus its allocator; the **mint of 485 order numbers**
-(`ORD-<PREFIX>-<FY>-<REF>`, where `REF` is a keyed permutation of an atomic counter — F1's
-non-enumerability decision); the 462-row vendor backfill; and three unique keys LAST, so they validate
-the backfill rather than decorate it (`uk_ordnum` GLOBAL on `DOD_ORDER`, `uk_cust_doc_prefix`,
-`uk_vo_order_vendor`). **Verdict, counted 2026-10-04: 0 NULL `ORDNUM` on both tables, all distinct.**
-**Traps:** "backfill" and "invent" were two different jobs, and one paren mis-scope made a *local*
-function report as a missing *global* one (`undefined function ADD-INDEX` at the call site).
-**Tool:** `nst-verify-doc-numbering.lisp`.
-**Rulings (R1–R4, which the entries below refer to):** the column is **`DOC_PREFIX varchar(8)`**,
-uppercase `A-Z0-9`, stored **bare** — never `char`, which pads a space into every document number;
-**allocation de-duplicates** by a ladder (8 chars, then 6+2, then 5+3) because derivations collide
-(`XYZ Corp Ltd` and `XYZ Corporation` both yield `XYZCORP`); an override is **REFUSED** once any
-document carries the prefix (R3); and **the counter table lands in this batch** (R4), because the mint
-cannot be built without it.
-
+`DOC_PREFIX varchar(8)` on `DOD_CUST_PROFILE` plus its allocator; the **mint of 485 order numbers** (`ORD-<PREFIX>-<FY>-<REF>`, where `REF` is a keyed permutation of an atomic counter — F1's non-enumerability decision); the 462-row vendor backfill; and three unique keys LAST, so they validate the backfill rather than decorate it (`uk_ordnum` GLOBAL on `DOD_ORDER`, `uk_cust_doc_prefix`, `uk_vo_order_vendor`). **Verdict, counted 2026-10-04: 0 NULL `ORDNUM` on both tables, all distinct. Traps:** "backfill" and "invent" were two different jobs, and one paren mis-scope made a *local* function report as a missing *global* one (`undefined function ADD-INDEX` at the call site). **Tool:** `nst-verify-doc-numbering.lisp`.
+**Rulings (R1–R4, which the entries below refer to):** the column is **`DOC_PREFIX varchar(8)`**, uppercase `A-Z0-9`, stored **bare** — never `char`, which pads a space into every document number; **allocation de-duplicates** by a ladder (8 chars, then 6+2, then 5+3) because derivations collide (`XYZ Corp Ltd` and `XYZ Corporation` both yield `XYZCORP`); an override is **REFUSED** once any document carries the prefix (R3); and **the counter table lands in this batch** (R4), because the mint cannot be built without it.
 ### S0c — the document-number vocabulary · ✅ APPLIED
-`DOD_DOC_COUNTER` (the counter `{counter}` never had), `DOD_SYS_SECRET.DOC_REF_KEY`,
-`nst-format-doc-number` and the tokens `{prefix}` `{fy}` `{ref:N}` `{counter:N}`, plus
-`order-number-format`. **Trap:** MySQL 8 RESERVES `LAST_VALUE`, so the column is `LAST_SEQ` and every
-identifier in both hand-written SQL copies is backticked. A second, latent one: the FY label
-destructured SIX values from a DATE struct that returns FOUR — a crash on the invoice path, reached
-only when the caller omits `:finyear`.
-
+`DOD_DOC_COUNTER` (the counter `{counter}` never had), `DOD_SYS_SECRET.DOC_REF_KEY`, `nst-format-doc-number` and the tokens `{prefix}` `{fy}` `{ref:N}` `{counter:N}`, plus `order-number-format`. **Trap:** MySQL 8 RESERVES `LAST_VALUE`, so the column is `LAST_SEQ` and every identifier in both hand-written SQL copies is backticked. A second, latent one: the FY label destructured SIX values from a DATE struct that returns FOUR — a crash on the invoice path, reached only when the caller omits `:finyear`.
 ### S0d — `DOC_PREFIX` on the customer, end to end · ⚠ PART DONE 2026-09-28
-The ENTRY half is done: the slot on `nst-customer`, its response model and the `dod-cust-profile` view
-class, both copiers, the render allowlist, `docPrefix` published in the customer JSON, and **two
-contradiction guards** (R1's charset; R3's freeze once any document carries the prefix). **NOT
-recorded as done: the profile-page override input** (S0b owns the DDL, S0d the page).
-
+The ENTRY half is done: the slot on `nst-customer`, its response model and the `dod-cust-profile` view class, both copiers, the render allowlist, `docPrefix` published in the customer JSON, and **two contradiction guards** (R1's charset; R3's freeze once any document carries the prefix). **NOT recorded as done: the profile-page override input** (S0b owns the DDL, S0d the page).
 ### S0e — the cross-cutting requirements · a filter, not files
-It exists so that no finding in §10 is silently dropped: every one is either implemented at a NAMED
-site or accepted in writing. Reread it before closing the batch.
-
+It exists so that no finding in §10 is silently dropped: every one is either implemented at a NAMED site or accepted in writing. **Moved to `knowledge/order-standards-review-CONTEXT.md` (§S0e).**
 ### S1 + S2 — the two islands · ✅ DONE
-`nst-ordh` and `nst-orditm`: entities, boundary models, `*…-mirrored-slots*`. No new ORM classes
-(D9) — the live tables matched the existing ones exactly.
-
+`nst-ordh` and `nst-orditm`: entities, boundary models, `*…-mirrored-slots*`. No new ORM classes (D9) — the live tables matched the existing ones exactly.
 ### S3 — the header's `?exists` + `make` · ✅ DONE
-The mint through `nst-order-number-for`, `STATUS` forced `DFT`, `is-converted-to-invoice` /
-`is-cancelled` / `order-fulfilled` forced `"N"`, `CREATED_BY_USER_ID` from the session (F11), and the
-idempotency key on `:context-id` (F6).
-
+The mint through `nst-order-number-for`, `STATUS` forced `DFT`, `is-converted-to-invoice` / `is-cancelled` / `order-fulfilled` forced `"N"`, `CREATED_BY_USER_ID` from the session (F11), and the idempotency key on `:context-id` (F6).
 ### S4 — `fetch` + `enumerate` · ✅ DONE
-Scoped to the session customer (D5), paged per F7 (default 50, hard cap 200 — a larger `:limit` is
-**CAPPED, not refused**), sorted only by the whitelist, with the 400 living in the ROUTE so a mistyped
-parameter is not a 500.
-
+Scoped to the session customer (D5), paged per F7 (default 50, hard cap 200 — a larger `:limit` is **CAPPED, not refused**), sorted only by the whitelist, with the 400 living in the ROUTE so a mistyped parameter is not a 500.
 ### S5 — `!update` + `delete!` · ✅ DONE
-The field policy: `*ordh-never-writable-fields*` and `*ordh-internal-only-fields*` are REFUSED (409),
-not stripped, because a refusal makes an attempted escalation visible. **`delete!` is `DFT`-only, NOT
-open-only** — a `PEN` order is a *placed* order whose vendor rows would be orphaned. Control keys are
-consumed BEFORE the field policy (the S12 defect: otherwise every `If-Match` update answers 409).
-
+The field policy: `*ordh-never-writable-fields*` and `*ordh-internal-only-fields*` are REFUSED (409), not stripped, because a refusal makes an attempted escalation visible. **`delete!` is `DFT`-only, NOT open-only** — a `PEN` order is a *placed* order whose vendor rows would be orphaned. Control keys are consumed BEFORE the field policy (the S12 defect: otherwise every `If-Match` update answers 409).
 ### S6 — the reverse ferry, `render-json`, the mirror check · ✅ DONE
-The response is a per-field ALLOWLIST, never the entity. **Trap (T4): the mirror list drives THREE
-consumers** — the reverse ferry, the domaintodb copier, and the check — and the invoice's "nothing
-else needs to change" claim is how a missing slot made every route answer 500.
-**Tool:** `nst-order-mirror-check.lisp`.
-
+The response is a per-field ALLOWLIST, never the entity. **Trap (T4): the mirror list drives THREE consumers** — the reverse ferry, the domaintodb copier, and the check — and the invoice's "nothing else needs to change" claim is how a missing slot made every route answer 500. **Tool:** `nst-order-mirror-check.lisp`.
 ### S7 — the line entity · ✅ DONE
-Six प्रत्यय plus the लोप cascade the header's `delete!` calls. **Every verb proves its parent through
-ONE function** (`nst-fetch-visible-order-header`), because `DOD_ORDER_ITEMS` has NO foreign key on
-`ORDER_ID` — measured, not assumed. `!update` refuses `:order-id`; the ROUTE verifies the pairing and
-then strips it.
-
+Six प्रत्यय plus the लोप cascade the header's `delete!` calls. **Every verb proves its parent through ONE function** (`nst-fetch-visible-order-header`), because `DOD_ORDER_ITEMS` has NO foreign key on `ORDER_ID` — measured, not assumed. `!update` refuses `:order-id`; the ROUTE verifies the pairing and then strips it.
 ### S8 — the status vocabulary gets one home · ✅ DONE
-`*order-open-statuses*` (`DFT`,`PEN`) and `*order-terminal-statuses*` (`CMP`,`VCN`,`CCN`) live in
-`core/dod-bl-utl.lisp` with their predicates, and **seven legacy reads stopped testing the literal
-`"PEN"`** — an order created by the new API had been invisible to every legacy list and count.
-
+`*order-open-statuses*` (`DFT`,`PEN`) and `*order-terminal-statuses*` (`CMP`,`VCN`,`CCN`) live in `core/dod-bl-utl.lisp` with their predicates, and **seven legacy reads stopped testing the literal `"PEN"`** — an order created by the new API had been invisible to every legacy list and count.
 ### S8b — stop the legacy funnels recreating the hole · ✅ DONE
-`persist-order` and `persist-vendor-orders` — the single choke points for legacy-created orders and
-vendor rows — now mint the `ORDNUM`. Without this, the S0b mint's hole reopens on the first
-legacy-placed order.
-
+`persist-order` and `persist-vendor-orders` — the single choke points for legacy-created orders and vendor rows — now mint the `ORDNUM`. Without this, the S0b mint's hole reopens on the first legacy-placed order.
 ### S9 — the vendor island · ✅ DONE
-`dod-vendor-order` over **60/60** live columns, `nst-vordh` (56 slots), its response model and
-`*vordh-mirrored-slots*`; the legacy class is untouched (V1). **Trap:** T9 is VENDOR-ONLY —
-`DOD_VENDOR_ORDERS.ORD_DATE` is a `timestamp ON UPDATE`, so `(string 30)` and a whole-row write are
-required (V5). **Tool:** `nst-vordh-mirror-check.lisp`.
-
+`dod-vendor-order` over **60/60** live columns, `nst-vordh` (56 slots), its response model and `*vordh-mirrored-slots*`; the legacy class is untouched (V1). **Trap:** T9 is VENDOR-ONLY — `DOD_VENDOR_ORDERS.ORD_DATE` is a `timestamp ON UPDATE`, so `(string 30)` and a whole-row write are required (V5). **Tool:** `nst-vordh-mirror-check.lisp`.
 ### S10 — the vendor's six प्रत्यय · ✅ DONE
-Triple-scoped on every read (`VENDOR_ID` **and** tenant **and** `DELETED_STATE`), whole-row writes, the
-four writable fields of V8, and a terminal status refused (AC g — 387 of 466 live rows are `CMP`, so
-this is the common case, not a corner). `ORDNUM IS NULL` answers 404 structurally, never a guess.
-
+Triple-scoped on every read (`VENDOR_ID` **and** tenant **and** `DELETED_STATE`), whole-row writes, the four writable fields of V8, and a terminal status refused (AC g — 387 of 466 live rows are `CMP`, so this is the common case, not a corner). `ORDNUM IS NULL` answers 404 structurally, never a guess.
 ### S11 — the three vendor routes + bindings · ✅ DONE
-`GET`/`GET {ordnum}`/`PUT {ordnum}`; the assembly rewired to `(make 'nst-vordh …)` and the interim
-writer DELETED (one writer for one row); `{ordnum}` + session vendor resolved by `vordh-row-from-url`,
-which returns **one 404 for every way of failing** so no 403 confirms another vendor's row.
-
+`GET`/`GET {ordnum}`/`PUT {ordnum}`; the assembly rewired to `(make 'nst-vordh …)` and the interim writer DELETED (one writer for one row); `{ordnum}` + session vendor resolved by `vordh-row-from-url`, which returns **one 404 for every way of failing** so no 403 confirms another vendor's row.
 ### S12 — the customer routes + the D14 assembly · ✅ DONE
-`POST /orders` writes header → lines → stock → one vendor row per distinct vendor, and the
-**partial-write window is KNOWN, not papered over** (no transaction seam). **Trap:** the route must
-strip `:order-id` AFTER verifying the pairing — a verb guard that refuses the key its own address
-carries refuses every legitimate request, which the invoice batch measured on the identical shape.
-
+`POST /orders` writes header → lines → stock → one vendor row per distinct vendor, and the **partial-write window is KNOWN, not papered over** (no transaction seam). **Trap:** the route must strip `:order-id` AFTER verifying the pairing — a verb guard that refuses the key its own address carries refuses every legitimate request, which the invoice batch measured on the identical shape.
 ### S13 — the ten bindings · ✅ DONE (+ live sweep 2026-10-04)
-Seven customer paths and three vendor paths, each binding below its own registration (a binding that
-precedes its registration is refused at LOAD time, i.e. the app does not come up). **AC (a) proven
-live:** the seven customer paths answer 401 unauthenticated and the two deliberately unbound item
-shapes answer 404 `no_such_endpoint`; `/vendor/orders` and `/orders` do not shadow each other.
-
+Seven customer paths and three vendor paths, each binding below its own registration (a binding that precedes its registration is refused at LOAD time, i.e. the app does not come up). **AC (a) proven live:** the seven customer paths answer 401 unauthenticated and the two deliberately unbound item shapes answer 404 `no_such_endpoint`; `/vendor/orders` and `/orders` do not shadow each other.
 ### S14 — the ABAC seeds · ✅ APPLIED 2026-10-04
-Ten policy + transaction pairs, one per BOUND endpoint, and the ten policy functions they name.
-**Traps:** seven of ten `DESCRIPTION`s exceeded `varchar(100)` — on a STRICT server that is **Error
-1406, and `apply-migrations` CONTINUES without recording the version**, leaving a seed that re-runs
-forever; and all ten `POLICY_FUNC`s initially named functions that did not exist, which would have
-DENIED every call the day the PEP lands. **Tool:** `nst-verify-abac-seed.lisp`. ⚠ The rows are
-CARRIED, not enforced (D18/F3).
-
+Ten policy + transaction pairs, one per BOUND endpoint, and the ten policy functions they name. **Traps:** seven of ten `DESCRIPTION`s exceeded `varchar(100)` — on a STRICT server that is **Error 1406, and `apply-migrations` CONTINUES without recording the version**, leaving a seed that re-runs forever; and all ten `POLICY_FUNC`s initially named functions that did not exist, which would have DENIED every call the day the PEP lands. **Tool:** `nst-verify-abac-seed.lisp`. ⚠ The rows are CARRIED, not enforced (D18/F3).
 ### S15 — build registration and the offline load · ✅ DONE 2026-10-04
-The nine files in BOTH lists, the driver's `Failed: 0` with `1+148+0 = 149`, and the offline load
-reaching `STAGE: LOADED`. **Trap:** the driver's handler wraps the LOAD as well as the compile, so one
-recompiled file reported **119 style warnings of which 6 were real** — read `Compiled`/`Skipped`/
-`Failed`, never `Style Warnings`. **Tool:** `nst-compile-production.lisp`.
-
+The nine files in BOTH lists, the driver's `Failed: 0` with `1+148+0 = 149`, and the offline load reaching `STAGE: LOADED`. **Trap:** the driver's handler wraps the LOAD as well as the compile, so one recompiled file reported **119 style warnings of which 6 were real** — read `Compiled`/`Skipped`/`Failed`, never `Style Warnings`. **Tool:** `nst-compile-production.lisp`.
 ### S16 — the four smoke suites · ⏳ IN PROGRESS (AC (a) PROVEN 2026-10-05)
-**✅ AC (a) IS PROVEN: the API created its first order.** `POST /orders → 201`, `rowId 497`,
-`ORD-DEMO-2026-27-SFTR3E` — the minted number matching the documented shape — followed by the F6
-idempotency replay answering **the same rowId**, the order reading back by its number, an empty cart
-refused `400`, a product that is not this tenant's `404`, `PUT 200`, `DELETE 200`, and the row
-invisible afterwards. **Header suite: 44 PASS / 0 FAIL / 1 SKIP.**
-**Also proven live:** the vendor suite (30 / 0 / 1 KNOWN — AC (c) in ONE session, AC (e) with a
-manufactured NULL-ORDNUM row, AC (g) on `CMP` and `VCN`, AC (f)'s `ORD_DATE` byte-identity), and the
-header suite's whole read half (sweep, reads, guards, status gates, F5's field half, 412, BOLA with
-no existence oracle).
-**⚠ STILL OPEN:** the items suite (written, not run), the consolidated suite (not written), O3's
-window, and the `UPDATED`/F8 defect below.
-
-**🚨 THE FOUR DEFECTS S16 FOUND — and the fact they shared: THE CREATE HAD NEVER ONCE WORKED.**
-1. `ordh-nested-param` tested body keys for **strings** while cl-json yields **symbols** → every
-   `POST /orders` was a 400.
-2. The three domaintodb copiers read **unbound** slots → a 500, after the number was minted.
-3. **90 entity slots had no initform** → the vendor-row builder signalled (the HTTP ctx has `:ACTOR NIL`).
-4. `nst-vendor-order-insert` returned `bind-generated-row-id`'s value — the id **STRING** — instead of
-   the entity, so the assembly answered `"471"` and `render-json` (no method for a string) 500'd
-   **after a fully successful write**.
-Fixed by `nst-db-slot-value-from-domain` (`core/dod-bl-utl.lisp`), the 90 initforms, a symbol-key
-comparison, and the one-word return. **Every one was found by RUNNING, never by reading** — and each
-was invisible from the BL. **Tool:** `nst-verify-order-create.lisp` (23 checks, mutation-tested).
-
-**TWO CASCADE FACTS, both measured in the same run:** the header's `delete!` **does** cascade to its
-LINES (S7's लोप — every line of the deleted order was `DELETED_STATE='Y'`), and it **does not** cascade
-to the VENDOR rows, which is §0's long-standing open item, now with a live reproduction. The header
-suite asserts the first and prints the second.
-
-**⚠ AND ONE DEFECT WAS THE SUITE'S OWN:** its lifecycle cleared the cleanup key after the API's
-DELETE, but that DELETE is a **soft** one — the rows are still in the table — so the SQL hard-delete
-never ran and every `--write` run left its order, line and vendor row behind. Fixed: the key is kept
-and the physical removal is `restore_rows`' job, by row-id, on the success path exactly as on the
-failure path.
-
-⚠ **`UPDATED`/F8 is KNOWN**: the write freezes `UPDATED`, so the vendor ETag never changes and
-`If-Match` cannot detect a concurrent write — `PENDING-WORK §10`.
-
+**✅ AC (a) IS PROVEN: the API created its first order.** `POST /orders → 201`, `rowId 497`, `ORD-DEMO-2026-27-SFTR3E` — the minted number matching the documented shape — followed by the F6 idempotency replay answering **the same rowId**, the order reading back by its number, an empty cart refused `400`, a product that is not this tenant's `404`, `PUT 200`, `DELETE 200`, and the row invisible afterwards. **Header suite: 44 PASS / 0 FAIL / 1 SKIP.**
+**Also proven live:** the vendor suite (30 / 0 / 1 KNOWN — AC (c) in ONE session, AC (e) with a manufactured NULL-ORDNUM row, AC (g) on `CMP` and `VCN`, AC (f)'s `ORD_DATE` byte-identity), and the header suite's whole read half (sweep, reads, guards, status gates, F5's field half, 412, BOLA with no existence oracle). **⚠ STILL OPEN:** the items suite (written, not run), the consolidated suite (not written), O3's window, and the `UPDATED`/F8 defect below.
+**🚨 THE FOUR DEFECTS S16 FOUND — and the fact they shared: THE CREATE HAD NEVER ONCE WORKED.** (1) `ordh-nested-param` tested body keys for **strings** while cl-json yields **symbols** → every `POST /orders` was a 400. (2) The three domaintodb copiers read **unbound** slots → a 500, after the number was minted. (3) **90 entity slots had no initform** → the vendor-row builder signalled (the HTTP ctx has `:ACTOR NIL`). (4) `nst-vendor-order-insert` returned `bind-generated-row-id`'s value — the id **STRING** — instead of the entity, so the assembly answered `"471"` and `render-json` (no method for a string) 500'd **after a fully successful write**. Fixed by `nst-db-slot-value-from-domain` (`core/dod-bl-utl.lisp`), the 90 initforms, a symbol-key comparison, and the one-word return. **Every one was found by RUNNING, never by reading** — and each was invisible from the BL. **Tool:** `nst-verify-order-create.lisp` (23 checks, mutation-tested).
+**TWO CASCADE FACTS, both measured in the same run:** the header's `delete!` **does** cascade to its LINES (S7's लोप — every line of the deleted order was `DELETED_STATE='Y'`), and it **does not** cascade to the VENDOR rows, which is §0's long-standing open item, now with a live reproduction. The header suite asserts the first and prints the second. **⚠ AND ONE DEFECT WAS THE SUITE'S OWN:** its lifecycle cleared the cleanup key after the API's DELETE, but that DELETE is a **soft** one — the rows are still in the table — so the SQL hard-delete never ran and every `--write` run left its order, line and vendor row behind. Fixed: the key is kept and the physical removal is `restore_rows`' job, by row-id, on the success path exactly as on the failure path.
+⚠ **`UPDATED`/F8 is KNOWN**: the write freezes `UPDATED`, so the vendor ETag never changes and `If-Match` cannot detect a concurrent write — `PENDING-WORK §10`.
 ### S17 — the `invoice (ord ctx)` compound verb · ⛔ OUT OF THIS BATCH
 What the batch unblocks. Blocked on D14's atomicity seam and the invoice-side `create-with-lines` gap.
 
@@ -493,166 +325,36 @@ What the batch unblocks. Blocked on D14's atomicity seam and the invoice-side `c
 
 ## 8. Definition of done for the batch
 
-- Nine files exist, compile `failure-p=NIL`, and load in both build lists in the correct
-  order; `compile-production` reports `Failed: 0`.
-- All six प्रत्यय exist on all three entities, four Belnap states in and out; `:U` is never
-  phrased as "not found".
+- Nine files exist, compile `failure-p=NIL`, and load in both build lists in the correct order; `compile-production` reports `Failed: 0`.
+- All six प्रत्यय exist on all three entities, four Belnap states in and out; `:U` is never phrased as "not found".
 - Ten bindings answer; two routes are registered and deliberately unbound.
 - The mirror check passes `M/M` for all three entities and is mutation-tested.
 - The `ORDNUM` unique index exists and `SHOW INDEX` proves it (S0b).
-- The legacy layer recognises `DFT` as open, demonstrated by an API-created order appearing
-  in the legacy vendor pending list (S8).
+- The legacy layer recognises `DFT` as open, demonstrated by an API-created order appearing in the legacy vendor pending list (S8).
 - Four smoke suites pass: read-only, and `--write` with cleanup.
-- No new name collides with the legacy `order` domain. The only legacy files edited are the
-  nine in S8, `dod-order`'s view class if the diff demands it, and both build lists.
-- `PENDING-WORK-CONTEXT.md` records what this batch leaves open — at minimum O2 (the five
-  un-re-pointed guards) and O3 if the seam is not fixed.
-
----
+- No new name collides with the legacy `order` domain. The only legacy files edited are the nine in S8, `dod-order`'s view class if the diff demands it, and both build lists.
+- `PENDING-WORK-CONTEXT.md` records what this batch leaves open — at minimum O2 (the five un-re-pointed guards) and O3 if the seam is not fixed.
 
 ## 9. Input arrived — nothing is owed
 
-Every input this section used to ask for arrived on 2026-09-27/28, and the rulings are R1–R4 in S0b:
-`DOC_PREFIX` does not exist (confirmed, so it was an ADD); the customer population and the four name
-candidates came back (25 customers, 7 with orders, all seven prefixes distinct — the de-dup ladder
-does not fire on existing data); `CUST_TYPE` answered the guest question (**226 of 485 orders belong
-to two GUEST rows**, so nearly half the minted numbers carry a synthetic prefix); and the invoice
-trigger is recorded as the blocker for `{prefix}` ever reaching invoices (S0b §F, out of scope here).
-
-**Still worth doing before any FUTURE mint runs:** a `mysqldump` of `DOD_ORDER`,
-`DOD_VENDOR_ORDERS` and `DOD_CUST_PROFILE`. Allocating a prefix and minting numbers are one-way doors
-in practice (R3 freezes a prefix once a document carries it), so the dry run's AC comes first.
+Every input this section used to ask for arrived on 2026-09-27/28, and the rulings are R1–R4 in S0b: `DOC_PREFIX` does not exist (confirmed, so it was an ADD); the customer population and the four name candidates came back (25 customers, 7 with orders, all seven prefixes distinct — the de-dup ladder does not fire on existing data); `CUST_TYPE` answered the guest question (**226 of 485 orders belong to two GUEST rows**, so nearly half the minted numbers carry a synthetic prefix); and the invoice trigger is recorded as the blocker for `{prefix}` ever reaching invoices (S0b §F, out of scope here). **Still worth doing before any FUTURE mint runs:** a `mysqldump` of `DOD_ORDER`, `DOD_VENDOR_ORDERS` and `DOD_CUST_PROFILE` — allocating a prefix and minting numbers are one-way doors in practice (R3 freezes a prefix once a document carries it), so the dry run's AC comes first.
 
 ## 9b. Preflight — how NOT to discover the bugs as you go
 
-**Read this when:** starting a story. The question behind it was *"can we know in advance, and then
-not need the fix at all?"* Mostly yes — and **the method now lives in the tools**, not here.
+**Read this when:** starting a story. The question behind it was *"can we know in advance, and then not need the fix at all?"* Mostly yes — and **the method lives in the tools and in `knowledge/offline-checker-methodology-CONTEXT.md`** (how a checker is proved, the four classes of checker bug, the registration rule, what no offline check can do), not in prose here. What belongs beside the stories is below.
 
 ### The four rules, in order of leverage
 
-1. **Measure the substrate before designing on it.** Live schema, library contracts, the actual data.
-   Most of this batch's cost came from designing on `hhubplatform.sql`, on a documented API contract
-   and on an assumption about 485 rows — all three measurable in minutes.
-2. **Prefer a construction that makes the class impossible to one that detects it.** Quoting every SQL
-   identifier does not *catch* reserved words, it makes them unable to matter; a list-driven copier
-   cannot be field-incomplete; one funnel for a value cannot fork.
-3. **Use the substrate's own parser.** A hand-written Lisp scanner was wrong three ways; the reader is
-   exact by definition. The same instinct applies to SQL: apply the DDL, do not model it mentally.
-4. **Mutation-test every checker, and assert it found its inputs.** A check that has never failed is
-   unverified, and one that cries wolf is as expensive as one that misses. Every checker bug in this
-   batch was found by *exercising the failure path*, never by reading the checker.
+Measure the substrate before designing on it — most of this batch's cost came from designing on `hhubplatform.sql`, on a documented API contract and on an assumption about 485 rows, all three measurable in minutes · prefer a construction that makes the class impossible to one that detects it · use the substrate's own parser (a hand-written Lisp scanner was wrong three ways; apply the DDL, do not model it mentally) · mutation-test every checker, and assert it found its inputs.
 
 ### The registration check, and the gap it found immediately
 
-A new `hhub/**` file needs **two** registrations — `package/compile.lisp` and `nstores.asd` — and
-nothing checked the second. The preflight now does, narrowly: it asserts **this batch's files** are in
-both and merely *notes* the rest, because the two lists legitimately differ in 13 places (an equality
-assertion would have cried wolf on all of them). It immediately found two pre-existing files that are
-**COMPILED AND NEVER LOADED** — `invoice/nst-bl-gstr1.lisp` (the whole GSTR-1 collector, which explains
-why it "was never run against a session": it is absent from the running system) and
-`order/dod-dal-otk.lisp` (a second view class for a table another file already declares). Both are in
-`PENDING-WORK-CONTEXT.md` §8; neither is ours.
+A new `hhub/**` file needs **two** registrations — `package/compile.lisp` and `nstores.asd` — and nothing checked the second. The preflight now does, narrowly: it asserts **this batch's files** are in both and merely *notes* the rest, because the two lists legitimately differ in 13 places (an equality assertion would have cried wolf on all of them). It immediately found two pre-existing files that are **COMPILED AND NEVER LOADED** — `invoice/nst-bl-gstr1.lisp` (the whole GSTR-1 collector, which explains why it "was never run against a session": it is absent from the running system) and `order/dod-dal-otk.lisp` (a second view class for a table another file already declares). Both are in `PENDING-WORK-CONTEXT.md` §8; neither is ours.
 
 ### The tools, and when to run them
 
-All offline — no database, no image, no build — and all exit non-zero on a finding.
+All offline — no database, no image, no build — and all exit non-zero on a finding. `nst-preflight.lisp`: before claiming a story done — delimiter balance (by the reader), SQL reserved-word quoting, build registration, non-vacuity, and the queries a human must run before a story is APPLIED. `nst-verify-doc-numbering.lisp`: the FY rule, the template renderer, the reference permutation, the fail-closed key, the counter SQL's quoting, the mirror-list/class invariants. `nst-verify-order-create.lisp`: the create's two pure halves (the nested body reader against what cl-json actually produces; the copiers against a create supplying only some fields). The rest: `nst-compile-production.lisp` · `nst-order-mirror-check.lisp` · `nst-vordh-mirror-check.lisp` · `nst-vordh-route-probe.lisp` · `nst-verify-abac-seed.lisp` · `nst-binding-order-check`. **What no offline check can do, so it stays a human step:** the three database classes in preflight §4(a)–(c) — they print on every run precisely so they cannot be forgotten.
 
-* **`nst-preflight.lisp`** — before claiming a story done: delimiter balance (by the reader), SQL
-  reserved-word quoting, build registration, non-vacuity, and the queries a human must run before a
-  story is APPLIED.
-* **`nst-verify-doc-numbering.lisp`** — the FY rule, the template renderer, the reference permutation,
-  the fail-closed key, the counter SQL's quoting, the mirror-list/class invariants.
-* **`nst-verify-order-create.lisp`** — the create's two pure halves (the nested body reader against
-  what cl-json actually produces; the copiers against a create supplying only some fields).
-* `nst-compile-production.lisp` · `nst-order-mirror-check.lisp` · `nst-vordh-mirror-check.lisp` ·
-  `nst-vordh-route-probe.lisp` · `nst-verify-abac-seed.lisp` · `nst-binding-order-check`.
+## 10. Standards review — moved to `knowledge/order-standards-review-CONTEXT.md`
 
-**What no offline check can do, so it stays a human step:** the three database classes in preflight
-§4(a)–(c). They print on every run precisely so they cannot be forgotten.
-
-## 10. Standards review — OWASP API Top 10 · NIST 800-53/800-63B · Google AIP · RFC · 2026-09-28
-
-**Read this before writing the first story.** Twenty findings: nineteen about this batch (**the table
-below**) and one pre-existing defect the review happened to walk into (**F20**, after the table — live
-credentials in source, not caused by this work). **F1–F6 change acceptance criteria in stories we are about
-to write**, so they are settled as decisions here rather than discovered during
-implementation. Nothing here challenges the architecture: the grammar, the four Belnap states, the
-ferry and the reserved-initarg filter came through the review clean.
-
-**What the design already gets right** — recorded so this section is not misread as a list of failures:
-- **No SQL-injection surface.** Every predicate is a parameterised CLSQL form (`[= [:ordnum] v]`), and
-  `sort-by` cannot reach `ORDER BY` because of the whitelist — the classic hole, closed by construction.
-- **No mass assignment of the tenant.** `*reserved-initargs*` strips `:tenant-id`/`:id`/`:created-at`/
-  `:updated-at`/`:deleted-state` at the ferry; the tenant comes only from `ctx` (नियम-1).
-- **404 rather than 403 for a foreign object** — the OWASP-correct choice (a 403 confirms existence).
-- **`:U` is never collapsed into `:F`.** An outage cannot masquerade as absence.
-- **The response is a per-field allowlist**, not the entity: nothing crosses the boundary by default.
-- **The prefix may never be derived from GSTIN/PAN/phone** — already a written rule (and the DPDP/GDPR
-  question: a company-name-derived prefix adds no personal data to a number that already travels in email).
-
-### The findings
-
-| # | Sev | Standard | Finding | Disposition |
-|---|---|---|---|---|
-| **F1** | **HIGH** ✅ **CONFIRMED** | OWASP API1/API9 · NIST AC-4 | 🚨 **The sequential counter leaks a customer's cross-vendor order volume.** The counter is per (customer, doc-type, FY), so ONE series spans a customer's orders across **all** vendors. **Two independent leak channels, and the second is the one that matters:** (i) `/vendor/orders/{ordnum}` answers 200 for the vendor's own slice and **404** otherwise, so the series can be walked; (ii) **a vendor needs no endpoint at all** — `DOD_VENDOR_ORDERS` carries the customer's number (D20), so a vendor holding `...-00001` and later `...-00005` **infers four orders with competitors**, and can keep counting, without sending a request. Honest characterisation: a *commercial-confidentiality* leak (a supplier can size its customer's total demand, which is negotiating leverage), not a data breach. | ✅ **RESOLVED 2026-09-28 — see the decision record below.** Not by re-scoping the counter: that option is **structurally impossible** here. |
-
-### F1 — the decision record (2026-09-28)
-
-**Option (a), a per-(customer, vendor) counter, is structurally IMPOSSIBLE here**: one customer order
-spans several vendors (`DOD_ORDER` + N `DOD_VENDOR_ORDERS`, items carrying `VENDOR_ID`), so a
-per-vendor counter would mint **N numbers for ONE order** — the customer could no longer quote "the"
-order number, which is the reason the number exists — and it would collapse `UNIQUE (ORDNUM)`.
-**Option (c), rate-limit-and-accept, does not fix it**: rate limiting touches only the endpoint channel
-and has **no effect** on the one that needs no request at all.
-
-**✅ CHOSEN — option (b), in the TOKEN rather than the counter:** keep an internal atomic counter
-(deterministic, unique, dry-runnable) and publish a **non-sequential, unguessable** reference — the
-counter through a **keyed permutation** (HMAC-SHA-256 over tenant|customer|doc-type|finyear|counter,
-truncated, base32 over an explicit 31-symbol alphabet `23456789ABCDEFGHJKMNPQRSTUVWXYZ`: digits 2-9
-plus A-Z less the look-alikes `I`, `L`, `O`). **Unguessable** (gaps carry no information, so both leak
-channels close), **deterministic** (the dry run reproduces the real run, so AC (f) survives),
-**unique by construction** (the permutation is injective, leaving the unique index a backstop), and
-**structurally unchanged** (one order, one number, quoted across parties, addressed by both channels).
-
-**Costs, stated:** the number stops being human-sortable (the counter stays the internal sort key) and
-must be sayable aloud — hence the alphabet. **The key lives in the DATABASE, generated on first use,
-NEVER in source** (a committed key would let anyone enumerate every reference), and **minting FAILS
-CLOSED if the key is absent**. **Rotation** can map two counters onto one reference, so the unique
-index plus the bounded retry is the guard — the retry is not decoration.
-
-| **F2** | **HIGH** | OWASP API1 | 🚨 **A sentence in this very file is the loophole.** D4 says a globally unique `ORDNUM` makes "a number-only lookup legitimate again". Uniqueness licenses an unambiguous **address**; it does **not** license a **tenant-less query**. Any resolution that drops the tenant predicate is textbook BOLA. | **MUST FIX (wording + code).** Rewrite D4's claim; every resolution stays `WHERE ORDNUM = ? AND TENANT_ID = ?`; add the AC that a valid ORDNUM from another tenant answers **404**. |
-| **F3** | **HIGH** | OWASP API5 | **Authorization is unhooked.** The `DOD_AUTH_POLICY`/`DOD_BUS_TRANSACTION` rows are seeds, `:required-roles` is carried and read by nothing, and `*action-route-transaction-function*` is a no-op (D18). The only real protections are tenant scoping, channel narrowing and fail-closed 401 — anyone with a valid session of the right channel can call every endpoint. | **ACCEPTED RISK, stated.** Not a defect of this batch (the invoice endpoints share it), but it must be written down where the endpoints are, not left implicit. The 401-fail-closed AC is the mitigating control. |
-| **F4** | **HIGH** | NIST 800-63B · OWASP API2 | **The live authentication defect undermines all of the above.** `check-password` compares only the first 8 bytes (`PENDING-WORK-CONTEXT.md` §1): any suffix is ignored. Session lifetime is 8h (customer) / session-bound to UA+IP, with no re-auth for sensitive writes. | **Out of scope, but must be named.** Any security statement about these endpoints is nominal until §1 lands. Cross-referenced, not solved here. |
-| **F5** | **MED-HIGH** | OWASP API3 (BOPLA) | **`!update` has no field-level allowlist per channel** — it assigns any declared initarg, gated only by status. So a customer can set `:is-converted-to-invoice "Y"`, `:invoice-number`, `:invoice-date`, `:order-fulfilled "Y"`, or `:status "CMP"/"VCN"/"CCN"` directly, bypassing the fulfilment/cancel verbs **and the order→invoice link**. | **MUST FIX in S5.** A per-channel writable-field allowlist inside `!update` (and `make`), refusing everything else with a contradiction. This is the field-level half of the authorization model; the route-level scope narrowing does not substitute for it. |
-| **F6** | **MED-HIGH** | Google AIP-155/industry | **`POST /orders` has no idempotency.** A retried create produces a duplicate order, burns counter values, and (via D14's assembly) duplicates vendor rows — with no transaction seam to roll any of it back. | **MUST FIX in S3/S12, and the fix is nearly free.** `DOD_ORDER.CONTEXT_ID varchar(100)` **already exists**, the legacy layer already stamps it with `(uuid:make-v1-uuid)` (`dod-bl-ord.lisp:406`), and `get-order-by-context-id` already reads it (`:255`). Require an idempotency key (header or `:context-id`), `?exists`-check it, and return the EXISTING order on a repeat. |
-| **F7** | MED | OWASP API4 · AIP-158 | **No pagination or result cap on `enumerate`.** 485 rows today and unbounded growth; one `GET /orders` can exhaust memory/CPU. | **MUST FIX in S4.** `:limit` (default 50, **max 200**) plus a cursor/offset, documented in the binding. |
-| **F8** | MED | AIP-154 · RFC 9110 | **No optimistic concurrency on `!update`.** Hydrate → write-all-slots is last-write-wins: two concurrent writers silently lose one's changes. | **FIX in S5.** `UPDATED` already has `ON UPDATE CURRENT_TIMESTAMP`, so it is a ready-made version token — ETag on read, `If-Match` on write, 412 on mismatch. |
-| **F9** | MED | OWASP CSRF · AIP-193 | **CSRF is unaddressed.** Writes are authenticated by a session cookie, and nothing requires a JSON content type, an `Origin`/`Sec-Fetch-Site` check, or a `SameSite` cookie. | **FIX in S13.** Require `application/json` and reject others; validate `Origin`; set `SameSite` on the session cookie. |
-| **F10** | MED | OWASP API4/API6 | **No rate limiting** — `apidefs2:617` says so in its own comment. Order placement is a sensitive business flow, and the counter is a burnable shared resource. | **FIX in S12/S13** (route-layer limit + a cap on counter increments per window), or ledger it as an accepted gap with the reason. |
-| **F11** | MED | NIST AU-2/AU-3 · GST retention | **No audit trail, and the columns that exist are unwritten.** `emit-audit` is a stub, `:audit-level` is carried, the bus-transaction rows are seeds (S14) — and `CREATED_BY_USER_ID`/`APPROVED_BY_USER_ID` exist on the live table (`nst-dal-Order.lisp:504`) with **no writer anywhere**. | **PARTIAL FIX in S3, at near-zero cost:** populate `CREATED_BY_USER_ID` from the session at `make`. The rest stays on the ledger with the PEP work. |
-| **F12** | MED | AIP-134 · RFC 9110 | **`PUT` carries merge semantics.** `!update` is a partial update exposed as PUT, which standards-following clients read as full replacement — and a field omitted from a full representation will not be cleared. | **DECISION REQUIRED.** Either use `PATCH` for orders, or document the deviation explicitly. ⚠ The invoice API already ships PUT-with-merge, so switching only orders creates two conventions in one product. |
-| **F13** | LOW-MED | RFC 9457 · AIP-193 | **The error model is custom, and the classifier has gaps:** `api-status-for-condition` has **no 409 case** (so a sentinel-derived 409 is invisible to it), and a malformed body answers **500** where the contract says 400. | **FIX in S13 for the 400/409 part** (route-layer `api-client-error`); the error-envelope change is a shared-file change and belongs on the ledger. |
-| **F14** | LOW | — | **The `A-Z0-9` charset is load-bearing, not cosmetic.** The number's delimiter is `-`, so a prefix containing `-`, or digits that mimic the FY, makes the number ambiguous to anything that splits it. And silent canonicalisation collides: `XYZ-CORP` → `XYZCORP` equals an existing `XYZCORP`. | **FIX in S0d:** the override must **REFUSE** a non-conforming value (so the user is told) rather than silently transform it — while the allocator may canonicalise at allocation time. And **no code may parse a number by splitting on `-`**: it is looked up whole. |
-| **F15** | LOW | — | `UNIQUE (DOC_PREFIX)` permits **many NULLs**, so it does **not** enforce *every customer has a prefix*. That property is held by the allocator and the mint. | **Documentation.** Same class as the vacuous-duplicate measurement: do not read the index as the guarantee. |
-| **F16** | LOW | product contract | **Our own spec promises more than we are building.** `nstoresapi.html:146` says `POST /orders` *"Atomically handles OTP verification, wallet deduction, and shipping address capture"*; this design is a document create. | **DECISION REQUIRED.** Either correct the spec text, or scope the batch wider — and if wallet deduction is in scope, financial controls apply and the single-entity design is insufficient. |
-| **F17** | LOW | OWASP API9 | **The legacy writers stay live** — the legacy order UI actions and the old `/hhub/order*` handlers still create, cancel and fulfil orders, bypassing every new invariant (DFT, prefix, counter, scope). | **PARTIAL (S8b closes the prefix hole).** A full inventory/gating item goes on the ledger. |
-| **F18** | LOW | WCAG 2.1 AA | The new profile field needs a real label, programmatic error text, and no colour-only signalling — the customer profile page is user-facing. | **FIX in S0d** (one line in the template's AC). |
-| **F19** | LOW | OWASP API8 | `dispatch-route2` prints to stdout on every request (`PENDING-WORK` §5); log volume, not a leak — but it means request volume is unbounded in the logs too. | Already on the ledger; cross-referenced. |
-
-### F20 — 🚨 pre-existing: live credentials committed in source (not caused by this batch)
-
-`hhub/core/extkeys.lisp` holds, as plain `defvar`s in a tracked file, the **AWS SES SMTP username and
-password**, the **reCAPTCHA v2 secret** and the **data.gov.in API key** — and every file carries
-"Distributed under the MIT License", so if the repository is shared these are public. **Out of scope
-here and NOT fixed** (rotating production SMTP credentials is an operational act). Recorded because the
-new ref key must not repeat it: **rotate the three, move them to configuration, add a leak check.**
-
-### S0e — the cross-cutting requirements, and who owns each
-
-**Not new files** — a filter over the findings above, so none is lost between design and code: every
-one is either **implemented at a named site** or **explicitly accepted with a written reason**.
-F1 → the `{ref}` token and a DB-stored key · F2/F5 → S3/S5 (tenant predicate; per-channel
-writable-field allowlist) · F6/F11 → S3/S12 · F7 → S4 · F8 → S5 (ETag/`If-Match` — ⚠ **see the KNOWN
-`UPDATED` defect, `PENDING-WORK §10`**) · F9/F10/F13 → S12/S13 · **F12/F16 → still to DECIDE** ·
-F14/F18 → S0d · F15/F17/F19 → ledger · **F20 → ledger, then a human.** Reread before closing the
-batch: none of these may be discovered a second time during the smoke suites.
+**OWASP API Top 10 · NIST 800-53/800-63B · Google AIP · RFC · WCAG · 2026-09-28 — twenty findings** (nineteen about this batch + **F20**, a pre-existing defect the review walked into). The full review — **F1–F19** with severity, standard, finding and disposition; **F1's decision record** (the sequential counter as a competitor-enumeration oracle, closed by the keyed non-sequential `{ref}`, and why per-vendor counters are structurally impossible); **F20** (live AWS SES SMTP + reCAPTCHA + data.gov.in credentials committed in `hhub/core/extkeys.lisp`); **what the design already gets right**; and **§S0e, the finding→owner map** — is now in **`knowledge/order-standards-review-CONTEXT.md`**. **Read F1–F6 before changing behaviour; read F3 before touching authorization** (the S14 policy rows are carried, not enforced — D18). **F12/F16 are still undecided** (PUT vs PATCH; whether `POST /orders` includes OTP + wallet) and are the two open questions in §0.
