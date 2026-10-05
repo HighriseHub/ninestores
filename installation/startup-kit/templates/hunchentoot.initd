@@ -1,0 +1,79 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          hunchentoot
+# Required-Start:    $all
+# Required-Stop:     $all
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Launch the Nine Stores Hunchentoot/SBCL image
+# Description:       Start and stop the acceptor through detachtty.
+### END INIT INFO
+#
+# Rendered by installation/startup-kit/05-install-hunchentoot-service.sh.
+#
+# THE THING TO UNDERSTAND ABOUT `stop`: the image is stopped by connecting to
+# port @SHUTDOWN_PORT@, because that socket is what init.lisp blocks on. So:
+#
+#   * the `telnet` CLIENT must be installed, or stop does nothing at all and
+#     says nothing about it;
+#   * it cannot stop a process that died during load — for that use `clear`,
+#     which kills the pid from the pid file and wipes the state files;
+#   * `sleep 7` is the wait for the image to unwind its threads and exit.
+
+NAME=hunchentoot
+APP_HOME=@APP_HOME@
+SHUTDOWN_PORT=@SHUTDOWN_PORT@
+
+. /lib/lsb/init-functions
+
+hunchentoot_start()
+{
+    echo -n "Starting Lisp Hunchentoot Server process... "
+    su - @APP_USER@ -c "$APP_HOME/start-hunchentoot"
+    echo ""
+}
+
+hunchentoot_stop()
+{
+    echo -n "Stopping Lisp Hunchentoot Server process... "
+    (telnet 127.0.0.1 "$SHUTDOWN_PORT" &) > /dev/null 2>&1
+    (sleep 7)
+    echo "done"
+}
+
+# kill + wipe, for when the image is wedged or half-dead after a failed load
+hunchentoot_clear()
+{
+    echo "Clearing state from a previous run"
+    if [ -f "$APP_HOME/run/$NAME.pid" ]; then
+        pid="$(cat "$APP_HOME/run/$NAME.pid" 2>/dev/null)"
+        if [ -n "$pid" ]; then
+            echo "  killing pid $pid"
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+    fi
+    rm -f "$APP_HOME/log/hunchentoot.dribble" \
+          "$APP_HOME/run/$NAME.pid" "$APP_HOME/run/$NAME.sock"
+}
+
+hunchentoot_status()
+{
+    status_of_proc -p "$APP_HOME/run/$NAME.pid" "$NAME" "$NAME"
+}
+
+hunchentoot_usage()
+{
+    echo "Usage: /etc/init.d/$NAME {start|stop|restart|status|clear}"
+    exit 1
+}
+
+case "$1" in
+    start)   hunchentoot_start ;;
+    stop)    hunchentoot_stop ;;
+    restart) hunchentoot_stop; hunchentoot_start ;;
+    status)  hunchentoot_status ;;
+    clear)   hunchentoot_clear ;;
+    *)       hunchentoot_usage ;;
+esac
+
+exit 0

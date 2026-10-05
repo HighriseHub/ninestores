@@ -1,0 +1,47 @@
+# iptables rules for a Nine Stores web server
+#
+# The raw-iptables alternative to 01-harden-host.sh's ufw calls — kept because
+# this is the form the original build used, and because a host may already be
+# managed this way. Use ONE of the two, never both.
+#
+#   install -m 600 templates/iptables.up.rules /etc/iptables/rules.v4
+#   iptables-restore < /etc/iptables/rules.v4
+#   apt-get install iptables-persistent     # restores it on boot
+#
+# @SSH_PORT@ below is the port set in sshd_config by 01-harden-host.sh — the two
+# must agree, and changing one without the other locks you out.
+#
+# Note what is NOT here: 4244 (the acceptor), 4016 (Swank), 6200 (shutdown) and
+# 3306 (MySQL) have no ACCEPT rule and are bound to 127.0.0.1 in any case. They
+# are loopback-only by design — do not "helpfully" open them.
+
+*filter
+
+# loopback: allow all, and drop anything to 127/8 that did not come via lo
+-A INPUT -i lo -j ACCEPT
+-A INPUT ! -i lo -d 127.0.0.0/8 -j REJECT
+
+# established/related inbound
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# outbound: unrestricted (tighten if you want)
+-A OUTPUT -j ACCEPT
+
+# http + https
+-A INPUT -p tcp --dport 80 -j ACCEPT
+-A INPUT -p tcp --dport 443 -j ACCEPT
+
+# ssh — THE SAME PORT AS sshd_config
+-A INPUT -p tcp -m state --state NEW --dport @SSH_PORT@ -j ACCEPT
+
+# ping
+-A INPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
+
+# log what is denied, at a sane rate
+-A INPUT -m limit --limit 5/min -j LOG --log-prefix "iptables denied: " --log-level 7
+
+# default deny
+-A INPUT -j REJECT
+-A FORWARD -j REJECT
+
+COMMIT
