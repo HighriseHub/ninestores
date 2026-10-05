@@ -29,7 +29,7 @@ Not mine, same window: `68bd4d2` (invoice PDF by email + public page), `96d3164`
 
 ## Where the durable knowledge lives
 
-* Actor model → `knowledge/nst-bl-act-CONTEXT.md` + the `ninestores-actor-model` skill.
+* Actor model → `knowledge/nst-bl-act-CONTEXT.md` + `knowledge/ninestores-actor-model-CONTEXT.md`.
 * Migrations → `knowledge/schema-migrations-CONTEXT.md` (version is `varchar(50)`; one bad
   migration used to abort the whole run).
 * The actor suite: `sbcl --non-interactive --load hhub/test/hhub-tst-act.lisp` → PASS/FAIL

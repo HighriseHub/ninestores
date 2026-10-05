@@ -88,7 +88,7 @@ sql() { [ "$HAVE_SQL" = 1 ] || return 0
         mysql -u "$NS_MYSQL_USER" -p"$NS_MYSQL_PASS" -N -B "$NS_DB" -e "$1" 2>&1 | grep -v '^mysql:'; }
 
 WRITE=0
-SUITE_REV="2026-10-04.3"
+SUITE_REV="2026-10-05.4"
 usage() {
   sed -n '3,52p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
@@ -605,7 +605,8 @@ PY
     expect "DELETE the created order (DFT is deletable) → 200" 200 ""
     req GET "$ORD/$NEW_NUM"
     expect "the deleted order is invisible afterwards (नियम-2)" 404 '"not_found"'
-    CREATED_IDS=""
+    # ⚠ THE CLEANUP KEY IS NOT CLEARED: the API's DELETE is SOFT, so the rows are still in the table
+    # and the physical removal belongs to restore_rows, by row-id (see the header suite's note).
   fi
 fi
 

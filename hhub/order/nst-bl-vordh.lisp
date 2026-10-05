@@ -483,7 +483,12 @@
                         (clsql:update-records-from-instance row)
                         row)))
       (case (bo-knowledge-truth knowledge)
-        (:T (bind-generated-row-id entity (bo-knowledge-payload knowledge)))
+        ;; ⚠ `entity` IS RETURNED, AND LEAVING IT OFF IS A DEFECT: bind-generated-row-id answers the
+        ;; canonical id STRING, so the create handed its caller "469" instead of the entity, the D14
+        ;; assembly answered a bare id, and render-json — which has no method for a string — 500'd
+        ;; AFTER the header, the lines and the vendor rows had all been written.
+        (:T (bind-generated-row-id entity (bo-knowledge-payload knowledge))
+            entity)
         (:F ;; The INSERT itself was refused: a NOT NULL column, the composite unique key
             ;; uk_vo_order_vendor (one row per order+vendor), or the tenant foreign key.
             (domain-sentinel-from-knowledge

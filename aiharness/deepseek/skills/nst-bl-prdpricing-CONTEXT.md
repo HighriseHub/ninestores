@@ -274,9 +274,10 @@ path is unaffected. Do not "simplify" it by deleting the handler-case.
   database atomicity for the two-row write — and must stay there.
 - **An ABAC policy + transaction pair IS seeded for this endpoint** (2026-09-20),
   as its own migration `20092026-insert-product-pricing-policies` — separate
-  because the product one was already applied and never re-runs. Not applied to
-  any database yet, and inert until the seam above is bound. Full reasoning:
-  `ABAC-policy-transaction-CONTEXT.md` §9 traps 13–14 and §12.
+  because the product one was already applied and never re-runs. **APPLIED 2026-09-20
+  11:19:37** (corrected 2026-10-05: this used to say "not applied to any database yet";
+  `DOD_SCHEMA_MIGRATIONS` holds the row) — and still inert until the seam above is bound.
+  Full reasoning: `ABAC-policy-transaction-CONTEXT.md` §9 traps 13–14 and §12.
 - On the **update** path an omitted key means *leave it alone*, **not** *reset to
   the 1.00 default* — otherwise a PUT touching only the discount would reset a ₹499
   price. This is the design decision that survived; the "400 or 200 on an empty

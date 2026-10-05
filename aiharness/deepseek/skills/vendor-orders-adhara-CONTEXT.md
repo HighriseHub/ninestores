@@ -11,8 +11,11 @@ share nothing else: **different table, different traps, different scope rule, di
 this file needs something from the customer side it cites the decision number (D1–D21, S1–S17) instead
 of copying it.
 
-Written 2026-10-04, at the start of S9. State: **design settled, no vendor code written.** The customer
-channel is implemented and committed (`12ebb4f`, `2c792a5`, `07b0471`, `37d67f0`).
+**Status:** written 2026-10-04 at the start of S9, when the state was *"design settled, no vendor code
+written"* and the customer channel was already implemented and committed (`12ebb4f`, `2c792a5`,
+`07b0471`, `37d67f0`). **Superseded in place 2026-10-04/05 — the vendor code now exists, loads and is
+offline-verified: S9, S10 and S11 are all DONE** (§0, §2–§4). S14–S16 and the live half of the
+acceptance criteria are the batch file's business.
 
 ---
 
@@ -23,19 +26,19 @@ channel is implemented and committed (`12ebb4f`, `2c792a5`, `07b0471`, `37d67f0`
 | **S9** | the island: class + entity + models | `hhub/order/nst-dal-vordh.lisp` (new, inert) | ✅ **DONE 2026-10-04** — 60/60 columns, mirror invariant asserted, checker mutation-tested (§2) |
 | **S10** | the six प्रत्यय, vendor-scoped | `hhub/order/nst-bl-vordh.lisp` (new) | ✅ **DONE 2026-10-04** — six verbs, 16/16 offline, STAGE: LOADED (§3) |
 | **S11** | routes + the three bindings, and the assembly rewired to `make` | `hhub/order/nst-bl-vordhapi.lisp` (new) | ✅ **DONE 2026-10-04** — S13 (c) closed, 12/12 route probe, interim writer deleted (§4) |
-| after | seeds · build+offline load · smoke suites | S14 · S15 · S16 | **S14 written + verified, NOT APPLIED** (see `order-adhara-stories-CONTEXT.md` §0, which is the batch's state of play); S15/S16 next |
+| after | seeds · build+offline load · smoke suites | S14 · S15 · S16 | as first written: *"S14 written + verified, **NOT APPLIED**; S15/S16 next"* — **behind the batch file, see below** |
 
-⚠ **START A NEW SESSION IN `order-adhara-stories-CONTEXT.md` §0** — it carries the batch-wide state:
-story status, the immediate next actions, the open decisions, the verification recipe, the traps this
-batch paid for, and the live-image/database state. THIS file is the vendor channel's own record
-(decisions V1–V15, the 60-column measurement, T9's vendor-only trap) and is deliberately not a
-duplicate of it.
+⚠ **THIS ROW IS BEHIND THE BATCH FILE, WHICH OWNS THE STATE.** `order-adhara-stories-CONTEXT.md` §0/§6
+record S14 **APPLIED 2026-10-04**, S15 **DONE 2026-10-04** and S16 **IN PROGRESS** with AC (a)
+**PROVEN 2026-10-05** (the first `POST /orders` → 201, `rowId 497`); where they disagree, that file wins.
+**START A NEW SESSION THERE** — it carries the batch-wide state (story status, next actions, open
+decisions, verification recipe, the live-image/database state). THIS file is the vendor channel's own
+record (decisions V1–V15, the 60-column measurement, T9's vendor-only trap), deliberately not a duplicate.
 
 **The one thing to know before reading further:** `DOD_VENDOR_ORDERS` is *not* `DOD_ORDER` with a vendor
 column bolted on. It is a **denormalised copy of the order header, one row per (order, vendor)**, with a
 different `ORD_DATE` **type** (§1), a second scope axis (`VENDOR_ID` **and** tenant, §5 V3), and its own
 legacy class that must not be extended (§5 V1).
-
 ---
 
 ## 1. MEASURED (2026-10-04, live `hhubdb` — not recalled, not read off a create-script)
@@ -74,8 +77,9 @@ with `ON UPDATE CURRENT_TIMESTAMP`**. Consequences, all of them live:
    `update-order` (`:313`) use `update-records-from-instance` / `update-record-from-slot`.
 3. **The header's own type decision is wrong here.** `dod-order` declares `ORD_DATE` as `clsql:date`,
    which is correct for a `date` column — but reading a `timestamp` as `clsql:date` **drops the
-   time-of-day**, so writing that value back silently moves the row to midnight: AC (f) fails *even
-   when the auto-update is defeated*. See §5 V5 for the declaration this class uses instead.
+   time-of-day**, so writing that value back silently moves the row to midnight: AC (f)'s byte-identity
+   assertion fails *even when the auto-update is defeated*. See §5 V5 for the declaration this class
+   uses instead.
 
 **The legacy class is 34 columns behind.** `dod-vendor-orders` (`order/dod-dal-ord.lisp:15`) declares
 **26** slots against **60** live columns, with zero phantom columns. It gained exactly one slot in the
@@ -101,35 +105,33 @@ longest member · **`timestamp→(string 30)` when the value must round-trip** (
 **AC (a) ✓** — its own class; the legacy `dod-vendor-orders` class is untouched (its `ordnum` slot from the
 customer batch is the only change it has ever had).
 
-**AC (b) ✓ — MECHANICAL, both directions, and the verdict is:** the class's 60 `:column` names are
-**set-equal** to `information_schema` for `DOD_VENDOR_ORDERS`: **0 missing, 0 phantom**. (The class groups
-its slots logically rather than by table ordinal — CLSQL does not care, because every slot names its own
-`:column`; an ordinal-order diff therefore shows only reordering, which is why the check compares sets.)
+**AC (b) ✓ — a mechanical check, not a claim:** the class's declared 60 `:column` names are dumped from the
+source and diffed against `information_schema.columns` for `DOD_VENDOR_ORDERS` → **set-equal: 0 missing, 0
+phantom** (§1). A diff by table ordinal would show only reordering — CLSQL does not care, every slot names
+its own `:column` — which is why the check compares sets.
 
 **The mirror invariant, which is the one that caused the invoice outage:** entity-minus-row-id plus
 `deleted-state` == the mirror list (56), and the mirror list plus `row-id` == the response model (57). One
-entry with no response slot signals `MISSING-SLOT` on **every** response, so this is asserted offline
-rather than discovered as a 500.
+entry with no response slot signals `MISSING-SLOT` on **every** response, so this is asserted offline, not
+discovered as a 500.
 
-**The checker was mutation-tested, because a check that cannot fail is not a check.** Two mutations, both
-caught and named: (i) renaming one `:column` → `FAIL the class is MISSING 1 live column(s): COUNTRY` +
-`FAIL … 1 PHANTOM column(s): COUNTRYS`; (ii) adding one mirror entry with no entity slot →
+**The checker was mutation-tested** — two mutations, both caught and named: (i) renaming one `:column` →
+`FAIL the class is MISSING 1 live column(s): COUNTRY` + `FAIL … 1 PHANTOM column(s): COUNTRYS`; (ii) adding
+one mirror entry with no entity slot →
 `FAIL mirrored but NOT an entity slot (MISSING-SLOT on every response): GHOST-SLOT` + the matching
-`domain->response would SETF` line. **The mutation test also found a bug in the checker's own summary
-line** — `~:[FAIL (~D problem(s))~;PASS (~D check(s))~]` takes ONE `~D` after the conditional, so the FAIL
-branch printed the *check* count labelled "problem(s)" (a failing run read "FAIL (10 problem(s))" when it
-had 2). It now prints both counts explicitly. That is the same `~:[…~;…~]` argument-count trap that bit
-three files in the customer batch — the lesson is that a report which lies about its own numbers is worse
-than no report.
+`domain->response would SETF` line. It also found a bug in the
+checker's own summary line — `~:[FAIL (~D problem(s))~;PASS (~D check(s))~]` takes ONE `~D` after the
+conditional, so a failing run read "FAIL (10 problem(s))" when it had 2. The rule behind all of this, the
+`~:[…~;…~]` argument-count trap that bit three files in the customer batch, and the three other
+checker-bug classes are `knowledge/offline-checker-methodology-CONTEXT.md` §1–§3.
 
-**⚠ TWO LIST MAINTENANCE TRAPS, BOTH HIT AND FIXED IN `nst-preflight.lisp`:** the file must be added to
-`*files*` (delimiter balance) **and** to `*hhub-new-files*` (build registration). They are **separate
-lists**, and a file in the first but not the second is balanced and then **silently skipped** for
-registration — a pass that means nothing. Both are now updated, and the preflight reports
-`ok hhub/order/nst-dal-vordh.lisp (6 top-level forms)`.
+**⚠ The two `nst-preflight.lisp` lists, both hit and fixed:** `*files*` (delimiter balance) **and**
+`*hhub-new-files*` (build registration) are **separate**, and a file in the first but not the second is
+balanced and then **silently skipped** — a pass that means nothing. Both are now updated, and the preflight
+reports `ok hhub/order/nst-dal-vordh.lisp (6 top-level forms)` (methodology file §4).
 
-Inert, exactly like `nst-dal-ordh.lisp`: a class, an entity, two boundary models, a mirrored-slot list.
-No प्रत्यय, no copiers, no render. **AC (a) and (b) live here.**
+Inert, exactly like `nst-dal-ordh.lisp` — a class, an entity, two boundary models, a mirrored-slot list; no
+प्रत्यय, no copiers, no render. **AC (a) and (b) live here.**
 
 **Three artifacts, in the order the file declares them:**
 
@@ -137,28 +139,22 @@ No प्रत्यय, no copiers, no render. **AC (a) and (b) live here.**
    `dod-vendor-orders` stays exactly as it is). Recipe copied from `dod-order`
    (`nst-dal-Order.lisp:482`): slotless base `()`, `row-id` is `:db-kind :key :db-constraints :not-null
    :column "ROW_ID" :type integer`, and the class ends `(:base-table "DOD_VENDOR_ORDERS")`. Every slot
-   carries an explicit `:column` — the slot names are kebab-case of the column here, but that is a
-   coincidence of this table, not a rule (the header's four non-derivable names are the counter-example).
-   **No `:db-kind :join` slots:** `customer`/`order`/`vendorobject` on the legacy class are joins, not
-   domain state, and this batch's doctrine excludes them (`nst-dal-ordh.lisp`'s header says so). Where a
-   verb needs the vendor's or the customer's own row it calls the tenant-scoped BL lookup, as the
-   customer-channel assembly already does.
+   names its own `:column` — kebab-case here is a coincidence of this table, not a rule (the header's four
+   non-derivable names are the counter-example). **No `:db-kind :join` slots:** `customer`/`order`/
+   `vendorobject` on the legacy class are joins, not domain state, and this batch's doctrine excludes them
+   (`nst-dal-ordh.lisp`'s header says so); a verb needing the vendor's or customer's own row calls the
+   tenant-scoped BL lookup, as the customer-channel assembly already does.
 2. **Tree-1 entity `nst-vordh (nst-domain-entity)`** — never `BusinessObject`, never a boundary class;
-   `row-id`/`tenant-id`/`created-at`/`updated-at`/`deleted-state` are inherited and never redeclared
-   (नियम-1: the tenant can only come from `domain-ctx`). Money slots get an explicit `:initform 0.0` and
-   char flags `"N"`/`"Y"` — CLSQL declares these `decimal` columns `(OR NULL FLOAT)` and *validates on
-   insert*, so an ordinary JSON integer `0` fails the INSERT and surfaces as `:U`/503 "the database call
-   did not answer". That cost the invoice batch two days; it is a fixed defect, not style.
-3. **`NstVordhRequestModel` (SLOTLESS), `NstVordhResponseModel`, `*vordh-mirrored-slots*`** — the
-   slotless inbound model because `request->dispatch` reads only `(params rm)`; the response model
-   because `domain->response` setfs every mirrored slot onto it; `deleted-state` is **declared on the
-   response model and mirrored although it is inherited**, because that one missing declaration is what
-   made every invoice endpoint answer 500 (`nst-invoice-mirror-check.lisp`).
-
-**AC (b) is a mechanical check, not a claim:** the class's declared `:column` names are dumped from the
-source and diffed against `information_schema.columns` for `DOD_VENDOR_ORDERS` → must be **60/60 with no
-phantom**, and the verdict is recorded in §1 above. The dump-diff is the *reviewable* form of "covers all
-60 live columns".
+   `row-id`/`tenant-id`/`created-at`/`updated-at`/`deleted-state` inherited, never redeclared (नियम-1: the
+   tenant can only come from `domain-ctx`). Money slots get an explicit `:initform 0.0` and char flags
+   `"N"`/`"Y"` — CLSQL declares these `decimal` columns `(OR NULL FLOAT)` and *validates on insert*, so an
+   ordinary JSON integer `0` fails the INSERT and surfaces as `:U`/503 "the database call did not answer".
+   That cost the invoice batch two days; it is a fixed defect, not style.
+3. **`NstVordhRequestModel` (SLOTLESS), `NstVordhResponseModel`, `*vordh-mirrored-slots*`** — slotless
+   inbound because `request->dispatch` reads only `(params rm)`; the response model because
+   `domain->response` setfs every mirrored slot onto it; `deleted-state` is **declared on the response
+   model and mirrored although it is inherited**, because that one missing declaration is what made every
+   invoice endpoint answer 500 (`nst-invoice-mirror-check.lisp`).
 
 ---
 
@@ -166,17 +162,22 @@ phantom**, and the verdict is recorded in §1 above. The dump-diff is the *revie
 
 ### S10 — DONE (2026-10-04). `hhub/order/nst-bl-vordh.lisp`, 36 top-level forms.
 
-Six verbs, all Belnap (`entity` or `nst-entity-*` sentinel; `:U` never phrased as "not found"), the
-tenant only ever from `domain-ctx` (नियम-1). Every read is scoped in the SQL.
+Six universals as everywhere (`make` `fetch` `enumerate` `!update` `delete!` `?exists`), on the ADHARA
+grammar — `domain-ctx` last, `with-db-call`, sentinels not nil — all Belnap (`entity` or `nst-entity-*`
+sentinel; `:U` never phrased as "not found"), the tenant only ever from `domain-ctx` (नियम-1). **Every
+read is scoped in the SQL, and triple-scoped** (§5 V3): `VENDOR_ID = the logged-in vendor` **AND** `TENANT_ID = the
+session tenant` **AND** `DELETED_STATE = 'N'`. Dropping any one of the three is a
+cross-tenant or cross-vendor read; AC (c) states it as a *measurable* criterion — a second vendor's row in
+the same tenant must be invisible to the first.
 
 | प्रत्यय | what it does, and the decision inside it |
 |---|---|
-| `?exists` | By ORDNUM **for this vendor** (`&key vendor-id`). `:F` free / `:T` live holder / `:C` soft-deleted holder or >1 row / `:U` DB silent. The vendor is a KEY, not a filter: another vendor holding the same number is the NORMAL case, so an answer without `:vendor-id` is about the tenant and is not a green light to insert. |
-| `make` | One row per (order, vendor), carrying the caller's ORDNUM. **`:around` gives idempotency keyed on the table's own `uk_vo_order_vendor`** — a retried assembly returns the existing row instead of meeting the unique key as a raw INSERT failure, after the header and its lines were already written. Guards: the four NOT NULL keys, then the vendor resolved through `select-vendor-by-id-in-tenant` (the legacy writer's lookup has no tenant predicate — that BOLA shape is not inherited). Forced values PEN / "N" / "N". **This is the promotion of the interim writer** `ordh-vendor-order-insert`, which the assembly still calls until S11 rewires it. |
-| `fetch` | By ROW-ID, tenant + live. Unparsable id → `nst-entity-nil`, never an error. |
-| `enumerate` | The vendor's worklist; `:vendor-id` **required**, and its absence is a REFUSAL, not an unfiltered list. Empty page = `'()` = 200 `[]`. |
-| `!update` | Five questions in order: exists → vendor matches → not terminal → channel may write these fields → If-Match matches. Writes whole-row from the hydrated entity. |
-| `delete!` | Internal channels only (V9); soft-delete is a single-column write so nothing else can move. |
+| `?exists` | By ORDNUM **for this vendor** (`&key vendor-id`). `:F` free / `:T` live holder / `:C` soft-deleted holder or >1 row / `:U` DB silent. The vendor is a KEY, not a filter: another vendor holding the same number is the NORMAL case, so an answer without `:vendor-id` is about the tenant and is not a green light to insert. Scoped existence is also what the route layer uses to tell 404 from 409. |
+| `make` | One row per (order, vendor), **carrying the minted `ORDNUM`** (D20) — called by `route-ordh-create`'s D14 assembly, one row per distinct vendor. **`:around` gives idempotency keyed on the table's own `uk_vo_order_vendor`** — a retried assembly returns the existing row instead of meeting the unique key as a raw INSERT failure, after the header and its lines were already written. Guards: the four NOT NULL keys, then the vendor resolved through `select-vendor-by-id-in-tenant` (the legacy writer's lookup has no tenant predicate — that BOLA shape is not inherited). Forced values PEN / "N" / "N". **This promotes the interim writer** `ordh-vendor-order-insert` (deleted in S11, §5 V14) and the legacy `persist-vendor-orders` (`dod-bl-ord.lisp:590`), which §5 V6 retires once `nst-vordh` owns the write. |
+| `fetch` | By ROW-ID, tenant + live; unparsable id → `nst-entity-nil`, never an error. The channel addresses it by **ORDNUM**, scoped — the route resolves `{ordnum}` + session vendor → row-id (§5 V10/V12). **A row whose `ORDNUM` is NULL answers 404, never a guess** (AC e): 462 of the 462 pre-migration rows were NULL, so an `ORDNUM IS NULL` fallback would hand every caller the same wrong row. |
+| `enumerate` | The vendor's worklist; `:vendor-id` **required**, and its absence is a REFUSAL, not an unfiltered list. Paginated, scoped; empty page = `'()` = 200 `[]`. The customer's number is *visible* here by design (D20/F1 — the resolved commercial-confidentiality position). |
+| `!update` | Five questions in order: exists → vendor matches → not terminal → channel may write these fields (§5 V8) → If-Match matches. Writes whole-row from the hydrated entity. Refuses the six keys that would move identity or scope (`:vendor-id :tenant-id :ordnum :row-id :order-id :cust-id`, AC d); refuses a **terminal** status (`*order-terminal-statuses*` = CMP/VCN/CCN, AC g); **re-assigns `ORD_DATE` explicitly** (AC f, §5 V5). |
+| `delete!` | Internal channels only (§5 V9); soft-delete is a single-column write so nothing else can move. Follows D8, the लोप cascade already used on the customer side. |
 
 **AC coverage, stated rather than implied**
 
@@ -186,97 +187,50 @@ tenant only ever from `domain-ctx` (नियम-1). Every read is scoped in the
 | (d) cannot move to another vendor/tenant, cannot change ORDNUM | three ways: `:vendor-id`/`:ordnum`/`:order-id`/`:cust-id` are **stripped** (unassignable), a `:vendor-id` supplied as scope is **verified against the row** before the write, and `:tenant-id` can only come from ctx |
 | (e) NULL ORDNUM → 404, never a guess | **structural, not a branch**: `[= [:ordnum] ordnum]` cannot match NULL, so such a row is unreachable and the answer is `:F`. There is deliberately no `OR ORDNUM IS NULL` fallback |
 | (f) ORD_DATE byte-identical, UPDATED advanced | **by construction**: `ord-date` is in `*vordh-mirrored-slots*`, the copier walks that list, and the write is whole-row — so the value READ is written BACK, and an explicit assignment beats `ON UPDATE`. `updated` is not in the list, so it keeps its own auto-update. V5's `(string 30)` is what makes the round trip exact |
-| (g) terminal status refused | first gate in the verb. Not a corner case: **387 of 466 live rows are CMP**, 4 VCN |
-| (a)(b) | S9, re-asserted here at 16/16 |
+| (g) terminal status refused | first gate in the verb. Not a corner case: **387 of 466 live rows are CMP**, 4 VCN. (a)(b) are S9's, re-asserted here at 16/16 |
 
-**Decisions this pass added**
+**AC (f) must not be weakened**, because it is the only way the T9 corruption becomes visible: *after
+`PUT /vendor/orders/{ordnum}`, `ORD_DATE` is byte-identical to what it was before, and `UPDATED` has
+advanced.* A test that does not assert this cannot see the bug.
 
-| # | decision | why |
-|---|---|---|
-| **V8** | The vendor may write exactly four fields: `:order-fulfilled :shipped-date :comments :external-url`. **Money is not here** (a vendor grading its own invoice), **the addresses are not here** (they are the customer's instruction), **the lifecycle is not here** (`:status`/`:is-cancelled` move through a verb, not a field assignment; the vendor states FACTS and the transition is a later verb's business). Internal channels additionally get 28 fields — the schedule, addresses, tax identity, payment mode. **This is the one decision in S10 worth a second opinion: it is deliberately narrow, and widening it is one line at a time.** | F5/OWASP API3; an allowlist whose default is ALLOW is not an allowlist |
-| **V9** | `delete!` refuses every external channel. D3 binds no delete route on this channel, and a vendor erasing its slice would remove the row the CUSTOMER's order is accounted for by. A vendor that stops supplying CANCELS (VCN) — a cancellation keeps the history. | D3 + the accounting relationship |
-| **V10** | The vendor channel's address is the **ORDNUM**, scoped by the session vendor, not a row-id — `(ORDNUM, VENDOR_ID)` is the row's natural key. Where the grammar permits a key (`enumerate`, `?exists`, and `:vendor-id` read off `!update`'s `&rest`) the BL enforces the vendor; where it does not (`fetch` and `delete!` are congruent at three fixed arguments), the ROUTE narrows — exactly as `ordh-header-from-url` does for the customer today. **The residual risk is stated: a direct caller of `fetch` that skips the route gets tenant scope only.** | the generics in `nst-bl-adhara.lisp:704-754` |
-
-**Verification — 16/16 offline, and the checks were themselves mutation-tested**
-
+**Verification — 16/16 offline, and the checks were themselves mutation-tested:**
 `aiharness/deepseek/tools/nst-vordh-mirror-check.lisp` now covers the DAL **and** the BL:
 `the JSON allowlist is complete: 56 published + 1 withheld = 57 carried by the response model` and
 `the field policy partitions the entity: 13 + 1 + 4 + 28 + 16 keys, every slot in exactly one list,
 no control key is a slot`. `nst-preflight` PASS (0 problems); offline load **STAGE: LOADED** with
 `nst-bl-vordh.fasl` rebuilt.
 
-**Four bugs the checks found — three of them in the checker, which is the point of mutation-testing**
+**Four bugs the checks found — three of them in the checker, which is the point of mutation-testing.** All
+four, with the exact finding and the fix, are the four bug CLASSES at
+`knowledge/offline-checker-methodology-CONTEXT.md` §2: the `[` reader (a HEALTHY file called unreadable),
+`find-render-json` walking one level too shallow, the published-slot extractor seeing only a bare
+`(accessor r)`, and the JSON universe being the RESPONSE MODEL rather than the mirror list.
 
-1. **A stubbed `clsql` package cannot read the tree.** The reader answered `Package [ does not exist`
-   for `[:row-id]`, and the tool reported a HEALTHY file as unreadable. The fix is a readtable with
-   `[`/`]` as whitespace; the lesson is `nst-preflight.lisp:55-71`'s — *a missing dependency is
-   indistinguishable from a broken file*. (`ql:quickload :clsql` collides over uffi here, which is
-   why the tool stays dependency-free and leaves true reader balance to the preflight.)
-2. **`find-render-json` looked one level too shallow**: `(second (elt f 2))` is the *ctx*
-   specializer, not the class. The check reported the method missing from a file that has it.
-3. **The published-slot extractor only saw a bare `(accessor r)`**, so every field WRAPPED for
-   formatting — all dates, all flags, all identifiers — was reported as "mirrored but never sent".
-   A machine-checked claim is only as good as the machine's reading, and this failure mode looks
-   exactly like a real defect.
-4. **The JSON universe is the RESPONSE MODEL, not the mirror list**: `published + withheld == mirror
-   + row-id`, because `domain->response` sets row-id explicitly rather than walking the list. And
-   `:vendor-id` is a real SLOT, so it cannot live in a control-key list whose invariant is "none of
-   these is a slot" — it is stripped instead, and the verb reads it as scope BEFORE the strip.
+⚠ **One substantive rule carried from S10 into S11:** **`!update` consumes scope/control keys before the
+field policy** (the S12 defect, restated for a scope key: a `:vendor-id` reaching the policy would be
+refused as an escalation, and would refuse every legitimate update).
 
-Two structural lessons to carry into S11: the `[` reader trap above, and that **`!update` consumes
-scope/control keys before the field policy** (the S12 defect, restated for a scope key: a
-`:vendor-id` reaching the policy would be refused as an escalation, and would refuse every
-legitimate update).
+**Also fixed — TWO REDUNDANT `tenant-id` PARAMETERS** (found by the human reading the code, 2026-10-04).
+`nst-vendor-order-insert` took `(entity ctx tenant-id)` and never used the argument — the tenant travels ON
+THE ENTITY (from the ctx, नियम-1) and the copier pins it there, so it was a *second answer* to 'whose row is
+this', whose quiet failure mode is a caller whose tenant disagreed with the entity's writing a row whose
+`TENANT_ID` contradicts the entity it was built from, with nothing complaining. It is **DELETED rather than
+muted** (`(declare (ignore …))` would have hidden the redundancy the warning pointed at), and the same
+pattern in `ordh-create-vendor-rows (lines header ctx tenant-id)` — papered over with
+`(declare (ignorable …))` — was deleted with its call site, so all four touched files now compile with
+**0 warnings**. Why neither `ql:quickload :silent t` nor the offline-load log showed it (SBCL is silent about
+an unused *required* parameter; it warns about `let`/`&optional`/`&key`, not this), and the `compile-file` +
+`*error-output*` sweep that finds it, are `order-adhara-stories-CONTEXT.md` §0 trap 7.
 
-**Also fixed — TWO REDUNDANT `tenant-id` PARAMETERS (found by the human reading the code, 2026-10-04).**
-`nst-vendor-order-insert` took `(entity ctx tenant-id)` and never used the argument: the tenant travels
-ON THE ENTITY (from the ctx, नियम-1) and the copier pins it there, so the argument was a *second
-answer* to 'whose row is this' — and its failure mode is the quiet one, where a caller whose tenant
-disagreed with the entity's would write a row whose `TENANT_ID` contradicts the entity it was built
-from and nothing would complain. It is **DELETED rather than muted**: `(declare (ignore …))` would have
-hidden the redundancy the warning was pointing at. The same pattern was then found in
-`ordh-create-vendor-rows (lines header ctx tenant-id)`, where it had been papered over with
-`(declare (ignorable …))` — also deleted, with its call site.
-
-⚠ **A LESSON WORTH KEEPING: SBCL IS SILENT ABOUT AN UNUSED *REQUIRED* PARAMETER.** It warns about `let`
-bindings and about `&optional`/`&key` arguments, so neither `ql:quickload :silent t` nor the
-offline-load log showed this — the human's build did. The reliable sweep is `compile-file` per file
-with `*error-output*` captured; after the fix all four touched files compile with **0 warnings**, and
-each docstring now answers the argument so it is not re-added.
-
-**Still open from S10, and one of them is a policy question rather than a task**
-
+**Still open from S10 — one policy question; the two other items were executed in S11 (§4):**
 * **The 8-row divergence, MEASURED:** 8 vendor rows are live while their header order is
   `DELETED_STATE='Y'` (and 9 PEN rows are themselves soft-deleted). AC (c) scopes by the vendor ROW,
   so the vendor channel will still show those 8. The real fix is not in this file: the customer
   channel's `delete!` does not cascade to vendor rows, and arguably it should — otherwise deletion
   is a lie in one direction. Flagged rather than silently changed.
-* **S11 must rewire the assembly** from `ordh-vendor-order-insert` to `(make 'nst-vordh …)`, and
-  then delete that function — its own header says it is a debt with a name and that it "then
-  DELETES, it does not get called".
-* **S11 owns the route-level vendor narrowing** for `fetch`/`delete!` (V10), i.e. resolving
-  `{ordnum}` + session vendor → row-id, and the three bindings that close S13 (c).
-
-`hhub/order/nst-bl-vordh.lisp`. Six universals as everywhere (`make` `fetch` `enumerate` `!update`
-`delete!` `?exists`), on the ADHARA grammar — `domain-ctx` last, `with-db-call`, sentinels not nil.
-
-**Every read is triple-scoped** (§5 V3): `VENDOR_ID = the logged-in vendor` **AND** `TENANT_ID = the
-session tenant` **AND** `DELETED_STATE = 'N'`. Dropping any one of the three is a cross-tenant or
-cross-vendor read; AC (c) states it as a *measurable* criterion — a second vendor's row in the same
-tenant must be invisible to the first.
-
-| प्रत्यय | what the vendor channel makes of it |
-|---|---|
-| `make` | written by `route-ordh-create`'s D14 assembly (the customer channel's `POST /orders`), one row per distinct vendor, **carrying the minted `ORDNUM`** (D20). Promotes the interim writer `persist-vendor-orders` (`dod-bl-ord.lisp:590`), which is then retired — see §5 V6. |
-| `fetch` | by `ORDNUM`, scoped. **A vendor row whose `ORDNUM` is NULL answers 404, never a guess** (AC e): 462 of the 462 pre-migration rows were NULL, so an `ORDNUM IS NULL` fallback would hand every caller the same wrong row. |
-| `enumerate` | the vendor's own worklist, paginated, scoped; the customer's number is *visible* here by design (D20/F1 — the resolved commercial-confidentiality position). |
-| `!update` | refuses the six keys that would move identity or scope (`:vendor-id :tenant-id :ordnum :row-id :order-id :cust-id`, AC d); refuses a **terminal** status (`*order-terminal-statuses*` = CMP/VCN/CCN, AC g); **re-assigns `ORD_DATE` explicitly** (AC f, §5 V5). |
-| `delete!` | follows D8, the लोप cascade already used on the customer side. |
-| `?exists` | scoped existence, used by the route layer to tell 404 from 409. |
-
-**AC (f) is the acceptance criterion that must not be weakened**, because it is the only way the T9
-corruption becomes visible: *after `PUT /vendor/orders/{ordnum}`, `ORD_DATE` is byte-identical to what it
-was before, and `UPDATED` has advanced.* A test that does not assert this cannot see the bug.
+* S10's two other open items — the assembly rewire (`ordh-vendor-order-insert` → `(make 'nst-vordh …)`, then
+  deleting that function) and the route-level vendor narrowing for `fetch`/`delete!` (V10) — were **both
+  EXECUTED in S11** (§4, §5 V12/V14).
 
 ---
 
@@ -285,79 +239,37 @@ was before, and `UPDATED` has advanced.* A test that does not assert this cannot
 ### S11 — DONE (2026-10-04). `hhub/order/nst-bl-vordhapi.lisp`, 20 top-level forms.
 
 **Evidence:** `nst-preflight` **PASS (0 problems)** (exit 0, read from the process, not from a pipe);
-`nst-binding-order-check` **PASS** (52 bindings, every one after its registration in load order);
-offline load **STAGE: LOADED** with `nst-bl-vordhapi.fasl` rebuilt; and **S13 (c) CLOSED** —
-`aiharness/deepseek/tools/nst-vordh-route-probe.lisp` **12 checks, 0 problems** against the LOADED
-route table: the three vendor paths resolve to their own routes, all five customer paths still resolve
-to theirs (not shadowed), the `{ordnum}` segment carries its value into the params alist, and two
-negative controls (an unbound path, and `DELETE` on the vendor path, which V9 deliberately does not
-bind) resolve to *nothing* — a probe that cannot fail proves nothing.
+`nst-binding-order-check` **PASS** (52 bindings, every one after its registration in load order); offline
+load **STAGE: LOADED** with `nst-bl-vordhapi.fasl` rebuilt; and **S13 (c) CLOSED** —
+`aiharness/deepseek/tools/nst-vordh-route-probe.lisp` **12 checks, 0 problems** against the LOADED route
+table: the three vendor paths resolve to their own routes, all five customer paths still resolve to theirs
+(not shadowed), the `{ordnum}` segment carries its value into the params alist, and two negative controls —
+an unbound path, and `DELETE` on the vendor path, which V9 deliberately does not bind — resolve to *nothing*.
 
-**V14 executed:** `ordh-vendor-order-insert` is **DELETED** from `nst-bl-ordhapi.lisp`. The assembly
-now calls `(make 'nst-vordh ctx …)` through two new functions there — `ordh-vendor-row-date` (the
-header's `clsql:date` → the `YYYY-MM-DD` string V5's `(string 30)` slots take) and
-`ordh-vendor-row-initargs` (~45 fields off the header) — and `ordh-create-vendor-rows` tests the
-result with `(typep written 'nst-vordh)` instead of the old `(eq written t)`. One writer for the row
-now; that is what stops two drifting.
+**V14 and V15 executed — and V15 is why the promotion was worth doing.** `ordh-vendor-order-insert` is
+**DELETED** from `nst-bl-ordhapi.lisp`; the assembly calls `(make 'nst-vordh ctx …)` through two new
+functions there — `ordh-vendor-row-date` (the header's `clsql:date` → the `YYYY-MM-DD` string V5's
+`(string 30)` slots take) and `ordh-vendor-row-initargs` (~45 fields off the header) — and
+`ordh-create-vendor-rows` now tests `(typep written 'nst-vordh)` instead of the old `(eq written t)`. One
+writer for the row; that is what stops two drifting.
 
-**V15 executed, and it is why the promotion was worth doing:** the interim writer could only reach the
-26 columns the legacy class declares, so `SHIPCITY`/`SHIPSTATE`/`SHIPZIPCODE`, the four billing columns
-and the entire tax block were NULL on every API-created vendor row. The vendor row is now
-self-sufficient. **The order's `TOTAL_*` columns are still deliberately NOT copied** — they are the
-ORDER's figures, and writing them into one vendor's row would overstate that vendor's slice by every
-other vendor's share. They keep the 0.00 defaults; per-vendor tax arithmetic is a later pass's.
-
-**Two things S11 did NOT do, both deliberate:** no `DELETE` binding (V9), and **no nested lines** —
-a vendor legitimately needs to know *what* to ship, and that needs a vendor-scoped line read in
-`nst-bl-orditm.lisp` (the line entity's enumerate filters by order, not by vendor). Recorded as an
-open item rather than half-done here.
+**V15, and why the promotion was worth doing:** the interim writer could only reach the 26 columns the
+legacy class declares, so `SHIPCITY`/`SHIPSTATE`/`SHIPZIPCODE`, the four billing columns and the entire tax
+block were NULL on every API-created vendor row; the vendor row is now self-sufficient. **The order's
+`TOTAL_*` columns are still deliberately NOT copied** — they are the ORDER's figures, and writing them into
+one vendor's row would overstate that vendor's slice by every other vendor's share. They keep the 0.00
+defaults; per-vendor tax arithmetic is a later pass's.
 
 **The trap that cost this pass two minutes and is worth recording:** a probe or tool that reads the
-tree's own symbols must be `in-package :nstores` AFTER the tree loads — the tree has ONE package, and a
-tool left in `CL-USER` fails with `The function COMMON-LISP-USER::FIND-API-ROUTE is undefined` *after*
-a four-minute load, which reads exactly like a missing binding.
+tree's own symbols must be `in-package :nstores` AFTER the tree loads — a tool left in `CL-USER` fails
+with `The function COMMON-LISP-USER::FIND-API-ROUTE is undefined` *after* a four-minute load, which reads
+exactly like a missing binding (`knowledge/offline-checker-methodology-CONTEXT.md` §4).
 
 `hhub/order/nst-bl-vordhapi.lisp`. The spec (`nst-bl-apidefs2.lisp` / `nst-bl-conflodis2.lisp`) has **no**
 vendor-orders endpoint at all — these three paths are ours (D3). The live vendor family already carries
 `/api/v1/vendor/profile`, `/payment`, `/shipping` in `vendor/nst-bl-vndapi.lisp`.
 
-| method | path | verb |
-|---|---|---|
-| GET | `/hhub/api/v1/vendor/orders` | `enumerate` |
-| GET | `/hhub/api/v1/vendor/orders/{ordnum}` | `fetch` |
-| PUT | `/hhub/api/v1/vendor/orders/{ordnum}` | `!update` |
-
-Each is a Tier-2 action route (`register-action-route`) with its `register-api-route` binding **in the
-same file, immediately below the registration** — a binding that precedes its registration is refused at
-LOAD time, which is a startup failure, not a 404 (`../tools/nst-binding-order-check` catches it offline).
-`:auth-scope :session`; the creates elsewhere in the batch carry `success-status` 201, these three carry
-none (no create here). Path params beat the body (`api-params-for-request` precedence), so `{ordnum}`
-cannot be displaced by a body key — and AC (d)'s "cannot move a row to another vendor or tenant" is
-enforced at the route by stripping `:vendor-id`/`:tenant-id` **after** the address has been resolved.
-
-**This closes S13 (c)**, which has been untestable since the customer channel shipped: `/vendor/orders`
-and `/orders` must not shadow each other under `find-api-route`'s fewest-parameters-first ranking.
-
-### S11 — DESIGN (agreed 2026-10-04, before writing the file)
-
-**The session, measured rather than assumed.** `conflodis2-login-company` (`core/nst-bl-conflodis2.lisp:148`)
-resolves the acting company **vendor → customer → user**, and `make-action-domain-ctx` puts it in the ctx as
-अधिकरण — so **a vendor session already yields a correct tenant in `domain-ctx` with no work from this
-file.** The vendor identity itself is read with `conflodis2-session-value :login-vendor` (the house helper,
-`conflodis2.lisp:138`), never `hunchentoot:session-value` directly: outside an HTTP request the direct call
-signals UNBOUND-VARIABLE, so "we cannot tell who you are" would reach a REPL caller as a 500 instead of the
-401 this must answer. That trap is *already documented* next to the vendor-api precedent
-(`vendor/nst-bl-vndapi.lisp:353-364`), which is the same read this file needs.
-
-| # | decision | why |
-|---|---|---|
-| **V11** | **No session vendor ⇒ `nst-entity-nil` (404), not 403 and not an error.** The layer above already answers 401 for no session at all; by the time a route runs, "signed in but not as a vendor" is a *narrowing* fact, exactly as "signed in but not as this customer" is on the customer channel. | mirrors S12 (d) |
-| **V12** | **The address resolver is `vordh-row-from-url`**, and it is the ONLY place the vendor narrows `fetch`/`!update`/`delete!` (V10). It takes `{ordnum}` + the session vendor, resolves through S10's `nst-select-vendor-order-rows-by-ordnum`, and answers one 404 for every way of failing — wrong number, another vendor's row, another tenant, soft-deleted, NULL ORDNUM. **A 403 would confirm that another vendor's row exists.** | F1/D5, the customer channel's own reasoning |
-| **V13** | **`If-Match` is supported on the PUT and answered as 412, never 409**, with the response written by the route (`api-write-json`) because the shared classifier knows no 412 — the same documented exception S12/S13 carries. The fresh validator is **re-read** after the write if an ETag is emitted; a token taken from the verb would be STALE (UPDATED is DB-managed). | RFC 9110 + S12/S13 |
-| **V14** | **The assembly is rewired to `(make 'nst-vordh …)` and `ordh-vendor-order-insert` is DELETED.** Its own header says it is a debt with a name and that it "then DELETES, it does not get called". `ordh-create-vendor-rows` stays in the customer api file as the assembly's LOOP (one row per distinct vendor, written LAST so a refused line leaves no orphan row); only the raw class write moves. | S8b's lesson: two writers for one row is how the ORDNUM hole reopens |
-| **V15** | **The row `make` writes now carries the header's address, tax and schedule block** — what the legacy `persist-vendor-orders` never wrote (the interim writer says so explicitly and defers the decision here). The vendor must be able to ship and to tax without reading the customer's header, and DOD_VENDOR_ORDERS has the columns for exactly that. The one conversion that is not a copy: the header's `ord-date`/`req-date` are **`clsql:date` objects** and this class declares `(string 30)` (V5), so they go through `get-datestr-from-obj-yyyymmdd`. | V5 + the table's own denormalised design |
-
-**Route → verb mapping, with the parameters each route pins**
+**The three routes, with the parameters each one pins:**
 
 | method | path | verb and pinned parameters |
 |---|---|---|
@@ -365,16 +277,41 @@ signals UNBOUND-VARIABLE, so "we cannot tell who you are" would reach a REPL cal
 | GET | `/hhub/api/v1/vendor/orders/{ordnum}` | `vordh-row-from-url`, then `fetch` by the resolved row-id; emits `ETag` from a **re-read** row |
 | PUT | `/hhub/api/v1/vendor/orders/{ordnum}` | `vordh-row-from-url`, then `!update` with `:vendor-id` from the session, the caller's `If-Match`, and the body's fields — which the BL's field policy then judges (V8) |
 
-**What S11 does NOT do:** no `DELETE` binding (V9 + D3), no `/fulfill` or `/cancel` (out of scope), and no
-new response class — the detail and list paths ferry `NstVordhResponseModel` through the shared
-`domain->response` and the layer's list renderer, exactly as the customer channel does.
+Each is a Tier-2 action route (`register-action-route`) with its `register-api-route` binding **in the
+same file, immediately below the registration** — a binding that precedes its registration is refused at
+LOAD time, which is a startup failure, not a 404 (`../tools/nst-binding-order-check` catches it offline;
+the rule is `order-adhara-stories-CONTEXT.md` T1). `:auth-scope :session`; the creates elsewhere in the
+batch carry `success-status` 201, these three carry none (no create here). Path params beat the body
+(`api-params-for-request` precedence), so `{ordnum}` cannot be displaced by a body key — and AC (d)'s
+"cannot move a row to another vendor or tenant" is enforced at the route by stripping
+`:vendor-id`/`:tenant-id` **after** the address has been resolved.
+
+**This closes S13 (c)**, which has been untestable since the customer channel shipped: `/vendor/orders`
+and `/orders` must not shadow each other under `find-api-route`'s fewest-parameters-first ranking.
+
+**The session (measured, not assumed): a vendor session already yields a correct tenant in `domain-ctx`
+with no work from this file** — `make-action-domain-ctx` takes it from `conflodis2-login-company`
+(`core/nst-bl-conflodis2.lisp:148`), which resolves the acting company **vendor → customer → user**
+(अधिकरण), and the vendor identity comes from `conflodis2-session-value :login-vendor`
+(`conflodis2.lisp:138`), **never** from `hunchentoot:session-value`: reading it directly signals
+UNBOUND-VARIABLE outside a request, so "we cannot tell who you are" would reach a REPL caller as a 500
+instead of the 401 this must answer. The precedent is `vendor/nst-bl-vndapi.lisp:353-364`; the whole trap is
+`order-adhara-stories-CONTEXT.md` §0 trap 11.
+
+**What S11 deliberately does NOT do:** no `DELETE` binding (V9 + D3), no `/fulfill` or `/cancel` (out of
+scope), and **no nested lines** — a vendor legitimately needs to know *what* to ship, and that needs a
+vendor-scoped line read in `nst-bl-orditm.lisp` (the line entity's enumerate filters by order, not by
+vendor). The last is recorded as an open item rather than half-done here. Also **no new response class**:
+the detail and list paths ferry `NstVordhResponseModel` through the shared `domain->response` and the
+layer's list renderer, exactly as the customer channel does.
 
 ---
 
-## 5. Decisions specific to the vendor channel
+## 5. Decisions specific to the vendor channel — V1–V15
 
 The customer batch's D1–D21 still govern the grammar, the number, the statuses and the ferries. These are
-the ones this table adds; they are numbered **V** so they never collide with D.
+the ones this table adds, numbered **V** so they never collide with D. V1–V7 were settled before S9,
+V8–V10 came out of S10, V11–V15 were agreed before S11 was written.
 
 | # | decision | why |
 |---|---|---|
@@ -385,6 +322,14 @@ the ones this table adds; they are numbered **V** so they never collide with D.
 | **V5** | In the new class, **`ORD_DATE`/`REQ_DATE`/`SHIPPED_DATE` are declared `(string 30)`**, not `clsql:date`. The `!update` re-assigns `ORD_DATE` from the value it read, in the same statement. | T9 vendor-only: the column is a `timestamp` that auto-updates, so (i) omission rewrites it and (ii) a `clsql:date` read **drops the time**, making the write-back wrong even when (i) is handled. `(string 30)` round-trips byte-identically and is already the repo's production choice for `timestamp` slots (`dod-order`'s `CREATED`/`UPDATED`). **Prove it in S16** — measure the reader, not the DDL. |
 | **V6** | `make` **promotes** the interim writer `persist-vendor-orders`; once `nst-vordh` owns the write, the legacy function is retired rather than left as a second path. | Two writers for one row is how the customer batch's ORDNUM hole reopens (S8b). |
 | **V7** | `vendor-id`, `tenant-id`, `ordnum`, `row-id`, `order-id`, `cust-id` are **never** updatable through `PUT`. | AC (d): identity and scope are address, not payload. This is the vendor analogue of S12 (c)'s verify-then-strip rule. |
+| **V8** | The vendor may write exactly four fields: `:order-fulfilled :shipped-date :comments :external-url`. **Money is not here** (a vendor grading its own invoice), **the addresses are not here** (they are the customer's instruction), **the lifecycle is not here** (`:status`/`:is-cancelled` move through a verb, not a field assignment; the vendor states FACTS and the transition is a later verb's business). Internal channels additionally get 28 fields — the schedule, addresses, tax identity, payment mode. **The one decision in S10 worth a second opinion: it is deliberately narrow, and widening it is one line at a time.** | F5/OWASP API3; an allowlist whose default is ALLOW is not an allowlist |
+| **V9** | `delete!` refuses every external channel. D3 binds no delete route on this channel, and a vendor erasing its slice would remove the row the CUSTOMER's order is accounted for by. A vendor that stops supplying CANCELS (VCN) — a cancellation keeps the history. | D3 + the accounting relationship |
+| **V10** | The vendor channel's address is the **ORDNUM**, scoped by the session vendor, not a row-id — `(ORDNUM, VENDOR_ID)` is the row's natural key. Where the grammar permits a key (`enumerate`, `?exists`, and `:vendor-id` read off `!update`'s `&rest`) the BL enforces the vendor; where it does not (`fetch` and `delete!` are congruent at three fixed arguments), the ROUTE narrows — exactly as `ordh-header-from-url` does for the customer today. **The residual risk is stated: a direct caller of `fetch` that skips the route gets tenant scope only.** | the generics in `nst-bl-adhara.lisp:704-754` |
+| **V11** | **No session vendor ⇒ `nst-entity-nil` (404), not 403 and not an error.** The layer above already answers 401 for no session at all; by the time a route runs, "signed in but not as a vendor" is a *narrowing* fact, exactly as "signed in but not as this customer" is on the customer channel. | mirrors S12 (d) |
+| **V12** | **The address resolver is `vordh-row-from-url`**, and it is the ONLY place the vendor narrows `fetch`/`!update`/`delete!` (V10). It takes `{ordnum}` + the session vendor, resolves through S10's `nst-select-vendor-order-rows-by-ordnum`, and answers one 404 for every way of failing — wrong number, another vendor's row, another tenant, soft-deleted, NULL ORDNUM. **A 403 would confirm that another vendor's row exists.** | F1/D5, the customer channel's own reasoning |
+| **V13** | **`If-Match` is supported on the PUT and answered as 412, never 409**, with the response written by the route (`api-write-json`) because the shared classifier knows no 412 — the same documented exception S12/S13 carries. The fresh validator is **re-read** after the write if an ETag is emitted; a token taken from the verb would be STALE (UPDATED is DB-managed). | RFC 9110 + S12/S13 |
+| **V14** | **The assembly is rewired to `(make 'nst-vordh …)` and `ordh-vendor-order-insert` is DELETED** (executed — §4). `ordh-create-vendor-rows` stays in the customer api file as the assembly's LOOP (one row per distinct vendor, written LAST so a refused line leaves no orphan row); only the raw class write moves. | S8b's lesson: two writers for one row is how the ORDNUM hole reopens |
+| **V15** | **The row `make` writes carries the header's address, tax and schedule block** (executed — §4) — what the legacy `persist-vendor-orders` never wrote; the interim writer says so explicitly and defers the decision here. The vendor must be able to ship and to tax without reading the customer's header, and DOD_VENDOR_ORDERS has the columns for exactly that. The one conversion that is not a copy: the header's `ord-date`/`req-date` are **`clsql:date` objects** and this class declares `(string 30)` (V5), so they go through `get-datestr-from-obj-yyyymmdd`. | V5 + the table's own denormalised design |
 
 ---
 
@@ -393,7 +338,6 @@ the ones this table adds; they are numbered **V** so they never collide with D.
 | # | trap | caught by |
 |---|---|---|
 | T9 | `ORD_DATE` rewritten by the auto-update (vendor-only, §1) | AC (f) byte-identity assertion + V5 |
-| T5 | changing a live class's column list as a side effect | V1: new class, legacy untouched |
 | T6 | an in-image class definition that errors **wedges `ensure-class` for the process life** (SBCL PCL global mutex); only a restart recovers | S15: **restart, never `load`** — and check the acceptor with `ss -ltn \| grep 4244`, because a live `sbcl` does not imply a live acceptor |
 | D20 | every vendor row carries the customer's `ORDNUM` | intended: it is what F1's resolution chose. Do not "fix" it by minting per vendor — the number is the customer's document. |
 | — | the vendor **login cap**: 2 concurrent vendors, evicted oldest-first (`build-and-load-CONTEXT.md` §7) | any S16 test that needs two vendors to prove AC (c) must log in sequentially, not concurrently |
@@ -402,11 +346,13 @@ the ones this table adds; they are numbered **V** so they never collide with D.
 
 ```sh
 cd /home/ubuntu/ninestores
-XDG_CACHE_HOME=$PWD/.asdf-cache sbcl --noinform --non-interactive \
-  --load aiharness/deepseek/tools/nst-preflight.lisp          # reader balance · SQL quoting · build registration
+XDG_CACHE_HOME=$PWD/.asdf-cache sbcl --noinform --non-interactive --load aiharness/deepseek/tools/nst-preflight.lisp   # reader balance · SQL quoting · build registration
 aiharness/deepseek/tools/nst-binding-order-check              # every binding follows its registration
 XDG_CACHE_HOME=/tmp/nst-fresh-cache sbcl --script aiharness/deepseek/tools/nst-offline-load.lisp   # → STAGE: LOADED
 ```
+
+The batch's full recipe (six tools, plus the one-time `/tmp/nst-asdf/clsql-dist` prerequisite) is
+`order-adhara-stories-CONTEXT.md` §0; it is not repeated here.
 
 Live-only, and therefore S16's: the 401/404 sweep over the three vendor paths, the second-vendor
 invisibility test (AC c), and the `ORD_DATE` byte-identity assertion (AC f).

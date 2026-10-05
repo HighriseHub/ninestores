@@ -1,10 +1,16 @@
----
-name: ninestores-symbol-lookup
-description: Nine Stores symbol DAG — the generated function-lookup-table (hhub/core/nst-bl-funloodat.lisp) with per-symbol signature, calls, callers, docstring and depth/cost/impact metrics, plus the funcinfo-* query API and the nst-symq CLI. Load before exploring hhub for an unfamiliar symbol, before changing a function's interface (blast radius), or when a grep over the tree would cost more than one lookup.
-whenToUse: You need to know what a hhub function takes, what it calls, who calls it, where it lives, or how far a change ripples; you are hunting for an existing utility before writing a new one; you are wiring or tracing a request path across bl-*/dal-*/ui-* layers.
----
+# SKILL: Nine Stores symbol lookup (the rich call DAG)
 
-# Nine Stores symbol lookup (the rich call DAG)
+**Read this when:** you need to know what a hhub function takes, what it calls, who
+calls it, where it lives, or how far a change ripples; you are hunting for an existing
+utility before writing a new one; you are wiring or tracing a request path across the
+`bl-*` / `dal-*` / `ui-*` layers; a grep-and-read sweep over `hhub/` would cost more
+than one lookup.
+
+**Status:** verified 2026-09-26 against the generated table; the CLI reads the table
+file and never loads it, so it is safe to run at any time.
+
+**Applies to:** exploring `hhub/` for any unfamiliar symbol, and every interface change
+(where the blast radius is the question).
 
 One generated table answers "what is this function, what does it call, who calls
 it, and how big is the risk of touching it" — in a single tool call instead of a

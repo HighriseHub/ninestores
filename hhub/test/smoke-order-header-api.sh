@@ -98,7 +98,7 @@ sql() { [ "$HAVE_SQL" = 1 ] || return 0
         mysql -u "$NS_MYSQL_USER" -p"$NS_MYSQL_PASS" -N -B "$NS_DB" -e "$1" 2>&1 | grep -v '^mysql:'; }
 
 WRITE=0
-SUITE_REV="2026-10-04.3"
+SUITE_REV="2026-10-05.4"
 usage() {
   sed -n '3,60p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
@@ -676,7 +676,20 @@ else
     expect "DELETE the created (DFT) order → 200 (D8: DFT is deletable)" 200 ""
     req GET "$ORD/$NEW_NUM"
     expect "the deleted order is invisible afterwards (नियम-2)" 404 '"not_found"'
-    CREATED_IDS=""
+    # ⚠ THE CLEANUP KEY IS **NOT** CLEARED HERE, AND CLEARING IT WAS A DEFECT. The API's DELETE is a
+    # SOFT delete (DELETED_STATE='Y'), so the row — and its lines and its vendor row — are STILL IN
+    # THE TABLE. Clearing the key skipped the SQL hard-delete in restore_rows and left them behind,
+    # which contradicts this suite's own AC (a): "removes every row it created". The physical
+    # removal is the cleanup's job, by row-id, exactly as it is on the failure path.
+    if [ "$HAVE_SQL" = 1 ]; then
+      check "the header's delete! CASCADED to its LINES (S7's लोप)" \
+            "$(sql "SELECT COUNT(*) FROM DOD_ORDER_ITEMS WHERE ORDER_ID=$NEW_ID AND DELETED_STATE='Y'")" \
+            "$(sql "SELECT COUNT(*) FROM DOD_ORDER_ITEMS WHERE ORDER_ID=$NEW_ID")"
+      printf '  ---- and it did NOT cascade to the VENDOR rows: %s of %s still live — the open item\n' \
+             "$(sql "SELECT COUNT(*) FROM DOD_VENDOR_ORDERS WHERE ORDER_ID=$NEW_ID AND DELETED_STATE='N'")" \
+             "$(sql "SELECT COUNT(*) FROM DOD_VENDOR_ORDERS WHERE ORDER_ID=$NEW_ID")"
+      printf '       §0 has carried since S10 (the customer channel does not cascade to DOD_VENDOR_ORDERS).\n'
+    fi
   fi
 fi
 

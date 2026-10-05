@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# start-hunchentoot — launched by /etc/init.d/hunchentoot as @APP_USER@.
+# Rendered by installation/startup-kit/05-install-hunchentoot-service.sh.
+#
+# detachtty makes the image a daemon that you can still attach to:
+#
+#   detachtty      start it detached, with a dribble (full transcript), a
+#                  detachtty log, a pid file and a unix socket
+#   attachtty      attach a terminal to the LIVE image — run this when you want
+#                  to know what the server is actually doing
+#
+# --userinit is not optional: without it SBCL skips ~/.sbclrc and Quicklisp is
+# never loaded, so the very first ql:quickload in init.lisp fails.
+
+detachtty --dribble-file @APP_HOME@/log/hunchentoot.dribble \
+          --log-file     @APP_HOME@/log/hunchentoot.detachtty \
+          --pid-file     @APP_HOME@/run/hunchentoot.pid \
+          @APP_HOME@/run/hunchentoot.sock \
+          /usr/local/bin/sbcl --load @APP_HOME@/init.lisp --userinit @APP_HOME@/.sbclrc
