@@ -115,6 +115,25 @@
       (ordh-request-with-header-row-id request ctx)
       request))
 
+(defun orditm-not-found-answer (row-id ctx)
+  "ONE answer for every way a LINE request fails to find its line, and the SENTENCE IS FIXED.
+
+  🚨 WITHOUT THIS THE TWO 404s ARE DISTINGUISHABLE, and that is an EXISTENCE ORACLE: the pairing
+  check's sentinel said 'row-id N is not a line of order M' while the verb's fetch said 'not found in
+  this tenant', so a client could tell a REAL line of somebody else's order from a line that does not
+  exist — and DOD_ORDER_ITEMS row-ids are sequential, so enumerating them is trivial. Measured
+  2026-10-04 by the items smoke suite, which compares the two bodies byte for byte.
+  ⚠ THE HEADER PATH ALREADY ANSWERS THIS WAY ('it does not exist, it belongs to another tenant, or it
+  has been soft-deleted — those are one fact'), and this file's own header says the caller is not owed
+  the distinction. It is applied at the ROUTE rather than in the verb or the pairing check so that
+  INTERNAL callers (the unbound line routes, an :agent caller) keep the precise reason.
+  ⚠ :U IS NOT COLLAPSED HERE — only nst-entity-nil (a not-found) is rewritten; a database-silent
+  answer keeps its own sentinel and still reaches the boundary as 503."
+  (make-instance 'nst-entity-nil
+                 :tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id)
+                 :reason (format nil "Order line row-id ~A not found in this tenant, or it is not a line of the order in the URL, or it has been soft-deleted — those are ONE fact at this surface, and distinguishing them would confirm that somebody else's line exists. — nst-orditmapi (row-id, session order)"
+                                 (or row-id "?"))))
+
 (defun orditm-check-pairing-of (line request ctx)
   "LINE back when the payload's :order-id — if it names one — is the order LINE belongs to;
    otherwise nst-entity-nil (404 about the PAIR).
@@ -185,7 +204,9 @@
                (line (fetch 'nst-orditm (ordh-param (params req) :row-id) ctx)))
           (let ((checked (orditm-check-pairing-of line req ctx)))
             (if (not (typep checked 'nst-orditm))
-                checked
+                (if (typep checked 'nst-entity-nil)
+                    (orditm-not-found-answer (ordh-param (params req) :row-id) ctx)
+                    checked)
                 (request->dispatch
                  (make-instance 'NstOrditmRequestModel
                                 :params (ordh-params-without (params req) :order-id))
@@ -211,7 +232,9 @@
                (line (fetch 'nst-orditm (ordh-param (params req) :row-id) ctx)))
           (let ((checked (orditm-check-pairing-of line req ctx)))
             (if (not (typep checked 'nst-orditm))
-                checked
+                (if (typep checked 'nst-entity-nil)
+                    (orditm-not-found-answer (ordh-param (params req) :row-id) ctx)
+                    checked)
                 (request->dispatch
                  (make-instance 'NstOrditmRequestModel
                                 :params (ordh-params-without (params req) :order-id))
