@@ -297,6 +297,7 @@ header live and reachable. Both suites now ASSERT the cascade instead of recordi
 | **5** | **A LINE has no per-channel field allowlist and no version token** | the header and the vendor row each have both (F5); a customer may assign any declared line initarg, and two editors of one line are last-write-wins | open — a decision, not a test |
 | **6** | **F12 / F16 — two contract decisions** | `PUT`-with-merge vs `PATCH`; and whether `POST /orders` should handle OTP + wallet, which the product's own spec text promises | open |
 | **7** | **`IS_CONVERTED_TO_INVOICE='Y'` has no fixture** | 0 of 489 rows, so the order→invoice refusal is NOT TESTED (the writable-field half is) | open |
+| **8** | **The customer UI's delete path is not covered by the HTTP suites** — and it now cascades (lines + vendor rows) and calls `delete-vendor-order` for a vendor row | the four suites speak HTTP; this is a form POST from **My Orders**. Both changes are verified OFFLINE only (preflight PASS, `STAGE: LOADED`, no new warning) | **needs one browser click on an order that has a vendor row** — and note the permission divergence below |
 
 ⚠ **STOCK — RECORDED BECAUSE THE MODEL IN CIRCULATION IS INCOMPLETE.** The recollection was that stock
 decrements in `set-order-fulfilled` and at the invoice-finish step. MEASURED 2026-10-05, the three call
@@ -307,6 +308,13 @@ call site in `set-order-fulfilled`.** So BOTH creation paths already decrement a
 **whatever the delivery feature does, it must not decrement again** — or one order costs its units
 twice. Reservation management (releasing on cancel, reconciling at ship) is DECIDED to be a future
 feature, not part of this batch.
+
+⚠ **AND THE TWO DELETE PATHS STILL DIFFER IN PERMISSION, NOT JUST CASCADE.** The API's `delete!`
+refuses anything but `DFT` and refuses an order already converted to an invoice; the customer UI's
+`dod-controller-del-order` calls the legacy `delete-order` directly and so deletes **any** order — a
+`CMP` one, a `VCN` one, an invoiced one. One rule for deletion means pointing that controller at
+`nst-ordh`'s `delete!`, which ADDS refusals the UI does not have today, so it is a decision rather
+than a tidy-up.
 
 ---
 

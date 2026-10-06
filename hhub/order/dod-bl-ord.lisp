@@ -352,6 +352,13 @@
     (clsql:update-record-from-slot order-instance 'status)))
 
 
+(defun delete-vendor-order ( vendor-order-instance )
+  "Soft-delete ONE DOD_VENDOR_ORDERS row. It exists because a call site used to hand a VENDOR row to
+   delete-order, whose name says DOD_ORDER: the write was right (CLSQL uses the instance's own class)
+   and the NAME was a lie, which is how a later reader ‘fixes’ the wrong thing."
+  (setf (slot-value vendor-order-instance 'deleted-state) "Y")
+  (clsql:update-record-from-slot vendor-order-instance 'deleted-state))
+
 (defun delete-vendor-orders ( list) 
     (mapcar (lambda (vo)  (progn
 			    (setf (slot-value vo 'deleted-state) "Y")

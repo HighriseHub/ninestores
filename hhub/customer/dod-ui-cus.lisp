@@ -1158,7 +1158,7 @@ Only shows sections based on availability flags and customer type."
 		(let ((vendororder (get-vendor-orders-by-orderid order-id vendor company))
 		      (vendorordertotal (get-order-items-total-for-vendor vendor odtlst)))
 		  (if (equal vendorordertotal 0)
-		      (delete-order vendororder)))) vendors)
+		      (delete-vendor-order vendororder)))) vendors)
       (setf (slot-value order 'order-amt) (coerce custordertotal 'float))
       (update-order order)
       (if (equal custordertotal 0) 
