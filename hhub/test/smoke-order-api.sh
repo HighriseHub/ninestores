@@ -77,7 +77,7 @@ sql() { [ "$HAVE_SQL" = 1 ] || return 0
         mysql -u "$NS_MYSQL_USER" -p"$NS_MYSQL_PASS" -N -B "$NS_DB" -e "$1" 2>&1 | grep -v '^mysql:'; }
 
 WRITE=0
-SUITE_REV="2026-10-05.2"
+SUITE_REV="2026-10-06.3"
 usage() {
   sed -n '3,60p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
@@ -429,11 +429,18 @@ if [ "$WRITE" = 1 ]; then
   expect ":F an EMPTY cart → 400 — refused in the READ half, BEFORE any insert" 400 '"invalid_request"'
   check "…so it left NO header behind (the half that can be made safe, is)" \
         "$(sql "SELECT COUNT(*) FROM DOD_ORDER WHERE CONTEXT_ID='$IDEM2'")" "0"
-  printf '  ---- and the WRITE half is still open: a failure after the INSERTs leaves the header, its\n'
-  printf '       lines and its vendor rows behind, because POST /orders has no transaction seam (D14).\n'
-  printf '       MEASURED 2026-10-05: five 500s in that window left orders 494-497 and 499 in the\n'
-  printf '       table with their lines and vendor rows, and cleanup could not key on a rowId that\n'
-  printf '       never arrived. Nothing here pretends to close it.\n'
+  # ⚠ O3 IS CLOSED (2026-10-06): the assembly's write half (header, lines, stock, vendor rows) and
+  # delete!'s three writes now run inside clsql:with-transaction, and the create's failure paths —
+  # which RETURN sentinels rather than signalling — call clsql:rollback explicitly, because
+  # with-transaction COMMITS a normal return. What can be asserted from here: a refused create leaves
+  # nothing at all, and the run leaves no order of its own behind. What CANNOT be asserted from here:
+  # a WRITE-half failure, which this suite has no way to induce — that is what the transaction is for.
+  check "…and no order of this run survives it (the transactional guarantee)" \
+        "$(sql "SELECT COUNT(*) FROM DOD_ORDER WHERE CONTEXT_ID LIKE 'CONS-SMOKE-%'")" "0"
+  printf '  ---- O3: the write half is transactional since 2026-10-06, so a mid-assembly failure rolls\n'
+  printf '       back instead of leaving a header with its lines and vendor rows behind. MEASURED while\n'
+  printf '       it was open: five 500s left orders 491 and 494-497 and 499 in the table, with their\n'
+  printf '       children, and cleanup could not key on a rowId that never arrived.\n'
 else
   skip "O3: the partial-write window" "read-only run; the window is only reachable by a WRITE-half failure"
 fi

@@ -1269,16 +1269,27 @@
               (let ((plans (ordh-line-plans payload ctx tenant-id)))
                 (if (not (listp plans))
                     plans
-                    (let ((header (ordh-create-header payload customer context-id ctx)))
-                      (if (not (typep header 'nst-ordh))
-                          header
-                          (let ((lines (ordh-create-lines plans header ctx)))
-                            (if (not (listp lines))
-                                lines
-                                (let ((vendors (ordh-create-vendor-rows lines header ctx)))
-                                  (if (eq vendors t)
-                                      (ordh-detail-response-for header lines ctx)
-                                      vendors)))))))))))))
+                    ;; ⚠ ONE TRANSACTION for the write half (O3, closed 2026-10-06); the read half above stays
+                    ;; out of it. The rollback is explicit: this assembly reports failure by RETURNING a sentinel.
+                    (clsql:with-transaction ()
+                      (let ((outcome (ordh-create-assembly payload customer context-id plans ctx)))
+                        (if (typep outcome 'ordh-detail-response)
+                            outcome
+                            (progn (clsql:rollback) outcome)))))))))))
+
+(defun ordh-create-assembly (payload customer context-id plans ctx)
+  "The WRITE half of the D14 assembly — header, lines (with stock decrements) and vendor rows — answering the
+   nested aggregate or the first sentinel. Extracted so route-ordh-create can wrap exactly this in ONE transaction."
+  (let ((header (ordh-create-header payload customer context-id ctx)))
+    (if (not (typep header 'nst-ordh))
+        header
+        (let ((lines (ordh-create-lines plans header ctx)))
+          (if (not (listp lines))
+              lines
+              (let ((vendors (ordh-create-vendor-rows lines header ctx)))
+                (if (eq vendors t)
+                    (ordh-detail-response-for header lines ctx)
+                    vendors)))))))
 
 (defun route-ordh-list (request ctx)
   "कर्म = the filtered nst-ordh collection, SCOPED TO THE SESSION'S CUSTOMER (D5). Calls enumerate

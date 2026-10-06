@@ -1124,10 +1124,8 @@ Only shows sections based on availability flags and customer type."
 	     (cust (hunchentoot:session-value :login-customer))
 	     (company (hunchentoot:session-value :login-customer-company))
 	     (dodorder (get-order-by-id order-id company)))
-	;; ⚠ THE CHILDREN FIRST, THEN THE HEADER — this controller used to delete the HEADER
-	;; ALONE, so the order's lines and its DOD_VENDOR_ORDERS rows stayed live and a VENDOR kept
-	;; working on an order its customer had deleted (MEASURED 2026-10-05). The लोप helpers are
-	;; the grammar's, so both channels delete a child the same way — one home for the rule.
+	;; ⚠ CHILDREN FIRST, THEN THE HEADER: this controller deleted the HEADER ALONE, so lines and vendor rows
+	;; stayed live (measured 2026-10-05). The लोप helpers are the grammar's, so both channels agree.
 	(when dodorder
 	  (let ((tenant-id (slot-value company 'row-id)))
 	    (nst-soft-delete-order-items-for-header order-id tenant-id)
@@ -1163,10 +1161,8 @@ Only shows sections based on availability flags and customer type."
       (update-order order)
       (if (equal custordertotal 0) 
 	  (progn (delete-order order)
-		 ;; ⚠ THE REDIRECT WAS COMPUTED FOR THE DETAILS PAGE, WHICH NO LONGER HAS AN ORDER:
-		 ;; emptying an order deletes it, and the customer was then sent to that order's page,
-		 ;; which signalled MISSING-SLOT TENANT-ID on NIL (MEASURED 2026-10-06). My Orders is the
-		 ;; honest destination.
+		 ;; ⚠ My Orders, not the details page: emptying an order deletes it, and the old redirect sent the
+		 ;; customer to that order's page, which signalled MISSING-SLOT TENANT-ID on NIL (measured 2026-10-06).
 		 (setf redirectlocation "/hhub/dodmyorders")))
       ;;(sleep 1) 
       (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer (get-login-customer)))) 

@@ -997,23 +997,8 @@
    concurrent change to any other column. That is why the delete macro is right here and
    !update's whole-row write is not.
 
-   ⚠ THE LINES GO WITH THE HEADER, LINES FIRST, AND THAT ORDER IS THE DESIGN (S7). It is the
-   invoice batch's measured conclusion, and the reason it applies here is measured too:
-   DOD_ORDER_ITEMS has NO foreign key on ORDER_ID at all (the only FK is TENANT_ID →
-   DOD_COMPANY) — so there is no ON DELETE CASCADE to fire, and even where one exists it fires on
-   a HARD delete, which a soft delete never issues.
-
-     lines → header   a half-finished delete leaves the header LIVE and therefore reachable by
-                      row-id, and re-running the verb finishes the job
-     header → lines   a half-finished delete would leave a deleted header with LIVE lines behind
-                      it — and nothing can reach those lines, because every path to a line runs
-                      through its header. Invisible rows that still count as live.
-
-   There is no transaction around the two writes and this layer has no transaction idiom
-   (with-hhub-transaction is the ABAC policy point, not a DB transaction), so if the line write
-   does not fully succeed the header is left UNTOUCHED and the sentinel's reason says so; if the
-   header write then fails, the reason reports how many lines were already marked, because that
-   tally is the only record of what the call actually did."
+   ⚠ LINES FIRST, THEN THE HEADER (S7): DOD_ORDER_ITEMS has no FK on ORDER_ID, so no cascade can fire — and
+   all three writes (lines, vendor rows, header) are now ONE transaction (O3, closed 2026-10-06)."
   ;; 1. O4 — once the order has been converted, the invoice is the record
   (when (string-equal (or (slot-value dbobj 'is-converted-to-invoice) "N") "Y")
     (return-from nst-order-header-soft-delete
@@ -1030,7 +1015,9 @@
                        :reason (format nil "Order delete refused: this order is ~A, and only ~{~A~^ or ~} may be deleted. Nothing has been deleted. A PLACED order is cancelled — a cancellation keeps the history the vendor rows already refer to — and a terminal one has finished, so deleting it would hide a document other records point at."
                                        (or status (slot-value dbobj 'status))
                                        *ordh-deletable-statuses*)))))
-  ;; 3. the LINES first, then the header — see the docstring for why the order is the design
+  ;; 3. THE THREE WRITES ARE ONE TRANSACTION (O3, closed 2026-10-06): lines → vendor rows → header.
+  ;; The refusals below need no explicit rollback — each leaves by RETURN-FROM, which aborts the transaction.
+  (clsql:with-transaction ()
   (let ((lines (nst-soft-delete-order-items-for-header (slot-value dbobj 'row-id) tenant-id)))
     (unless (eq (bo-knowledge-truth lines) :T)
       ;; The lines did not all get marked. THE HEADER IS UNTOUCHED — said explicitly, because
@@ -1039,7 +1026,7 @@
       (return-from nst-order-header-soft-delete
         (domain-sentinel-from-knowledge
          lines ctx
-         :reason (format nil "Order delete, row-id ~A: the LINE soft-delete did not complete, so the header was left UNTOUCHED and is still live — re-run the delete once the database answers"
+         :reason (format nil "Order delete, row-id ~A: the LINE soft-delete did not complete, so NOTHING was written — the whole delete rolled back and the order is untouched and still live. Re-run it once the database answers"
                          (slot-value dbobj 'row-id)))))
     ;; 3b. then the VENDOR ROWS — the same ordering rule and the same reason: a vendor must not keep
     ;; working on an order its customer has deleted. MEASURED 2026-10-05: this step was MISSING.
@@ -1048,7 +1035,7 @@
         (return-from nst-order-header-soft-delete
           (domain-sentinel-from-knowledge
            vendors ctx
-           :reason (format nil "Order delete, row-id ~A: the LINES were soft-deleted but the VENDOR-ROW soft-delete did not complete, so the header was left UNTOUCHED and is still live — re-run the delete once the database answers. The lines are already marked."
+           :reason (format nil "Order delete, row-id ~A: the VENDOR-ROW soft-delete did not complete, so NOTHING was written — the whole delete rolled back, lines included, and the order is untouched and still live. Re-run it once the database answers"
                            (slot-value dbobj 'row-id)))))
       (let* ((marked (bo-knowledge-payload lines))
              (vendors-marked (bo-knowledge-payload vendors))
@@ -1068,7 +1055,7 @@
              :reason (format nil "Order delete, row-id ~A: ~A line(s) and ~A vendor row(s) were already soft-deleted, but the header write did not answer — whether the order itself was soft-deleted is UNKNOWN. Re-read it rather than assuming either answer."
                              (slot-value dbobj 'row-id) marked vendors-marked)))
         (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-delete"
-                          (bo-knowledge-truth knowledge))))))))
+                          (bo-knowledge-truth knowledge)))))))))
 
 (defmethod delete! ((entity-class (eql 'nst-ordh)) (row-id string) (ctx domain-ctx))
   "Soft-delete an order header: DELETED_STATE becomes Y, and nothing is ever removed from

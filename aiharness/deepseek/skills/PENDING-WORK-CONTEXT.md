@@ -309,13 +309,19 @@ in the customer's item-delete flow and both pre-existing:
 
 | # | what | why it matters | state |
 |---|---|---|---|
-| **1** | **The transaction seam (O3)** — `POST /orders` writes header → lines → stock → vendor rows with no transaction around them | a failure after the INSERTs leaves a half-built order: **five measured 500s left orders 491, 494-497 and 499** with their lines and vendor rows, and cleanup could not key on a `rowId` that never arrived | **AGREED 2026-10-05** — wrap header + items + vendor rows in one transaction. ⚠ `delete!` now writes THREE tables too (lines → vendor rows → header) and belongs in the same change |
+| **1** | **The transaction seam (O3)** — `POST /orders` writes header → lines → stock → vendor rows with no transaction around them | a failure after the INSERTs leaves a half-built order: **five measured 500s left orders 491, 494-497 and 499** with their lines and vendor rows, and cleanup could not key on a `rowId` that never arrived | ✅ **DONE 2026-10-06** — `route-ordh-create`'s write half is one `clsql:with-transaction` (extracted as `ordh-create-assembly`, with an EXPLICIT `clsql:rollback` because the assembly reports failure by RETURNING sentinels and a normal return would COMMIT), and `delete!`'s three writes likewise (its refusals leave by `return-from`, which aborts automatically) |
 | **2** | **A vendor DELIVERY table** — the vendor must read the items it ships and mark fulfilment per item | today a vendor cannot see *what* to ship: the vendor channel has no line endpoints and `nst-orditm`'s `enumerate` filters by order, not vendor | **DECIDED 2026-10-05**: a separate vendor-delivery table, not line fields on `DOD_ORDER_ITEMS` — the standard pattern, and a feature the requester wanted anyway. Design: one row per (vendor order, order item) with quantity, status, shipped date |
 | **3** | **`UPDATED` is frozen (F8)** | the vendor ETag never changes, so `If-Match` cannot detect a concurrent write — see §10 | fix shape verified (name the write's columns, omit `UPDATED`, KEEP `ord-date`) |
 | **4** | **The customer channel emits NO ETag** | its `If-Match` is unusable: a client cannot obtain a validator, so the 412 machinery is reachable only with an invented token | open |
 | **5** | **A LINE has no per-channel field allowlist and no version token** | the header and the vendor row each have both (F5); a customer may assign any declared line initarg, and two editors of one line are last-write-wins | open — a decision, not a test |
 | **6** | **F12 / F16 — two contract decisions** | `PUT`-with-merge vs `PATCH`; and whether `POST /orders` should handle OTP + wallet, which the product's own spec text promises | open |
 | **7** | **`IS_CONVERTED_TO_INVOICE='Y'` has no fixture** | 0 of 489 rows, so the order→invoice refusal is NOT TESTED (the writable-field half is) | open |
+
+**⚠ ROWS 3-7 ARE PARKED BY DECISION (2026-10-06).** The requester's call: after O3 the API's grammar
+and design are considered done, and B (concurrency: §10's F8 plus the customer channel's missing ETag)
+and C (the line's absent field allowlist and version token, F12/F16, and the missing invoice fixture)
+wait for a later pass rather than blocking the next feature — which is row 2, the vendor DELIVERY
+table, starting from its UI. Nothing here is dropped: each row keeps the evidence that found it.
 | **8** | **The customer UI's delete path is not covered by the HTTP suites** — and it now cascades (lines + vendor rows) and calls `delete-vendor-order` for a vendor row | the four suites speak HTTP; this is a form POST from **My Orders**. Both changes are verified OFFLINE only (preflight PASS, `STAGE: LOADED`, no new warning) | **needs one browser click on an order that has a vendor row** — and note the permission divergence below |
 
 ⚠ **STOCK — RECORDED BECAUSE THE MODEL IN CIRCULATION IS INCOMPLETE.** The recollection was that stock

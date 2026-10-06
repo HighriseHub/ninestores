@@ -44,9 +44,8 @@
   (first (clsql:select [count [*]] :from 'dod-order-items :where 
 		[and [= [:deleted-state] "N"]
 		[= [:tenant-id] tenant-id]
-		;; LEFT ALONE ON PURPOSE (S8): COMPLETED is the pair (CMP, fulfilled Y). A
-		;; cancelled order is terminal and NOT completed, so neither the open nor the
-		;; terminal set belongs here; the offline check allows this one literal.
+		;; LEFT ALONE ON PURPOSE (S8): COMPLETED is the pair (CMP, fulfilled Y) — a cancelled order is
+		;; terminal and NOT completed, so no set in core holds it; the offline check allows this literal.
 		[= [:status] "CMP"]
 		[= [:fulfilled] "Y"]
 		[=[:order-id] order-id]]    :caching nil :flatp t ))))
