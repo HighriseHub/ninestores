@@ -1152,7 +1152,7 @@ Only shows sections based on availability flags and customer type."
     ;; get the new order items list and find out the total. update the order with this new amount.
     (let* ((odtlst (get-order-items order))
 	   (vendors (get-vendors-by-orderid order-id company))
-	   (custordertotal (if odtlst (reduce #'+ (mapcar (lambda (odt) (* (slot-value odt 'prd-qty) (slot-value odt 'current-price))) odtlst )) 0))) 
+	   (custordertotal (if odtlst (reduce #'+ (mapcar (lambda (odt) (* (slot-value odt 'prd-qty) (calculate-order-item-cost odt))) odtlst )) 0))) 
       ;; for each vendor, delete vendor-order if the order items total for that vendor is 0. 
       (mapcar (lambda (vendor) 
 		(let ((vendororder (get-vendor-orders-by-orderid order-id vendor company))
@@ -1162,7 +1162,12 @@ Only shows sections based on availability flags and customer type."
       (setf (slot-value order 'order-amt) (coerce custordertotal 'float))
       (update-order order)
       (if (equal custordertotal 0) 
-	  (delete-order order))
+	  (progn (delete-order order)
+		 ;; ⚠ THE REDIRECT WAS COMPUTED FOR THE DETAILS PAGE, WHICH NO LONGER HAS AN ORDER:
+		 ;; emptying an order deletes it, and the customer was then sent to that order's page,
+		 ;; which signalled MISSING-SLOT TENANT-ID on NIL (MEASURED 2026-10-06). My Orders is the
+		 ;; honest destination.
+		 (setf redirectlocation "/hhub/dodmyorders")))
       ;;(sleep 1) 
       (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer (get-login-customer)))) 
     (function (lambda ()
@@ -1220,7 +1225,14 @@ Only shows sections based on availability flags and customer type."
 
 (defun hhub-controller-customer-my-orderdetails ()
   (with-cust-session-check
-    (with-mvc-ui-page "Customer My Order Details" #'create-model-for-custmyorderdetails #'create-widgets-for-custmyorderdetails :role :customer)))
+    (let* ((raw (hunchentoot:parameter "id"))
+	   (order-id (and raw (parse-integer raw :junk-allowed t)))
+	   (dodorder (and order-id (get-order-by-id order-id (get-login-cust-company)))))
+      (if (null dodorder)
+	  ;; ⚠ NO ORDER TO SHOW — deleted, a stale link, or an id that is not a number: this used to
+	  ;; reach the model and signal MISSING-SLOT TENANT-ID on NIL (MEASURED 2026-10-06).
+	  (hunchentoot:redirect "/hhub/dodmyorders")
+	  (with-mvc-ui-page "Customer My Order Details" #'create-model-for-custmyorderdetails #'create-widgets-for-custmyorderdetails :role :customer)))))
 
 (defun create-model-for-searchproducts ()
   (let* ((search-clause (hunchentoot:parameter "prdlivesearch"))

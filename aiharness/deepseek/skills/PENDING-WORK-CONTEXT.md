@@ -288,6 +288,19 @@ earlier, and 8 live rows already had a soft-deleted parent). Fixed 2026-10-05 wi
 called by `nst-ordh`'s `delete!` **before** the header write so a half-finished delete leaves the
 header live and reachable. Both suites now ASSERT the cascade instead of recording it.
 
+**Two LEGACY-UI bugs found by the requester in the browser (2026-10-06) and fixed the same day**, both
+in the customer's item-delete flow and both pre-existing:
+* `create-model-for-deletecustorditem` computed the order total with `(slot-value odt 'current-price)`
+  — **`current-price` is a PRODUCT column, not a `DOD_ORDER_ITEMS` one**, so deleting an item while
+  others remained raised MISSING-SLOT *after* the item was already deleted. The line now uses
+  `calculate-order-item-cost` (dod-ui-odt.lisp:148), which reads the ITEM's own unit-price/disc-rate/
+  tax columns — and which two functions further down the same file already used.
+* Emptying an order deletes it, and the model then redirected to **that order's detail page**, which
+  could no longer find it → MISSING-SLOT TENANT-ID on NIL. The redirect now goes to My Orders when the
+  order is emptied, `hhub-controller-customer-my-orderdetails` guards a missing/deleted/non-numeric id
+  the same way, and `get-order-items` answers NIL for a NIL order instead of signalling (the backstop
+  for its other five callers).
+
 | # | what | why it matters | state |
 |---|---|---|---|
 | **1** | **The transaction seam (O3)** — `POST /orders` writes header → lines → stock → vendor rows with no transaction around them | a failure after the INSERTs leaves a half-built order: **five measured 500s left orders 491, 494-497 and 499** with their lines and vendor rows, and cleanup could not key on a `rowId` that never arrived | **AGREED 2026-10-05** — wrap header + items + vendor rows in one transaction. ⚠ `delete!` now writes THREE tables too (lines → vendor rows → header) and belongs in the same change |
