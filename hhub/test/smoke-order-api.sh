@@ -108,9 +108,14 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# ⚠ BOTH ARE INITIALISED, AND THAT IS NOT DECORATION: under `set -u` a variable that is only
+# assigned on the FAILURE branch is UNBOUND when the credentials ARE present, and the next read of it
+# aborts the run — which is exactly what the first version of this file did, printing
+# "line 260: NEED_VCREDS: unbound variable" after a clean sixteen-check sweep.
 NEED_CREDS=0
-{ [ -n "$COOKIES" ]  || { [ -n "$PHONE" ]  && [ -n "$PASSWORD" ]; } }  || NEED_CREDS=1
-{ [ -n "$VCOOKIES" ] || { [ -n "$VPHONE" ] && [ -n "$VPASSWORD" ]; } } || NEED_VCREDS=1
+NEED_VCREDS=0
+[ -n "$COOKIES" ]  || { [ -n "$PHONE" ]  && [ -n "$PASSWORD" ]  || NEED_CREDS=1; }
+[ -n "$VCOOKIES" ] || { [ -n "$VPHONE" ] && [ -n "$VPASSWORD" ] || NEED_VCREDS=1; }
 
 TMP="$(mktemp -d)" || exit 2
 JARC="$TMP/customer.txt"; JARV="$TMP/vendor.txt"
@@ -305,8 +310,16 @@ if [ -n "$OTHER_VENDOR_ORDNUM" ]; then
   reqv GET "$ORDV/$OTHER_VENDOR_ORDNUM"
   expect ":F another vendor's row, same tenant → 404 (AC c)" 404 '"not_found"'
 elif [ "$HAVE_SQL" = 1 ]; then
+  # ⚠ THE FIXTURE MUST EXCLUDE A **SHARED** NUMBER, and getting this wrong cost a false FAIL: D20
+  # duplicates the customer's ORDNUM into every vendor row of a multi-vendor order, so a number held
+  # by another vendor may ALSO be held by THIS one — and then the vendor's own row is what resolves,
+  # which is correct behaviour (the address is (ORDNUM, session vendor)) and answers 200. AC (c) needs
+  # a number this vendor does not hold AT ALL.
   OTHER="$(sql "SELECT vo.ORDNUM FROM DOD_VENDOR_ORDERS vo
-                WHERE vo.VENDOR_ID<>$VENDOR_ID AND vo.DELETED_STATE='N' AND vo.ORDNUM IS NOT NULL LIMIT 1")"
+                WHERE vo.VENDOR_ID<>$VENDOR_ID AND vo.DELETED_STATE='N' AND vo.ORDNUM IS NOT NULL
+                  AND NOT EXISTS (SELECT 1 FROM DOD_VENDOR_ORDERS mine
+                                   WHERE mine.ORDNUM=vo.ORDNUM AND mine.VENDOR_ID=$VENDOR_ID)
+                LIMIT 1")"
   if [ -n "$OTHER" ]; then
     reqv GET "$ORDV/$OTHER"
     expect ":F another vendor's row, same tenant → 404 (AC c)" 404 '"not_found"'

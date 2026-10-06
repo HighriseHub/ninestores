@@ -298,12 +298,50 @@ Seven customer paths and three vendor paths, each binding below its own registra
 Ten policy + transaction pairs, one per BOUND endpoint, and the ten policy functions they name. **Traps:** seven of ten `DESCRIPTION`s exceeded `varchar(100)` — on a STRICT server that is **Error 1406, and `apply-migrations` CONTINUES without recording the version**, leaving a seed that re-runs forever; and all ten `POLICY_FUNC`s initially named functions that did not exist, which would have DENIED every call the day the PEP lands. **Tool:** `nst-verify-abac-seed.lisp`. ⚠ The rows are CARRIED, not enforced (D18/F3).
 ### S15 — build registration and the offline load · ✅ DONE 2026-10-04
 The nine files in BOTH lists, the driver's `Failed: 0` with `1+148+0 = 149`, and the offline load reaching `STAGE: LOADED`. **Trap:** the driver's handler wraps the LOAD as well as the compile, so one recompiled file reported **119 style warnings of which 6 were real** — read `Compiled`/`Skipped`/`Failed`, never `Style Warnings`. **Tool:** `nst-compile-production.lisp`.
-### S16 — the four smoke suites · ⏳ IN PROGRESS (AC (a) PROVEN 2026-10-05)
-**✅ AC (a) IS PROVEN: the API created its first order.** `POST /orders → 201`, `rowId 497`, `ORD-DEMO-2026-27-SFTR3E` — the minted number matching the documented shape — followed by the F6 idempotency replay answering **the same rowId**, the order reading back by its number, an empty cart refused `400`, a product that is not this tenant's `404`, `PUT 200`, `DELETE 200`, and the row invisible afterwards. **Header suite: 44 PASS / 0 FAIL / 1 SKIP.**
-**Also proven live:** the vendor suite (30 / 0 / 1 KNOWN — AC (c) in ONE session, AC (e) with a manufactured NULL-ORDNUM row, AC (g) on `CMP` and `VCN`, AC (f)'s `ORD_DATE` byte-identity), and the header suite's whole read half (sweep, reads, guards, status gates, F5's field half, 412, BOLA with no existence oracle). **⚠ STILL OPEN:** the items suite (written, not run), the consolidated suite (not written), O3's window, and the `UPDATED`/F8 defect below.
-**🚨 THE FOUR DEFECTS S16 FOUND — and the fact they shared: THE CREATE HAD NEVER ONCE WORKED.** (1) `ordh-nested-param` tested body keys for **strings** while cl-json yields **symbols** → every `POST /orders` was a 400. (2) The three domaintodb copiers read **unbound** slots → a 500, after the number was minted. (3) **90 entity slots had no initform** → the vendor-row builder signalled (the HTTP ctx has `:ACTOR NIL`). (4) `nst-vendor-order-insert` returned `bind-generated-row-id`'s value — the id **STRING** — instead of the entity, so the assembly answered `"471"` and `render-json` (no method for a string) 500'd **after a fully successful write**. Fixed by `nst-db-slot-value-from-domain` (`core/dod-bl-utl.lisp`), the 90 initforms, a symbol-key comparison, and the one-word return. **Every one was found by RUNNING, never by reading** — and each was invisible from the BL. **Tool:** `nst-verify-order-create.lisp` (23 checks, mutation-tested).
-**TWO CASCADE FACTS, both measured in the same run:** the header's `delete!` **does** cascade to its LINES (S7's लोप — every line of the deleted order was `DELETED_STATE='Y'`), and it **does not** cascade to the VENDOR rows, which is §0's long-standing open item, now with a live reproduction. The header suite asserts the first and prints the second. **⚠ AND ONE DEFECT WAS THE SUITE'S OWN:** its lifecycle cleared the cleanup key after the API's DELETE, but that DELETE is a **soft** one — the rows are still in the table — so the SQL hard-delete never ran and every `--write` run left its order, line and vendor row behind. Fixed: the key is kept and the physical removal is `restore_rows`' job, by row-id, on the success path exactly as on the failure path.
-⚠ **`UPDATED`/F8 is KNOWN**: the write freezes `UPDATED`, so the vendor ETag never changes and `If-Match` cannot detect a concurrent write — `PENDING-WORK §10`.
+### S16 — the four smoke suites · ✅ DONE 2026-10-05
+**All four run against the live server, all green, all self-cleaning:**
+
+| suite | result | what it proves |
+|---|---|---|
+| `smoke-order-header-api.sh` | **44 PASS / 0 FAIL / 1 SKIP** | the customer channel: the ten-path sweep, the reads, the guards, the status gates, F5's field half, the 412, and AC (a) — the create's `201` |
+| `smoke-order-items-api.sh` | **30 / 0 / 1 SKIP** | the line endpoints: the pairing both ways, `:order-id` stripped AFTER the pair is verified, D13, the open-header rule |
+| `smoke-order-vendor-api.sh` | **30 / 0 / 1 KNOWN / 1 SKIP** | the vendor channel: AC (c) in ONE session, AC (e) via a manufactured NULL-ORDNUM row, AC (g) on `CMP` and `VCN`, AC (f)'s `ORD_DATE` byte-identity |
+| `smoke-order-api.sh` | **34 / 0 / 1 KNOWN** | **BOTH channels**: the ten-path sweep, the cross-channel refusals, and **D20** — the order the CUSTOMER creates is the order the VENDOR reads, by the same minted number |
+
+**✅ AC (a): the API created its first order** — `201`, `rowId 497`, `ORD-DEMO-2026-27-SFTR3E`, the F6
+replay answering the same rowId, the empty cart refused `400`, `PUT 200`, `DELETE 200`, invisible.
+
+**🚨 THE FOUR DEFECTS S16 FOUND — and what they shared: THE CREATE HAD NEVER ONCE WORKED.**
+1. `ordh-nested-param` tested body keys for **strings** while cl-json yields **symbols** → every
+   `POST /orders` was a 400.
+2. The three domaintodb copiers read **unbound** slots → a 500, after the number was minted.
+3. **90 entity slots had no initform** → the vendor-row builder signalled (the HTTP ctx has `:ACTOR NIL`).
+4. `nst-vendor-order-insert` returned the id **STRING** instead of the entity → `render-json` 500'd
+   **after a fully successful write**.
+Fixed by `nst-db-slot-value-from-domain`, the initforms, a symbol-key comparison, and one word.
+**Every one was found by RUNNING, never by reading**, and none was visible from the BL.
+**Tool:** `nst-verify-order-create.lisp` (23 checks, mutation-tested both ways).
+
+**⚠ AND TWO DEFECTS WERE THE SUITES' OWN**, both found by running them: the cleanup cleared its key
+after the API's **SOFT** delete, so every `--write` run leaked its rows; and the AC (c) fixture ignored
+**D20's shared numbers** (one ORDNUM is duplicated into every vendor row, so a shared one resolves to
+the session's OWN row and answers 200 — a false FAIL caused by the API being right).
+
+**THE KNOWN ITEMS, every one measured rather than assumed:**
+* **`UPDATED`/F8** — the write freezes `UPDATED`, so the vendor ETag never changes and `If-Match`
+  cannot detect a concurrent write (`PENDING-WORK §10`).
+* **The cascade gap** — the header's `delete!` cascades to its LINES (asserted live) and **does not**
+  cascade to the VENDOR rows: measured on a row the consolidated suite owns, and §0 has carried it as
+  an OPEN item since S10.
+* **O3, the partial-write window** — the empty cart is refused in the READ half and leaves nothing
+  (asserted); a WRITE-half failure still leaves the header, lines and vendor rows behind. MEASURED:
+  five such 500s left orders 491 and 494-497 and 499 with their children, and cleanup could not key on
+  a rowId that never came. No transaction seam exists (D14).
+* **A line has no per-channel field allowlist and no version token** — the header and the vendor row
+  each have both. A decision, not a test.
+* **`IS_CONVERTED_TO_INVOICE` has no fixture** (`'Y'` on 0 of 489 rows), so the order→invoice refusal
+  is NOT TESTED; the writable-field half is.
+
 ### S17 — the `invoice (ord ctx)` compound verb · ⛔ OUT OF THIS BATCH
 What the batch unblocks. Blocked on D14's atomicity seam and the invoice-side `create-with-lines` gap.
 
