@@ -748,6 +748,59 @@
               (nst-vendor-order-update ctx tenant-id channel dbobj update-args))))))
 
 ;;; ───────────────────────────────────────────────────────────────────────────
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; लोप for a whole order's VENDOR ROWS — called by the HEADER's delete!
+;;; ───────────────────────────────────────────────────────────────────────────
+
+(defun nst-select-vendor-orders-for-header (order-id tenant-id)
+  "Every LIVE vendor row of ORDER-ID in TENANT-ID, in row-id order. TENANT-ID is a predicate as well
+   as ORDER-ID, so a guessed order-id yields an empty list rather than another tenant's rows."
+  (clsql:select 'dod-vendor-order
+                :where (apply #'clsql:sql-and
+                              (remove nil (list [= [:order-id] order-id]
+                                                [= [:tenant-id] tenant-id]
+                                                [= [:deleted-state] "N"])))
+                :order-by (list (list :row-id :asc))
+                :caching nil :flatp t))
+
+(defun nst-soft-delete-vendor-orders-for-header (order-id tenant-id)
+  "लोप for the VENDOR ROWS of order ORDER-ID: mark every live row DELETED_STATE='Y'. Returns a
+   bo-knowledge: :T with the NUMBER OF ROWS marked (0 is a legitimate success — an order with no
+   vendor row deletes cleanly), or the first non-:T with the tally folded into its provenance.
+
+  ⚠ WHY IT EXISTS, MEASURED 2026-10-05: the header's delete! cascaded to its LINES and NOT to these
+  rows, so a VENDOR kept working on an order its customer had deleted — the consolidated suite saw
+  `GET /vendor/orders/{ordnum}` answer 200 for an order deleted seconds earlier, and 8 live rows
+  already had a soft-deleted parent before that. The customer's reason to delete is the vendor's
+  reason to stop.
+  ⚠ NO FOREIGN KEY CAN DO THIS: DOD_VENDOR_ORDERS has no FK on ORDER_ID (its only FK is TENANT_ID →
+  DOD_COMPANY), and a cascade would fire on a HARD delete, which a soft delete never issues.
+  ⚠ ROW BY ROW THROUGH THE MACRO, for the line helper's reason: with-nst-db-delete writes
+  deleted-state through update-record-from-slot ONLY, so a delete cannot clobber a concurrent change
+  to another column, and a failure is logged.
+  ⚠ NO ctx AND NO STATUS CHECK: its single caller is nst-ordh's delete!, which has already proved the
+  order is deletable in the session tenant, and a second check would be a second place for two
+  different rules to drift."
+  (let ((rows (nst-select-vendor-orders-for-header order-id tenant-id))
+        (done 0))
+    (dolist (row rows)
+      (let ((knowledge (with-nst-db-delete (:source "nst-vordh/soft-delete-for-header")
+                          (setf (slot-value row 'deleted-state) "Y")
+                          (clsql:update-record-from-slot row 'deleted-state)
+                          row)))
+        (unless (eq (bo-knowledge-truth knowledge) :T)
+          (return-from nst-soft-delete-vendor-orders-for-header
+            (make-bo-knowledge
+             :truth (bo-knowledge-truth knowledge)
+             :payload nil
+             :provenance (format nil "nst-vordh/soft-delete-for-header: ~A of ~A vendor row(s) of order row-id ~A were already marked DELETED_STATE='Y' before the failure at vendor row-id ~A — ~A"
+                                 done (length rows) order-id (slot-value row 'row-id)
+                                 (knowledge-provenance-text knowledge)))))
+        (incf done)))
+    (make-bo-knowledge :truth :T :payload done
+                       :provenance (format nil "nst-vordh/soft-delete-for-header: ~A live vendor row(s) of order row-id ~A soft-deleted"
+                                           done order-id))))
+
 ;;; delete! — अपगम: INTERNAL ONLY (V9), and it exists for the grammar's sake
 ;;; ───────────────────────────────────────────────────────────────────────────
 ;;;

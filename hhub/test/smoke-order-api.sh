@@ -19,8 +19,10 @@
 #        vendor cannot see another vendor's slice.
 #     4. --write: customer creates → VENDOR READS THE SAME ORDER BY THE SAME NUMBER → vendor updates
 #        its slice (AC (f): ORD_DATE byte-identical) → customer edits the line, deletes it, deletes
-#        the order → and the vendor row SURVIVES the customer's delete, which is the KNOWN gap.
+#        the order → and the VENDOR'S COPY GOES TOO (the लोप cascade, fixed 2026-10-05).
 #     5. cleanup: every row is removed, on EXIT and on failure, keyed on the row-id from the 201.
+#        ⚠ THE CASCADE IS NOW ASSERTED, NOT RECORDED: `delete!` soft-deletes the VENDOR ROWS too, so a
+#        vendor stops seeing an order its customer deleted — it did not, until 2026-10-05.
 #
 # ── FIXTURES (measured 2026-10-05) ────────────────────────────────────────────────────────────
 #   customer  `9999999999` = DOD_CUST_PROFILE 1 (DEMO, tenant 2, 208 orders) — the richest fixture
@@ -75,7 +77,7 @@ sql() { [ "$HAVE_SQL" = 1 ] || return 0
         mysql -u "$NS_MYSQL_USER" -p"$NS_MYSQL_PASS" -N -B "$NS_DB" -e "$1" 2>&1 | grep -v '^mysql:'; }
 
 WRITE=0
-SUITE_REV="2026-10-05.1"
+SUITE_REV="2026-10-05.2"
 usage() {
   sed -n '3,60p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
@@ -408,12 +410,12 @@ else
     expect "…and it is invisible to the customer afterwards (नियम-2)" 404 '"not_found"'
 
     # ══ THE KNOWN GAP, MEASURED ON A ROW THIS RUN OWNS ══
+    # ⚠ THIS WAS A KNOWN GAP UNTIL 2026-10-05, AND IT WAS DANGEROUS RATHER THAN COSMETIC: the header's
+    # delete! cascaded to its LINES and not to the vendor rows, so a vendor kept working on — and
+    # could ship — an order its customer had deleted. It is now a PASSING assertion: the header's
+    # delete! calls nst-soft-delete-vendor-orders-for-header, the vendor-row लोप.
     reqv GET "$ORDV/$CREATED_NUM"
-    expect_known "the vendor's copy SURVIVES the customer's delete → 404 (no cascade)" 404 '"not_found"' \
-      "KNOWN GAP: the customer channel's delete! does not cascade to DOD_VENDOR_ORDERS, so a vendor \
-keeps seeing an order its customer has deleted. §0 has carried this since S10 as an OPEN item (8 \
-live rows at the time); this run measured a 9th. The honest fix is a लोप cascade on the header's \
-delete!."
+    expect "the vendor's copy is GONE after the customer's delete (the लोप cascade)" 404 '"not_found"' 
   fi
 fi
 
