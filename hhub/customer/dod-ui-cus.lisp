@@ -1124,8 +1124,15 @@ Only shows sections based on availability flags and customer type."
 	     (cust (hunchentoot:session-value :login-customer))
 	     (company (hunchentoot:session-value :login-customer-company))
 	     (dodorder (get-order-by-id order-id company)))
-	
-	(delete-order dodorder)
+	;; ⚠ THE CHILDREN FIRST, THEN THE HEADER — this controller used to delete the HEADER
+	;; ALONE, so the order's lines and its DOD_VENDOR_ORDERS rows stayed live and a VENDOR kept
+	;; working on an order its customer had deleted (MEASURED 2026-10-05). The लोप helpers are
+	;; the grammar's, so both channels delete a child the same way — one home for the rule.
+	(when dodorder
+	  (let ((tenant-id (slot-value company 'row-id)))
+	    (nst-soft-delete-order-items-for-header order-id tenant-id)
+	    (nst-soft-delete-vendor-orders-for-header order-id tenant-id))
+	  (delete-order dodorder))
 	(setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer cust))
 	(hunchentoot:redirect "/hhub/dodmyorders"))))
 
