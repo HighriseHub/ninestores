@@ -300,6 +300,12 @@ in the customer's item-delete flow and both pre-existing:
   order is emptied, `hhub-controller-customer-my-orderdetails` guards a missing/deleted/non-numeric id
   the same way, and `get-order-items` answers NIL for a NIL order instead of signalling (the backstop
   for its other five callers).
+* And a THIRD, found the same session in the item-**edit** page: `odt-vendorobject` — a JOIN accessor
+  the page calls on an order-item row — had been REMOVED from `dod-order-items` by commit `e4cfa63`,
+  which left in its place a slot joining a class that does not exist (`doe-vend-profile`) by the wrong
+  key (`order-id`). The page has 500'd since that commit; the dormant slot's accessor was called
+  nowhere, so the correct join (`dod-vend-profile`, `home-key vendor-id`) was restored from `4a83f84`
+  in its stead. ⚠ A `def-view-class` change: RESTART, never an in-image reload (T6).
 
 | # | what | why it matters | state |
 |---|---|---|---|
