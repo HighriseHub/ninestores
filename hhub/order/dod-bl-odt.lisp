@@ -12,6 +12,9 @@
 
 (defun get-order-items (order-instance)
 :documentation "Returns the list of order details instances given order-instance as input"
+  ;; ⚠ A NIL ORDER ANSWERS NIL, NOT A MISSING-SLOT ERROR: "the order is not there" used to reach
+  ;; the customer's page as a 500 (MEASURED 2026-10-06). No order means no items.
+  (when (null order-instance) (return-from get-order-items nil))
   (let ((tenant-id (slot-value order-instance 'tenant-id))
 	(order-id (slot-value order-instance 'row-id)))
  (clsql:select 'dod-order-items  :where

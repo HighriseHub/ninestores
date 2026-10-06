@@ -1041,8 +1041,18 @@
          lines ctx
          :reason (format nil "Order delete, row-id ~A: the LINE soft-delete did not complete, so the header was left UNTOUCHED and is still live — re-run the delete once the database answers"
                          (slot-value dbobj 'row-id)))))
-    (let* ((marked (bo-knowledge-payload lines))
-           (knowledge (with-nst-db-delete (:source "nst-ordh/delete!")
+    ;; 3b. then the VENDOR ROWS — the same ordering rule and the same reason: a vendor must not keep
+    ;; working on an order its customer has deleted. MEASURED 2026-10-05: this step was MISSING.
+    (let ((vendors (nst-soft-delete-vendor-orders-for-header (slot-value dbobj 'row-id) tenant-id)))
+      (unless (eq (bo-knowledge-truth vendors) :T)
+        (return-from nst-order-header-soft-delete
+          (domain-sentinel-from-knowledge
+           vendors ctx
+           :reason (format nil "Order delete, row-id ~A: the LINES were soft-deleted but the VENDOR-ROW soft-delete did not complete, so the header was left UNTOUCHED and is still live — re-run the delete once the database answers. The lines are already marked."
+                           (slot-value dbobj 'row-id)))))
+      (let* ((marked (bo-knowledge-payload lines))
+             (vendors-marked (bo-knowledge-payload vendors))
+             (knowledge (with-nst-db-delete (:source "nst-ordh/delete!")
                        (setf (slot-value dbobj 'deleted-state) "Y")
                        (clsql:update-record-from-slot dbobj 'deleted-state)
                        dbobj)))
@@ -1055,10 +1065,10 @@
             ;; ignorance: it is the only record of how far this call got.
             (domain-sentinel-from-knowledge
              knowledge ctx
-             :reason (format nil "Order delete, row-id ~A: ~A line(s) were already soft-deleted, but the header write did not answer — whether the order itself was soft-deleted is UNKNOWN. Re-read it rather than assuming either answer."
-                             (slot-value dbobj 'row-id) marked)))
+             :reason (format nil "Order delete, row-id ~A: ~A line(s) and ~A vendor row(s) were already soft-deleted, but the header write did not answer — whether the order itself was soft-deleted is UNKNOWN. Re-read it rather than assuming either answer."
+                             (slot-value dbobj 'row-id) marked vendors-marked)))
         (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-delete"
-                          (bo-knowledge-truth knowledge)))))))
+                          (bo-knowledge-truth knowledge))))))))
 
 (defmethod delete! ((entity-class (eql 'nst-ordh)) (row-id string) (ctx domain-ctx))
   "Soft-delete an order header: DELETED_STATE becomes Y, and nothing is ever removed from

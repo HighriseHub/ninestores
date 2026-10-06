@@ -88,7 +88,7 @@ sql() { [ "$HAVE_SQL" = 1 ] || return 0
         mysql -u "$NS_MYSQL_USER" -p"$NS_MYSQL_PASS" -N -B "$NS_DB" -e "$1" 2>&1 | grep -v '^mysql:'; }
 
 WRITE=0
-SUITE_REV="2026-10-05.4"
+SUITE_REV="2026-10-05.5"
 usage() {
   sed -n '3,52p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
@@ -467,9 +467,16 @@ else
   req PUT "$ORD/$OPEN_NUM/items/$LINE_ABSENT" -H 'Content-Type: application/json' \
       -d '{"itemDescription":"smoke mismatch"}'
   expect ":F an ABSENT line under this order → 404" 404 '"not_found"'
+  # ⚠ THE COMPARISON IS STRICT, AND THE MASK IS PRECISE. Every id is masked where it appears AS an
+  # id (an earlier version substituted a bare id GLOBALLY and turned "40" into "«id»0"), and NOTHING
+  # ELSE is stripped: with one canonical answer the two bodies must be byte-identical, so the
+  # provenance and the sentence are both part of what this check asserts. (The route now answers a
+  # fixed sentence for every way of missing a line — see orditm-not-found-answer — because otherwise
+  # "a real line of somebody else's order" and "no such line" are distinguishable, and line row-ids
+  # are sequential.)
+  norm_404() { printf '%s' "$1" | sed -E 's/row-id [0-9]+/row-id «id»/g'; }
   check "the alien line is INDISTINGUISHABLE from an absent one (no existence oracle)" \
-        "$(printf '%s' "$PAIR_BODY" | sed "s|$OTHER_LINE|«id»|g")" \
-        "$(printf '%s' "$(cat "$BODY")" | sed "s|$LINE_ABSENT|«id»|g")"
+        "$(norm_404 "$PAIR_BODY")" "$(norm_404 "$(cat "$BODY")")"
   info "the alien line's own ORDER (for the record)" "$OTHER_NUM"
 fi
 

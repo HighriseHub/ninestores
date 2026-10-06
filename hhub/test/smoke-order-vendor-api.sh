@@ -462,9 +462,15 @@ ABSENT_BODY="$(cat "$BODY")"
 # AC (c) — THE SCOPE CHECK THAT MATTERS. A row of ANOTHER vendor IN THE SAME TENANT must be
 # invisible. Tenant scoping alone would return it; only the VENDOR_ID predicate stops that.
 if [ -z "$OTHER_VENDOR_ORDNUM" ]; then
+  # ⚠ EXCLUDE NUMBERS THIS VENDOR ALSO HOLDS: D20 duplicates one ORDNUM into every vendor row of a
+  # multi-vendor order, so a shared number resolves to the SESSION vendor's own row and answers 200.
+  # Without this the check fails for a reason that is the API being RIGHT.
   OTHER_VENDOR_ORDNUM="$(sql "SELECT vo.ORDNUM FROM DOD_VENDOR_ORDERS vo JOIN DOD_VEND_PROFILE v ON v.ROW_ID=vo.VENDOR_ID
                               WHERE vo.VENDOR_ID=$OTHER_VENDOR AND v.TENANT_ID=(SELECT TENANT_ID FROM DOD_VEND_PROFILE WHERE ROW_ID=$VENDOR_ID)
-                                AND vo.DELETED_STATE='N' AND vo.ORDNUM IS NOT NULL LIMIT 1")"
+                                AND vo.DELETED_STATE='N' AND vo.ORDNUM IS NOT NULL
+                                AND NOT EXISTS (SELECT 1 FROM DOD_VENDOR_ORDERS mine
+                                                 WHERE mine.ORDNUM=vo.ORDNUM AND mine.VENDOR_ID=$VENDOR_ID)
+                              LIMIT 1")"
 fi
 info "another vendor's row, same tenant (vendor $OTHER_VENDOR)" "${OTHER_VENDOR_ORDNUM:-<none found>}"
 if [ -z "$OTHER_VENDOR_ORDNUM" ]; then

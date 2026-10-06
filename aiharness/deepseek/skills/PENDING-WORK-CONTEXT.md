@@ -276,6 +276,67 @@ The batch instance, which cost a wrong answer on **2026-09-28**: `strings …/hh
 
 ---
 
+## 11. The order API after S16 — what is pending, in priority order · recorded 2026-10-05
+
+S16 is closed: the create works (its first `201` is proven), the four smoke suites are green, and this
+is what they deliberately did NOT close. **One item is already done and is recorded here because it
+was dangerous rather than cosmetic:** the customer's `DELETE /orders/{ordnum}` cascaded to the order's
+LINES and **not** to its `DOD_VENDOR_ORDERS` rows, so a vendor kept working on — and could ship — an
+order its customer had deleted (measured: the vendor's `GET` answered 200 for an order deleted seconds
+earlier, and 8 live rows already had a soft-deleted parent). Fixed 2026-10-05 with
+`nst-soft-delete-vendor-orders-for-header`, a लोप helper in `nst-bl-vordh.lisp` mirroring the line one,
+called by `nst-ordh`'s `delete!` **before** the header write so a half-finished delete leaves the
+header live and reachable. Both suites now ASSERT the cascade instead of recording it.
+
+**Two LEGACY-UI bugs found by the requester in the browser (2026-10-06) and fixed the same day**, both
+in the customer's item-delete flow and both pre-existing:
+* `create-model-for-deletecustorditem` computed the order total with `(slot-value odt 'current-price)`
+  — **`current-price` is a PRODUCT column, not a `DOD_ORDER_ITEMS` one**, so deleting an item while
+  others remained raised MISSING-SLOT *after* the item was already deleted. The line now uses
+  `calculate-order-item-cost` (dod-ui-odt.lisp:148), which reads the ITEM's own unit-price/disc-rate/
+  tax columns — and which two functions further down the same file already used.
+* Emptying an order deletes it, and the model then redirected to **that order's detail page**, which
+  could no longer find it → MISSING-SLOT TENANT-ID on NIL. The redirect now goes to My Orders when the
+  order is emptied, `hhub-controller-customer-my-orderdetails` guards a missing/deleted/non-numeric id
+  the same way, and `get-order-items` answers NIL for a NIL order instead of signalling (the backstop
+  for its other five callers).
+* And a THIRD, found the same session in the item-**edit** page: `odt-vendorobject` — a JOIN accessor
+  the page calls on an order-item row — had been REMOVED from `dod-order-items` by commit `e4cfa63`,
+  which left in its place a slot joining a class that does not exist (`doe-vend-profile`) by the wrong
+  key (`order-id`). The page has 500'd since that commit; the dormant slot's accessor was called
+  nowhere, so the correct join (`dod-vend-profile`, `home-key vendor-id`) was restored from `4a83f84`
+  in its stead. ⚠ A `def-view-class` change: RESTART, never an in-image reload (T6).
+
+| # | what | why it matters | state |
+|---|---|---|---|
+| **1** | **The transaction seam (O3)** — `POST /orders` writes header → lines → stock → vendor rows with no transaction around them | a failure after the INSERTs leaves a half-built order: **five measured 500s left orders 491, 494-497 and 499** with their lines and vendor rows, and cleanup could not key on a `rowId` that never arrived | **AGREED 2026-10-05** — wrap header + items + vendor rows in one transaction. ⚠ `delete!` now writes THREE tables too (lines → vendor rows → header) and belongs in the same change |
+| **2** | **A vendor DELIVERY table** — the vendor must read the items it ships and mark fulfilment per item | today a vendor cannot see *what* to ship: the vendor channel has no line endpoints and `nst-orditm`'s `enumerate` filters by order, not vendor | **DECIDED 2026-10-05**: a separate vendor-delivery table, not line fields on `DOD_ORDER_ITEMS` — the standard pattern, and a feature the requester wanted anyway. Design: one row per (vendor order, order item) with quantity, status, shipped date |
+| **3** | **`UPDATED` is frozen (F8)** | the vendor ETag never changes, so `If-Match` cannot detect a concurrent write — see §10 | fix shape verified (name the write's columns, omit `UPDATED`, KEEP `ord-date`) |
+| **4** | **The customer channel emits NO ETag** | its `If-Match` is unusable: a client cannot obtain a validator, so the 412 machinery is reachable only with an invented token | open |
+| **5** | **A LINE has no per-channel field allowlist and no version token** | the header and the vendor row each have both (F5); a customer may assign any declared line initarg, and two editors of one line are last-write-wins | open — a decision, not a test |
+| **6** | **F12 / F16 — two contract decisions** | `PUT`-with-merge vs `PATCH`; and whether `POST /orders` should handle OTP + wallet, which the product's own spec text promises | open |
+| **7** | **`IS_CONVERTED_TO_INVOICE='Y'` has no fixture** | 0 of 489 rows, so the order→invoice refusal is NOT TESTED (the writable-field half is) | open |
+| **8** | **The customer UI's delete path is not covered by the HTTP suites** — and it now cascades (lines + vendor rows) and calls `delete-vendor-order` for a vendor row | the four suites speak HTTP; this is a form POST from **My Orders**. Both changes are verified OFFLINE only (preflight PASS, `STAGE: LOADED`, no new warning) | **needs one browser click on an order that has a vendor row** — and note the permission divergence below |
+
+⚠ **STOCK — RECORDED BECAUSE THE MODEL IN CIRCULATION IS INCOMPLETE.** The recollection was that stock
+decrements in `set-order-fulfilled` and at the invoice-finish step. MEASURED 2026-10-05, the three call
+sites of `update-stock-inventory` are `order/dod-bl-ord.lisp:537` (**`save-order-items-in-db`, the
+LEGACY order-create path**), `order/nst-bl-ordhapi.lisp:1023` (the new API's create assembly — the
+reservation the requester endorses) and `invoice/nst-ui-ihd.lisp:1526` (invoice finish). **There is no
+call site in `set-order-fulfilled`.** So BOTH creation paths already decrement at creation, and
+**whatever the delivery feature does, it must not decrement again** — or one order costs its units
+twice. Reservation management (releasing on cancel, reconciling at ship) is DECIDED to be a future
+feature, not part of this batch.
+
+⚠ **AND THE TWO DELETE PATHS STILL DIFFER IN PERMISSION, NOT JUST CASCADE.** The API's `delete!`
+refuses anything but `DFT` and refuses an order already converted to an invoice; the customer UI's
+`dod-controller-del-order` calls the legacy `delete-order` directly and so deletes **any** order — a
+`CMP` one, a `VCN` one, an invoiced one. One rule for deletion means pointing that controller at
+`nst-ordh`'s `delete!`, which ADDS refusals the UI does not have today, so it is a decision rather
+than a tidy-up.
+
+---
+
 ## Not a defect, but easy to trip over
 
 * **The smoke-suite base.** `http://hunchentoot.local` answers **404 for every `/hhub/` URI** on this host (nginx on :80 proxies nothing) — all six suites default to `http://ninestores.local`, which behaves identically to `127.0.0.1:4244`. `/hhub/` itself is 404 on every base, so a reachability probe on that path proves only that a socket opened; assert the API's own 401 instead.

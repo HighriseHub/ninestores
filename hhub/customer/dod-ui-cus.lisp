@@ -1124,8 +1124,15 @@ Only shows sections based on availability flags and customer type."
 	     (cust (hunchentoot:session-value :login-customer))
 	     (company (hunchentoot:session-value :login-customer-company))
 	     (dodorder (get-order-by-id order-id company)))
-	
-	(delete-order dodorder)
+	;; ⚠ THE CHILDREN FIRST, THEN THE HEADER — this controller used to delete the HEADER
+	;; ALONE, so the order's lines and its DOD_VENDOR_ORDERS rows stayed live and a VENDOR kept
+	;; working on an order its customer had deleted (MEASURED 2026-10-05). The लोप helpers are
+	;; the grammar's, so both channels delete a child the same way — one home for the rule.
+	(when dodorder
+	  (let ((tenant-id (slot-value company 'row-id)))
+	    (nst-soft-delete-order-items-for-header order-id tenant-id)
+	    (nst-soft-delete-vendor-orders-for-header order-id tenant-id))
+	  (delete-order dodorder))
 	(setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer cust))
 	(hunchentoot:redirect "/hhub/dodmyorders"))))
 
@@ -1145,17 +1152,22 @@ Only shows sections based on availability flags and customer type."
     ;; get the new order items list and find out the total. update the order with this new amount.
     (let* ((odtlst (get-order-items order))
 	   (vendors (get-vendors-by-orderid order-id company))
-	   (custordertotal (if odtlst (reduce #'+ (mapcar (lambda (odt) (* (slot-value odt 'prd-qty) (slot-value odt 'current-price))) odtlst )) 0))) 
+	   (custordertotal (if odtlst (reduce #'+ (mapcar (lambda (odt) (* (slot-value odt 'prd-qty) (calculate-order-item-cost odt))) odtlst )) 0))) 
       ;; for each vendor, delete vendor-order if the order items total for that vendor is 0. 
       (mapcar (lambda (vendor) 
 		(let ((vendororder (get-vendor-orders-by-orderid order-id vendor company))
 		      (vendorordertotal (get-order-items-total-for-vendor vendor odtlst)))
 		  (if (equal vendorordertotal 0)
-		      (delete-order vendororder)))) vendors)
+		      (delete-vendor-order vendororder)))) vendors)
       (setf (slot-value order 'order-amt) (coerce custordertotal 'float))
       (update-order order)
       (if (equal custordertotal 0) 
-	  (delete-order order))
+	  (progn (delete-order order)
+		 ;; ⚠ THE REDIRECT WAS COMPUTED FOR THE DETAILS PAGE, WHICH NO LONGER HAS AN ORDER:
+		 ;; emptying an order deletes it, and the customer was then sent to that order's page,
+		 ;; which signalled MISSING-SLOT TENANT-ID on NIL (MEASURED 2026-10-06). My Orders is the
+		 ;; honest destination.
+		 (setf redirectlocation "/hhub/dodmyorders")))
       ;;(sleep 1) 
       (setf (hunchentoot:session-value :login-cusord-cache) (get-orders-for-customer (get-login-customer)))) 
     (function (lambda ()
@@ -1213,7 +1225,14 @@ Only shows sections based on availability flags and customer type."
 
 (defun hhub-controller-customer-my-orderdetails ()
   (with-cust-session-check
-    (with-mvc-ui-page "Customer My Order Details" #'create-model-for-custmyorderdetails #'create-widgets-for-custmyorderdetails :role :customer)))
+    (let* ((raw (hunchentoot:parameter "id"))
+	   (order-id (and raw (parse-integer raw :junk-allowed t)))
+	   (dodorder (and order-id (get-order-by-id order-id (get-login-cust-company)))))
+      (if (null dodorder)
+	  ;; ⚠ NO ORDER TO SHOW — deleted, a stale link, or an id that is not a number: this used to
+	  ;; reach the model and signal MISSING-SLOT TENANT-ID on NIL (MEASURED 2026-10-06).
+	  (hunchentoot:redirect "/hhub/dodmyorders")
+	  (with-mvc-ui-page "Customer My Order Details" #'create-model-for-custmyorderdetails #'create-widgets-for-custmyorderdetails :role :customer)))))
 
 (defun create-model-for-searchproducts ()
   (let* ((search-clause (hunchentoot:parameter "prdlivesearch"))
