@@ -319,10 +319,8 @@
     :column "VENDOR_ID"
     :db-constraints :not-null
     :initarg :vendor-id)
-   ;; ⚠ THE LEGACY UI'S ITEM-EDIT PAGE CALLS (odt-vendorobject ORDER-ITEM), AND THIS JOIN WAS
-   ;; REMOVED BY e4cfa63 — which left behind a slot joining a class that does not exist
-   ;; (doe-vend-profile) by the wrong key (order-id). That page has 500'd ever since; the slot it
-   ;; left is gone here because nothing called its accessor. Restored from 4a83f84.
+   ;; ⚠ THE LEGACY item-edit page calls (odt-vendorobject order-item); e4cfa63 removed this join and left a
+   ;; slot joining a class that does not exist by the wrong key, so that page has 500'd since. Restored from 4a83f84.
    (vendorobject
     :accessor odt-vendorobject
     :db-kind :join
