@@ -1092,6 +1092,48 @@
               (nst-order-header-soft-delete ctx tenant-id dbobj))))))
 
 ;;; ───────────────────────────────────────────────────────────────────────────
+;;; The order → invoice link (व्यंजन संधि): the invoice verb's write, never !update's
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; These three predicates are the junction's conditions, named as बहुव्रीहि compounds because
+;;; that is what they are: the order HAVING the quality. The mediator check is the tree's own
+;;; stand-in — Document 4 wants grn-exists-and-accepted? and this schema has no GRN table.
+
+(defun nst-order-header-invoiced-p (dbobj)
+  "बहुव्रीहि: does ROW already carry the invoice link? Y on IS_CONVERTED_TO_INVOICE."
+  (equal (string-upcase (or (slot-value dbobj 'is-converted-to-invoice) "N")) "Y"))
+
+(defun nst-order-header-service-nature-p (dbobj)
+  "बहुव्रीहि: is ROW a SERVICE order? ORDER_TYPE 'SRVC' is the legacy setAsServiceOrder value,
+   and it is the लोप ३ condition: a service order has no fulfilment chain to mediate this."
+  (equal (string-upcase (or (slot-value dbobj 'order-type) "SALE")) "SRVC"))
+
+(defun nst-order-header-fulfilled-p (dbobj)
+  "बहुव्रीहि: the व्यंजन mediator for a physical order — ORDER_FULFILLED 'Y' stands in for
+   accept(ord) in Document 4's chain (dispatch → ship → deliver → receive → inspect → accept)."
+  (equal (string-upcase (or (slot-value dbobj 'order-fulfilled) "N")) "Y"))
+
+(defun nst-order-invoice-link-mark (row-id tenant-id invnum invdate)
+  "THE INVOICE VERB'S WRITE of the three columns *ordh-never-writable-fields* reserves —
+   is-converted-to-invoice, invoice-number, invoice-date — ONE COLUMN AT A TIME through
+   update-record-from-slot, so a concurrent write to any other column cannot be clobbered.
+   :T with the row, :F when no LIVE row carries ROW-ID, :U on a database failure. Its caller
+   owns the transaction: this function deliberately does not open one."
+  (let ((dbobj (nst-select-order-header-by-row-id row-id tenant-id)))
+    (if (null dbobj)
+        (make-bo-knowledge
+         :truth :F :payload nil
+         :provenance (format nil "nst-ordh/invoice-link: no LIVE order header row-id ~A in tenant ~A" row-id tenant-id))
+        (with-nst-db-update (:source "nst-ordh/invoice-link")
+          (setf (slot-value dbobj 'is-converted-to-invoice) "Y")
+          (setf (slot-value dbobj 'invoice-number) invnum)
+          (setf (slot-value dbobj 'invoice-date) invdate)
+          (clsql:update-record-from-slot dbobj 'is-converted-to-invoice)
+          (clsql:update-record-from-slot dbobj 'invoice-number)
+          (clsql:update-record-from-slot dbobj 'invoice-date)
+          dbobj))))
+
+;;; ───────────────────────────────────────────────────────────────────────────
 ;;; S6 — the reverse ferry, and the outbound JSON allowlist
 ;;; ───────────────────────────────────────────────────────────────────────────
 ;;;

@@ -72,3 +72,28 @@ so they cannot be forgotten — an offline tool's PASS is never a statement abou
 The inventory and what each one covers is indexed in `../README.md` (the **symptom → file** table names
 the tool that answers each symptom) and per tool in `../order-adhara-stories-CONTEXT.md` §0/§9b. Do not
 re-list them here: a duplicated inventory drifts.
+
+## 7. Two more classes, hit while PORTING a checker (2026-10-09)
+
+`nst-model-widget-check.lisp` is `nst-check-model-widgets.py` rewritten in the corpus's own language (a
+`.py` in the tools directory was the only one there, and skills + Lisp are what this tree ships). Porting a
+checker is itself a way to find its bugs: both of these printed PLAUSIBLE findings, and only the counts
+gave them away.
+
+| # | class | the instance |
+|---|---|---|
+| 5 | **An early `return` that is not the function's value.** | `check-form-span` left its `loop` with `(return (subseq …))` and then executed the `(subseq text start n)` fallback written below it, so EVERY span ran to end-of-file: the tool reported **100 page-breakers where there are 3**, naming docstring prose (`"Nine"`, `"Stores"`) and comment text as unbound variables. Fix: make the loop's value the function's — `(or (loop … (return X)) fallback)` — or use `block`/`return-from`. The clue was the count and the shape of the names, not any single finding. |
+| 6 | **An empty answer indistinguishable from no answer.** | `check-widget-bindings` answered `NIL` both for "this body has no `(multiple-value-bind`" and for "the bind list is `()`, which is a real answer" — so the caller skipped the pair as unparseable and a genuine finding (a model returning a value the widgets ignore) silently vanished: 10 warnings where the original reported 11. Fix: a distinct `:none` sentinel compared with `eq`. Python had this free (`None` vs `[]`); a port loses exactly this kind of thing. |
+
+The port is proved by EQUIVALENCE, not by inspection: run the original and the port over the same tree and
+compare pair count, finding count and every finding's identity — here 103 pairs / 3 findings / 11 warnings
+from both, differing in one LABEL only (the original's name charset excluded `%`, so it called
+`show%entity-name%` just `show`). Measuring the equivalence also exposed a defect in the original nobody had
+hit: its `--verbose` flag was treated as a target path, so any use of it printed a usage error.
+
+**The python3 original is deliberately NOT tracked.** It stays on disk UNTRACKED as the local cross-check —
+the two are meant to be run side by side and to agree — while `nst-model-widget-check.lisp` is the tool the
+repository ships, and the one named in `../README.md` and in `nst-preflight`'s change set. An untracked
+`.py` in `tools/` is therefore expected, not drift: do not "helpfully" add it, and do not delete it to make
+`git status` tidy.
+

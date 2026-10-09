@@ -430,11 +430,14 @@
   (reduce #'+ (mapcar (lambda (item) (slot-value item 'igstamt)) orderitems)))
 
 
+;;; 🚨 FRound ROUNDS TO WHOLE RUPEES: it is COMMON-LISP's standard fround, which answers the nearest
+;;; INTEGER as a float — (fround 3815.20) = 3815.0, and that is the 0.20 gap measured between a
+;;; legacy invoice's header total and its own lines. Money is rounded to the PAISE here instead.
 (defun calculate-order-totalbeforetax (orderitems)
-  (fround (reduce #'+ (mapcar (lambda (item) (slot-value item 'taxablevalue)) orderitems))))
+  (round-to-2-decimal (reduce #'+ (mapcar (lambda (item) (slot-value item 'taxablevalue)) orderitems))))
 
 (defun calculate-order-totalaftertax (orderitems)
-  (fround (reduce #'+ (mapcar (lambda (item)
+  (round-to-2-decimal (reduce #'+ (mapcar (lambda (item)
 				(let* ((cgstamt (slot-value item 'cgstamt))
 				       (sgstamt (slot-value item 'sgstamt))
 				       (igstamt (slot-value item 'igstamt))

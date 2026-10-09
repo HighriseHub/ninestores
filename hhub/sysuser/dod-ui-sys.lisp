@@ -1083,6 +1083,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenproducts" 'dod-controller-vendor-products)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodprddetailsforvendor" 'dod-controller-prd-details-for-vendor)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenordfulfilled" 'com-hhub-transaction-vendor-order-setfulfilled)
+	(hunchentoot:create-regex-dispatcher "^/hhub/dodvenordinvoice" 'com-hhub-transaction-vendor-order-invoice)
 	(hunchentoot:create-regex-dispatcher "^/hhub/dodvendprofile" 'dod-controller-vend-profile)
 	(hunchentoot:create-regex-dispatcher "^/hhub/nstvendprofilepage" 'com-nst-transaction-vendor-profile-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendmycustomers" 'dod-controller-vendor-my-customers-page)

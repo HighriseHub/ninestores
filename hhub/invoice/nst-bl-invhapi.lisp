@@ -1039,4 +1039,369 @@
 ;;;        writer for one blob. The spec's placement of it under /invoices is the
 ;;;        thing to reconcile, not the code.
 
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;; SECTION 9 — invoice-from-ord: the ord→inv TRANSFORM (समास तत्पुरुष, Document 5)
+;;; ═══════════════════════════════════════════════════════════════════════════
+;;;
+;;; ONE CALL, THE ORDER'S NUMBER IN AND A DRAFT INVOICE OUT. The lines are NOT a parameter —
+;;; Document 5's schema is {ord_id, tenant_id, actor_id} — they are DERIVED from this vendor's own
+;;; lines. विसर्ग संधि picks the branch: a physical order is MEDIATED (व्यंजन — this schema has no
+;;; GRN table, so ORDER_FULFILLED stands in for grn-exists-and-accepted?), a service order is
+;;; ELIDED (लोप ३ — ORDER_TYPE 'SRVC', set by the legacy setAsServiceOrder). PAYMENT IS NOT TOUCHED:
+;;; inv→pmt is प्रगृह्य, an event rather than a call, so nothing here may debit a wallet.
+
+(defparameter *invh-from-ord-vendor-override* nil
+  "TEST/REPL ONLY acting vendor for invoice-from-ord, for callers with no HTTP session (the offline
+   harness). MUST stay NIL in production — नियम-1 takes the acting party from the session, never
+   from a parameter, and this is the same shape as conflodis2's company override.")
+
+(defun invh-paise (value)
+  "VALUE rounded to 2 decimal places as a FLOAT — what the money columns store."
+  (/ (round (* (float value) 100.0)) 100.0))
+
+(defun invh-slot (object slot)
+  "SLOT's value on OBJECT, or NIL. A class that does not carry the slot is a fact, not a 500."
+  (and object (ignore-errors (slot-value object slot))))
+
+(defun invh-gstin-state-digits (gstin)
+  "The first two characters of GSTIN when both are digits — the state code every GSTIN carries."
+  (when (and (stringp gstin) (>= (length gstin) 2)
+             (every #'digit-char-p (subseq gstin 0 2)))
+    (subseq gstin 0 2)))
+
+(defun invh-state-code-of (state-or-code)
+  "The GST state CODE for STATE-OR-CODE — the CORE helper's answer, kept under this name because this file's
+   callers read it as the invoice's own vocabulary. See nst-gst-state-code-of for the rule (a code passes
+   through, a name resolves, a GSTIN yields its digits); ONE home, so the cart and the invoice cannot drift."
+  (nst-gst-state-code-of state-or-code))
+
+(defun invh-seller-state-code (vendor)
+  "The SELLER's GST state code: GST_STATE_CODE, else STATE (this tree's profile form stores the
+   CODE there — MEASURED on vendor 1: GST_STATE_CODE empty, STATE \"29\"), else the GSTIN digits."
+  (or (invh-state-code-of (invh-slot vendor 'gst-state-code))
+      (invh-state-code-of (invh-slot vendor 'state))
+      (invh-gstin-state-digits (invh-slot vendor 'gstnumber))))
+
+(defun invh-buyer-state-code (order customer)
+  "The PLACE OF SUPPLY for ORDER: its own code, else its place-of-supply or ship-to NAME, else the
+   customer's GSTIN digits, else the customer's own state. NIL when nothing resolves."
+  (or (invh-state-code-of (invh-slot order 'place-of-supply-code))
+      (invh-state-code-of (invh-slot order 'place-of-supply))
+      (invh-state-code-of (invh-slot order 'shipstate))
+      (invh-gstin-state-digits (invh-slot customer 'gstin))
+      (invh-state-code-of (invh-slot customer 'state))))
+
+(defun invh-line-args-from-order-line (order-line product statecode placeofsupply)
+  "One order line → one nst-invitm's initargs, mapped the way nst-ui-itm.lisp maps a typed line:
+   DISCOUNT stays the PERCENT the order carries and taxable = qty × price × (1 − disc/100); UOM is
+   'qty-per-unit unit-of-measure' because that is what this tree's live invoice lines hold; and the
+   tax is DERIVED from the product's HSN rate, because the legacy order lines carry NO tax amounts."
+  (let* ((qty (or (invh-slot order-line 'prd-qty) 0))
+         (price (float (or (invh-slot order-line 'unit-price) 0)))
+         (disc (float (or (invh-slot order-line 'disc-rate) 0)))
+         (taxable (invh-line-taxable-value order-line))
+         (intrastate (equal statecode placeofsupply))
+         (rates (get-gstvalues-for-product product))
+         (cgstrate (float (or (first rates) 0)))
+         (sgstrate (float (or (second rates) 0)))
+         (igstrate (float (or (third rates) 0)))
+         (cgstamt (if intrastate (invh-paise (* taxable (/ cgstrate 100))) 0.0))
+         (sgstamt (if intrastate (invh-paise (* taxable (/ sgstrate 100))) 0.0))
+         (igstamt (if intrastate 0.0 (invh-paise (* taxable (/ igstrate 100))))))
+    (list :prd-id (invh-slot product 'row-id)
+          :prddesc (invh-slot product 'prd-name)
+          :hsncode (or (invh-slot product 'hsn-code) "000000")
+          :qty qty
+          :uom (format nil "~A ~A" (invh-slot product 'qty-per-unit) (invh-slot product 'unit-of-measure))
+          :price price
+          :discount disc
+          :taxable-value taxable
+          :cgstrate cgstrate :cgstamt cgstamt
+          :sgstrate sgstrate :sgstamt sgstamt
+          :igstrate igstrate :igstamt igstamt
+          :totalitemval (invh-paise (+ taxable (if intrastate (+ cgstamt sgstamt) igstamt)))
+          :status "CONFIRMED")))
+
+(defun invh-stored-header-row (row-id tenant-id)
+  "The header ROW-ID actually is, or NIL. 🚨 MEASURED 2026-10-06: a database-side trigger re-derives
+   INVNUM from ROW_ID — the verb minted 'NST000duyrp6gvw1' while the row read 'NST00070-2026' — so
+   what make RETURNED is not what the table STORES, and the order's link must carry the stored one."
+  (let ((rid (ignore-errors (parse-integer (princ-to-string row-id))))
+        (tid (ignore-errors (parse-integer (princ-to-string tenant-id)))))
+    (when (and rid tid)
+      (car (clsql:select 'dod-invoice-header
+                         :where (format nil "ROW_ID=~D AND TENANT_ID=~D" rid tid)
+                         :caching nil :flatp t)))))
+
+;;; ── THE FREIGHT LINE ────────────────────────────────────────────────────────
+;;;
+;;; The order's delivery charge belongs in the taxable value (Section 15(2)(c) CGST: "any other costs
+;;; incurred by the supplier in relation to the supply") and, being ancillary to the supply of goods, it is
+;;; a COMPOSITE SUPPLY taxed at the PRINCIPAL supply's rate (Section 2(30) with Section 8) — NOT at the
+;;; freight product's own SAC rate. The whole GST reasoning, the alternatives and what a CA must confirm
+;;; are `knowledge/gst-gstr-compliance-CONTEXT.md` §10. Two measured facts shape the code below:
+;;;
+;;;   * the freight product's SAC 9965 has NO row in DOD_GST_HSN_CODES, so its own rate resolves to 0 —
+;;;     the rate MUST come from the goods;
+;;;   * the order's SHIPPING_COST is COPIED INTO EVERY VENDOR ROW (order 222: two rows, both 70.00, the
+;;;     order 70.00), so it is never a per-vendor entitlement.
+
+(defun invh-principal-rate-triple (line-args)
+  "The (CGST SGST IGST) rates of the highest-taxable-value GOODS line — Section 8 taxes a composite supply
+   as its principal supply. The rule itself is `nst-principal-rate-of` in core, so the CART and the
+   INVOICE cannot come to different answers about which line is principal."
+  (nst-principal-rate-of
+   (mapcar (lambda (a) (list (or (getf a :taxable-value) 0)
+                             (or (getf a :cgstrate) 0) (or (getf a :sgstrate) 0) (or (getf a :igstrate) 0)))
+           line-args)))
+
+(defun invh-line-taxable-value (row)
+  "A line's taxable value: what the ORDER stored when it stored one, else qty × price × (1 − disc/100).
+   One function for both the invoice lines and the shipping split, so the two cannot disagree — and the
+   fallback is not hypothetical: MEASURED, both vendors' lines on order 222 store TAXABLEVALUE 0.00."
+  (let ((stored (float (or (invh-slot row 'taxablevalue) 0))))
+    (if (plusp stored)
+        (invh-paise stored)
+        (let ((qty (or (invh-slot row 'prd-qty) 0))
+              (price (float (or (invh-slot row 'unit-price) 0)))
+              (disc (float (or (invh-slot row 'disc-rate) 0))))
+          (invh-paise (* qty price (- 1 (/ disc 100))))))))
+
+(defun invh-vendor-line-totals (order-id tenant-id)
+  "((VENDOR-ID . TAXABLE-TOTAL) …) over EVERY live line of the order, all vendors — the denominator of the
+   shipping split, and the reason each vendor's invoice can compute the SAME shares without coordination."
+  (let ((totals (make-hash-table)))
+    (dolist (row (clsql:select 'dod-order-items
+                               :where (format nil "ORDER_ID=~D AND TENANT_ID=~D AND (DELETED_STATE IS NULL OR DELETED_STATE<>'Y')"
+                                               order-id tenant-id)
+                               :caching nil :flatp t))
+      (let ((vendor-id (invh-slot row 'vendor-id)))
+        (incf (gethash vendor-id totals 0.0) (invh-line-taxable-value row))))
+    (loop for k being the hash-keys of totals using (hash-value v) collect (cons k v))))
+
+(defun invh-freight-share (order vendor tenant-id)
+  "The VENDOR's share of the order's delivery charge. One live vendor on the order → all of it (the ordinary
+   case); several → pro-rata by taxable value, and the LARGEST vendor (ties: the lowest vendor-id) absorbs
+   the rounding residual so the shares sum to the order's charge to the paise. 0.0 when none is due."
+  (let* ((order-id (invh-slot order 'row-id))
+         (shipping (float (or (invh-slot order 'shipping-cost) 0)))
+         (vendor-id (invh-slot vendor 'row-id))
+         (holders (remove-if (lambda (pair) (null (car pair)))
+                             (invh-vendor-line-totals order-id tenant-id)))
+         (mine (float (or (cdr (assoc vendor-id holders)) 0))))
+    (cond
+      ((<= shipping 0) 0.0)
+      ;; THE ORDINARY CASE: one vendor on the order owes the whole charge, whatever its lines are worth.
+      ((= (length holders) 1) (if (equal (car (first holders)) vendor-id) shipping 0.0))
+      ;; SEVERAL VENDORS: pro-rata by taxable value. 0.0 here means UNDECIDABLE (no line carries a
+      ;; value) and the caller REFUSES on it — never a silent drop of money that is due.
+      ((<= (reduce #'+ holders :key #'cdr :initial-value 0.0) 0) 0.0)
+      (t
+       (let* ((total (reduce #'+ holders :key #'cdr :initial-value 0.0))
+              (largest (car (sort (copy-list holders)
+                                  (lambda (a b) (if (= (cdr a) (cdr b)) (< (car a) (car b)) (> (cdr a) (cdr b))))))))
+         (if (equal (car largest) vendor-id)
+             ;; the largest holder absorbs the rounding residual, so the shares SUM to the charge exactly
+             (invh-paise (- shipping (reduce #'+ (remove vendor-id holders :key #'car)
+                                             :key (lambda (pair) (invh-paise (* shipping (/ (cdr pair) total))))
+                                             :initial-value 0.0)))
+             (invh-paise (* shipping (/ mine total)))))))))
+
+(defun invh-freight-product-for (vendor tenant-id)
+  "The vendor's own delivery-charge product, through the ORDER layer's one lookup
+   (`nst-select-freight-product`, order/dod-bl-odt.lisp) — one query for the cart and the invoice."
+  (nst-select-freight-product (invh-slot vendor 'row-id) tenant-id))
+
+(defun invh-freight-line-args (product share rates)
+  "The ancillary line for a LEGACY charge: owned by the order's SHIPPING_COST, which was collected with NO
+   tax on it, so the share is treated as INCLUSIVE — the tax is taken out of the amount the customer
+   already paid, and the invoice's total then equals the order's instead of exceeding it. New orders carry
+   their own delivery LINE and never reach here (see the guard in invh-assemble-from-order)."
+  (destructuring-bind (cgstrate sgstrate igstrate) rates
+    (let* ((intrastate (or (plusp (float cgstrate)) (plusp (float sgstrate))))
+           (rate (if intrastate (+ (float cgstrate) (float sgstrate)) (float igstrate))))
+      (multiple-value-bind (taxable tax) (nst-shipping-tax-split share rate :inclusive t)
+        (let* ((cgstamt (if intrastate
+                            (if (plusp (float sgstrate))
+                                (invh-paise (* taxable (/ (float cgstrate) 100)))
+                                tax)
+                            0.00))
+               (sgstamt (if intrastate (- tax cgstamt) 0.00))
+               (igstamt (if intrastate 0.00 tax)))
+      (list :prd-id (invh-slot product 'row-id)
+            :prddesc (invh-slot product 'prd-name)
+            :hsncode (or (invh-slot product 'hsn-code) "9965")
+            :qty 1
+            :uom (format nil "~A ~A" (invh-slot product 'qty-per-unit) (invh-slot product 'unit-of-measure))
+            :price taxable
+            :discount 0.0
+            :taxable-value taxable
+            :cgstrate (float cgstrate) :cgstamt cgstamt
+            :sgstrate (float sgstrate) :sgstamt sgstamt
+            :igstrate (float igstrate) :igstamt igstamt
+            :totalitemval (invh-paise (+ taxable cgstamt sgstamt igstamt))
+            :status "CONFIRMED"))))))
+
+(defun invh-assemble-lines-from-order (header line-args ctx)
+  "One nst-invitm per LINE-ARGS through the ferry. T when every line landed, else the first
+   sentinel — the caller rolls the whole assembly back on a sentinel, never leaving a stub invoice."
+  (dolist (args line-args t)
+    (let ((line (request->dispatch (make-instance 'NstInvitmRequestModel
+                                                  :params (list* :invheadid (row-id header) args))
+                                   'make 'nst-invitm ctx)))
+      (unless (typep line 'nst-invitm)
+        (return-from invh-assemble-lines-from-order line)))))
+
+(defun invh-assemble-from-order (order vendor lines statecode placeofsupply tenant-id ctx)
+  "THE WRITE HALF: DRAFT header, one line per order line plus the delivery charge, then the order's three
+   link columns — in that order, so a failure anywhere leaves nothing a reader could mistake for a
+   document. Returns the nst-invh, or the first sentinel a step refused with."
+  (let* ((customer (get-customer order))
+         (goods-args (mapcar (lambda (line)
+                               (invh-line-args-from-order-line line (get-item-product line)
+                                                               statecode placeofsupply))
+                             lines))
+         ;; 🚨 ONE DELIVERY CHARGE PER INVOICE. An order created since the cart change carries its own
+         ;; delivery LINE, so the charge is already in the lines and this fallback must stay silent:
+         ;; measured rule, asserted by the verifier (nst-order-has-freight-line-p, order layer).
+         (share (if (nst-order-has-freight-line-p (invh-slot order 'row-id) (invh-slot vendor 'row-id) tenant-id)
+                    0.0
+                    (invh-freight-share order vendor tenant-id)))
+         (freight-product (and (plusp share) (invh-freight-product-for vendor tenant-id)))
+         (freight-args (and freight-product
+                             (invh-freight-line-args freight-product share
+                                                     (invh-principal-rate-triple goods-args))))
+         (line-args (append goods-args (and freight-args (list freight-args))))
+         (total (invh-paise (reduce #'+ line-args :key (lambda (a) (getf a :totalitemval))
+                                    :initial-value 0.0)))
+         (header-params
+           (list :vendor-id (invh-slot vendor 'row-id)
+                 :custid (invh-slot customer 'row-id)
+                 :custname (or (invh-slot order 'custname) (invh-slot customer 'name))
+                 :custaddr (or (invh-slot order 'billaddr) (invh-slot customer 'address))
+                 :custgstin (invh-slot customer 'gstin)
+                 :statecode statecode
+                 :placeofsupply placeofsupply
+                 :billaddr (or (invh-slot order 'billaddr) (invh-slot order 'billaddress))
+                 :shipaddr (or (invh-slot order 'shipaddr) (invh-slot order 'shipaddress))
+                 ;; NOT :vnum — that column is varchar(20) and an ORDNUM is 23-27 characters, so
+                 ;; the reference was silently TRUNCATED. The order's own context-id is the link.
+                 :context-id (invh-slot order 'context-id)
+                 :totalvalue total
+                 :totalinwords (convert-number-to-words-INR total)))
+         (header (request->dispatch (make-instance 'NstInvhRequestModel :params header-params)
+                                    'make 'nst-invh ctx)))
+    (cond
+      ;; 🚨 THE DELIVERY CHARGE IS NEVER SILENTLY DROPPED. Money is due on this order and it cannot be
+      ;; attributed (no line carries a value — measured on order 222) → REFUSE, never write ₹X short.
+      ((and (plusp (float (or (invh-slot order 'shipping-cost) 0))) (<= share 0))
+       (make-instance 'nst-entity-contradiction :tenant-id tenant-id
+                      :reason (format nil "This order charges ~,2F for delivery, but it could not be attributed to your invoice — none of the order's lines carries a taxable value, so there is no basis to share it out. Please correct the order's lines, then generate the invoice again. Nothing has been written."
+                                      (float (or (invh-slot order 'shipping-cost) 0)))))
+      ;; 🚨 AND NEVER DROPPED FOR WANT OF A PRODUCT TO BILL IT UNDER.
+      ((and (plusp share) (null freight-product))
+       (make-instance 'nst-entity-contradiction :tenant-id tenant-id
+                      :reason (format nil "This order charges ~,2F for delivery, but your account has no 'Freight & Shipping charges' product to bill it under. Please add it, then generate the invoice again. Nothing has been written." share)))
+      (t
+    (if (not (typep header 'nst-invh))
+        header
+        (let ((lines-outcome (invh-assemble-lines-from-order header line-args ctx)))
+          (if (not (eq lines-outcome t))
+              lines-outcome
+              ;; THE IDENTITY THE TABLE HOLDS WINS over the one the verb minted — see the trigger
+              ;; note above, and the order's link plus the reply must both quote the stored number.
+              (let* ((stored (invh-stored-header-row (row-id header) tenant-id))
+                     (knowledge (nst-order-invoice-link-mark
+                                 (invh-slot order 'row-id) tenant-id
+                                 (or (invh-slot stored 'invnum) (invnum header))
+                                 (or (invh-slot stored 'invdate) (invdate header)))))
+                (when stored
+                  (setf (invnum header) (invh-slot stored 'invnum))
+                  (setf (invdate header) (invh-slot stored 'invdate)))
+                (if (eq (bo-knowledge-truth knowledge) :T)
+                    header
+                    (domain-sentinel-from-knowledge
+                     knowledge ctx
+                     :reason (format nil "Invoice ~A was built, but the order could not be marked as invoiced — so nothing has been kept. The order would not know it was invoiced, and a second click would raise a second invoice."
+                                     (invnum header))))))))))))
+
+(defun invh-create-from-order (request ctx)
+  "कर्म = nst-invh. The junction's conditions first, then the assembly, ALL IN ONE TRANSACTION —
+   Document 5's devil's advocate #2: the compound is atomic, so a partial invoice cannot survive."
+  (let* ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
+         (payload (params request))
+         (ordnum (inv-param payload :ordnum))
+         (vendor (or *invh-from-ord-vendor-override* (vordh-session-vendor)))
+         (order (and ordnum (nst-select-order-header-by-ordnum ordnum tenant-id))))
+    (cond
+      ((null vendor)
+       (make-instance 'nst-entity-nil :tenant-id tenant-id
+                      :reason "This action must be done by a logged-in vendor: the invoice is raised by the seller, from that vendor's own lines. No vendor login was found. Nothing has been written."))
+      ((null order)
+       (make-instance 'nst-entity-nil :tenant-id tenant-id
+                      :reason (format nil "No live order has the number ~A in this account. It may not exist, it may belong to another account, or it may have been deleted. Nothing has been written."
+                                      (or ordnum "?"))))
+      (t
+       (let* ((order-id (invh-slot order 'row-id))
+              (vrow (find (invh-slot vendor 'row-id)
+                          (nst-select-vendor-orders-for-header order-id tenant-id)
+                          :key (lambda (row) (invh-slot row 'vendor-id)))))
+         (cond
+           ((null vrow)
+            (make-instance 'nst-entity-contradiction :tenant-id tenant-id
+                           :reason (format nil "Order ~A has no live row for your vendor account, so no part of it is yours to invoice. Nothing has been written." ordnum)))
+           ((nst-order-header-invoiced-p order)
+            (make-instance 'nst-entity-contradiction :tenant-id tenant-id
+                           :reason (format nil "Order ~A is already invoiced — invoice ~A. One order gets one invoice: if something is wrong with it, cancel it or issue a credit note instead of raising a second one. Nothing has been written."
+                                           ordnum (or (invh-slot order 'invoice-number) "?"))))
+           ((and (not (nst-order-header-service-nature-p order))
+                 (not (nst-order-header-fulfilled-p order)))
+            ;; व्यंजन संधि for goods, लोप ३ for a service order — the VENDOR is told the rule, not its name.
+            (make-instance 'nst-entity-contradiction :tenant-id tenant-id
+                           :reason (format nil "This order is not fulfilled yet. Goods are invoiced after they are fulfilled, so please fulfil the order first — a service order can be invoiced without it. Nothing has been written.")))
+           (t
+            (let* ((lines (get-order-items-for-vendor-by-order-id order vendor))
+                   (statecode (invh-seller-state-code vendor))
+                   (placeofsupply (invh-buyer-state-code order (get-customer order))))
+              (cond
+                ((null lines)
+                 (make-instance 'nst-entity-contradiction :tenant-id tenant-id
+                                :reason (format nil "Order ~A has no live lines for your vendor account, so the invoice would be empty. Nothing has been written." ordnum)))
+                ((null statecode)
+                 (make-instance 'nst-entity-contradiction :tenant-id tenant-id
+                                :reason "Your vendor profile has no GST state code (and no state or GSTIN to take it from), so the tax split between CGST+SGST and IGST cannot be decided. Please set it and try again. Nothing has been written."))
+                ((null placeofsupply)
+                 (make-instance 'nst-entity-contradiction :tenant-id tenant-id
+                                :reason (format nil "The place of supply for order ~A could not be worked out — the order, the customer's address and the customer's GSTIN are all empty. It decides CGST+SGST against IGST, so it cannot be guessed. Nothing has been written." ordnum)))
+                (t
+                 (clsql:with-transaction ()
+                   (let ((outcome (invh-assemble-from-order order vendor lines statecode placeofsupply
+                                                            tenant-id ctx)))
+                     ;; THE ENTITY LEAVES, NOT A RESPONSE MODEL: the dispatcher ferries it, and
+                     ;; NstInvhResponseModel is not an nst-response-model, so handing one back lands
+                     ;; in domain->response with no applicable method — MEASURED, and it 500s.
+                     (if (typep outcome 'nst-invh)
+                         outcome
+                         (progn (clsql:rollback) outcome))))))))))))))
+
+(defun route-invh-from-ord (request ctx)
+  "कर्म = nst-invh. THE ord→inv TRANSFORM, addressed by the ORDER: the payload names :ordnum and
+   the invoice, its lines and the order's invoice link are ONE transaction. Every refusal is the
+   junction's own — 404 for no such order, 409 for each व्यंजन / लोप ३ / business rule."
+  (let ((ordnum (inv-param (params request) :ordnum)))
+    (if (not (and (stringp ordnum) (plusp (length (string-trim " " ordnum)))))
+        (api-client-error "invoice-from-ord needs the order number (:ordnum) — the order is what it invoices")
+        (invh-create-from-order request ctx))))
+
+(register-action-route 'route-invh-from-ord
+                       :action-verb 'route-invh-from-ord
+                       :request-class 'NstInvhRequestModel
+                       :description "invoice-from-ord (Document 5 समास तत्पुरुष): the invoice ARISING FROM an order — a DRAFT header, one line per line of the acting vendor, and the order's invoice link, in ONE transaction. 404 no such order; 409 duplicate invoice, unfulfilled physical order (व्यंजन), no lines, or an undecidable state code."
+                       :output-type :json
+                       :channel :http
+                       :required-roles '(vendor admin)
+                       :feature-flags '(invoice-domain)
+                       :audit-level :full
+                       :tags '(invoice api v1 ord-to-inv))
+
 ;;; End of nst-bl-invhapi.lisp

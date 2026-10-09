@@ -553,6 +553,16 @@
       (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
     T))
 
+(defun com-hhub-policy-vendor-order-invoice (&optional (params nil))
+  "The Generate Invoice action. Only the account's standing is decided HERE: whether this order may
+   be invoiced at all — व्यंजन (fulfilment) against लोप ३, and the one-order-one-invoice rule — is
+   the junction's own, in the invoice domain, and is deliberately not restated as a policy."
+  (let* ((company (cdr (assoc "company" params :test 'equal)))
+	 (suspend-flag (slot-value company 'suspend-flag)))
+    (when (com-hhub-attribute-company-issuspended suspend-flag)
+      (error 'hhub-abac-transaction-error :errstring (format nil "Account Name: ~A. This Account is Suspended." (slot-value company 'name))))
+    T))
+
 (defun com-hhub-policy-vendor-order-cancel (&optional (params nil))
   (let* ((company (cdr (assoc "company" params :test 'equal)))
 	 (suspend-flag (slot-value company 'suspend-flag)))

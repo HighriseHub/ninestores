@@ -546,10 +546,15 @@
 
 (defun update-stock-inventory (product prd-qty)
   :description "A rudimentary stock inventory update function" 
+  ;; ⚠ A SERVICE ROW HAS NO STOCK. The delivery-charge line (PRD_TYPE 'SERV') is an order item like any
+  ;; other, and the old guard (`units-in-stock` 0/NULL) only made the write a harmless no-op — this says
+  ;; it outright, so a service line can never decrement a stock column.
+  (when (and product (not (equal (ignore-errors (slot-value product 'prd-type)) "SERV")))
   (let* ((units-in-stock (slot-value product 'units-in-stock))
 	(updated-units-in-stock  (if (and units-in-stock (> units-in-stock 0)) (- units-in-stock  prd-qty) 0)))
     (setf (slot-value product 'units-in-stock) updated-units-in-stock)
-    (update-prd-details product)))
+    (update-prd-details product))))
+
 
 
 (defun save-vendor-orders-in-db (order order-date request-date ship-date ship-address payment-mode  orderpickupinstore  order-items products  shipping-info shipping-cost  guest-customer customer-instance company-instance utrnum)

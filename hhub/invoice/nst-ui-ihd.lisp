@@ -1700,11 +1700,14 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	   (list widget1 widget2 widget3))))
 	
 
+;;; 🚨 FRound ROUNDS TO WHOLE RUPEES: it is COMMON-LISP's standard fround, which answers the nearest
+;;; INTEGER as a float — (fround 3815.20) = 3815.0, and that is the 0.20 gap measured between a
+;;; legacy invoice's header total and its own lines. Money is rounded to the PAISE here instead.
 (defun calculate-invoice-totalbeforetax (invoiceitems)
-  (fround (reduce #'+ (mapcar (lambda (item) (slot-value item 'taxablevalue)) invoiceitems))))
+  (round-to-2-decimal (reduce #'+ (mapcar (lambda (item) (slot-value item 'taxablevalue)) invoiceitems))))
 
 (defun calculate-invoice-totalaftertax (invoiceitems)
-  (fround (reduce #'+ (mapcar (lambda (item)
+  (round-to-2-decimal (reduce #'+ (mapcar (lambda (item)
 					    (let* ((cgstamt (slot-value item 'cgstamt))
 						   (sgstamt (slot-value item 'sgstamt))
 						   (igstamt (slot-value item 'igstamt))
@@ -1779,9 +1782,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
   (let ((placeofsupply (slot-value invoiceheader 'placeofsupply))
 	(statecode (slot-value invoiceheader 'statecode)))
     (if (equal placeofsupply statecode)
-	(fround (+ (calculate-invoice-totalcgst invoiceitems) (calculate-invoice-totalsgst invoiceitems)))
+	(round-to-2-decimal (+ (calculate-invoice-totalcgst invoiceitems) (calculate-invoice-totalsgst invoiceitems)))
 	;;else
-	(fround (calculate-invoice-totaligst invoiceitems)))))
+	(round-to-2-decimal (calculate-invoice-totaligst invoiceitems)))))
 
 (defun display-invoice-confirm-page-widget (invoiceheader invoiceitems qrcodepath sessioninvkey)
   (with-slots (row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor company) invoiceheader

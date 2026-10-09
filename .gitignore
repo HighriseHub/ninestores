@@ -11,3 +11,6 @@ hhub/core/extkeys.lisp
 
 
 hhub/core/nst-bl-funloodat.lisp
+
+# the preflight recipe in aiharness/deepseek/tools/nst-preflight.lisp creates this
+.asdf-cache/
