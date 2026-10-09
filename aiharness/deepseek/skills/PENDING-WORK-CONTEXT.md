@@ -348,3 +348,60 @@ than a tidy-up.
 * **The smoke-suite base.** `http://hunchentoot.local` answers **404 for every `/hhub/` URI** on this host (nginx on :80 proxies nothing) — all six suites default to `http://ninestores.local`, which behaves identically to `127.0.0.1:4244`. `/hhub/` itself is 404 on every base, so a reachability probe on that path proves only that a socket opened; assert the API's own 401 instead.
 * **`sed -i` changes a file's OWNER**, which silently removed the execute bit from two smoke scripts whose modes relied on the GROUP class (`-rw-rwxr-x` owned by `hunchentoot`, readable/executable by `hhubgrp`). Files created by the agent land `-rw------- ubuntu:ubuntu` and must be `chmod 664` + `chgrp hhubgrp` before the `hunchentoot` image can load them.
 * **A new `hhub/**` file needs two registrations**, not one: `package/compile.lisp` and `nstores.asd`. A `.fasl` beside the source does NOT reach the app (§8).
+
+## 12. The vendor's *Generate Invoice* — `invoice-from-ord` · recorded 2026-10-06
+
+**Not a new invention: a named समास.** `paninigrammar/document-5-samaas.md` puts `ord→inv` under
+"→ TRANSFORM (source entity becomes target entity)" as **`invoice-from-ord`** (तत्पुरुष), and its tool
+schema `{ord_id, tenant_id, actor_id}` says the LINES ARE DERIVED, not passed. **विसर्ग संधि** decides
+the branch: physical goods are MEDIATED (व्यंजन — Document 4 lists "ord not fulfilled → invoice" as
+INVALID for goods, and this schema has no GRN, so `ORDER_FULFILLED` stands in for
+`grn-exists-and-accepted?`), a service order (`ORDER_TYPE='SRVC'`) is ELIDED (लोप ३). Payment is NOT
+part of the junction — inv→pmt is प्रगृह्य, so prepayment never licenses invoicing before the mediator.
+
+**Step 1 is DONE and verified offline** — `aiharness/deepseek/tools/nst-verify-invoice-from-order.lisp`,
+**53 pass / 0 fail / 0 skip** (the delivery charge added 2026-10-06: it is a LINE taxed at the goods' rate,
+per `knowledge/gst-gstr-compliance-CONTEXT.md` §10), writing to the real database and then undoing it: the DRAFT, six lines
+totalling the vendor row's own `ORDER_AMT`, the order's three link columns, the duplicate 409, the
+व्यंजन refusal, लोप ३ on the same order as `SRVC`, 404 for an unknown number. **The browser test needs
+the image RESTARTED** (new dispatcher line + new functions). The ABAC pair is NOT a boot seed: it is
+`migrate-2026Oct-ordinvoice-policy-and-transaction` in `installation/upgrades/nst-dbu-order-policy-transaction.lisp`,
+registered in `*migrations*`, **applied and recorded** (`06102026-vendor-order-invoice-policy` in
+`DOD_SCHEMA_MIGRATIONS`, policy row linked to its own transaction, re-run verified as a no-op).
+
+**Five traps were measured, all recorded in `knowledge/ord-to-inv-junction-CONTEXT.md`:** a DB-side
+trigger re-derives `INVNUM` from `ROW_ID` (so what `make` returns is not what the table stores, and
+`hhubuser` cannot see the trigger); `VNUM` is `varchar(20)` and TRUNCATES a 23-27 character ORDNUM;
+the grammar's `ord-id` column is missing from `DOD_INVOICE_HEADER`; `NstInvhResponseModel` is not an
+`nst-response-model`, so a route returning one 500s in `domain->response`; and `paninigrammar/` has no
+Document 3 although three documents cite it.
+
+## 13. ⚠ The CART's GST state comparison — interstate tax on an intra-state sale · diagnosed 2026-10-06
+
+One `(equal vstate placeofsupply)` on two RAW strings: the customer's **typed state NAME** ("Karnataka")
+against the vendor row's `state` column, which holds a **CODE** for vendor 1 ("29") and a **NAME** for
+vendors 2-3 — so a Karnataka→Karnataka sale goes interstate. Measured in live data: order 488's line carries
+IGST 205.20 with CGST/SGST 0.00. Both channels are affected (the customer cart and the ORDER API's line
+writer, which mirrors the legacy call). **Full diagnosis, evidence and the four-part fix with its open
+decision: `knowledge/gst-tax-jurisdiction-CONTEXT.md` §2–§3.**
+
+## 14. ⚠ The order-line tax RATES are never stored · measured 2026-10-09
+
+**The vendor page's numbers are fixed** (`/hhub/vorderdetailspage?id=503`): `calculate-order-item-cost` is a
+**per-unit** cost and added the whole LINE's tax before every one of its nine callers multiplied by `prd-qty`,
+so the vendor's stored `ORDER_AMT` was too high by exactly `(qty-1) x that line's tax` — order 503 read
+**7006.71 where the Place Order page said 6832.87** (the excess is 173.84 = 2 x 86.92 on a qty-3 line). The
+row's **Unit Price** column printed the line's taxable value, its **Sub-total** printed `totalitemval x qty`,
+and the rate columns printed `NIL` because the stored rate is NULL; all three are fixed (Unit Price is now the
+NET per-unit price, so the row reconciles). The **9 already-written vendor rows** are repaired — via
+`migrate-2026Oct-vendor-order-amount-repair`, registered in `*migrations*`, whose `line_total > 0` guard is
+load-bearing (without it the same statement zeroes 371 demo rows it cannot derive from). Full record:
+`knowledge/order-line-money-CONTEXT.md`.
+
+**OPEN — the writer drops the tax RATES.** `CGST`/`SGST`/`IGST` are NULL on **every** line of every order
+475–503, and on 503 only **2 of 6** lines stored any tax amount at all, although two of the others are
+taxable goods. `update-gst-for-order-lineitem` sets those slots, so the break is between the cart's line
+objects and `persist-order-items` — this is the evening's work. It is a GSTR-1-grade gap, not a display one:
+a rate column that is never populated cannot feed a return, and the display's derived percentage **hides**
+that it is missing. Restart the image for the page changes; regenerate
+`hhub/core/nst-bl-funloodat.lisp` so `nst-symq` knows the new `nst-order-item-tax-rate`.

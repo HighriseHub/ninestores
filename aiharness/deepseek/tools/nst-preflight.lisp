@@ -155,7 +155,29 @@
     "hhub/package/compile.lisp"
     "hhub/nstores.asd"
     "installation/upgrades/nst-dbu-doc-counter.lisp"
-    "installation/upgrades/nst-dbu-ordnum-identity.lisp")
+    ;; ord→inv (2026-10-06): the vendor's Generate Invoice. Its ABAC pair is seeded by a new function
+    ;; in an UPGRADE file — in neither build list, so this reader check is the only structural check
+    ;; it gets — and the POLICY_FUNC it names lives in dod-ui-pol.lisp.
+    "installation/upgrades/nst-dbu-order-policy-transaction.lisp"
+    ;; the delivery charge needs a real product row (the invoice line's FK), seeded per vendor
+    "installation/upgrades/nst-dbu-freight-product.lisp"
+    "hhub/core/dod-ui-pol.lisp"
+    "hhub/invoice/nst-bl-invhapi.lisp"
+    "hhub/order/nst-bl-ordh.lisp"
+    "hhub/vendor/dod-ui-ven.lisp"
+    "hhub/sysuser/dod-ui-sys.lisp"
+    "hhub/core/dod-seed-data.lisp"
+    "hhub/core/nst-sch-mig.lisp"
+    "aiharness/deepseek/tools/nst-verify-invoice-from-order.lisp"
+    ;; the CART's tax jurisdiction — the rule the checkout actually calls, verified where it runs
+    "aiharness/deepseek/tools/nst-verify-cart-tax-state.lisp"
+    ;; order 503's vendor page (2026-10-09): the per-unit cost the vendor total is built from, the row
+    ;; display that printed a line total where a unit price belongs, and the stored-row repair.
+    "hhub/order/dod-ui-odt.lisp"
+    "hhub/customer/dod-ui-cus.lisp"
+    "installation/upgrades/nst-dbu-vendor-order-amount-repair.lisp"
+    ;; the model/widget seam checker the cart story added, in Lisp so it needs no image and no python3
+    "aiharness/deepseek/tools/nst-model-widget-check.lisp")
   "The files of the CURRENT story's change set. Add each story's files as it lands: a check
    that does not look at a file cannot find anything in it.")
 
