@@ -137,7 +137,7 @@
              (:div :class "d-flex justify-content-between border-bottom pb-2 mb-2"
                    (:span "Shipping Charges:")
                    (:span :class "fw-semibold"
-                          (cl-who:str (format nil "~A ~$" currsymbol shipping-cost))))
+                          (cl-who:str (format nil "~A ~$" currsymbol delivery-display))))
              (:div :class "d-flex justify-content-between mt-3"
                    (:span :class "fw-bold text-success"
                           (cl-who:str (format nil "Total: ~A ~$" currsymbol (+ shopcart-total shipping-cost)))))
@@ -160,7 +160,12 @@
          (vzipcode (zipcode vendor))
          (vphone (phone vendor))
          (vshipping-enabled (slot-value vendor 'shipping-enabled))
-         (shipping-cost (nth 0 shipping-options))
+         ;; ⚠ TWO VALUES, TWO JOBS. SHIPPING-COST is what the TOTAL may add: the charge when it is still a
+        ;; charge (B2C) and 0 when the delivery is one of the LINES (B2B — shopcart-total already has it).
+        ;; DELIVERY-DISPLAY is what the customer is SHOWN. Conflating them added the delivery twice here.
+        (shipping-cost (let ((stored (gethash "shipping-cost" (get-cust-order-params))))
+                         (if stored stored (nth 0 shipping-options))))
+        (delivery-display (or (gethash "delivery-gross" (get-cust-order-params)) shipping-cost))
          (freeshipminorderamt (nth 2 shipping-options))
 	 (freeshippingapplied (if (and (equal freeshipenabled "Y") (> shopcart-total freeshipminorderamt)) T NIL))
 	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
@@ -213,7 +218,8 @@
   (multiple-value-bind
         (cust-type lstcount vendor-list customer custcomp singlevendor-p
          vpayapikey-p vupiid-p phone codenabled upienabled payprovidersenabled
-         walletenabled paylaterenabled shipping-cost shopcart-total totalbeforetax)
+         walletenabled paylaterenabled shipping-cost shopcart-total totalbeforetax
+         delivery-display)
       (funcall modelfunc)
     (let ((widget1
            (function
@@ -250,7 +256,7 @@
                                      (:li :class "list-group-item d-flex justify-content-between align-items-center"
                                           "Shipping Cost"
                                           (:span :class "fw-semibold"
-                                                 (cl-who:str (format nil "~$" shipping-cost)))))
+                                                 (cl-who:str (format nil "~$" delivery-display)))))
                                 (:div :class "d-flex justify-content-between align-items-center mt-3 pt-3 border-top"
                                       (:h4 :class "text-success fw-bold mb-0" "Total Amount:")
                                       (:h4 :class "text-success fw-bold mb-0"
@@ -277,6 +283,9 @@
 	 (lstcount (length lstshopcart))
 	 (orderparams-ht (get-cust-order-params))
 	 (shipping-cost (gethash "shipping-cost" orderparams-ht))
+	 ;; ⚠ TWO VALUES, TWO JOBS: shipping-cost is 0 because the charge is one of the LINES (the totals
+	 ;; already include it — adding it again would double it); THIS is what the customer is shown.
+	 (delivery-display (or (gethash "delivery-gross" orderparams-ht) shipping-cost))
 	 (shopcart-total (gethash "shopcart-total" orderparams-ht))
 	 (totalbeforetax (gethash "totalbeforetax" orderparams-ht))
 	 (cust-type (get-login-customer-type))
@@ -310,7 +319,10 @@
     ;; create a list of all the required data points or create a model and return it. 
     (lambda ()
       (with-slots (codenabled upienabled payprovidersenabled walletenabled paylaterenabled) vpaymentmethods
-	(values cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone codenabled upienabled payprovidersenabled walletenabled paylaterenabled shipping-cost shopcart-total totalbeforetax)))))
+	;; ⚠ delivery-display IS RETURNED, not merely bound here: the WIDGETS are a separate function that
+	;; receives only these values, and using a model-local in them is an UNBOUND-VARIABLE at render time
+	;; (measured — the payment page threw exactly that).
+	(values cust-type lstcount vendor-list customer custcomp singlevendor-p vpayapikey-p vupiid-p phone codenabled upienabled payprovidersenabled walletenabled paylaterenabled shipping-cost shopcart-total totalbeforetax delivery-display)))))
 
 
 
@@ -2146,7 +2158,8 @@ Only shows sections based on availability flags and customer type."
 	  (:div :class "form-group" (:label :for "city" "City" )
 		(:input :class "form-control" :type "text" :class "form-control" :name "shipcity" :value city :id "shipcity" :placeholder "City"  :required T))
 	  (:div :class "form-group" (:label :for "state" "State" )
-		(:input :class "form-control" :type "text" :class "form-control" :name "shipstate" :value state :id "shipstate"  :placeholder "State"  :required T ))))
+		(:input :class "form-control" :type "text" :class "form-control" :name "shipstate" :value state :id "shipstate"  :placeholder "State"  :required T ))
+	  (cl-who:str (display-gst-widget))))
       
       (with-html-div-row :id "billingaddressrow" :style "display: none;" 
 	(with-html-div-col-8
@@ -2160,21 +2173,33 @@ Only shows sections based on availability flags and customer type."
 		(:input :class "form-control" :type "text" :class "form-control" :name "billstate" :id "billstate" :placeholder "State" )))))))
 
 (defun display-gst-widget ()
-  (cl-who:with-html-output-to-string (*standard-output* nil) 
-    (with-html-div-row 
-      (with-html-div-col
-	(:h4 "(optional)" ))
-      (with-html-div-col
-	(:div :class "form-check"
-	      (:input :type "checkbox" :id "claimitcchecked" :name "claimitcchecked" :value  "claimitcchecked" :onclick "displaygstdetails();")
-	      (:label :class "form-check-label" :for "claimitcchecked" "&nbsp;&nbsp;GST Invoice"))))
-    (with-html-div-row :id "gstdetailsfororder"
-      (with-html-div-col
-	(:div :class "form-group" (:label :for "gstnumber" "GST Number" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "gstnumber" :tabindex "9" :placeholder "GST Number" )))
-      (with-html-div-col
-	(:div :class "form-group" (:label :for "gstorgname" "Organization/Firm/Company Name" )
-	      (:input :class "form-control" :type "text" :class "form-control" :name "gstorgname" :tabindex "10"  :placeholder "Org/Firm/Company Name" ))))))
+  "The buyer's GST identity. ⚠ IT IS RENDERED ON THE ADDRESS FORM NOW — it used to exist here and be called
+   from nowhere, so gstnumber was always NIL and the B2B branch (exclusive delivery tax) was unreachable.
+   The fields are VISIBLE by default (the checkbox still hides them on request), and they are PREFILLED
+   from the customer's own record, because a registered buyer should not have to retype a GSTIN the
+   profile already holds — that value is what makes the cart treat the sale as B2B."
+  (let* ((customer (or (hunchentoot:session-value :login-customer)
+                       (hunchentoot:session-value :temp-guest-customer)))
+         (gstin (or (ignore-errors (slot-value customer 'gstin)) ""))
+         (legal (or (ignore-errors (slot-value customer 'legal-name)) "")))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      (with-html-div-row
+        (with-html-div-col
+          (:h4 "GST (optional, for a registered business)"))
+        (with-html-div-col
+          (:div :class "form-check"
+                (:input :type "checkbox" :id "claimitcchecked" :name "claimitcchecked" :value "claimitcchecked"
+                        :onclick "displaygstdetails();")
+                (:label :class "form-check-label" :for "claimitcchecked" "&nbsp;&nbsp;GST Invoice"))))
+      (with-html-div-row :id "gstdetailsfororder"
+        (with-html-div-col
+          (:div :class "form-group" (:label :for "gstnumber" "GST Number")
+                (:input :class "form-control" :type "text" :name "gstnumber" :value gstin
+                        :tabindex "9" :placeholder "GST Number")))
+        (with-html-div-col
+          (:div :class "form-group" (:label :for "gstorgname" "Organization/Firm/Company Name")
+                (:input :class "form-control" :type "text" :name "gstorgname" :value legal
+                        :tabindex "10" :placeholder "Org/Firm/Company Name")))))))
 
 (defun display-captcha-widget ()
   (cl-who:with-html-output-to-string (*standard-output* nil) 
@@ -2631,6 +2656,14 @@ Only shows sections based on availability flags and customer type."
 	(logiamhere (format nil "i am here in order create"))
 	;; If everything gets through, create order. 
 	(unless lowwalletbalanceflag
+	  ;; THE DELIVERY CHARGE BECOMES A TAXED LINE (order/dod-bl-odt.lisp): composite supply, taxed at the
+	  ;; principal goods' rate (Section 8). B2B — the buyer gave a GSTIN — is EXCLUSIVE (the charge is
+	  ;; pre-tax and the buyer claims the freight's ITC); B2C is INCLUSIVE (the customer pays the charge,
+	  ;; tax inside it). The charge then leaves SHIPPING_COST at 0 so nothing counts it twice.
+	  (multiple-value-bind (items products amt taxtotal chargeleft)
+	      (nst-cart-with-delivery-line order-items shopcart-products order-amt total-tax shipping-cost
+					   gstnumber company)
+	    (setf order-items items shopcart-products products order-amt amt total-tax taxtotal shipping-cost chargeleft))
 	  (let ((order-id (create-order-from-shopcart
 			   (function (lambda ()
 			     (values order-items shopcart-products shipping-info temp-customer utrnum order-date request-date shipped-date expected-delivery-date shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship orderpickupinstore gstnumber gstorgname order-amt shipping-cost total-discount total-tax payment-mode comments customer order-type  order-source customer-name company))))))
@@ -2744,6 +2777,16 @@ Only shows sections based on availability flags and customer type."
              customer))))))
 
 
+(defun nst-order-gstin-param ()
+  "The GSTIN for this order: what the buyer TYPED on the address page, else the one their own record
+   holds. ⚠ PREFILLING ALONE IS NOT ENOUGH — a registered buyer who submits the form without retyping
+   must still be treated as B2B, and this is the ONE reading of that value the cart uses."
+  (let ((typed (hunchentoot:parameter "gstnumber")))
+    (if (and typed (plusp (length (string-trim " " typed))))
+        (string-trim " " typed)
+        (or (ignore-errors (slot-value (get-login-customer) 'gstin))
+            (ignore-errors (slot-value (hunchentoot:session-value :temp-guest-customer) 'gstin))))))
+
 (defun create-model-for-custshipmethodspage ()
   (let* ((lstshopcart (hunchentoot:session-value :login-shopping-cart))
 	 (cust-type (get-login-customer-type))
@@ -2763,7 +2806,7 @@ Only shows sections based on availability flags and customer type."
 	 (claimitcchecked (hunchentoot:parameter "claimitcchecked"))
 	 (saveaddressconsent (hunchentoot:parameter "saveaddressconsent"))
 	 (save-address? (if (equal saveaddressconsent "Y") T NIL))
-	 (gstnumber (hunchentoot:parameter "gstnumber"))
+	 (gstnumber (nst-order-gstin-param))
 	 (gstorgname (hunchentoot:parameter "gstorgname"))
 	 (phone  (hunchentoot:parameter "phone"))
 	 (email (hunchentoot:parameter "email"))
@@ -2789,7 +2832,14 @@ Only shows sections based on availability flags and customer type."
 	 (storepickupenabled (slot-value vshipping-method 'storepickupenabled))
 	 (shiplst (calculate-shipping-cost-for-order vshipping-method shipzipcode shopcart-total lstshopcart shopcart-products singlevendor custcomp))
 	 (shipping-cost (nth 0 shiplst))
-	 (shipping-options (nth 1 shiplst)))
+	 (shipping-options (nth 1 shiplst))
+	 ;; the cart's own tax total, from the LINES — the "total-tax" hash key was never filled, so every
+	 ;; cart order carried TOTAL_TAX NULL while its lines carried their tax
+	 (cart-tax-total (round-to-2-decimal
+			  (reduce #'+ lstshopcart :initial-value 0.0
+				  :key (lambda (i) (+ (or (slot-value i 'cgstamt) 0)
+						      (or (slot-value i 'sgstamt) 0)
+						      (or (slot-value i 'igstamt) 0)))))))
     
     ;; if billsameasshipchecked then copy the shipping address into billing address fields
     (multiple-value-bind (billaddress billcity billstate billzipcode)
@@ -2800,6 +2850,21 @@ Only shows sections based on availability flags and customer type."
       (setf (gethash "billstate" orderparams-ht) billstate))
     
     (when (equal cust-type "GUEST") (setf (hunchentoot:session-value :guest-email-address) email))
+    ;; 🚨 THE DELIVERY CHARGE IS TAXED HERE — where the money is assembled and the customer is about to see
+    ;; it: part of the taxable value (Section 15(2)(c)) and a COMPOSITE SUPPLY at the principal goods' rate
+    ;; (Section 8). B2B (the buyer gave a GSTIN) is EXCLUSIVE — the charge is pre-tax and the tax is added;
+    ;; B2C is INCLUSIVE — the customer pays the charge, tax inside it. It becomes a LINE (order/dod-bl-odt),
+    ;; and SHIPPING_COST drops to 0 so no page and no invoice counts it twice.
+    (multiple-value-bind (items products amt taxtotal chargeleft deliverygross)
+	(nst-cart-with-delivery-line lstshopcart shopcart-products shopcart-total cart-tax-total
+				     shipping-cost gstnumber custcomp)
+      (setf lstshopcart items shopcart-products products shipping-cost chargeleft
+	    total-tax taxtotal shopcart-total amt
+	    totalbeforetax (round-to-2-decimal (- amt taxtotal)))
+      ;; the CHARGE is now one of the lines, so SHIPPING_COST is 0 for the arithmetic — but the customer
+      ;; must still SEE what delivery costs, and for B2B that is the gross (the charge plus its tax).
+      (setf (gethash "delivery-gross" orderparams-ht) deliverygross))
+    (setf (gethash "total-tax" orderparams-ht) total-tax)
     (setf (gethash "shoppingcart" orderparams-ht) lstshopcart)
     (setf (gethash "shopcartproducts" orderparams-ht) shopcart-products)
     (setf (gethash "shipaddress" orderparams-ht) shipaddress)
@@ -2837,7 +2902,10 @@ Only shows sections based on availability flags and customer type."
       (values shopcart-total shiplst storepickupenabled singlevendor freeshipenabled custcomp)))))
 
 (defun create-widgets-for-custshipmethodspage (modelfunc)
-  (multiple-value-bind (shopcart-total shiplst storepickupenabled singlevendor freeshipenabled company)
+  ;; ⚠ THE MODEL RETURNS `custcomp`, NOT `company` (its own (values ... custcomp)): binding a different
+  ;; name here left it NIL, and display-cust-shipping-costs-widget computes the CURRENCY SYMBOL from it —
+  ;; so this page has been rendering its amounts without one. Measured by nst-model-widget-check.lisp.
+  (multiple-value-bind (shopcart-total shiplst storepickupenabled singlevendor freeshipenabled custcomp)
       (funcall modelfunc)
     (let* ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -2854,7 +2922,7 @@ Only shows sections based on availability flags and customer type."
 		      (cl-who:with-html-output (*standard-output* nil)
 			(with-html-form "form-custshippingmethod" "hhubcustpaymentmethodspage"
 			  (funcall previousnextwidget)    
-			  (display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor freeshipenabled company)
+			  (display-cust-shipping-costs-widget shopcart-total shiplst storepickupenabled singlevendor freeshipenabled custcomp)
 			  (funcall previousnextwidget)))))))
 	  (list widget1 widget2 ))))
 
@@ -3038,7 +3106,11 @@ Only shows sections based on availability flags and customer type."
 	 (gstnumber (gethash "gstnumber" orderparams-ht))
 	 (gstorgname (gethash "gstorgname" orderparams-ht))
 	 (shopcart-total (gethash "shopcart-total" orderparams-ht))
+	 ;; ⚠ TWO VALUES, TWO JOBS: SHIPPING-COST is what the TOTAL may add (0 when the delivery is one of the
+	 ;; LINES — B2B — and the charge when it is not, B2C); DELIVERY-DISPLAY is what the page and the
+	 ;; render-only header object SHOW. One value for both jobs added the delivery twice beside Place Order.
 	 (shipping-cost (gethash "shipping-cost" orderparams-ht))
+	 (delivery-display (or (gethash "delivery-gross" orderparams-ht) shipping-cost))
 	 (orderpickupinstore (gethash "orderpickupinstore" orderparams-ht))
 	 (vendoraddress (gethash "vendoraddress" orderparams-ht))
 	 (payment-mode (hunchentoot:parameter "paymentmode"))
@@ -3064,7 +3136,11 @@ Only shows sections based on availability flags and customer type."
 	 (order-fulfilled " ")
 	 (status "DRAFT")
 	 (order-source (gethash "order-source" orderparams-ht))
-	 (order-amt (+ shipping-cost (gethash "shopcart-total" orderparams-ht)))
+	 ;; ⚠ WHAT THE CUSTOMER PAYS = the taxed lines + anything still carried as a CHARGE. SHIPPING_COST is
+	 ;; 0 when the delivery is one of the lines (the B2B case — it is already in shopcart-total) and the
+	 ;; charge when it is not (B2C). Adding the DISPLAY value instead counted the delivery twice, measured.
+	 (order-amt (round-to-2-decimal (+ (or (gethash "shipping-cost" orderparams-ht) 0)
+					   (or (gethash "shopcart-total" orderparams-ht) 0))))
 	 (total-discount (gethash "total-discount" orderparams-ht))
 	 (total-tax (gethash "total-tax" orderparams-ht))
 	 (order-cxt (format nil "hhubcustopy~A" (get-universal-time)))
@@ -3075,7 +3151,7 @@ Only shows sections based on availability flags and customer type."
 	 (currency (get-account-currency company))
 	 (currsymbol (get-currency-html-symbol (get-account-currency company)))
 	 (wallet-id (slot-value (get-cust-wallet-by-vendor customer (first vendor-list) company) 'row-id))
-	 (orderheader (createorderobject (function (lambda () (values odate reqdate shipped-date expected-delivery-date ordnum shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked orderpickupinstore gstnumber gstorgname order-fulfilled order-amt shipping-cost total-discount total-tax payment-mode comments context-id  status is-converted-to-invoice is-cancelled cancel-reason order-type external-url order-source custname customer company)))))
+	 (orderheader (createorderobject (function (lambda () (values odate reqdate shipped-date expected-delivery-date ordnum shipaddress shipzipcode shipcity shipstate billaddress billzipcode billcity billstate billsameasshipchecked orderpickupinstore gstnumber gstorgname order-fulfilled order-amt delivery-display total-discount total-tax payment-mode comments context-id  status is-converted-to-invoice is-cancelled cancel-reason order-type external-url order-source custname customer company)))))
 	 (ordertemplate (funcall (nst-get-cached-order-template-func :templatenum 2)))  
 	 (orderitemshtmlfunc (ordertemplatefillitemrows odts shopcart-products)))
 
@@ -3102,11 +3178,11 @@ Only shows sections based on availability flags and customer type."
     (save-cust-order-params orderparams-ht)
     ;; return the variables in a function. 
     (function (lambda ()
-      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id  orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate )))))
+      (values odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost delivery-display company-type order-cxt wallet-id  orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate )))))
 
 (defun create-widgets-for-custshowshopcartreadonly (modelfunc)
   (multiple-value-bind
-   (odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost company-type order-cxt wallet-id  orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate )
+   (odate reqdate payment-mode utrnum phone email shipaddress shipcity shipstate shipzipcode billaddress billcity billstate billzipcode billsameasshipchecked claimitcchecked gstnumber gstorgname shopcart-total shipping-cost delivery-display company-type order-cxt wallet-id  orderpickupinstore vendoraddress vshipping-enabled currsymbol ordertemplate )
          (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (with-customer-breadcrumb
@@ -3141,7 +3217,7 @@ Only shows sections based on availability flags and customer type."
 			   (:div :class "place-order-details"
 				 
 				 (:p (cl-who:str (format nil "Sub-total: ~A ~$" currsymbol shopcart-total)))
-				 (:p (cl-who:str (format nil "Shipping: ~A ~$" currsymbol shipping-cost)))
+				 (:p (cl-who:str (format nil "Shipping: ~A ~$" currsymbol delivery-display)))
 				 (:hr)
 				 (:p (:h2 (:span :class "text-bg-success" (cl-who:str (format nil "Total: ~A ~$" currsymbol  (+ shopcart-total shipping-cost))))))
 		  		  

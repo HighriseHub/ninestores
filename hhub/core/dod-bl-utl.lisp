@@ -1667,6 +1667,104 @@ corresponding universal time."
       (float value)
       value))
 
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; GST STATE IDENTITY — one home for "which state is this, and are they the same?"
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; 🚨 WHY THIS EXISTS: the cart compared the customer's TYPED state NAME against the vendor row's `state`
+;;; column — which holds a CODE for one vendor and a NAME for others, in the same tenant (vendor 1 "29",
+;;; vendors 2-3 "Karnataka"). `(equal "KARNATAKA" "29")` is NIL, so a Karnataka-to-Karnataka sale was taxed
+;;; INTER-state: order 488 carries IGST 205.20 with CGST/SGST 0.00. The rule that decides which half of the
+;;; tax applies must not depend on how a human spelled it.
+
+(defun nst-gst-state-code-of (state-or-code)
+  "The GST state CODE for STATE-OR-CODE: a code passes through; a NAME resolves through
+   *NSTGSTSTATECODES-HT* (code to name), tolerating punctuation, spacing and the bracketed suffixes that
+   hash carries (ANDHRA PRADESH (NEWLY ADDED) against the pincode table's plain ANDHRA PRADESH); a GSTIN
+   yields its first two digits. NIL when none of those answer — a caller must DECIDE, never guess."
+  (let ((text (and state-or-code
+                   (string-upcase (string-trim " " (string state-or-code))))))
+    (when (and text (plusp (length text)))
+      (cond
+        ;; a code: 1-2 digits, as the GST state codes are
+        ((and (<= (length text) 2) (every #'digit-char-p text)) text)
+        ;; a GSTIN or a state name that BEGINS with the code, e.g. "29ALSKDKJADS455"
+        ((and (> (length text) 2) (every #'digit-char-p (subseq text 0 2))) (subseq text 0 2))
+        ((hash-table-p *NSTGSTSTATECODES-HT*)
+         (let ((want (nst-gst-state-name-key text)))
+           (loop for code being the hash-keys of *NSTGSTSTATECODES-HT*
+                   using (hash-value name)
+                 when (equal (nst-gst-state-name-key (string name)) want)
+                   return code)))
+        (t nil)))))
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; THE DELIVERY CHARGE — one derivation, and one principal-rate rule
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; A delivery charge is part of the taxable value (Section 15(2)(c) CGST: incidental expenses and any
+;;; other costs incurred in relation to the supply) and, being ancillary to the goods, a COMPOSITE SUPPLY
+;;; taxed at the principal supply's rate (Section 2(30) with Section 8) — never at a flat 18% unless the
+;;; transport is a SEPARATE supply. The full position, both readings and the CA questions are
+;;; `knowledge/gst-tax-jurisdiction-CONTEXT.md` §1 and §6.
+
+(defun nst-principal-rate-of (line-rates)
+  "The (CGST SGST IGST) rates of the highest-taxable entry of LINE-RATES, where each entry is
+   (TAXABLE CGST SGST IGST). Section 8 taxes a composite supply as its principal supply, and the
+   predominant element is the practical proxy for one. NIL when there is no entry."
+  ;; ⚠ THE NIL GUARD IS LOad-BEARING: with :initial-value nil the first call is (fn nil FIRST-ENTRY), and
+  ;; (float (first nil)) SIGNALS — measured, it took the invoice's freight path down with %SINGLE-FLOAT NIL.
+  (let ((biggest (reduce (lambda (a b)
+                           (if (or (null a) (> (float (first b)) (float (first a)))) b a))
+                         line-rates :initial-value nil)))
+    (when biggest (rest biggest))))
+
+(defun nst-gstin-present-p (gstin)
+  "बहुव्रीहि: did the buyer give a GSTIN? That is the B2B line this tree can trust — a registered person
+   wants the tax broken out and claims it, a consumer must see the all-in price. ⚠ MEASURED, and why the
+   alternatives are not used: only 2 of 26 customers have a GSTIN, while the profile's
+   GST_CUSTOMER_TYPE flag says B2B for 24 of 26 (a default, not a fact) and CUST_TYPE is a LOGIN type."
+  (and gstin (plusp (length (string-trim " " (string gstin))))))
+
+(defun nst-shipping-tax-split (amount rate-percent &key inclusive)
+  "The (values TAXABLE TAX) of a delivery charge of AMOUNT at RATE-PERCENT.
+
+   EXCLUSIVE (the default, and the B2B reading): the vendor's amount is pre-tax — the customer pays
+   the charge PLUS the tax, and a registered buyer claims the freight's ITC (₹100 → 100.00 + 18.00).
+   INCLUSIVE (the B2C reading): the amount is what the customer pays and the tax sits inside it,
+   back-calculated so TAXABLE + TAX = AMOUNT exactly (₹100 → 84.75 + 15.25, never 84.76 + 15.25)."
+  (let* ((amt (round-to-2-decimal amount))
+         (rate (float rate-percent)))
+    (if inclusive
+        (let ((taxable (round-to-2-decimal (/ amt (+ 1 (/ rate 100))))))
+          (values taxable (round-to-2-decimal (- amt taxable))))
+        (values amt (round-to-2-decimal (* amt (/ rate 100)))))))
+
+(defun nst-gst-state-name-key (text)
+  "TEXT as a comparable key: upcased, bracketed suffixes dropped, runs of non-alphanumerics collapsed to one
+   space, trimmed. So Andhra Pradesh (Newly Added) and ANDHRA PRADESH are one key."
+  (let ((out (make-string-output-stream))
+        (skip nil)
+        (pending-space nil))
+    (loop for ch across (string-upcase (string text))
+          do (cond
+               ((char= ch #\() (setf skip t))
+               ((char= ch #\)) (setf skip nil))
+               (skip nil)
+               ((alphanumericp ch)
+                (when pending-space (write-char #\Space out) (setf pending-space nil))
+                (write-char ch out))
+               (t (setf pending-space t))))
+    (string-trim " " (get-output-stream-string out))))
+
+(defun nst-same-gst-state-p (a b)
+  "बहुव्रीहि: are A and B the SAME GST state? Resolves both to codes first, so a name and a code for one
+   state answer T. NIL when either cannot be resolved — NEVER 'different', which is how the cart silently
+   chose IGST: an unknown state is not evidence of another state."
+  (let ((ca (nst-gst-state-code-of a))
+        (cb (nst-gst-state-code-of b)))
+    (and ca cb (equal ca cb))))
+
 (defun nst-db-slot-value-from-domain (source slot)
   "SLOT's value on a DOMAIN entity SOURCE, or NIL when the create never bound it. `slot-value` on an unbound
    slot SIGNALS, and a create binds only what the caller sent — see the tool nst-verify-order-create.lisp."

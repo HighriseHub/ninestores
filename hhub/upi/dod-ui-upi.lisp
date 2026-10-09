@@ -29,7 +29,12 @@
 	 (billsameasship (gethash "billsameasshipchecked" orderparams-ht))
 	 (gstnumber (gethash "gstnumber" orderparams-ht))
 	 (gstorgname (gethash "gstorgname" orderparams-ht))
+	 ;; ⚠ TWO VALUES, TWO JOBS (see customer/dod-ui-cus.lisp): SHIPPING_COST is 0 when the delivery is one
+	 ;; of the LINES (B2B — it is already inside shopcart-total) and the charge when it is not (B2C), so
+	 ;; THAT is what the total adds; "delivery-gross" is what the invoice template DISPLAYS. The header
+	 ;; object below is render-only (it goes to ordertemplatefill and nowhere else).
 	 (shipping-cost (gethash "shipping-cost" orderparams-ht))
+	 (delivery-display (or (gethash "delivery-gross" orderparams-ht) shipping-cost))
 	 (order-amt (+ shipping-cost (gethash "shopcart-total" orderparams-ht)))
 	 (ord-date (gethash "orddate" orderparams-ht))
 	 (req-date (gethash "reqdate" orderparams-ht))
@@ -55,7 +60,7 @@
 	 (order-source (gethash "order-source" orderparams-ht))
 	 (total-discount (gethash "total-discount" orderparams-ht))
 	 (total-tax (gethash "total-tax" orderparams-ht))
-	 (orderheader (createorderobject (function (lambda () (values  ord-date req-date shipped-date expected-delivery-date ordnum shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-fulfilled order-amt shipping-cost total-discount total-tax payment-mode comments context-id  status is-converted-to-invoice is-cancelled cancel-reason order-type external-url order-source custname customer company)))))
+	 (orderheader (createorderobject (function (lambda () (values  ord-date req-date shipped-date expected-delivery-date ordnum shipaddr shipzipcode shipcity shipstate billaddr billzipcode billcity billstate billsameasship storepickupenabled gstnumber gstorgname order-fulfilled order-amt delivery-display total-discount total-tax payment-mode comments context-id  status is-converted-to-invoice is-cancelled cancel-reason order-type external-url order-source custname customer company)))))
 	 (order-cxt (format nil "#ORDER:UPI~A" (get-universal-time)))
 	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" order-cxt  order-amt)))
 	 (upiappurls (generateupiurlsforvendor vendor "ABC" order-cxt order-amt))
