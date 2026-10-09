@@ -3108,6 +3108,52 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (function (lambda ()
       (values redirecturl)))))
 
+;;; ---------------------------------------------------------------------------
+;;; Generate Invoice — the vendor's first use of the adhara API from the UI
+;;; ---------------------------------------------------------------------------
+;;;
+;;; ONE CALL TO THE API, IN-PROCESS: invoice-from-ord (Document 5's समास) takes the order's number
+;;; and answers the invoice, its lines and the order's invoice link are the API's business, and the
+;;; refusal sentences are the DOMAIN's. Nothing is re-implemented here — this controller only reads
+;;; the order's number, calls the route through the dispatcher, and hands the sentence to the page.
+
+(defun com-hhub-transaction-vendor-order-invoice ()
+  "The Generate Invoice button. Redirects back to the details page, flash included."
+  (with-vend-session-check
+    (with-mvc-redirect-ui #'create-model-for-vendororderinvoice #'create-widgets-for-genericredirect)))
+
+(defun create-model-for-vendororderinvoice ()
+  (let* ((id (hunchentoot:parameter "id"))
+         (company (hunchentoot:session-value :login-vendor-company))
+         (order (and id (get-order-by-id id company)))
+         (redirecturl (if id (format nil "/hhub/vorderdetailspage?id=~A" id)
+                          "/hhub/dodvendindex?context=pendingorders")))
+    ;; The sentence belongs to THIS click: the page reads it once and clears it.
+    (setf (hunchentoot:session-value :vend-order-invoice-flash)
+          (vendor-order-invoice-click order company))
+    (function (lambda () (values redirecturl)))))
+
+(defun vendor-order-invoice-click (order company)
+  "One click's outcome as (KIND . SENTENCE): the API's own words for a refusal, a receipt for success."
+  (if (null order)
+      (cons :error "Could not read that order, so no invoice was generated.")
+      (let* ((params (list (cons "uri" (hunchentoot:request-uri*)) (cons "company" company)))
+             (resp (with-hhub-transaction "com-hhub-transaction-vendor-order-invoice" params
+                     ;; ⚠ conflodis2 prints a trace line per dispatch, and *standard-output* IS the
+                     ;; reply stream here — unbind it, or the page body carries the trace.
+                     (let ((*standard-output* (make-string-output-stream)))
+                       (dispatch-route2 'route-invh-from-ord
+                                        (list :ordnum (slot-value order 'ordnum)) :raw t)))))
+        ;; EVERY Belnap answer is reported in the domain's own words; :U keeps its honesty.
+        (cond
+          ((typep resp 'NstInvhResponseModel)
+           (cons :success (format nil "Invoice ~A generated as DRAFT for order ~A."
+                                  (invnum resp) (slot-value order 'ordnum))))
+          ((typep resp 'nst-response-model)
+           (cons :error (or (getf (params resp) :reason)
+                            (format nil "The invoice was refused (~A)." (type-of resp)))))
+          (t (cons :error (format nil "Unexpected answer from the invoice API: ~A" (type-of resp))))))))
+
 (defun display-wallet-for-customer (wallet-instance custom-message)
   (with-standard-vendor-page (:title "Wallet Display")
     (wallet-card wallet-instance custom-message)))
@@ -3284,17 +3330,23 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
          (storepickupenabled (if vorder-instance (slot-value vorder-instance 'storepickupenabled)))
          (total (if shipping-cost (+ order-amt shipping-cost) order-amt))
          (lowwalletbalance (< balance total))
+         ;; The order → invoice link, and the one-shot sentence the Generate Invoice button left.
+         (invoiced (if mainorder (ignore-errors (slot-value mainorder 'is-converted-to-invoice))))
+         (invoicenumber (if mainorder (ignore-errors (slot-value mainorder 'invoice-number))))
+         (invoiceflash (hunchentoot:session-value :vend-order-invoice-flash))
          (currsymbol (get-currency-html-symbol (get-account-currency company))))
+    ;; Reading the flash CONSUMES it: it belongs to the click that made it, not to every later view.
+    (when invoiceflash (setf (hunchentoot:session-value :vend-order-invoice-flash) nil))
     (function (lambda ()
       (values vorder-instance customer mainorder order-id payment-mode header odtlst
               order-amt shipping-cost storepickupenabled total lowwalletbalance balance
-              venorderfulfilled currsymbol)))))
+              venorderfulfilled invoiced invoicenumber invoiceflash currsymbol)))))
 
 
 (defun create-widgets-for-vendor-order-details (modelfunc)
   (multiple-value-bind (vorder-instance customer mainorder order-id payment-mode header odtlst
                         order-amt shipping-cost storepickupenabled total lowwalletbalance balance
-                        venorderfulfilled currsymbol)
+                        venorderfulfilled invoiced invoicenumber invoiceflash currsymbol)
       (funcall modelfunc)
     (declare (ignore vorder-instance customer))
     (let ((widget1 (function (lambda ()
@@ -3326,6 +3378,24 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
                                       (:div :class "form-group"
                                             (if mainorder
                                                 (cl-who:htm (:input :type "submit" :class "btn btn-primary" :value "Fulfill Order")))))))))
+                                (when invoiceflash
+                                  (cl-who:htm (:div :class (if (eq (car invoiceflash) :success)
+                                                               "alert alert-success" "alert alert-warning")
+                                                    (cl-who:str (cdr invoiceflash)))))
+                                (if (equal invoiced "Y")
+                                    (cl-who:htm (:span :class "label label-success"
+                                                       (cl-who:str (format nil "INVOICE ~A (DRAFT)" (or invoicenumber "?")))))
+                                    (cl-who:htm
+                                     ;; with-html-form-having-submit-event, not with-html-form: it emits
+                                     ;; submitformandredirect, which POSTs and then replaces the page with
+                                     ;; the URL the controller answers — so the vendor lands back HERE.
+                                     (with-html-form-having-submit-event "form-vendorderinvoice" "dodvenordinvoice"
+                                       (:input :type "hidden" :name "id" :value order-id)
+                                       ;; display:block, the way the Cancel form does it: the button
+                                       ;; takes its own line BELOW Fulfill Order rather than beside it.
+                                       (:div :class "form-group" :style "display:block"
+                                             (if mainorder
+                                                 (cl-who:htm (:button :type "submit" :class "btn btn-primary" "Generate Invoice")))))))
                        (when (and (equal storepickupenabled "Y") (= shipping-cost 0.00))
                          (cl-who:htm
                           (:div :align "right" :class "stampbox-big rotated" "Store Pickup")))))))
@@ -3360,9 +3430,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				       (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value odt-product 'prd-name)))
 							(:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
 							(:td  :height "12px" (cl-who:str (format nil  "~A ~$" currsymbol taxablevalue)))
-							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol sgstamt sgst)))
-							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol cgstamt cgst)))
-							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol igstamt igst)))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol sgstamt sgst))))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol cgstamt cgst))))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol igstamt igst))))
 							(:td  :height "12px" (cl-who:str (format nil "~A ~$" currsymbol (* totalitemval  prd-qty)))))))) (if (not (typep data 'list)) (list data) data))))))))
 
 

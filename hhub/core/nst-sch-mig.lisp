@@ -83,6 +83,8 @@
     ("03102026-order-invariants"   migrate-2026Oct-order-invariants   "Order invariants + context key")
     ("03102026-populate-hsn-gst-rates"   migrate-2026Oct-populate-hsn-gst-rates   "HSN GST rates")
     ("04102026-order-api-policies"   migrate-2026Oct-ordapi-policy-and-transactions   "Order API ABAC seeds")
+    ("06102026-vendor-order-invoice-policy"   migrate-2026Oct-ordinvoice-policy-and-transaction   "Vendor order invoice ABAC seed")
+    ("06102026-freight-product-per-vendor"   migrate-2026Oct-freight-product-per-vendor   "Freight charge product per vendor")
     ))
 
 
