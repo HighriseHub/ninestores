@@ -3248,11 +3248,11 @@ Only shows sections based on availability flags and customer type."
 ; This is a pure function. 
 (defun get-order-items-total-for-vendor (vendor order-items) 
   (let ((vendor-id (slot-value vendor 'row-id)))
-    (reduce #'+ (remove nil (mapcar (lambda (item)
+    (round-to-2-decimal (reduce #'+ (remove nil (mapcar (lambda (item)
 				      (let ((pricewith-discount (calculate-order-item-cost item))
 					    (prd-qty (slot-value item 'prd-qty)))
 					(if (equal vendor-id (slot-value item 'vendor-id)) 
-					    (* pricewith-discount prd-qty)))) order-items)))))
+					    (* pricewith-discount prd-qty)))) order-items))))))
 
 (defun get-shop-cart-total (order-items)
   (let* ((total (reduce #'+  (mapcar (lambda (item)

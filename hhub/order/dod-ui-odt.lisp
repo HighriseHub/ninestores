@@ -149,14 +149,27 @@
   :description "calculates the order item cost with respect to the unit price, discount, and tax rates if applicable"
   (let* ((discount (slot-value order-item 'disc-rate)) 
 	 (unit-price (slot-value order-item 'unit-price))
-	 (sgstamt (check-null (slot-value order-item 'sgstamt)))
-	 (cgstamt (check-null (slot-value order-item 'cgstamt)))
-	 (igstamt (check-null (slot-value order-item 'igstamt)))
+	 ;; The tax AMOUNTS are stored for the whole LINE, so divide them by the qty:
+	 ;; every caller multiplies this per-unit cost back by prd-qty.
+	 (prd-qty (let ((qty (slot-value order-item 'prd-qty)))
+		    (if (and (numberp qty) (plusp qty)) qty 1)))
+	 (sgstamt (/ (check-null (slot-value order-item 'sgstamt)) prd-qty))
+	 (cgstamt (/ (check-null (slot-value order-item 'cgstamt)) prd-qty))
+	 (igstamt (/ (check-null (slot-value order-item 'igstamt)) prd-qty))
 	 (itemtotal (if discount
 			(+ sgstamt cgstamt igstamt (- unit-price (/ (* unit-price discount) 100)))
 			;;else
 			(+ sgstamt cgstamt igstamt unit-price))))
     itemtotal))
+
+;; A tax RATE column can be NULL (legacy rows) while the amount is set: derive the
+;; percentage from the amount, else 0 — never print NIL in a rate column.
+(defun nst-order-item-tax-rate (rate amount taxablevalue)
+  (let ((amt (if (numberp amount) amount 0))
+	(tx (if (numberp taxablevalue) taxablevalue 0)))
+	(cond ((numberp rate) rate)
+	      ((and (plusp amt) (plusp tx)) (round-to-2-decimal (* 100 (/ amt tx))))
+	      (t 0))))
 
 
 (defun ui-list-cust-orderdetails  (header data)

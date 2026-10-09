@@ -85,6 +85,7 @@
     ("04102026-order-api-policies"   migrate-2026Oct-ordapi-policy-and-transactions   "Order API ABAC seeds")
     ("06102026-vendor-order-invoice-policy"   migrate-2026Oct-ordinvoice-policy-and-transaction   "Vendor order invoice ABAC seed")
     ("06102026-freight-product-per-vendor"   migrate-2026Oct-freight-product-per-vendor   "Freight charge product per vendor")
+    ("09102026-vendor-order-amount-repair"   migrate-2026Oct-vendor-order-amount-repair   "Vendor order amount repair")
     ))
 
 

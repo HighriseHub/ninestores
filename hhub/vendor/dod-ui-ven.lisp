@@ -3426,14 +3426,19 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					    (igst (slot-value odt 'igst))
 					    (igstamt (slot-value odt 'igstamt))
 					    (taxablevalue (slot-value odt 'taxablevalue))
-					    (totalitemval (slot-value odt 'totalitemval)))
+					    (totalitemval (slot-value odt 'totalitemval))
+					    ;; Unit Price is PER UNIT: taxablevalue is the whole line's value.
+					    (unitnet (if (and prd-qty (> prd-qty 0))
+							 (round-to-2-decimal (/ taxablevalue prd-qty))
+							 taxablevalue)))
 				       (cl-who:htm (:tr (:td  :height "12px" (cl-who:str (slot-value odt-product 'prd-name)))
 							(:td  :height "12px" (cl-who:str (format nil  "~d" prd-qty)))
-							(:td  :height "12px" (cl-who:str (format nil  "~A ~$" currsymbol taxablevalue)))
-							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol sgstamt sgst))))
-							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol cgstamt cgst))))
-							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol igstamt igst))))
-							(:td  :height "12px" (cl-who:str (format nil "~A ~$" currsymbol (* totalitemval  prd-qty)))))))) (if (not (typep data 'list)) (list data) data))))))))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$" currsymbol unitnet)))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol sgstamt (nst-order-item-tax-rate sgst sgstamt taxablevalue))))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol cgstamt (nst-order-item-tax-rate cgst cgstamt taxablevalue))))
+							(:td  :height "12px" (cl-who:str (format nil  "~A ~$ @ ~$%"  currsymbol igstamt (nst-order-item-tax-rate igst igstamt taxablevalue))))
+							;; totalitemval IS the line total — do not multiply by qty again.
+							(:td  :height "12px" (cl-who:str (format nil "~A ~$" currsymbol totalitemval))))))) (if (not (typep data 'list)) (list data) data))))))))
 
 
 
