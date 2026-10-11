@@ -213,6 +213,41 @@ status. Read the printed lines. A clean run shows every pending version applied,
    image cannot see them (see the ABAC skill, traps 9-10).
 9. **`installation/upgrades/*.fasl` are build artefacts.** They sit beside the sources and
    appear/disappear with loading; not tracked, not meaningful.
+10. 🚨 **The registry lives in the IMAGE; the functions live on DISK — and the two disagree
+    silently.** `load-upgrade-files` populates only the *callable* half. A version the
+    image's `*migrations*` does not name is never queued, never refused by the pre-flight
+    and never reported: it is simply invisible, and `(fboundp 'migrate-…)` answering `T`
+    proves callability, **not** registration — the two are independent. Measured in
+    PRODUCTION 2026-10-10: `(length *migrations*)` → **75** against the tree's **77**,
+    with `06102026-freight-product-per-vendor` and `09102026-vendor-order-amount-repair`
+    missing, while the 27 upgrade files on disk matched the tree exactly — i.e. the disk was
+    current and only the image was behind. **Probe after every restart:** `(length
+    *migrations*)`, then `(assoc "<newest registered version>" *migrations* :test #'string=)`.
+    Repair by restarting from the current tree (ASDF recompiles `nst-sch-mig.lisp`); a
+    one-off `(load "…/hhub/core/nst-sch-mig.lisp")` into the live image also works — the file
+    only defines, nothing runs at load — but it leaves every FUTURE entry with the same blind
+    spot.
+11. 🚨 **A failed migration leaves its DATA half done and no version row, so the "keys LAST"
+    step is what validates the data — and `Error 1062` is the constraint naming a VALUE, not
+    the rows.** Measured twice: dev 2026-10-03 (`ORD-DEMO-2023-24-XNEBWE`, rows 81/201) and
+    production 2026-10-10 (`ORD-DEMOCUS8-2019-20-AJTTH5`, rows 698/699). The mint's counter
+    handed one `LAST_SEQ` value to two calls (leading hypothesis: a mid-loop connection event
+    answering `LAST_INSERT_ID()` from a reconnected session's stale local value), and
+    `ALTER TABLE DOD_ORDER ADD UNIQUE KEY uk_ordnum` refused — correctly; on production the
+    series held 54 rows with 53 distinct references and `LAST_SEQ` 54. **Find every group, not
+    the first one the ALTER names:**
+    `SELECT ORDNUM, COUNT(*), GROUP_CONCAT(ROW_ID ORDER BY ROW_ID) FROM DOD_ORDER WHERE ORDNUM
+    IS NOT NULL GROUP BY ORDNUM HAVING COUNT(*) > 1`, then **re-mint the HIGHER `ROW_ID`**
+    through the same mint (`nst-mint-order-number-for-customer` — never hand-write a number,
+    and never re-stamp the lower row, which was minted first and legitimately owns the value),
+    re-stamp that order's `DOD_VENDOR_ORDERS.ORDNUM` rows because the number is denormalised
+    by design (D20), and re-run. Step 5 is idempotent, so the re-run is the whole repair.
+    🚨 **A SHARED NUMBER IS NOT EVIDENCE OF A SHARED ORDER.** Production's 698/699 differed in
+    `ORDER_AMT` (119.50 vs 400.00) and `SHIPPED_DATE` (three weeks apart), both `CMP`, both
+    fulfilled and prepaid — de-duplicating the ORDER would have destroyed a shipped sale.
+    Their v1 `CONTEXT_ID`s are exactly 15.000000 s apart, which reads like a double-submit
+    signature and is not one: two consecutive orders produce the same gap. See
+    `PENDING-WORK-CONTEXT.md` §S0b for the record.
 
 ---
 
@@ -241,8 +276,8 @@ PY
 end-to-end check, and it needs a stub image because the real one has the whole system
 loaded. Build stub `clsql` / `clsql-sys` / `nstores` packages exporting every `clsql:`
 symbol the upgrade files use, install a `[`/`]` reader macro, then `load` each file and
-`(remove-if #'fboundp *migrations-functions*)`. Expected: **19/19 files, 65/65 defined,
-0 missing.**
+`(remove-if #'fboundp *migrations-functions*)`. Expected: **27/27 files, 77/77 defined,
+0 missing.** (The 19/65 figures were the 2026-09-19 measurement.)
 
 ---
 
@@ -259,16 +294,19 @@ symbol the upgrade files use, install a `[`/`]` reader macro, then `load` each f
 | `sql-literal` (SQL escaping) | `:224` |
 | `insert-auth-policy` / `insert-bus-transaction` | `:268` / `:287` |
 | `column-exists-p`, `-type-equals-p`, `index-exists-p`, `foreign-key-exists-p`, `table-exists-p` | `:338`, `:349`, `:362`, `:370`, `:379` |
-| **All 65 migration functions** | `installation/upgrades/*.lisp` (19 files) |
+| **All 77 migration functions** | `installation/upgrades/*.lisp` (27 files, 2026-10-10) |
 | DDL migrations for product/order | `installation/upgrades/nst-dbu-prd-ord-schema.lisp` |
 
 ---
 
-## 11. Current state (2026-09-19)
+## 11. Current state (2026-10-10)
 
-- 65 migrations registered; **0 undefined, 0 duplicated-but-divergent except the warehouse
-  pair in trap 5**; all version strings ≤ 50.
-- 19 files in `installation/upgrades/`; loading them defines **65/65** functions.
+- **77** migrations registered (was 65 on 2026-09-19); **0 undefined, 0
+  duplicated-but-divergent except the warehouse pair in trap 5**; all version strings ≤ 50.
+- **27** files in `installation/upgrades/`; loading them defines **77/77** functions.
+- **Production, 2026-10-10:** the live image's registry was 2 entries behind the tree — the
+  measurement, the danger and the repair are **trap 10**; the duplicate-`ORDNUM` repair that
+  `Error 1062` forced on `uk_ordnum` is **trap 11**.
 - `hhub/core/nst-sch-mig.lisp` is 386 lines and holds **no migrations** — the five DDL
   functions that used to live there were moved to `nst-dbu-prd-ord-schema.lisp`.
 - Two framework fixes landed this session: the per-migration `handler-case` (trap 2) and
