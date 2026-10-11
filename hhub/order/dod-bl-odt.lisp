@@ -270,78 +270,66 @@
    composite supply, Section 8): quantity 1, no discount, priced at the TAXABLE value the split gives.
    :B2B-P (the order carries the buyer's GSTIN) is EXCLUSIVE — the charge is pre-tax and the customer
    pays the tax on top; otherwise INCLUSIVE — the charge is what the customer pays, tax inside it."
+  ;; ⚠ THE DECLARE BELONGS HERE, as the defun's first body form: a DECLARE is only a declaration in a
+  ;; declaration context, so inside the WHEN below it is read as a call to the function DECLARE (a
+  ;; confusing error that reads like a paren mistake), and `locally` around it makes SBCL complain that
+  ;; the IGNORE comes from an outer scope.
+  (declare (ignore b2b-p))
   (when (and product rates)
-    (destructuring-bind (cgstrate sgstrate igstrate) rates
-      (let* ((intrastate (or (plusp (float cgstrate)) (plusp (float sgstrate))))
-             (rate (if intrastate (+ (float cgstrate) (float sgstrate)) (float igstrate))))
-        ;; 🚨 THE VENDOR'S AMOUNT IS GROSS, FOR EVERY BUYER — measured: the shipping tables carry NO tax
-        ;; column and the cart has always charged the configured amount as it stands, so "100" means "the
-        ;; customer pays 100" and the tax is INSIDE it (84.75 + 15.25). Reading it as pre-tax for B2B would
-        ;; silently raise the delivery price by 18% for registered buyers — the same configured amount
-        ;; giving two different totals, which is what the requester caught. B2B and B2C pay the SAME; the
-        ;; only difference is that a registered buyer sees the freight as a LINE and can claim its tax.
-        (declare (ignore b2b-p))
-        (multiple-value-bind (taxable tax)
-            (nst-shipping-tax-split charge rate :inclusive t)
-          ;; ⚠ THE HALVES ARE DERIVED FROM TAX, NOT recomputed from the rates: an INCLUSIVE charge
-          ;; back-calculates the tax (84.75 × 9% twice is 15.26, but the split says 15.25), so the
-          ;; second half takes the residual and taxable + taxes = the line total exactly.
-          (let* ((cgstamt (if intrastate
-                              (if (plusp (float sgstrate))
-                                  (round-to-2-decimal (* taxable (/ (float cgstrate) 100)))
-                                  tax)
-                              0.00))
-                 (sgstamt (if intrastate (- tax cgstamt) 0.00))
-                 (igstamt (if intrastate 0.00 tax)))
-            (make-instance 'dod-order-items
-                           :order-id order-id
-                           :vendor-id vendor-id
-                           :prd-id (slot-value product 'row-id)
-                           :prd-qty 1
-                           :unit-price taxable
-                           :disc-rate 0.00
-                           :taxablevalue taxable
-                           :sgst (float sgstrate) :sgstamt sgstamt
-                           :cgst (float cgstrate) :cgstamt cgstamt
-                           :igst (float igstrate) :igstamt igstamt
-                           :totalitemval (round-to-2-decimal (+ taxable cgstamt sgstamt igstamt))
-                           :fulfilled "N"
-                           :status "PEN"
-                           :deleted-state "N")))))))
+    ;; THE MONEY COMES FROM NST-LINE-MONEY (core/dod-bl-utl.lisp) — the one place that rounds, shared with
+    ;; the invoice paths — with the state pair left out because the RATES already answer it (a CGST/SGST pair
+    ;; is intra-state). :INCLUSIVE is what keeps the halves derived from the tax, the second taking the
+    ;; residual, so taxable + taxes = the charge the customer pays exactly.
+    ;; 🚨 THE VENDOR'S AMOUNT IS GROSS, FOR EVERY BUYER — measured: the shipping tables carry NO tax column
+    ;; and the cart has always charged the configured amount as it stands, so "100" means "the customer pays
+    ;; 100" and the tax is INSIDE it (84.75 + 15.25). Reading it as pre-tax for B2B would silently raise the
+    ;; delivery price by 18% for registered buyers — the same configured amount giving two different totals,
+    ;; which is what the requester caught. B2B and B2C pay the SAME; the only difference is that a registered
+    ;; buyer sees the freight as a LINE and can claim its tax.
+    (multiple-value-bind (taxable cgstrate sgstrate igstrate cgstamt sgstamt igstamt totalitemval)
+        (nst-line-money 1 charge 0.00 rates nil nil :inclusive t)
+      (make-instance 'dod-order-items
+                     :order-id order-id
+                     :vendor-id vendor-id
+                     :prd-id (slot-value product 'row-id)
+                     :prd-qty 1
+                     :unit-price taxable
+                     :disc-rate 0.00
+                     :taxablevalue taxable
+                     :sgst sgstrate :sgstamt sgstamt
+                     :cgst cgstrate :cgstamt cgstamt
+                     :igst igstrate :igstamt igstamt
+                     :totalitemval totalitemval
+                     :fulfilled "N"
+                     :status "PEN"
+                     :deleted-state "N"))))
 
 (defun update-gst-for-order-lineitem (lineitem product placeofsupply vstate)
   (let* ((product-qty (slot-value lineitem 'prd-qty))
 	 (current-price (slot-value product 'current-price))
 	 (current-discount (slot-value product 'current-discount))
-	 (gstvalues (get-gstvalues-for-product product))
-	 (cgstrate (if gstvalues (first gstvalues) 0.00)) 
-	 (sgstrate (if gstvalues (second gstvalues) 0.00))
-	 (igstrate (if gstvalues (third gstvalues) 0.00)) 
-	 ;; MONEY IS TO THE PAISE. An unrounded product of a 2-decimal value and a rate carries FOUR decimals
-	 ;; (3799.05 × 9% = 341.9145), which is what the cart displayed while the decimal(15,2) COLUMN quietly
-	 ;; rounded it — so the page and the row disagreed. Round the taxable value first, then tax it, as the
-	 ;; invoice layer does (nst-bl-invhapi.lisp's invh-paise), so the line adds up exactly.
-	 (txvalue (round-to-2-decimal (- (* product-qty current-price) (if current-discount (/ (* product-qty  current-price current-discount) 100) 0.00))))
-	 ;; 🚨 CODES, NOT RAW STRINGS: the cart passes a typed state NAME and the vendor row may hold a
-	 ;; CODE (vendor 1 "29" vs vendors 2-3 "Karnataka"), so the old (equal vstate placeofsupply) made
-	 ;; every such sale INTER-state — order 488: IGST 205.20 with CGST/SGST 0.00. nst-same-gst-state-p
-	 ;; resolves both sides; see core/dod-bl-utl.lisp and knowledge/gst-tax-jurisdiction-CONTEXT.md §2.
-	 (intrastate (if (nst-same-gst-state-p vstate placeofsupply) T NIL))
-	 (interstate (if (nst-same-gst-state-p vstate placeofsupply) NIL T)) 
-	 (cgstamount (if intrastate (round-to-2-decimal (/ ( * txvalue cgstrate) 100)) 0.00))
-	 (sgstamount (if intrastate (round-to-2-decimal (/ (* sgstrate txvalue) 100)) 0.00))
-	 (igstamount (if interstate (round-to-2-decimal (/ (* igstrate txvalue) 100)) 0.00))
-	 (totalitemvalue (round-to-2-decimal (+ txvalue (if intrastate (+ cgstamount sgstamount) igstamount)))))
-    (with-slots (taxablevalue sgst cgst igst sgstamt cgstamt igstamt totalitemval) lineitem
-      (setf taxablevalue txvalue)
-      (setf sgst sgstrate)
-      (setf cgst cgstrate)
-      (setf igst igstrate)
-      (setf sgstamt sgstamount)
-      (setf cgstamt cgstamount)
-      (setf igstamt igstamount)
-      (setf totalitemval totalitemvalue)
-      lineitem)))
+	 (gstvalues (get-gstvalues-for-product product)))
+    ;; 🚨 THE ARITHMETIC IS NOT HERE ANY MORE. MONEY IS TO THE PAISE, and one rounded figure disagreed with
+    ;; the invoice's when each layer rounded its own way: 3799.05 × 9% = 341.9145 is what the cart displayed
+    ;; while the decimal(15,2) COLUMN quietly rounded it. Every channel now comes through NST-LINE-MONEY
+    ;; (core/dod-bl-utl.lisp) — ONE rounder, ONE state rule (NST-SAME-GST-STATE-P, code-aware: the cart
+    ;; passes a typed state NAME and the vendor row may hold a CODE ("29"), so `equal` made a Karnataka →
+    ;; Karnataka sale INTER-state — order 488: IGST 205.20 with CGST/SGST 0.00).
+    ;; ⚠ THE BOUND NAMES MUST NOT COLLIDE WITH THE SLOTS: `with-slots` binds the slot names as symbol
+    ;; macros, so a variable called TAXABLEVALUE would be shadowed by the slot itself and the SETF below
+    ;; would write the slot to its own value.
+    (multiple-value-bind (taxable rate-cgst rate-sgst rate-igst amt-cgst amt-sgst amt-igst total)
+        (nst-line-money product-qty current-price current-discount gstvalues placeofsupply vstate)
+      (with-slots (taxablevalue sgst cgst igst sgstamt cgstamt igstamt totalitemval) lineitem
+        (setf taxablevalue taxable)
+        (setf sgst rate-sgst)
+        (setf cgst rate-cgst)
+        (setf igst rate-igst)
+        (setf sgstamt amt-sgst)
+        (setf cgstamt amt-cgst)
+        (setf igstamt amt-igst)
+        (setf totalitemval total)
+        lineitem))))
 
  ;This is a clean function with no side effect.
 (defun create-odtinst-shopcart (order product product-qty unit-price discount-rate company-instance)

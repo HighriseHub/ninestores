@@ -378,15 +378,15 @@
    (cgst
     :type float
     :column "CGST"
-    :initarg :cgst-rate)
+    :initarg :cgst)
    (sgst
     :type float
     :column "SGST"
-    :initarg :sgst-rate)
+    :initarg :sgst)
    (igst
     :type float
     :column "IGST"
-    :initarg :igst-rate)
+    :initarg :igst)
    (cess-rate
     :type float
     :column "CESS_RATE"

@@ -123,20 +123,20 @@
 		   (read in))))
 	 (discount (float (with-input-from-string (in (hunchentoot:parameter "discount"))
 			    (read in))))
-	 (taxablevalue (- (* prdqty price) (if discount (/ (* prdqty price discount) 100) 0.00)))
 	 (hsncode (slot-value product 'hsn-code))
 	 (gstvalues (get-gstvalues-for-product product))
 	 (placeofsupply (slot-value sessioninvheader 'placeofsupply))
 	 (statecode (slot-value sessioninvheader 'statecode))
-	 (intrastate (if (equal statecode placeofsupply) T NIL))
-	 (interstate (if (equal statecode placeofsupply) NIL T)) 
-	 (cgstrate (if gstvalues (first gstvalues) 0.00)) 
-	 (cgstamt (if intrastate (/ ( * taxablevalue cgstrate) 100) 0.00))
-	 (sgstrate (if gstvalues (second gstvalues) 0.00))
-	 (sgstamt (if intrastate (/ (* sgstrate taxablevalue) 100) 0.00))
-	 (igstrate (if gstvalues (third gstvalues) 0.00)) 
-	 (igstamt (if interstate (/ (* igstrate taxablevalue) 100) 0.00))
-	 (totalitemval (+ taxablevalue (if intrastate (+ cgstamt sgstamt) igstamt)))
+	 ;; 🚨 ONE PLACE COMPUTES AND ROUNDS A LINE'S MONEY — NST-LINE-MONEY (core/dod-bl-utl.lisp). This site
+	 ;; divided by the rate with NO ROUNDING AT ALL and compared the two states with `equal`, so an
+	 ;; invoice line typed here could disagree with the same sale's cart line by a paise (and by a tax
+	 ;; head, when a state NAME met its CODE).
+	 (money (multiple-value-list (nst-line-money prdqty price discount gstvalues statecode placeofsupply)))
+	 ;; ⚠ ONLY THE FIGURES THIS PAGE USES: the rates are not passed to the request model here (HEAD did not
+	 ;; pass them either — its rate bindings existed only to compute the amounts), so binding them would
+	 ;; only manufacture unused-variable warnings.
+	 (taxablevalue (nth 0 money))
+	 (cgstamt (nth 4 money)) (sgstamt (nth 5 money)) (igstamt (nth 6 money)) (totalitemval (nth 7 money))
 	 (requestmodel (make-instance 'InvoiceItemRequestModel
 					 :InvoiceHeader sessioninvheader
 					 :prd-id prd-id

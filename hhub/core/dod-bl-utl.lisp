@@ -1770,6 +1770,136 @@ corresponding universal time."
    slot SIGNALS, and a create binds only what the caller sent — see the tool nst-verify-order-create.lisp."
   (if (slot-boundp source slot) (slot-value source slot)))
 
+(defun nst-plain-excerpt (text limit)
+  "TEXT as at most LIMIT characters of PLAIN TEXT: complete tags removed, whitespace runs collapsed to one
+   space, trimmed — and if a `<` is left UNCLOSED, everything from it onward is dropped.
+
+   🚨 WHY AN EXCERPT MAY NOT BE A RAW SUBSEQ. A vendor's product description is AUTHORED MARKUP: measured,
+   product 75 (\"Home Made Strawberry Cake\") carries 960 characters holding a `<style>` block, a
+   `<div class=\"gradient-marquee\">`, a `<marquee>` and a YouTube `<iframe …>`. The customer cart wrote that
+   description's first 150 characters into the edit modal with CL-WHO:STR (raw, unescaped), and the cut landed
+   inside the iframe: the page shipped `…<br>\n\n<iframe wid` — an UNTERMINATED tag. A browser reads on until
+   the next `>`, so everything between was swallowed into that unfinished tag: the modal's own close, the
+   REMOVE (delete) anchor written immediately after it, and the NEXT CART ROW. The reported symptom was
+   exactly that — a two-item cart showing one row, that row with no delete button, and no error anywhere,
+   because nothing throws.
+
+   The rule this encodes: an excerpt is a SUMMARY and must never emit markup. Callers still escape the result
+   (CL-WHO:ESCAPE-STRING) so a stray `&` or quote cannot break the surrounding document either."
+  (let ((out (make-string-output-stream))
+        (in-tag nil)
+        (space-p nil)
+        (n 0))
+    (loop for ch across (or text "")
+          while (< n limit)
+          do (cond
+               (in-tag (when (char= ch #\>) (setf in-tag nil)))
+               ((char= ch #\<) (setf in-tag t space-p t))   ; unclosed → nothing after it is ever emitted
+               ((member ch '(#\Space #\Tab #\Newline #\Return #\Page))
+                (unless space-p (write-char #\Space out) (incf n) (setf space-p t)))
+               (t (write-char ch out) (incf n) (setf space-p nil))))
+    (string-trim " " (get-output-stream-string out))))
+
+(defun nst-inclusive-paise-split (gross cgstrate sgstrate igstrate intrastate-p)
+  "The paise-exact split of an INCLUSIVE GROSS — (values TAXABLE CGSTAMT SGSTAMT IGSTAMT).
+
+   🚨 THE SPARE PAISE BELONGS IN THE TAXABLE VALUE, NOT IN A TAX HEAD. The tax inside an even-paise gross
+   is frequently an ODD number of paise — ₹80.00 at 2.5 + 2.5 holds 3.81 — and 3.81 cannot be split into
+   two equal whole paise. The rule used before (and copied into every caller) gave the odd paise to SGST:
+   CGST 1.90 with SGST 1.91. On an equal-rate intra-state supply that asymmetry is the thing an accountant
+   reads as a defect: CGST and SGST MUST be the same figure.
+
+   So the value is what gives: try the rate-derived taxable value, and one paise either side of it, and take
+   the first for which TAXABLE + each half at its OWN rate equals the gross exactly. Then, whenever the two
+   rates are equal, CGST = SGST — equal by construction, not by adjustment — each half is exactly its rate
+   × the taxable value (so the rate trail on the document is intact), and the line still totals what the
+   customer actually paid. MEASURED: ₹80.00 at 2.5 + 2.5 → 76.20 / 1.90 / 1.90 / 80.00; ₹120.00 at
+   2.5 + 2.5 → 114.28 / 2.86 / 2.86 / 120.00.
+
+   ⚠ WHEN NO PAISE SOLUTION EXISTS the TOTAL IS NEVER SACRIFICED — the heads differ by the paise instead
+   (the old residual rule, kept below as the fallback). A prize example: ₹100.00 interstate at 18% has no
+   taxable value whose 18% rounds to a figure summing back to 100.00 (84.74 → 15.25 → 99.99;
+   84.75 → 15.26 → 100.01), so that case keeps taxable 84.75 and tax 15.25.
+
+   🔑 THE ARITHMETIC IS IN INTEGER PAISE, NOT FLOATS, and that is not a style choice. `(* 76.20 0.025)` is
+   `1.9050000000000002` in binary, so a float test lands a hair ABOVE the half-paise tie and rounds it up:
+   measured, the float version of this very function failed its own solution test on ₹80.00 and fell back to
+   the residual — the defect it was written to remove. Rates become INTEGER BASIS POINTS (2.5% → 250) so
+   every product and division is exact and CL's ROUND decides the tie deliberately."
+  (let* ((gross-p (round (* (float gross) 100)))                 ; integer paise
+         (cgst-bp (round (* (float cgstrate) 100)))              ; integer basis points
+         (sgst-bp (round (* (float sgstrate) 100)))
+         (igst-bp (round (* (float igstrate) 100)))
+         (rate-bp (if intrastate-p (+ cgst-bp sgst-bp) igst-bp))
+         (taxable0-p (round (/ (* gross-p 10000) (+ 10000 rate-bp))))
+         (parts (lambda (tv-p)
+                  (if intrastate-p
+                      (list (round (/ (* tv-p cgst-bp) 10000))
+                            (round (/ (* tv-p sgst-bp) 10000))
+                            0)
+                      (list 0 0 (round (/ (* tv-p igst-bp) 10000))))))
+         (found (loop for tv-p in (list taxable0-p (- taxable0-p 1) (+ taxable0-p 1))
+                      for l = (funcall parts tv-p)
+                      when (= (+ tv-p (first l) (second l) (third l)) gross-p)
+                        return (cons tv-p l))))
+    (if found
+        (values (/ (first found) 100.0) (/ (second found) 100.0)
+                (/ (third found) 100.0) (/ (fourth found) 100.0))
+        ;; NO SOLUTION: keep the TOTAL exact, one head takes the odd paise (the residual rule).
+        (let* ((tax-p (- gross-p taxable0-p))
+               (c-p (cond ((not intrastate-p) 0)
+                          ((plusp sgst-bp) (round (/ (* taxable0-p cgst-bp) 10000)))
+                          (t tax-p)))                    ; only one half configured: it takes the tax
+               (s-p (if intrastate-p (- tax-p c-p) 0))
+               (i-p (if intrastate-p 0 tax-p)))
+          (values (/ taxable0-p 100.0) (/ c-p 100.0) (/ s-p 100.0) (/ i-p 100.0))))))
+
+(defun nst-line-money (qty price disc-rate rates statecode placeofsupply &key inclusive)
+  "THE ONE PLACE A LINE'S MONEY IS COMPUTED AND ROUNDED, for every channel that can produce one: the cart's
+   order line (order/dod-bl-odt.lisp), its delivery line, the order→invoice mapper and the legacy delivery
+   fallback (invoice/nst-bl-invhapi.lisp), the invoice-item pages (invoice/nst-ui-itm.lisp,
+   invoice/nst-ui-ihd.lisp) and the invoice-line API. Two channels putting different figures on the same
+   sale is what this function exists to prevent.
+
+   Returns (values TAXABLE CGSTRATE SGSTRATE IGSTRATE CGSTAMT SGSTAMT IGSTAMT TOTALITEMVAL). RATES is the
+   (cgst sgst igst …) list `get-gstvalues-for-product` returns.
+
+   EXCLUSIVE (the default, the goods rule): the price is pre-tax —
+     TAXABLE = round(QTY × PRICE × (1 − DISC-RATE/100)), and each half is round(TAXABLE × its rate/100)
+     independently.
+   INCLUSIVE (a charge the customer pays gross, e.g. the cart's delivery line): the amount IS what the
+     customer pays, so TAXABLE is back-calculated through NST-SHIPPING-TAX-SPLIT and the halves are derived
+     FROM THE TAX, the second taking the residual — rounding each rate separately adds a paise
+     (₹120 at 2.5 + 2.5: 114.29 + 2.86 + 2.85 = 120.00, where 2.86 + 2.86 = 120.01).
+
+   ONE ROUNDER, and it is ROUND-TO-2-DECIMAL: every figure on every path, so a walk-in invoice and a cart
+   order for the same sale agree to the paise. (The invoice layer's INVH-PAISE is this same arithmetic and
+   now delegates here.)
+
+   THE STATE TEST is NST-SAME-GST-STATE-P — code-aware, so a state NAME and its CODE for one state answer
+   T. When the caller supplies no state pair the RATES answer instead (a CGST/SGST pair is intra-state, an
+   IGST rate inter-state), which is what the cart's delivery line has always done."
+  (let* ((cgstrate (float (or (first rates) 0.0)))
+         (sgstrate (float (or (second rates) 0.0)))
+         (igstrate (float (or (third rates) 0.0)))
+         (intrastate (if (and statecode placeofsupply)
+                         (if (nst-same-gst-state-p statecode placeofsupply) t nil)
+                         (or (plusp cgstrate) (plusp sgstrate))))
+         (gross (round-to-2-decimal (* (float qty) (float price)
+                                       (- 1 (/ (float (or disc-rate 0.0)) 100)))))
+         ;; INCLUSIVE goes through NST-INCLUSIVE-PAISE-SPLIT (above): equal halves on an equal-rate supply,
+         ;; each half its own rate × the taxable value, and the line total still exactly the gross paid.
+         ;; EXCLUSIVE is the goods rule: the price is pre-tax and each half is its rate on the taxable value.
+         (split (if inclusive
+                    (multiple-value-list (nst-inclusive-paise-split gross cgstrate sgstrate igstrate intrastate))
+                    (list gross
+                          (if intrastate (round-to-2-decimal (* gross (/ cgstrate 100))) 0.0)
+                          (if intrastate (round-to-2-decimal (* gross (/ sgstrate 100))) 0.0)
+                          (if intrastate 0.0 (round-to-2-decimal (* gross (/ igstrate 100))))))))
+    (destructuring-bind (taxable cgstamt sgstamt igstamt) split
+      (values taxable cgstrate sgstrate igstrate cgstamt sgstamt igstamt
+              (round-to-2-decimal (+ taxable cgstamt sgstamt igstamt))))))
+
 ;;; ───────────────────────────────────────────────────────────────────────────
 ;;; The order STATUS vocabulary — one home for a rule the legacy layer and the
 ;;; adhara verbs must agree about (D17, story S8)
