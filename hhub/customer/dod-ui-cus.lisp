@@ -120,8 +120,13 @@
                    (:i :class "fa-solid fa-truck-fast fa-2x text-success")))))))
 
 (defun render-standard-shipping-page (modelfunc)
-  (multiple-value-bind (freeshipenabled freeshipminorderamt shipping-cost currsymbol shopcart-total)
+  (multiple-value-bind (freeshipenabled freeshipminorderamt shipping-cost currsymbol goods-subtotal delivery-display)
       (funcall modelfunc)
+    ;; ⚠ SHIPPING-COST IS DELIBERATELY UNUSED ON THIS PAGE. It is the value the TOTAL ARITHMETIC may add —
+    ;; 0 in B2B, because the delivery is one of the lines — while what the customer PAYS, and therefore what
+    ;; this summary must show and add up, is DELIVERY-DISPLAY. Using the arithmetic value here is what put
+    ;; "Shipping Charges ₹120.00" beside a Total that had added 0.
+    (declare (ignore shipping-cost))
     (with-html-card
         (:title "Standard Shipping"
          :image-src "/img/StandardShipping.jpg"
@@ -133,27 +138,30 @@
              (:div :class "d-flex justify-content-between border-bottom pb-2 mb-2"
                    (:span "Cost of Items:")
                    (:span :class "fw-semibold"
-                          (cl-who:str (format nil "~A ~$" currsymbol shopcart-total))))
+                          (cl-who:str (format nil "~A ~$" currsymbol goods-subtotal))))
              (:div :class "d-flex justify-content-between border-bottom pb-2 mb-2"
                    (:span "Shipping Charges:")
                    (:span :class "fw-semibold"
                           (cl-who:str (format nil "~A ~$" currsymbol delivery-display))))
              (:div :class "d-flex justify-content-between mt-3"
                    (:span :class "fw-bold text-success"
-                          (cl-who:str (format nil "Total: ~A ~$" currsymbol (+ shopcart-total shipping-cost)))))
+                          ;; ⚠ SUBTOTAL + THE DELIVERY THE CUSTOMER PAYS, not + the total-arithmetic value:
+                          ;; in B2B the charge is already inside the total (shipping-cost is 0 for exactly
+                          ;; that reason), so the old sum showed parts that did not add up to the Total.
+                          (cl-who:str (format nil "Total: ~A ~$" currsymbol (+ goods-subtotal delivery-display)))))
              (when (equal freeshipenabled "Y")
-               (if (< shopcart-total freeshipminorderamt)
+               (if (< goods-subtotal freeshipminorderamt)
                    (cl-who:htm
                     (:p :class "text-warning mt-3 fw-semibold"
                         (cl-who:str (format nil "Shop for ~A ~$ more for FREE shipping!"
-                                            currsymbol (- freeshipminorderamt shopcart-total)))))
+                                            currsymbol (- freeshipminorderamt goods-subtotal)))))
                    (cl-who:htm
                     (:p :class "text-success mt-3 fw-semibold"
                         "Congratulations! You qualify for FREE shipping!")))))))))
 
 
 ;; This is a pure function.
-(defun display-cust-shipping-costs-widget (shopcart-total shipping-options storepickupenabled vendor freeshipenabled company)
+(defun display-cust-shipping-costs-widget (goods-subtotal shipping-options storepickupenabled vendor freeshipenabled company)
   :description "The display-cust-shipping-costs-widget function generates an HTML widget for displaying shipping costs, allowing users to choose between shipping or store pickup. It dynamically updates cost information and visibility based on user interactions"
   (let* ((vaddress (address vendor))
          (vcity (city vendor))
@@ -163,11 +171,25 @@
          ;; ⚠ TWO VALUES, TWO JOBS. SHIPPING-COST is what the TOTAL may add: the charge when it is still a
         ;; charge (B2C) and 0 when the delivery is one of the LINES (B2B — shopcart-total already has it).
         ;; DELIVERY-DISPLAY is what the customer is SHOWN. Conflating them added the delivery twice here.
+        ;;
+        ;; 🚨 AND A THIRD VALUE IS NEEDED TO KNOW WHETHER DELIVERY IS *FREE*: (nth 0 SHIPPING-OPTIONS) — the
+        ;; charge `calculate-shipping-cost-for-order` decided, since SHIPLST is (COST OPTIONS MINIMUM PAGE).
+        ;; It is 0 ONLY when the server's own rule found the order eligible. The STORED "shipping-cost" is
+        ;; the post-delivery-line bookkeeping value, and reading ITS zero as "free" is what put the FREE
+        ;; shipping page beside a ₹120 charge: MEASURED with a GSTIN on 2 × product 75 — items ₹1496.24,
+        ;; delivery ₹120, total ₹1616.24 — the page said "You've unlocked FREE Shipping!" because the
+        ;; delivery had become a line (0 for the arithmetic) and `shopcart-total` had become 1616.24, which
+        ;; the OLD threshold test then read as "over ₹1500". The charge was right in both scenarios; only
+        ;; the page lied. The threshold is the SERVER's to test (it uses >= and tests the GOODS, before the
+        ;; delivery line exists) — see the two-scenario report in knowledge/gst-tax-jurisdiction-CONTEXT.md.
+        (server-cost (float (or (nth 0 shipping-options) 0.0)))
         (shipping-cost (let ((stored (gethash "shipping-cost" (get-cust-order-params))))
-                         (if stored stored (nth 0 shipping-options))))
+                         (if stored stored server-cost)))
         (delivery-display (or (gethash "delivery-gross" (get-cust-order-params)) shipping-cost))
-         (freeshipminorderamt (nth 2 shipping-options))
-	 (freeshippingapplied (if (and (equal freeshipenabled "Y") (> shopcart-total freeshipminorderamt)) T NIL))
+         ;; the MINIMUM is TEXT here, never a test — and it must not be NIL either, or `(> total NIL)` is a
+         ;; TYPE-ERROR that kills the whole shipping page (measured).
+         (freeshipminorderamt (or (nth 2 shipping-options) 0.0))
+	 (freeshippingapplied (equal freeshipenabled "Y"))
 	 (currsymbol (get-currency-html-symbol (get-account-currency company))))
     (cl-who:with-html-output (*standard-output* nil)
 	(with-html-div-row
@@ -181,19 +203,24 @@
 	(with-html-div-row :id "costwithshipping" :class "shipping-cost-section"
 	  (with-html-div-col-12
 	    (cond
-	      ;; Standard Shipping
-	      ((and (equal vshipping-enabled "Y") (> shipping-cost 0))
-	       (render-standard-shipping-page (lambda () (values freeshipenabled freeshipminorderamt shipping-cost currsymbol shopcart-total))))
-	      ;; Free Shipping
-	      ((and (equal vshipping-enabled "Y") (= shipping-cost 0) freeshippingapplied)
+	      ;; Standard Shipping — the SERVER's cost is what decides, not the post-line bookkeeping zero
+	      ((and (equal vshipping-enabled "Y") (> server-cost 0))
+	       (render-standard-shipping-page (lambda () (values freeshipenabled freeshipminorderamt shipping-cost currsymbol goods-subtotal delivery-display))))
+	      ;; Free Shipping — the server decided it, and its cost is 0 for that reason
+	      ((and (equal vshipping-enabled "Y") (= server-cost 0) freeshippingapplied)
 	       (render-free-shipping-page (lambda () (values currsymbol freeshipminorderamt))))
 	      ;; Pickup in Store only
 	      ((equal vshipping-enabled "N")
-	       (render-pickup-only-page (lambda () (values vaddress vcity vzipcode vphone currsymbol shopcart-total)))))))
+	       (render-pickup-only-page (lambda () (values vaddress vcity vzipcode vphone currsymbol goods-subtotal))))
+	      ;; ⚠ NO ARM USED TO MATCH when shipping was enabled, the cost was 0 and free shipping was not
+	      ;; configured — and then this whole section rendered NOTHING. The standard page is the honest
+	      ;; fallback: it shows the charge (0.00) and the totals, rather than leaving a hole in the page.
+	      (t
+	       (render-standard-shipping-page (lambda () (values freeshipenabled freeshipminorderamt shipping-cost currsymbol goods-subtotal delivery-display)))))))
       (with-html-div-row :id "costwithoutshipping" :style "display: none;" :class "shipping-cost-section"
 	(with-html-div-col-12
 	  (:br)
-	  (render-pickup-only-page (lambda () (values vaddress vcity vzipcode vphone currsymbol shopcart-total)))))
+	  (render-pickup-only-page (lambda () (values vaddress vcity vzipcode vphone currsymbol goods-subtotal)))))
       (:script "function togglepickupinstore() {
     const storepickup = document.getElementById('idstorepickup');
 
@@ -2010,7 +2037,11 @@ Only shows sections based on availability flags and customer type."
 	     (:a :href (format nil "prddetailsforcust?id=~A" prd-id) 
 		 (:img :src  (format nil "~A" prd-image-path) :height "83" :width "100" :alt prd-name " "))
 	     (:p (:span :class "label label-info" (cl-who:str (format nil "Rs. ~$ / ~A"  current-price qty-per-unit))))
-	     (:p (cl-who:str (if (> (length description) 150)  (subseq description  0 150) description)))
+	     ;; 🚨 NST-PLAIN-EXCERPT + ESCAPE, NEVER A RAW SUBSEQ: product 75's description is authored markup
+	     ;; with a YouTube <iframe>, and cutting it at 150 characters shipped `<iframe wid` — an
+	     ;; unterminated tag that swallowed the rest of the row, THIS modal's close, the remove button
+	     ;; below and the next cart row. See the helper's note in core/dod-bl-utl.lisp.
+	     (:p (cl-who:str (cl-who:escape-string (nst-plain-excerpt description 150))))
 	     ;; Qty increment and decrement control.
 	     (html-range-control "prdqty"  prd-id "1" (max (mod units-in-stock 20) 10) itemqty "1")
 	     (:div :class "form-group" 
@@ -2839,7 +2870,18 @@ Only shows sections based on availability flags and customer type."
 			  (reduce #'+ lstshopcart :initial-value 0.0
 				  :key (lambda (i) (+ (or (slot-value i 'cgstamt) 0)
 						      (or (slot-value i 'sgstamt) 0)
-						      (or (slot-value i 'igstamt) 0)))))))
+						      (or (slot-value i 'igstamt) 0))))))
+	 ;; ⚠ BOUND HERE, not left to the SETF below: unbound, SBCL makes TOTAL-TAX a process-global, so two
+	 ;; concurrent checkouts would share one customer's tax total and a stale one would outlive the request
+	 ;; (the order-create page reads it back out of order params). The delivery-line step re-setf's it.
+	 (total-tax cart-tax-total)
+	 ;; 🚨 THE GOODS SUBTOTAL, KEPT BEFORE THE DELIVERY LINE IS ADDED TO THE TOTAL. Below, SHOPCART-TOTAL is
+	 ;; re-setf'd to AMT — the total WITH the delivery line — and the page then showed that inflated figure as
+	 ;; "Cost of Items" *beside* a "Shipping Charges" line for the same money, and tested the free-shipping
+	 ;; threshold against it, so a B2B order under the minimum congratulated itself: MEASURED, 2 × product 75
+	 ;; = ₹1496.24 of goods, delivery ₹120 → "Cost of Items ₹1616.24 / Shipping ₹120.00 / Total ₹1616.24"
+	 ;; with "Congratulations! You qualify for FREE shipping!". The subtotal is what those two jobs need.
+	 (goods-subtotal shopcart-total))
     
     ;; if billsameasshipchecked then copy the shipping address into billing address fields
     (multiple-value-bind (billaddress billcity billstate billzipcode)
@@ -2899,7 +2941,10 @@ Only shows sections based on availability flags and customer type."
       (save-temp-guest-customer custname shipaddress shipcity shipstate shipzipcode phone email custcomp)
       (maybe-save-guest-customer save-address? phone custname email shipaddress custcomp))
     (function (lambda ()
-      (values shopcart-total shiplst storepickupenabled singlevendor freeshipenabled custcomp)))))
+      ;; ⚠ THE FIRST VALUE IS THE GOODS SUBTOTAL, NOT SHOPCART-TOTAL: the page puts it beside a separate
+      ;; "Shipping Charges" line, so handing it the post-delivery-line total counted the delivery twice and
+      ;; tested the free-shipping threshold against it. The order PARAMS still carry the full total.
+      (values goods-subtotal shiplst storepickupenabled singlevendor freeshipenabled custcomp)))))
 
 (defun create-widgets-for-custshipmethodspage (modelfunc)
   ;; ⚠ THE MODEL RETURNS `custcomp`, NOT `company` (its own (values ... custcomp)): binding a different
