@@ -130,3 +130,173 @@ charge, and the merge (including the display gross and the zeroed column).
 `nst-verify-invoice-from-order.lisp` — **63 pass / 0 fail**, writing and undoing — the DRAFT, the lines, the
 order's link columns, the duplicate 409, the व्यंजन refusal, लोप ३, and the legacy charge invoiced
 inclusively so the invoice total EQUALS the order's.
+
+---
+
+## 8. ONE ROUNDER, ONE AUTHORITY — the line-money rule (2026-10-11)
+
+**The rule:** a line's money is produced in exactly ONE place, `nst-line-money` (`core/dod-bl-utl.lisp`,
+next to `nst-shipping-tax-split`, which it uses for the inclusive case), and every channel calls it or
+copies from a channel that did. It returns
+`(values TAXABLE CGSTRATE SGSTRATE IGSTRATE CGSTAMT SGSTAMT IGSTAMT TOTALITEMVAL)`, all to the paise by
+`round-to-2-decimal` — the one rounder, which the invoice layer's `invh-paise` now delegates to.
+
+**Why it exists — THREE sites were computing the same line, differently:**
+
+| channel | before |
+|---|---|
+| cart → order (`order/dod-bl-odt.lisp`, `update-gst-for-order-lineitem`) | rounded, code-aware state test |
+| order → invoice (`invoice/nst-bl-invhapi.lisp`) | `invh-paise`, `(equal statecode placeofsupply)` |
+| walk-in invoice (`invoice/nst-ui-ihd.lisp`, `invoice/nst-ui-itm.lisp`) | **NO rounding at all**, `equal` state test |
+
+and a fourth stored whatever it was given: **`make 'nst-invitm` (the invoice-line API) has no money check
+at all** — the client's figures go in verbatim, where the ORDER API deliberately checks its pair and
+answers 409 (`nst-bl-orderhapi`: taxable vs `qty × price × (1 − disc/100)`, total vs base + taxes).
+
+**Copy, do not recompute.** A channel that has a SOURCE transcribes it: `invh-line-args-from-order-line`
+copies the order line's taxable value, amounts and total whenever the order stored a positive total, and
+computes only for a legacy line that stored no money (rates: stored → principal-rate override → product
+HSN). MEASURED, and the reason: invoice `NST00117-2026` re-derived a freight line the order had stored as
+`2.86 + 2.85 = 120.00` and wrote `2.86 + 2.86 = 120.01`, so the header read 1600.51 against the order's
+1600.50. A walk-in invoice has no source, so there the function IS the authority.
+
+**The two branches, and why the inclusive one has a residual.** EXCLUSIVE (goods): `TAXABLE =
+round(qty × price × (1 − disc/100))`, each half `round(TAXABLE × its rate/100)` independently. INCLUSIVE
+(a charge the customer pays gross): TAXABLE is back-calculated, and the halves are derived FROM THE TAX,
+the second taking the residual — rounding each rate separately adds a paise (₹120 at 2.5 + 2.5:
+`114.29 + 2.86 + 2.85 = 120.00`, where `2.86 + 2.86 = 120.01`). ⚠ **The residual must itself be rounded**:
+`(- 5.710000000000001 2.86)` is `2.8500000000000014` in binary floating point, which the `decimal(15,2)`
+column silently repaired while every in-memory total carried the noise.
+
+**And the state test is the code-aware one** (`nst-same-gst-state-p`), in every channel now — see §2 for
+the NAME-vs-CODE bug it fixes.
+
+**Proof:** `../tools/nst-check-one-rounder.lisp`-style probe (32 checks, read-only): `invh-paise` IS
+`round-to-2-decimal`; the inclusive residual and the exclusive rule on the same ₹120 charge; a NAME and its
+CODE answering one state; the cart's delivery line and the invoice's legacy fallback producing IDENTICAL
+money; and order 505's three real lines transcribed to the invoice with **no drift** (the invoice's lines
+sum to the order's own line total). Runs with `*NSTGSTSTATECODES-HT*` initialised or every state NAME
+fails to resolve. Regressions re-run: `nst-verify-cart-tax-state.lisp` 80/0.
+
+**Still open:** the invoice-line API's money (`make 'nst-invitm` — check-and-refuse, or compute), and the
+SAC side of the rate lookup, which is `gst-sac-codes-CONTEXT.md`.
+
+### 8.1 The verification lesson from the first pass (2026-10-11)
+
+**A money-only assertion cannot catch a rate-column bug, and a suite can pass on two errors that agree.**
+The first version of the transcription rule read the wrong three elements out of `nst-line-money`'s eight
+values (`(first computed)` where the taxable value sits) and put the **taxable value into `CGSTRATE`**. The
+read-only probe passed — it asserted taxable value, amounts and total, never the rates — and the
+order→invoice suite's own rate check *passed too*, because the delivery line's "principal rate" was derived
+from the same corrupted goods line, so corruption matched corruption. What caught it was the check that
+compares the delivery line's **price** to `charge / (1 + rate)`: the line priced ₹40.00 of delivery at
+**3.20** instead of 33.90. Two repairs: the probe now asserts `:cgstrate/:sgstrate/:igstrate` as well
+(**41 checks**), and the rule is written with `nth 1/2/3`, not `first/second/third`.
+
+**And two suites had drifted behind the code, silently:**
+
+* `nst-verify-invoice-from-order.lisp`'s "unfulfilled" fixture had since been FULFILLED, so the व्यंजन rule
+  could not refuse it and §5 went on to WRITE the invoice whose absence it then asserted. Re-pointed
+  (order 443, one vendor-1 line, no delivery charge) and the premise is now **guarded**: a drifted fixture
+  exits 2 instead of leaking an invoice.
+* `nst-verify-invoice-dispatch.lisp` compared the public-link key to a literal that predates the
+  `expires-at` field, so it could never pass again; it now decodes with the code's own
+  `invoice-ext-b64-decode` and asserts the stable fields.
+
+Both suites after the repairs: **order→invoice 63/0/0**, **invoice dispatch 51/0**.
+
+### 8.2 The spare paise belongs in the TAXABLE VALUE — and the money arithmetic is INTEGER PAISE (2026-10-11)
+
+**What was wrong.** §8's first version gave the odd paise of an inclusive charge to SGST: for a ₹80.00
+delivery at 2.5 + 2.5 the tax inside is 3.81, which cannot split into two equal whole paise, so it wrote
+**CGST 1.90 / SGST 1.91**. MEASURED on order 506's own line (row 1297). On an equal-rate intra-state supply
+that asymmetry is what an accountant reads as a defect: **CGST and SGST must be the same figure.**
+
+**The rule now (`nst-inclusive-paise-split`, core/dod-bl-utl.lisp).** The VALUE gives, not a tax head: take
+the rate-derived taxable value and one paise either side, and use the first for which
+
+    TAXABLE + (each half at its OWN rate) = the gross exactly
+
+Then CGST = SGST whenever the rates are equal — equal *by construction*, each half exactly its rate × the
+taxable value — and the line still totals what the customer paid. MEASURED:
+
+| charge (inclusive) | before | now |
+|---|---|---|
+| ₹80.00 at 2.5 + 2.5 | 76.19 / 1.90 / 1.91 / 80.00 | **76.20 / 1.90 / 1.90 / 80.00** |
+| ₹120.00 at 2.5 + 2.5 | 114.29 / 2.86 / 2.85 / 120.00 | **114.28 / 2.86 / 2.86 / 120.00** |
+| ₹100.00 at 9 + 9 | 84.75 / 7.63 / 7.62 / 100.00 | **84.74 / 7.63 / 7.63 / 100.00** |
+| ₹40.00 at 9 + 9 (the invoice fixture) | 33.90 / 3.05 / 3.05 / 40.00 | unchanged |
+| ₹100.00 inter at 18% | 84.75 / IGST 15.25 / 100.00 | unchanged — **no paise solution exists** |
+
+⚠ **THE LAST ROW IS THE HONEST LIMIT:** 84.74 → 15.25 → 99.99 and 84.75 → 15.26 → 100.01, so no taxable
+value satisfies the identity. There the TOTAL is never sacrificed and one head takes the odd paise (the old
+residual rule survives as the fallback). The price of the fix is one paise in the TAXABLE VALUE — the totals
+never move.
+
+🔑 **AND THE ARITHMETIC IS INTEGER PAISE, NOT FLOATS.** `(* 76.20 0.025)` is `1.9050000000000002` in
+binary, so a float test lands a hair ABOVE the half-paise tie and rounds it up: the float version of the
+solver **failed its own solution test on ₹80.00 and fell back to the residual — the very defect it was
+written to remove.** Rates therefore become INTEGER BASIS POINTS (2.5% → 250) and taxable values integer
+paise, so every product and division is exact and CL's `round` decides the tie deliberately. This is the
+concrete instance of §3/§4 of `multi-jurisdiction-tax-CONTEXT.md`: the rounding MODE and PRECISION have to
+be policy, because binary floats decide them otherwise.
+
+**Verification.** The read-only one-rounder probe gained three inclusive cases, the equal-halves assertion
+and the no-solution case — **61 checks, 0 fail**; `nst-verify-cart-tax-state.lisp` **80/0** after five of its
+expectations were deliberately moved to the new rule (84.74 / 7.63 / 7.63, and the cart's tax total
+180 + 15.26); `nst-verify-invoice-from-order.lisp` **63/0**; `nst-verify-invoice-dispatch.lisp` **51/0**.
+
+### 8.3 The shipping PAGE must render the server's decision, never re-decide it (2026-10-11)
+
+**Reported:** 2 × product 75 (₹750, 5% disc) — no GSTIN: STANDARD, items ₹1496.24 + delivery ₹120 =
+₹1616.24. **With** a GSTIN: the shipping page said *"You've unlocked FREE Shipping!"* while the payment page
+still showed ₹120 and ₹1616.24.
+
+**The charge was right in BOTH.** The server's rule (`customer/dod-ui-cus.lisp:2986-2993`) tests the GOODS
+with `>=` against the minimum and found 1496.24 < 1500 → standard, ₹120 — and the payment page is
+self-consistent (`shopcart-total` 1616.24 + `shipping-cost` 0, the ₹120 riding inside the delivery LINE, with
+the gross shown as the "Shipping Cost" line). Only the shipping PAGE lied, because
+`display-cust-shipping-costs-widget` re-derived the decision from two values that had already changed meaning:
+
+* it read the **stored `shipping-cost`** — which in B2B is 0 because the charge became one of the LINES
+  (`chargeleft`), not because delivery is free — and used `(= shipping-cost 0)` as the "is it free?" test;
+* it tested the threshold against `shopcart-total`, which by then **already contains the delivery line**
+  (1616.24), so *being charged for delivery was what made the order look eligible for free delivery*;
+* and it used `>` where the server uses `>=`, and would `TYPE-ERROR` on a NIL minimum.
+
+**The fix:** `SHIPLST` is `(COST OPTIONS MINIMUM PAGE)` — `(nth 0 shiplst)` **is** the server's decision
+(0 only when its own rule said free). The widget now branches on that, treats the minimum as TEXT only, and
+has a fallback arm (no arm used to match when shipping was enabled, cost 0 and free shipping unconfigured —
+and the whole section rendered nothing).
+
+**Verified by driving the real widget** (read-only probe, `get-cust-order-params` stubbed in-process and
+restored): 2 × cake B2C → STANDARD; 2 × cake **B2B → STANDARD** (the reported bug); 3 × cake (2244.36 ≥ the
+minimum, server cost 0) → FREE. **4 pass / 0 fail.**
+
+**The durable rule this is the third instance of:** on this page a **zero carries two meanings** —
+"the delivery is already one of the LINES" and "the delivery is FREE" — so the value that MEANS "free" must
+be the shipping rule's own output, and every threshold is tested ONCE, upstream, against the goods.
+
+**Round two (same day), after the branch fix:** the page rendered Standard but its MESSAGE still congratulated
+the customer, and its "Cost of Items" line showed the post-delivery-line total. Both were the SAME circular
+test, in the renderer: `render-standard-shipping-page` used the `shopcart-total` it was handed for
+"Cost of Items" AND for `(< shopcart-total freeshipminorderamt)` — and the model was passing the total that
+ALREADY CONTAINED the delivery line (₹1616.24), so an order of ₹1496.24 of goods "qualified" for free
+shipping while being charged ₹120. So:
+
+* the **model keeps `goods-subtotal`** (bound BEFORE the delivery-line step re-setf's `shopcart-total`) and
+  returns THAT as the page's subtotal;
+* `render-standard-shipping-page` shows it as "Cost of Items", tests the threshold against it, and computes
+  **Total = goods-subtotal + DELIVERY-DISPLAY** — the two visible parts now add up to the Total and to the
+  payment page's figure, in B2B and B2C alike;
+* `shipping-cost` (the total-arithmetic value) is deliberately UNUSED on that page — declared `ignore` with
+  the reason, since using it is what showed "₹120.00" beside a Total that had added 0.
+
+**Verified by driving the real widget + renderer** (read-only): 2 × cake B2C → Standard, 1496.24 + 120.00 =
+1616.24, "Shop for ₹3.76 more"; 2 × cake **B2B** → the SAME figures and message (the reported bug); 3 × cake
+→ FREE. **16 pass / 0 fail.**
+
+⚠ **The two payment pages legitimately look different for the same money** — B2C shows *Amount Before Tax
+1425.00 / After Tax 1496.24 / Shipping 120.00 / Total 1616.24* (the delivery stays an untaxed charge), B2B
+shows *1539.28 / 1616.24 / 120.00 / 1616.24* (the delivery is a TAXED LINE: 1425.00 + 114.28 taxable, tax
+71.24 + 5.72). That is the B2B/B2C design of §1, not a defect: the same ₹120 in both.

@@ -104,10 +104,10 @@
     :DB-INFO (:JOIN-CLASS dod-company
 	                  :HOME-KEY tenant-id
                           :FOREIGN-KEY row-id
-                          :SET NIL)))
+                          :SET NIL))
   (hhub-type
    :type string
-   :initarg :hhub-type)
+   :initarg :hhub-type))
 
 
    (:base-table dod_abac_subject))

@@ -421,11 +421,23 @@
            ;; (+ 4 (search "key=" …)) — "key=" is FOUR characters; (1+ …) starts one
            ;; character late and yields "ey=…". Written out because that is exactly the
            ;; mistake made here first.
-           (chk "the key it minted names THIS invoice's tenant"
-                (let* ((u (cdr (assoc :html-url seen)))
-                       (p (search "key=" u)))
-                  (and p (subseq u (+ 4 p))))
-                "dGVuYW50LWlkLGludm51bSx2ZW5kb3ItaWQKMixOU1QwMDAyMy0yMDI0LDE=")
+           ;; ⚠ RE-EXPRESSED 2026-10-11: the key USED to be base64 of "tenant-id,invnum,vendor-id\n2,NST…,1"
+           ;; and this check compared it to that whole fixed string. The payload has since gained an
+           ;; `expires-at` field (invoice-ext-key-payload, nst-ui-ihd.lisp:762 — the link expires), so the
+           ;; minted key carries a TIMESTAMP and can never equal a literal. The check now decodes with the
+           ;; code's OWN decoder (invoice-ext-b64-decode, the same one invoice-ext-url-status uses) and
+           ;; asserts the fields that must be stable: the header line and this invoice's identity.
+           (chk-true "the key it minted names THIS invoice's tenant, its number and its vendor"
+                     (lambda ()
+                       (let* ((u (cdr (assoc :html-url seen)))
+                              (key (and u (invoice-ext-key-of-url u)))
+                              (dot (and key (position #\. key :from-end t)))
+                              (payload (and dot (ignore-errors
+                                                  (invoice-ext-b64-decode (subseq key 0 dot))))))
+                         (and payload
+                              (search "tenant-id,invnum,vendor-id,expires-at" payload)
+                              (search (format nil "~%~D,~A,~D," 2 (invnum-of 23) 1) payload)
+                              t))))
            (chk-true "it redirected to the rendered file under *siteurl*/img/temp/"
                      (lambda () (let ((tgt (cdr (assoc :redirect seen))))
                                   (and (search "/img/temp/stub.pdf" tgt) t)))))

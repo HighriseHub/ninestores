@@ -220,17 +220,24 @@
   (chk "vendor 1's FREIGHT product is there to bill under" (and product t) t)
   (chk "its product code is the one the migration seeds"
        (and product (slot-value product 'product-code)) "FREIGHT-1")
+  ;; ⚠ THESE EXPECTATIONS MOVED ON 2026-10-11, with the rule they assert: the spare paise of an inclusive
+  ;; charge belongs in the TAXABLE VALUE, not in one tax head. ₹100.00 at 9 + 9 holds perhaps 15.25 of tax,
+  ;; but 84.75 + 7.63 + 7.63 = 100.01 — so the TAXABLE VALUE gives instead: 84.74 + 7.63 + 7.63 = 100.00,
+  ;; with CGST = SGST (equal by construction, each exactly 9% of the taxable value) and the line still
+  ;; totalling the ₹100.00 the customer pays. The old residual rule put the odd paise in SGST (7.63 + 7.62),
+  ;; which is the asymmetry a GST document must not show.
+  ;; See `nst-inclusive-paise-split` (core/dod-bl-utl.lisp) and knowledge/gst-tax-jurisdiction-CONTEXT.md §8.
   (let ((b2b (nst-freight-order-line nil 1 product 100.00 rates t)))
-    (chk "B2B: the taxable value is the charge NET of the tax inside it (84.75)" (slot-value b2b 'taxablevalue) 84.75)
+    (chk "B2B: the taxable value is the charge NET of the tax inside it (84.74)" (slot-value b2b 'taxablevalue) 84.74)
     (chk "B2B: CGST 7.63" (slot-value b2b 'cgstamt) 7.63)
-    (chk "B2B: SGST 7.62 (the residual, so the halves sum to the tax)" (slot-value b2b 'sgstamt) 7.62)
+    (chk "B2B: SGST 7.63 — EQUAL to CGST, no longer the residual" (slot-value b2b 'sgstamt) 7.63)
     (chk "B2B: no IGST" (slot-value b2b 'igstamt) 0.0)
     (chk "🚨 B2B: the line totals the 100.00 the vendor configured — the SAME the consumer pays"
          (slot-value b2b 'totalitemval) 100.0))
   (let ((b2c (nst-freight-order-line nil 1 product 100.00 rates nil)))
-    (chk "B2C: taxable 84.75" (slot-value b2c 'taxablevalue) 84.75)
-    (chk "B2C: the halves sum to the tax exactly (7.63 + 7.62)"
-         (round-to-2-decimal (+ (slot-value b2c 'cgstamt) (slot-value b2c 'sgstamt))) 15.25)
+    (chk "B2C: taxable 84.74" (slot-value b2c 'taxablevalue) 84.74)
+    (chk "B2C: the halves are EQUAL and sum to 15.26"
+         (round-to-2-decimal (+ (slot-value b2c 'cgstamt) (slot-value b2c 'sgstamt))) 15.26)
     (chk "B2C: the line still totals the 100.00 the customer pays"
          (slot-value b2c 'totalitemval) 100.0)
     (chk "B2C: and it adds up exactly"
@@ -254,7 +261,7 @@
     (chk "the cart gains the delivery line" (length items) 2)
     (chk "with its product alongside, for the stock pairing" (length products) 2)
     (chk "the order total is goods + the delivery charge, the tax inside it" amount 1280.0)
-    (chk "the tax total includes the delivery's tax (180 + 15.25)" tax 195.25)
+    (chk "the tax total includes the delivery's tax (180 + 15.26)" tax 195.26)
     (chk "🚨 and the SHIPPING_COST column drops to 0 — nothing counts the charge twice" chargeleft 0.0)
     (chk "and the gross the PAGES display is the 100.00 every buyer pays"
          (nth-value 5 (nst-cart-with-delivery-line goods (list :goods-product) 1180.00 180.00 100.00 "29ALSKDKJADS455" company))

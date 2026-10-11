@@ -500,7 +500,8 @@
 		(if (equal subscribe-flag "Y") (cl-who:htm (:p (:h5 (:span :class "label label-default" "Can be Subscribed")))))))
 	(with-html-div-row 
 	  (with-html-div-col-12 
-		(:h6 (cl-who:str (if (> (length description) 90)  (subseq description  0 90) description)))))
+		;; the same rule as the cart modal: an excerpt of AUTHORED markup must not be a raw SUBSEQ
+		(:h6 (cl-who:str (cl-who:escape-string (nst-plain-excerpt description 90))))))
 	(if (equal active-flag "N") 
 	    (cl-who:htm (:div :class "stampbox rotated" "INACTIVE" )))
 	(if (equal approved-flag "N")

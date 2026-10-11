@@ -67,8 +67,14 @@
 (defparameter *ordnum-happy* "ORD-DEMO-2026-27-3MZ6YN"
   "Order 485: ORDER_FULFILLED 'Y', vendor 1 holds a row, 6 live lines — the व्यंजन path.")
 
-(defparameter *ordnum-unfulfilled* "ORD-GCUST837-2026-27-Q33NZS"
-  "Order 493: ORDER_FULFILLED 'N', vendor 1 holds a row with 1 line — the refusal, then लोप ३.")
+(defparameter *ordnum-unfulfilled* "ORD-GCUST837-2025-26-6HWJME"
+  "Order 443: ORDER_FULFILLED 'N', its ONE line is VENDOR 1's (the harness overrides the vendor to 1, so a
+   one-line order belonging to another vendor would invoice zero lines), and the order charges NO delivery
+   — a legacy SHIPPING_COST would add the synthesized delivery line and make it two.
+   ⚠ RE-POINTED 2026-10-11: the previous fixture, order 493 ORD-GCUST837-2026-27-Q33NZS, has since been
+   FULFILLED, so the व्यंजन rule could no longer refuse it and §5 went on to write the very invoice its
+   first check asserts was not written. The premise is now also GUARDED below, so a fixture that drifts
+   again refuses with exit 2 instead of leaking an invoice into the database.")
 
 (defparameter *ordnum-freight* "ORD-GCUST837-2026-27-G98U4T"
   "Order 488: fulfilled, vendor 1 holds a row with 1 line, and the order charges 40.00 delivery —
@@ -133,6 +139,11 @@
     ((null happy) (format t "~&SETUP PROBLEM: order ~A is not in DOD_ORDER~%" *ordnum-happy*) (sb-ext:exit :code 2))
     ((equal (fourth happy) "Y") (format t "~&SETUP PROBLEM: order ~A is ALREADY invoiced (~A) — restore it before running this~%" *ordnum-happy* (fifth happy)) (sb-ext:exit :code 2))
     ((null unfulfilled) (format t "~&SETUP PROBLEM: order ~A is not in DOD_ORDER~%" *ordnum-unfulfilled*) (sb-ext:exit :code 2))
+    ;; 🚨 THE REFUSAL FIXTURE'S PREMISE, GUARDED — the check below is not enough on its own: when this
+    ;; order is already invoiced, or no longer unfulfilled, the व्यंजन rule cannot refuse it and §5 WRITES
+    ;; the invoice it asserts nothing wrote, which then makes §6 fail as a duplicate. Measured 2026-10-11.
+    ((equal (fourth unfulfilled) "Y") (format t "~&SETUP PROBLEM: order ~A is ALREADY invoiced (~A) — the refusal fixture must be un-invoiced~%" *ordnum-unfulfilled* (fifth unfulfilled)) (sb-ext:exit :code 2))
+    ((not (equal (third unfulfilled) "N")) (format t "~&SETUP PROBLEM: order ~A is ORDER_FULFILLED=~A, but the व्यंजन refusal needs an UNFULFILLED order~%" *ordnum-unfulfilled* (third unfulfilled)) (sb-ext:exit :code 2))
     ((null freightfx) (format t "~&SETUP PROBLEM: order ~A is not in DOD_ORDER~%" *ordnum-freight*) (sb-ext:exit :code 2))
     ((equal (fourth freightfx) "Y") (format t "~&SETUP PROBLEM: order ~A is ALREADY invoiced (~A)~%" *ordnum-freight* (fifth freightfx)) (sb-ext:exit :code 2))
     (t

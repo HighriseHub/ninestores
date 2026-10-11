@@ -551,6 +551,7 @@
    fetched it under its own tenant — so answering 'no such invoice' would be a lie,
    and the pipeline cannot proceed either. That is exactly the :U read-as-:F collapse
    this tree exists to prevent, and it reaches the client as 503 rather than 404."
+  (declare (ignore ctx))
   (let ((vendor (select-vendor-by-id (vendor-id entity)))
         (company (select-company-by-id (tenant-id entity))))
     (if (or (null vendor) (null company))
@@ -684,6 +685,7 @@
    The nil-vendor/tenant case is a :U for the same reason it is on the download route:
    the invoice exists, so 'no such invoice' would be false, while no link can be minted
    without the vendor's own identity in the key. 503, never 404."
+  (declare (ignore ctx))
   (let ((vendor (select-vendor-by-id (vendor-id entity)))
         (company (select-company-by-id (tenant-id entity))))
     (if (or (null vendor) (null company))
@@ -1056,8 +1058,10 @@
    from a parameter, and this is the same shape as conflodis2's company override.")
 
 (defun invh-paise (value)
-  "VALUE rounded to 2 decimal places as a FLOAT — what the money columns store."
-  (/ (round (* (float value) 100.0)) 100.0))
+  "VALUE rounded to 2 decimal places as a FLOAT — what the money columns store.
+   ⚠ DELEGATES to the ONE rounder, ROUND-TO-2-DECIMAL (core/dod-bl-utl.lisp). This was the same arithmetic
+   written a second time, and two copies of a rounder is how two layers come to disagree by a paise."
+  (round-to-2-decimal (float value)))
 
 (defun invh-slot (object slot)
   "SLOT's value on OBJECT, or NIL. A class that does not carry the slot is a fact, not a 500."
@@ -1091,36 +1095,69 @@
       (invh-gstin-state-digits (invh-slot customer 'gstin))
       (invh-state-code-of (invh-slot customer 'state))))
 
-(defun invh-line-args-from-order-line (order-line product statecode placeofsupply)
-  "One order line → one nst-invitm's initargs, mapped the way nst-ui-itm.lisp maps a typed line:
-   DISCOUNT stays the PERCENT the order carries and taxable = qty × price × (1 − disc/100); UOM is
-   'qty-per-unit unit-of-measure' because that is what this tree's live invoice lines hold; and the
-   tax is DERIVED from the product's HSN rate, because the legacy order lines carry NO tax amounts."
+(defun invh-line-args-from-order-line (order-line product statecode placeofsupply &optional rates-override)
+  "One order line → one nst-invitm's initargs — a TRANSCRIPTION of money the customer has already paid, not
+   a second computation of it. DISCOUNT stays the PERCENT the order carries; UOM is 'qty-per-unit
+   unit-of-measure' because that is what this tree's live invoice lines hold.
+
+   🚨 THE ORDER'S OWN MONEY WINS. A line whose money the order stored is COPIED — taxable value, the three
+   amounts and the total verbatim — because two channels re-deriving one sale is how they come to disagree.
+   MEASURED on ORD-GCUST837-2026-27-K8KGSX: the order stored 2.86 + 2.85 = 120.00 while recomputation gave
+   2.86 + 2.86 = 120.01, and the invoice header then read 1600.51 against the order's 1600.50. A LEGACY line
+   that stored no money is computed, through NST-LINE-MONEY (core/dod-bl-utl.lisp) — the same one rounder
+   and one state rule as the cart — so not even the computing branch rounds its own way.
+
+   ⚠ RATES-OVERRIDE is how the ORDER'S OWN DELIVERY LINE is mapped when the line stored no rates itself. A
+   charge ancillary to a supply of goods is a COMPOSITE SUPPLY taxed at the PRINCIPAL supply's rate
+   (CGST §8) — the rule the cart (order/dod-bl-odt.lisp, nst-freight-order-line) and the legacy fallback
+   here (invh-freight-line-args) both already apply — so that line must NEVER take its rate from the FREIGHT
+   PRODUCT's own code: FREIGHT-<id> carries SAC 9965, which has no rate row in DOD_GST_HSN_CODES and never
+   should for this purpose. MEASURED: invoice NST00117-2026 wrote taxable 114.29 with CGST/SGST 0.00 while
+   the order line it copies carried 2.86 + 2.85 at 2.50% — the DRAFT finished ₹5.71 short."
   (let* ((qty (or (invh-slot order-line 'prd-qty) 0))
          (price (float (or (invh-slot order-line 'unit-price) 0)))
          (disc (float (or (invh-slot order-line 'disc-rate) 0)))
          (taxable (invh-line-taxable-value order-line))
-         (intrastate (equal statecode placeofsupply))
-         (rates (get-gstvalues-for-product product))
-         (cgstrate (float (or (first rates) 0)))
-         (sgstrate (float (or (second rates) 0)))
-         (igstrate (float (or (third rates) 0)))
-         (cgstamt (if intrastate (invh-paise (* taxable (/ cgstrate 100))) 0.0))
-         (sgstamt (if intrastate (invh-paise (* taxable (/ sgstrate 100))) 0.0))
-         (igstamt (if intrastate 0.0 (invh-paise (* taxable (/ igstrate 100))))))
-    (list :prd-id (invh-slot product 'row-id)
-          :prddesc (invh-slot product 'prd-name)
-          :hsncode (or (invh-slot product 'hsn-code) "000000")
-          :qty qty
-          :uom (format nil "~A ~A" (invh-slot product 'qty-per-unit) (invh-slot product 'unit-of-measure))
-          :price price
-          :discount disc
-          :taxable-value taxable
-          :cgstrate cgstrate :cgstamt cgstamt
-          :sgstrate sgstrate :sgstamt sgstamt
-          :igstrate igstrate :igstamt igstamt
-          :totalitemval (invh-paise (+ taxable (if intrastate (+ cgstamt sgstamt) igstamt)))
-          :status "CONFIRMED")))
+         (stored-total (invh-slot order-line 'totalitemval))
+         ;; A line that carries its own tax is one whose RATE columns were written. A LEGACY line has NULL
+         ;; rates — the writer used to discard :cgst/:sgst/:igst — while its amounts may still be real.
+         (stored-rates (and (invh-slot order-line 'cgst)
+                            (list (invh-slot order-line 'cgst) (invh-slot order-line 'sgst)
+                                  (invh-slot order-line 'igst))))
+         (rates (or stored-rates rates-override (get-gstvalues-for-product product)))
+         ;; WHAT THIS SALE WOULD COST, had it to be computed: NST-LINE-MONEY, the one place in the tree that
+         ;; rounds (core/dod-bl-utl.lisp), so this path cannot round its own way either.
+         (computed (multiple-value-list (nst-line-money qty price disc rates statecode placeofsupply)))
+         (copy-p (and stored-total (plusp (float stored-total))))
+         ;; BOTH BRANCHES PRODUCE THE SAME 8-ELEMENT SHAPE as NST-LINE-MONEY returns, so the destructuring
+         ;; below cannot read the wrong figure from the wrong branch.
+         (money (if copy-p
+                    ;; ⚠ THE RATE INDICES ARE 1/2/3, NOT 0/1/2: NST-LINE-MONEY's first value is the TAXABLE
+                    ;; value. Written as FIRST/SECOND/THIRD once and the taxable value landed in CGSTRATE —
+                    ;; measured on order 488's fixture, where the delivery line then took a "principal rate"
+                    ;; of 1140.0 + 9.0 and priced 40.00 of delivery at 3.20.
+                    (list (round-to-2-decimal taxable)
+                          (float (or (nth 1 computed) 0.0)) (float (or (nth 2 computed) 0.0))
+                          (float (or (nth 3 computed) 0.0))
+                          (invh-paise (or (invh-slot order-line 'cgstamt) (nth 4 computed)))
+                          (invh-paise (or (invh-slot order-line 'sgstamt) (nth 5 computed)))
+                          (invh-paise (or (invh-slot order-line 'igstamt) (nth 6 computed)))
+                          (invh-paise stored-total))
+                    computed)))
+    (destructuring-bind (taxable-value cgstrate sgstrate igstrate cgstamt sgstamt igstamt totalitemval) money
+      (list :prd-id (invh-slot product 'row-id)
+            :prddesc (invh-slot product 'prd-name)
+            :hsncode (or (invh-slot product 'hsn-code) "000000")
+            :qty qty
+            :uom (format nil "~A ~A" (invh-slot product 'qty-per-unit) (invh-slot product 'unit-of-measure))
+            :price price
+            :discount disc
+            :taxable-value taxable-value
+            :cgstrate (float (or cgstrate 0.0)) :cgstamt cgstamt
+            :sgstrate (float (or sgstrate 0.0)) :sgstamt sgstamt
+            :igstrate (float (or igstrate 0.0)) :igstamt igstamt
+            :totalitemval totalitemval
+            :status "CONFIRMED"))))
 
 (defun invh-stored-header-row (row-id tenant-id)
   "The header ROW-ID actually is, or NIL. 🚨 MEASURED 2026-10-06: a database-side trigger re-derives
@@ -1216,31 +1253,26 @@
   "The ancillary line for a LEGACY charge: owned by the order's SHIPPING_COST, which was collected with NO
    tax on it, so the share is treated as INCLUSIVE — the tax is taken out of the amount the customer
    already paid, and the invoice's total then equals the order's instead of exceeding it. New orders carry
-   their own delivery LINE and never reach here (see the guard in invh-assemble-from-order)."
-  (destructuring-bind (cgstrate sgstrate igstrate) rates
-    (let* ((intrastate (or (plusp (float cgstrate)) (plusp (float sgstrate))))
-           (rate (if intrastate (+ (float cgstrate) (float sgstrate)) (float igstrate))))
-      (multiple-value-bind (taxable tax) (nst-shipping-tax-split share rate :inclusive t)
-        (let* ((cgstamt (if intrastate
-                            (if (plusp (float sgstrate))
-                                (invh-paise (* taxable (/ (float cgstrate) 100)))
-                                tax)
-                            0.00))
-               (sgstamt (if intrastate (- tax cgstamt) 0.00))
-               (igstamt (if intrastate 0.00 tax)))
-      (list :prd-id (invh-slot product 'row-id)
-            :prddesc (invh-slot product 'prd-name)
-            :hsncode (or (invh-slot product 'hsn-code) "9965")
-            :qty 1
-            :uom (format nil "~A ~A" (invh-slot product 'qty-per-unit) (invh-slot product 'unit-of-measure))
-            :price taxable
-            :discount 0.0
-            :taxable-value taxable
-            :cgstrate (float cgstrate) :cgstamt cgstamt
-            :sgstrate (float sgstrate) :sgstamt sgstamt
-            :igstrate (float igstrate) :igstamt igstamt
-            :totalitemval (invh-paise (+ taxable cgstamt sgstamt igstamt))
-            :status "CONFIRMED"))))))
+   their own delivery LINE and never reach here (see the guard in invh-assemble-from-order).
+
+   THE ARITHMETIC IS NST-LINE-MONEY's (core/dod-bl-utl.lisp) — the same one rounder and one state rule as
+   the cart and the walk-in invoice pages — with the state pair left out because the RATES already answer
+   it (a CGST/SGST pair is intra-state)."
+  (multiple-value-bind (taxable cgstrate sgstrate igstrate cgstamt sgstamt igstamt totalitemval)
+      (nst-line-money 1 share 0.00 rates nil nil :inclusive t)
+    (list :prd-id (invh-slot product 'row-id)
+          :prddesc (invh-slot product 'prd-name)
+          :hsncode (or (invh-slot product 'hsn-code) "9965")
+          :qty 1
+          :uom (format nil "~A ~A" (invh-slot product 'qty-per-unit) (invh-slot product 'unit-of-measure))
+          :price taxable
+          :discount 0.0
+          :taxable-value taxable
+          :cgstrate cgstrate :cgstamt cgstamt
+          :sgstrate sgstrate :sgstamt sgstamt
+          :igstrate igstrate :igstamt igstamt
+          :totalitemval totalitemval
+          :status "CONFIRMED")))
 
 (defun invh-assemble-lines-from-order (header line-args ctx)
   "One nst-invitm per LINE-ARGS through the ferry. T when every line landed, else the first
@@ -1257,10 +1289,26 @@
    link columns — in that order, so a failure anywhere leaves nothing a reader could mistake for a
    document. Returns the nst-invh, or the first sentinel a step refused with."
   (let* ((customer (get-customer order))
+         ;; 🚨 THE ORDER'S OWN DELIVERY LINE RIDES WITH THE GOODS (see the rates-override note above): it is
+         ;; a composite supply taxed at the principal goods' rate, so it is mapped SEPARATELY — and the
+         ;; PRINCIPAL RATE IS VOTED ON BY THE GOODS ALONE, because an ancillary line must not sway it (it
+         ;; could otherwise elect itself as principal and hand the whole charge a 0% rate).
+         (carried-freight-p (let ((fp (invh-freight-product-for vendor tenant-id)))
+                              (and fp (lambda (line)
+                                        (let ((p (get-item-product line)))
+                                          (and p (equal (invh-slot p 'row-id)
+                                                        (invh-slot fp 'row-id))))))))
          (goods-args (mapcar (lambda (line)
                                (invh-line-args-from-order-line line (get-item-product line)
                                                                statecode placeofsupply))
-                             lines))
+                             (if carried-freight-p (remove-if carried-freight-p lines) lines)))
+         (principal-rates (invh-principal-rate-triple goods-args))
+         (carried-freight-args
+           (and carried-freight-p
+                (mapcar (lambda (line)
+                          (invh-line-args-from-order-line line (get-item-product line)
+                                                          statecode placeofsupply principal-rates))
+                        (remove-if-not carried-freight-p lines))))
          ;; 🚨 ONE DELIVERY CHARGE PER INVOICE. An order created since the cart change carries its own
          ;; delivery LINE, so the charge is already in the lines and this fallback must stay silent:
          ;; measured rule, asserted by the verifier (nst-order-has-freight-line-p, order layer).
@@ -1269,9 +1317,8 @@
                     (invh-freight-share order vendor tenant-id)))
          (freight-product (and (plusp share) (invh-freight-product-for vendor tenant-id)))
          (freight-args (and freight-product
-                             (invh-freight-line-args freight-product share
-                                                     (invh-principal-rate-triple goods-args))))
-         (line-args (append goods-args (and freight-args (list freight-args))))
+                             (invh-freight-line-args freight-product share principal-rates)))
+         (line-args (append goods-args carried-freight-args (and freight-args (list freight-args))))
          (total (invh-paise (reduce #'+ line-args :key (lambda (a) (getf a :totalitemval))
                                     :initial-value 0.0)))
          (header-params

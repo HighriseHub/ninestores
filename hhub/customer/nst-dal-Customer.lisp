@@ -1209,14 +1209,14 @@
     :DB-INFO (:JOIN-CLASS dod-company
 	      :HOME-KEY tenant-id
               :FOREIGN-KEY row-id
-              :SET nil)))
+              :SET nil))
     
    (doc-prefix
     ;; varchar(8) in the DB, and NEVER char(8): char pads with spaces, and the pad
     ;; would land inside every document number built from it.
     :type (string 8)
     :column "DOC_PREFIX"
-    :initarg :doc-prefix)
+    :initarg :doc-prefix))
   (:base-table dod_cust_profile))
 
 
