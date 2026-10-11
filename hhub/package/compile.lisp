@@ -137,6 +137,13 @@
      "core/extkeys.lisp"
      "core/nst-bl-act.lisp" ;; Actor Model Implementation
      "core/nst-bl-otp.lisp"
+     ;; The migration FRAMEWORK: *migrations*, apply-migrations, the seed helpers.
+     ;; LOADING IT RUNS NOTHING (every top-level form is in-package/defparameter/defun), and the
+     ;; migration BODIES stay out of both this list and nstores.asd — installation/upgrades/*.lisp,
+     ;; loaded only inside apply-migrations by load-upgrade-files. Being absent here was what let the
+     ;; image's registry go stale while the functions on disk stayed current (trap 10), so a newly
+     ;; registered version was never queued, never refused and never reported.
+     "core/nst-sch-mig.lisp"
      "core/nst-mult-logic.lisp"
      "core/nst-bl-beltrusys.lisp" ;; Belnap 4 valued truth system; Syatvad in Jainism. 
      "core/nst-bl-conflodis.lisp" ;; Context Flow Dispatcher.
