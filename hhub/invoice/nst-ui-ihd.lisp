@@ -1259,6 +1259,49 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
   :description "Serves the invoice PDF to a customer reading the public invoice page. No session check : the key is the authorisation, the same as the page itself."
   (hunchentoot:redirect (create-model-for-invoice-public-pdf-url)))
 
+(defun invoice-order-number-for-print (invheader)
+  "The ORDER number this invoice was raised from, or NIL — what the tax invoice prints on its
+   '%Order Number%' line.
+
+   🚨 THE LEGACY HEADER CLASS DOES NOT CARRY IT, SO IT IS LOOKED UP, NOT READ. `invheader` here is the
+   legacy DDD `dod-Invoice-Header` (the public page builds it through the InvoiceHeaderAdapter), which has
+   no order slot at all — and the slot is deliberately NOT added to that class, because it serves the
+   STANDALONE POS-style invoice too and design D4 says that path is not to be disturbed. A blind
+   (slot-value invheader 'order-number) would signal, and nst-slot-str is not nil-SAFE-FOR-A-MISSING-SLOT
+   either (it is nil-safe for a NIL VALUE), so the read has to be the modern domain class's.
+
+   The link is CONTEXT_ID: ord→inv copies the ORDER's own context-id onto the invoice
+   (nst-bl-invhapi.lisp §9), and the order's row is found by it. An invoice with no such order — the
+   standalone POS path, or an order-linked invoice raised BEFORE US-012 — answers NIL, which the caller
+   renders as an EMPTY STRING. Leaving the literal '%Order Number%' token on a customer's invoice is the
+   defect this function exists to prevent (gstinvoice2.html printed exactly that).
+
+   It also does NOT depend on the invoice's own ORDER_NUMBER column being populated, so an invoice raised
+   before US-012 still prints its order number if the order is still resolvable.
+
+   ⚠ THE TENANT COMES FROM THE INVOICE, NOT FROM A SESSION. The public invoice page has NO vendor session
+   at all — it is opened with a signed key or a render token — so `get-order-by-context-id`, which wants a
+   company INSTANCE, cannot be used here: it would answer NIL on exactly the page a customer reads, and
+   the number would print for the vendor's own preview while vanishing from the delivered PDF. The header's
+   own `tenant-id` is used instead, with the same client-side predicate the ORM call would have applied."
+  (let ((invnum (ignore-errors (slot-value invheader 'invnum)))
+        (context-id (ignore-errors (slot-value invheader 'context-id)))
+        (tenant-id (ignore-errors (slot-value invheader 'tenant-id))))
+    (when (and invnum tenant-id)
+      (let ((invh (nst-select-invoice-header-by-invnum invnum tenant-id)))
+        (or (ignore-errors (slot-value invh 'order-number))
+            (let* ((ctx (or (ignore-errors (slot-value invh 'context-id)) context-id))
+                   ;; ⚠ A FORMAT-BUILT WHERE, NOT A `[ … ]` SQL LITERAL: this file never enables
+                   ;; clsql's reader syntax (it is a legacy UI file that builds no queries), so a bracket
+                   ;; form would not READ here at all. Every value goes through sql-literal, which doubles
+                   ;; quotes and backslashes — the same escaping the migration helpers use.
+                   (order (and ctx
+                               (car (clsql:select 'dod-order
+                                                  :where (format nil "CONTEXT_ID='~A' AND TENANT_ID=~D AND DELETED_STATE='N'"
+                                                                 (sql-literal ctx) tenant-id)
+                                                  :caching nil :flatp t)))))
+              (ignore-errors (slot-value order 'ordnum))))))))
+
 (defun invoicetemplatefill (invoicetemplate invheader invoiceitems invoiceitemshtmlfunc  invoicetaxbreakdownfunc qrcodepath currency vendor) 
   (function (lambda ()
     (progn
@@ -1287,7 +1330,13 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 
     (with-slots (row-id invnum invdate customer  custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear status vendor company) invheader
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Invoice Number%" invoicetemplate (or invnum "")))
-      ;;(setf invoicetemplate (cl-ppcre:regex-replace-all "%Order Number%" invoicetemplate ordernum))
+      ;; THE ORDER REFERENCE (US-008's remaining gap; template gstinvoice2 prints this line). Resolved
+      ;; from the invoice/order link rather than read off this legacy class, which has no order slot —
+      ;; see invoice-order-number-for-print. A STANDALONE POS-style invoice has no order, so the token is
+      ;; replaced with an EMPTY STRING: the line prints blank rather than showing '%Order Number%' to a
+      ;; customer, which is what this template did until now.
+      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Order Number%" invoicetemplate
+                                                        (or (invoice-order-number-for-print invheader) "")))
       ;;(setf invoicetemplate (cl-ppcre:regex-replace-all "%Order Date%" invoicetemplate orderdate))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Invoice Date%" invoicetemplate (or (get-date-string invdate) "")))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Invoice Status%" invoicetemplate (or status "")))

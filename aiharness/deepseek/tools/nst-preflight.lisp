@@ -177,7 +177,23 @@
     "hhub/customer/dod-ui-cus.lisp"
     "installation/upgrades/nst-dbu-vendor-order-amount-repair.lisp"
     ;; the model/widget seam checker the cart story added, in Lisp so it needs no image and no python3
-    "aiharness/deepseek/tools/nst-model-widget-check.lisp")
+    "aiharness/deepseek/tools/nst-model-widget-check.lisp"
+    ;; US-012 (2026-10-12): the order reference on the invoice — two columns on the header, one on the
+    ;; line. An upgrade file is in NEITHER build list, so this reader check is its only structural check.
+    "installation/upgrades/nst-dbu-invoice-order-link.lisp"
+    ;; US-013 (2026-10-12): the vendor's edit lock — the state, the audit trail, and the vendor setting
+    ;; that decides the default. Also an upgrade file, for the same reason.
+    "installation/upgrades/nst-dbu-invoice-lock.lisp"
+    "hhub/invoice/nst-dal-invh.lisp"
+    "hhub/invoice/nst-dal-invitm.lisp"
+    "hhub/invoice/nst-bl-invh.lisp"
+    "hhub/invoice/nst-bl-invitm.lisp"
+    ;; the vendor setting's shipped default now carries the lock key. ⚠ nst-ui-ihd.lisp is NOT added:
+    ;; its top-level forms reference package CL-SMTP, which this tool does not load, so the reader stops
+    ;; with "Package CL-SMTP does not exist" — a missing DEPENDENCY, not a defect in the file. Recorded
+    ;; rather than worked around, because a check that reports a healthy file as broken is the
+    ;; false-positive class this corpus warns about; the template is checked here instead.
+    "hhub/invoice/templates/invoicesettings.lisp")
   "The files of the CURRENT story's change set. Add each story's files as it lands: a check
    that does not look at a file cannot find anything in it.")
 

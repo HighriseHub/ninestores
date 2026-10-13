@@ -312,6 +312,40 @@
 ;;; !update — !state प्रत्यय
 ;;; ───────────────────────────────────────────────────────────────────────────
 
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; THE LOCK — one lock, one reason: this invoice came from an order (E1/US-013)
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; The requester's ruling, and the reason it is ONE lock rather than a set of
+;;; named ones: "let's go with order-to-invoice flow lock and that is the reason.
+;;; Will extend it later." So the reason is not a column and not a code — it is
+;;; IMPLIED BY THE DOCUMENT: an invoice carrying ORDER_NUMBER / ORDER_ID is the
+;;; one the order-to-invoice junction produced, and that is why it is protected.
+;;; Nothing needs to record "why" separately, and a later extension to enumerated
+;;; reasons is additive (a reason column or a lock ledger) rather than a rewrite.
+;;;
+;;; WHO DECIDES IT IS LOCKED AT BIRTH is the vendor SETTING, not this file:
+;;; `invh-lock-order-derived-invoices-p` in nst-bl-invhapi.lisp reads
+;;; `lock-order-derived-invoices-invoice` under the vendor's `security-settings`,
+;;; and an absent key means DO NOT LOCK — the requester's own case, where items
+;;; are added in the nick of time after the order and a per-invoice unlock would
+;;; be pure friction.
+
+(defun invh-locked-p (header)
+  "T when HEADER's vendor lock holds. 'Y' is the only locked value; the column is
+   char(1) NOT NULL DEFAULT 'N', so NIL cannot occur on a row read from the
+   database — but a freshly built entity has not been through the column yet, and
+   NIL must read as 'not locked' rather than signalling."
+  (equal (string-upcase (or (invoice-locked header) "N")) "Y"))
+
+(defun invh-lock-audit-fields-p (update-args)
+  "T when UPDATE-ARGS touch ONLY the lock's own columns — the audit quartet and the
+   state flag. Those are the LOCK! verb's business, and nothing else's; every other
+   field is refused while the lock holds."
+  (let ((allowed '(:invoice-locked :unlocked-by-user-id :unlocked-by-vendor-id :unlocked-at)))
+    (and update-args
+         (loop for (k v) on update-args by #'cddr always (member k allowed)))))
+
 (defmethod !update ((entity-class (eql 'nst-invh)) (row-id string) (ctx domain-ctx)
                     &rest update-args)
   "Assign columns on an existing header. A PARTIAL update: the row is selected,
@@ -324,6 +358,15 @@
   the configuration says edits after generation are permitted, so refusing here
   would be this file inventing a policy the settings already state the other
   way. delete! is where the legal line is drawn, not here.
+
+  🚨 BUT IT **IS** BLOCKED WHILE THE VENDOR'S LOCK HOLDS — THAT IS US-013, and this
+  is the only place the lock can be enforced: the API, the UI and any future
+  caller all arrive here, so a guard at this seam cannot be gone around. It
+  REFUSES (a contradiction → 409) rather than silently dropping the fields,
+  because a write that quietly does nothing is worse than one that says no: the
+  order side's *ordh-never-writable-fields* takes the same position for the same
+  reason. An unlock is the vendor's deliberate act (see LOCK! below), never a
+  side effect of editing.
 
   ⚠ INV_DATE IS A CLSQL DATE OBJECT, NOT A STRING. update-args reach here from
   the ferry unchanged, so a caller posting \"24/09/2026\" hands this method a
@@ -341,24 +384,134 @@
                              :reason (format nil "Invoice header row-id ~A not found in this tenant (or already deleted)" row-id))
               (let ((entity (make-instance 'nst-invh :tenant-id tenant-id)))
                 (nst-copy-invoice-header-dbtodomain dbobj entity)   ; hydrate current state
-                (apply #'reinitialize-instance entity update-args)  ; CLOS partial update
-                (nst-copy-invoice-header-domaintodb entity dbobj)
-                (let ((knowledge (with-nst-db-update (:source "nst-invh/!update")
-                                    (clsql:update-records-from-instance dbobj)
-                                    dbobj)))
-                  (case (bo-knowledge-truth knowledge)
-                    (:T entity)
-                    (:U ;; The write did not complete and the row's state is
-                        ;; unknown → 503: the invoice exists, we just cannot say
-                        ;; what happened to it. NOT a 404 and NOT a 500.
-                        (domain-sentinel-from-knowledge
-                         knowledge ctx
-                         :reason (format nil "Invoice header update, row-id ~A: the database call did not answer — the row's current state is unknown" row-id)))
-                    (:F ;; Unreachable: with-nst-db-update was called without
-                        ;; :pre-flight, so :F cannot be produced (the SELECT above
-                        ;; already confirmed the row).
-                        (error "Unreachable: with-nst-db-update without :pre-flight cannot return :F (invoice header row-id ~A)" row-id))
-                    (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge)))))))))))
+                (cond
+                  ;; 🚨 THE LOCK REFUSES AN EDIT — see this method's docstring. Placed AFTER the row is
+                  ;; read (so it reports on the row that actually exists, not on a guess) and BEFORE
+                  ;; anything is written. It answers the same sentence the API turns into a 409.
+                  ((and (invh-locked-p entity) (not (invh-lock-audit-fields-p update-args)))
+                   (make-instance 'nst-entity-contradiction
+                                  :tenant-id tenant-id
+                                  :reason (format nil "Invoice ~A is locked because it was generated from an order. Unlock it first, then make the change — the lock is there so an invoice that came from an order cannot be edited quietly. Nothing has been written."
+                                                  (or (invnum entity) row-id))))
+                  (t
+                   (apply #'reinitialize-instance entity update-args)  ; CLOS partial update
+                   (nst-copy-invoice-header-domaintodb entity dbobj)
+                   (let ((knowledge (with-nst-db-update (:source "nst-invh/!update")
+                                       (clsql:update-records-from-instance dbobj)
+                                       dbobj)))
+                     (case (bo-knowledge-truth knowledge)
+                       (:T entity)
+                       (:U ;; The write did not complete and the row's state is
+                           ;; unknown → 503: the invoice exists, we just cannot say
+                           ;; what happened to it. NOT a 404 and NOT a 500.
+                           (domain-sentinel-from-knowledge
+                            knowledge ctx
+                            :reason (format nil "Invoice header update, row-id ~A: the database call did not answer — the row's current state is unknown" row-id)))
+                       (:F ;; Unreachable: with-nst-db-update was called without
+                           ;; :pre-flight, so :F cannot be produced (the SELECT above
+                           ;; already confirmed the row).
+                           (error "Unreachable: with-nst-db-update without :pre-flight cannot return :F (invoice header row-id ~A)" row-id))
+                       (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge)))))))))))))
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; lock! — THE VENDOR'S DELIBERATE ACT (E1/US-013)
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; TWO DIRECTIONS, EACH RECORDED: LOCKED = 'Y' protects the document, 'N' releases
+;;; it, and every call stamps WHEN and BY WHOM from the SESSION. The requester
+;;; asked for both — a vendor who fixed a mistake must be able to put the
+;;; protection back — and the audit columns are overwritten by the next action of
+;;; either kind, so INVOICE_LOCKED is the STATE and UNLOCKED_AT is when it last
+;;; CHANGED. Neither alone tells the whole story.
+;;;
+;;; IT IS THE ONLY WRITER OF THOSE FOUR COLUMNS, which is what makes the lock a
+;;; control rather than a suggestion: !update refuses any other field while the
+;;; lock holds, and this method is the one path that may set them (see
+;;; invh-lock-audit-fields-p).
+;;;
+;;; THE ACTOR IS THE SESSION VENDOR, never a payload — the same rule the junction
+;;; follows for whose invoice this is (नियम-1). A caller-supplied :vendor-id would
+;;; be an audit column a client can write, which is not an audit column at all.
+;;;
+;;; ⚠ THE SESSION IS READ HERE DIRECTLY, NOT THROUGH THE ORDER LAYER'S
+;;; `vordh-session-vendor`. That helper does exactly this read, but it lives in
+;;; order/nst-bl-vordhapi.lisp, which this file's section of nstores.asd loads
+;;; AFTER the invoice section — so calling it would make the INVOICE domain depend
+;;; backwards on the ORDER domain for a five-line session read, and would fail
+;;; outright in any image that loaded the invoice half alone. The read itself is
+;;; conflodis2's tolerant session reader (NIL, not a signalling hunchentoot call,
+;;; when there is no session) and every failure to establish an identity is NIL —
+;;; fail closed, never fall back to a body-supplied row-id.
+;;;
+;;; ⚠ `:login-user` IS USUALLY ABSENT FOR A VENDOR SESSION, so the user id is
+;;; best-effort and normally NULL — the same limitation the order side records for
+;;; CREATED_BY_USER_ID, and the reason UNLOCKED_BY_VENDOR_ID is the column that
+;;; actually carries the audit.
+
+(defun invh-session-vendor-row-id ()
+  "The session vendor's ROW-ID as an INTEGER, or NIL. An integer because the column and every scope
+   comparison are integers, and a string would compare 47 against \"47\" and match nothing."
+  (let ((vendor (ignore-errors (conflodis2-session-value :login-vendor))))
+    (and vendor (ignore-errors (slot-value vendor 'row-id)))))
+
+(defun invh-actor-user-row-id (ctx)
+  "The acting session USER's row-id, or NIL — best effort, and deliberately narrow: the कार्ता is either
+   a user OBJECT or a role NAME, so a row-id is stamped only when it is an object carrying one. It NEVER
+   reads the request payload; an audit column a client can set is not an audit column."
+  (let ((actor (ignore-errors (domain-ctx-actor ctx))))
+    (and actor (ignore-errors (slot-value actor 'row-id)))))
+
+(defmethod lock! ((entity-class (eql 'nst-invh)) (row-id string) (ctx domain-ctx) &rest args)
+  "Set the vendor's edit lock on an invoice header. Returns the nst-invh, or a sentinel.
+
+   ARGS: :locked — required, \"Y\"/\"N\" (or T/NIL). A LOCK AND AN UNLOCK ARE THE SAME VERB because they
+   are the same fact written two ways, and separating them would duplicate the actor, the timestamp and
+   every refusal."
+  (let* ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
+         (rid (invoice-header-row-id-from-string row-id))
+         (wanted (getf args :locked))
+         (locked-str (cond ((or (eq wanted t) (equal wanted "Y") (equal wanted "y")) "Y")
+                           ((or (eq wanted nil) (equal wanted "N") (equal wanted "n")) "N")
+                           (t nil)))
+         (vendor-id (invh-session-vendor-row-id))
+         (actor-user (invh-actor-user-row-id ctx)))
+    (cond
+      ((null rid)
+       (make-instance 'nst-entity-nil :tenant-id tenant-id
+                      :reason (format nil "~S does not address an invoice header row (row-ids are integers)" row-id)))
+      ((null locked-str)
+       (make-instance 'nst-entity-contradiction :tenant-id tenant-id
+                      :reason "A lock change must say which way: :locked \"Y\" to lock, \"N\" to unlock. Nothing has been written."))
+      (t
+       (let ((dbobj (select-invoice-header-by-row-id rid tenant-id)))
+         (if (null dbobj)
+             (make-instance 'nst-entity-nil :tenant-id tenant-id
+                            :reason (format nil "Invoice header row-id ~A not found in this tenant (or already deleted)" row-id))
+             (let ((entity (make-instance 'nst-invh :tenant-id tenant-id)))
+               (nst-copy-invoice-header-dbtodomain dbobj entity)
+               (let ((knowledge (with-nst-db-update (:source "nst-invh/lock!")
+                                   ;; ONE COLUMN AT A TIME, through update-record-from-slot — the order
+                                   ;; side's link marker uses this shape for the same reason: a
+                                   ;; concurrent write to any other column cannot be clobbered by a
+                                   ;; whole-row write that carries a stale snapshot of it.
+                                   (setf (slot-value dbobj 'invoice-locked) locked-str)
+                                   (clsql:update-record-from-slot dbobj 'invoice-locked)
+                                   (setf (slot-value dbobj 'unlocked-by-vendor-id) vendor-id)
+                                   (clsql:update-record-from-slot dbobj 'unlocked-by-vendor-id)
+                                   (setf (slot-value dbobj 'unlocked-by-user-id) actor-user)
+                                   (clsql:update-record-from-slot dbobj 'unlocked-by-user-id)
+                                   (setf (slot-value dbobj 'unlocked-at) (clsql:get-time))
+                                   (clsql:update-record-from-slot dbobj 'unlocked-at)
+                                   dbobj)))
+                 (case (bo-knowledge-truth knowledge)
+                   (:T (nst-copy-invoice-header-dbtodomain dbobj entity)
+                       entity)
+                   (:U (domain-sentinel-from-knowledge
+                        knowledge ctx
+                        :reason (format nil "Invoice lock change, row-id ~A: the database call did not answer — the row's current state is unknown" row-id)))
+                   (:F (make-instance 'nst-entity-nil :tenant-id tenant-id
+                                      :reason (format nil "Invoice header row-id ~A not found in this tenant (or already deleted)" row-id)))
+                   (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge))))))))))))
 
 ;;; ───────────────────────────────────────────────────────────────────────────
 ;;; delete! — लोप प्रत्यय (soft, and only while DRAFT)
@@ -658,6 +811,13 @@
 (defparameter *invh-mirrored-slots*
   '(;; identity of the document
     invnum invdate finyear context-id
+    ;; the order this invoice bills (ord→inv): the readable cross-party number and
+    ;; the row it points at. BOTH NULL on a standalone POS-style invoice, so every
+    ;; reader treats NIL as 'not order-linked' rather than as a missing write.
+    order-number order-id
+    ;; the EDIT LOCK and its audit trail — 'Y' on an order-originated invoice, set by the junction.
+    ;; ⚠ state and trail only: no write guard consults these yet (PENDING-WORK §17).
+    invoice-locked unlocked-by-user-id unlocked-by-vendor-id unlocked-at
     ;; parties
     vendor-id custid custname custaddr custgstin user-id
     ;; addresses and place of supply
@@ -803,6 +963,16 @@
    (cons "invdate"                (invh-json-date (invdate r)))
    (cons "finyear"                (finyear r))
    (cons "contextId"              (context-id r))
+   ;; the order this invoice bills. contextId above is NOT it: that value is the
+   ;; cart's uuid session key, not the order number anyone quotes.
+   (cons "orderNumber"            (order-number r))
+   (cons "orderId"                (response-id-string (order-id r)))
+   ;; THE EDIT LOCK. A client needs `invoiceLocked` to render the control at all, and the audit pair so
+   ;; the page can say WHO unlocked it and WHEN rather than just showing an open padlock.
+   (cons "invoiceLocked"          (invh-json-flag (invoice-locked r)))
+   (cons "unlockedByUserId"       (response-id-string (unlocked-by-user-id r)))
+   (cons "unlockedByVendorId"     (response-id-string (unlocked-by-vendor-id r)))
+   (cons "unlockedAt"             (invh-json-timestamp (unlocked-at r)))
    ;; parties
    (cons "vendorId"               (response-id-string (vendor-id r)))
    (cons "custId"                 (response-id-string (custid r)))

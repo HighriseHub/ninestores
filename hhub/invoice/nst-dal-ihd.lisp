@@ -706,6 +706,44 @@
     :initarg :context-id
     :type (string 100)
     :accessor context-id)
+   ;; ── THE ord→inv LINK AND THE EDIT LOCK (US-012 / US-013) ──────────────────
+   ;; 🚨 THIS VIEW CLASS MUST DECLARE EVERY MIRRORED COLUMN, AND THAT IS NOT OPTIONAL.
+   ;; nst-copy-invoice-header-domaintodb drives (setf (slot-value destination slot) …) over
+   ;; *invh-mirrored-slots*, so a column in the MIRROR LIST but absent HERE is a MISSING-SLOT that
+   ;; aborts the write — measured on order 508's Generate Invoice (2026-10-12):
+   ;;   the slot COM.NSTORES.APP::ORDER-NUMBER is missing from
+   ;;   #<COM.NSTORES.APP::DOD-INVOICE-HEADER>
+   ;; Having the slot on the DOMAIN class (nst-invh) is not enough: THIS is the object the copier
+   ;; writes, and the copier's list is the domain's mirror list. The same rule governs
+   ;; dod-invoice-items' ORDER_ITEM_ID in nst-dal-itm.lisp.
+   ;;
+   ;; ⚠ The lesson generalises: adding a column means FOUR places, not two — the DB, the domain
+   ;; class, the response model, AND the CLSQL view class. The offline mirror checker only covers
+   ;; the domain/response pair, so it cannot see this one; only a real create can.
+   (order-number
+    :initarg :order-number
+    :type (string 50)
+    :accessor order-number)
+   (order-id
+    :initarg :order-id
+    :type integer
+    :accessor order-id)
+   (invoice-locked
+    :initarg :invoice-locked
+    :type (string 1)
+    :accessor invoice-locked)
+   (unlocked-by-user-id
+    :initarg :unlocked-by-user-id
+    :type integer
+    :accessor unlocked-by-user-id)
+   (unlocked-by-vendor-id
+    :initarg :unlocked-by-vendor-id
+    :type integer
+    :accessor unlocked-by-vendor-id)
+   (unlocked-at
+    :initarg :unlocked-at
+    :type clsql:wall-time
+    :accessor unlocked-at)
    (custid
     :initarg :custid
     :type integer

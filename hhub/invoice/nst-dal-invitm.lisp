@@ -55,6 +55,28 @@
      owner-entity-id, whose 0 genuinely means 'no owner'.) The tenant of a
      line is NOT taken from the header — it is the inherited tenant-id, checked
      by नियम-1 like every other entity.")
+   ;; ── THE ORDER LINE THIS LINE BILLS (ord→inv junction, design D1) ───────
+   (order-item-id
+    :initarg :order-item-id
+    :accessor order-item-id
+    :initform nil
+    :documentation
+    "ORDER_ITEM_ID mediumint NULL — DOD_ORDER_ITEMS.ROW_ID, the order line this
+     invoice line was transcribed from.
+
+     NULL means the line has NO order line behind it, and there are two ordinary
+     cases rather than one: (a) the standalone POS-style invoice, which has no
+     order at all; (b) THE SYNTHESISED DELIVERY LINE, which the junction derives
+     from the order's SHIPPING_COST when the order predates the cart's delivery
+     line (nst-bl-invhapi.lisp §9, invh-freight-line-args) — money the order
+     charges but no order LINE represents. So a NIL here is a fact about
+     provenance, never a missing write.
+
+     NO FOREIGN KEY, deliberately: DOD_ORDER_ITEMS has no unique key for an FK to
+     reference besides its primary key, and — the reason that matters — an
+     invoice line must NEVER be cascade-affected by an order row. The invoice is
+     the legal document and the order is not; the attribution is for the
+     three-way match and for returns, both of which read it as a hint.")
    ;; ── WHAT IS BEING SOLD ─────────────────────────────────────────────────
    (prd-id
     :initarg :prd-id
@@ -188,6 +210,11 @@
    (invheadid
     :initarg :invheadid
     :accessor invheadid)
+   ;; NULL when the line has no order line behind it — the standalone POS invoice,
+   ;; or the junction's synthesised delivery line. See nst-invitm's own slot.
+   (order-item-id
+    :initarg :order-item-id
+    :accessor order-item-id)
    (prd-id
     :initarg :prd-id
     :accessor prd-id)

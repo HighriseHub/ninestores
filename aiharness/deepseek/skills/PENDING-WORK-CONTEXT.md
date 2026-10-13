@@ -409,3 +409,312 @@ objects and `persist-order-items` — this is the evening's work. It is a GSTR-1
 a rate column that is never populated cannot feed a return, and the display's derived percentage **hides**
 that it is missing. Restart the image for the page changes; regenerate
 `hhub/core/nst-bl-funloodat.lisp` so `nst-symq` knows the new `nst-order-item-tax-rate`.
+
+## 15. 🟡 US-012 — the order reference on an invoice: **APPLIED**, awaiting a rebuild + live test · 2026-10-12
+
+The first slice of the **E1 Order to Invoice** epic (`order-to-invoice-flow-CONTEXT.md`): the design's D1
+line "the order ID is stored on the invoice", which before this did not hold in any readable form —
+the only tie was `CONTEXT_ID`, and that is the CART's `uuid:make-v1-uuid`, not the order number anyone
+quotes.
+
+**What is written and offline-verified.** Three nullable columns in
+`installation/upgrades/nst-dbu-invoice-order-link.lisp`, registered in `*migrations*` as
+`12102026-invoice-order-link`: `DOD_INVOICE_HEADER.ORDER_NUMBER varchar(50)` + `.ORDER_ID mediumint`,
+`DOD_INVOICE_ITEMS.ORDER_ITEM_ID mediumint`, plus three indexes. Four slots added across
+`nst-dal-invh.lisp`, `nst-dal-invitm.lisp`, `nst-bl-invh.lisp`, `nst-bl-invitm.lisp` (mirror lists,
+response models, `render-json`), and the junction now writes `:order-number` / `:order-id` /
+`:order-item-id`. **Proven offline:** `nst-preflight` PASS, and
+`nst-invoice-mirror-check` **55/55 header + 19/19 item** slots with no `MISSING-SLOT` (was 53/18).
+
+**✅ APPLIED 2026-10-12 as `hhubadmin` — and what remains is a rebuild and a live test, not a grant.**
+`hhubuser` holds only `SELECT, INSERT, UPDATE, DELETE` on `hhubdb` (`SHOW GRANTS`), so the migration has
+to run as a privileged account; it was applied with `(load-upgrade-files)` then
+`(apply-migrations "hhubadmin" …)`.
+
+**🚨 THE PRIVILEGE LESSON, because it will bite the next DDL migration.** `hhubadmin` held `ALTER` but
+**not `INDEX`** — MySQL separates them — so the run created both header columns and then died on the
+first `CREATE INDEX` with **Error 1142 / INDEX command denied**. `apply-migrations` catches
+PER-MIGRATION and continues **without recording the version**, so that run ended looking successful with
+2 of 6 statements applied and the migration still pending. The grant that fixes it is database-scoped
+(`INDEX` cannot be granted per table):
+
+```sql
+GRANT INDEX ON hhubdb.* TO 'hhubadmin'@'localhost';
+```
+
+The re-run then finished cleanly, and it was harmless **only** because `add-column-if-absent` /
+`add-index-if-absent` (in `nst-sch-mig.lisp`) printed `already present - skipping` and completed the rest.
+**Both facts belong to every future DDL migration: guard every ADD, and make sure the operator account
+holds `ALTER` + `INDEX`.** Full account: the header of `nst-dbu-invoice-order-link.lisp`.
+
+**Verified against the live catalog after the apply:** `DOD_INVOICE_HEADER.ORDER_NUMBER varchar(50) NULL`,
+`.ORDER_ID mediumint NULL`, `DOD_INVOICE_ITEMS.ORDER_ITEM_ID mediumint NULL`; `idx_invh_order_number`,
+`idx_invh_order_id`, `idx_invitm_order_item` all present and NON_UNIQUE; and
+`12102026-invoice-order-link` recorded in `DOD_SCHEMA_MIGRATIONS`.
+
+**⛔ WHAT REMAINS — the image predates the code.** The running process started **18:35** on 2026-10-12;
+the invoice sources were edited at **19:30** and compiled at 19:36, so the live HTTP server does not carry
+the new slots and the junction cannot write them. **Rebuild and restart** — `(compile-production)` s
+incremental **by deletion** (`clean-and-compile` is the only force). Then prove it, because the DDL is the
+easy half and the **junction is the thing to test**: create an invoice from a fulfilled order and assert
+the header carries the order's `ORDNUM` and row-id, each goods line carries its order-line row-id, the
+synthesised delivery line's `ORDER_ITEM_ID` is NULL, and the invoice JSON carries `orderNumber` /
+`orderId` / `orderItemId`. Existing rows stay NULL by the no-backfill decision below — that is expected,
+not a gap to chase.
+
+### 🚨 THE FIRST LIVE RUN FAILED, AND THE REASON IS A RULE ABOUT EVERY NEW COLUMN (2026-10-12, order 508)
+
+Generate Invoice on **order 508** answered:
+
+```
+the slot COM.NSTORES.APP::ORDER-NUMBER is missing from
+#<COM.NSTORES.APP::DOD-INVOICE-HEADER>
+   from NST-COPY-INVOICE-HEADER-DOMAINTODB → nst-invh `make`
+```
+
+**CAUSE: a new column needs FOUR declarations, not three — and the fourth is the CLSQL VIEW CLASS.**
+`*invh-mirrored-slots*` drives `(setf (slot-value destination slot) …)`, and the destination is a
+**`dod-Invoice-Header`** (`nst-dal-ihd.lisp`), NOT the domain class. The four columns had been added to
+the DB (US-012) and to `nst-invh` + `NstInvhResponseModel` (both), but not to the view class — so the
+domain object carried the value and the row object had nowhere to put it. The same applies to
+`dod-invoice-items.ORDER_ITEM_ID` (`nst-dal-itm.lisp`).
+
+**FIXED:** `dod-Invoice-Header` now declares `order-number`, `order-id`, `invoice-locked`,
+`unlocked-by-user-id`, `unlocked-by-vendor-id`, `unlocked-at`; `dod-invoice-items` declares
+`order-item-id`. Timestamps use `clsql:wall-time`, matching the class's own `created`/`updated`.
+
+⚠ **AND THE CHECKER THAT SHOULD HAVE CAUGHT IT COULD NOT, WHICH IS THE MORE IMPORTANT HALF.**
+`nst-invoice-mirror-check.lisp` compared the mirror list against the **entity and the response model**
+only — it never loaded the view class, so it reported **PASS** through this defect. It now loads
+`nst-dal-ihd.lisp` and `nst-dal-itm.lisp`, carries the view class as a **sixth** element of every pair, and
+reports `MISSING on VIEW (…)`. It also **fails when the view class is not loaded**, rather than passing
+silently — a check that skips its own target is how a broken file reads green.
+
+**MUTATION-TESTED BOTH WAYS:** with `order-number` deleted from the view class it prints
+`MISSING on VIEW (DOD-INVOICE-HEADER) = (ORDER-NUMBER)` and exits 1; restored, it passes. Current state:
+**59/59 header and 19/19 item** slots declared on entity, response AND view class.
+
+⚠ **Why the fix could be made at all, and why the earlier attempt could not:** the view-class slots only
+WORK once the DB columns exist, and US-012's migration had been applied (`ORDER_NUMBER`/`ORDER_ID` are
+live). The lock columns are NOT live yet, so this fix is correct but **still untestable until
+`12102026-invoice-lock` is applied** — applying it is now a prerequisite for Generate Invoice on any
+order whose vendor has the lock setting on, not merely a nice-to-have.
+
+* ⚠ **NO BACKFILL, by decision.** The 10 order-linked invoices (ROW_ID 112–141) are recoverable by
+  joining `CONTEXT_ID` → `DOD_ORDER.CONTEXT_ID` and deliberately are not: the standalone path's rows are
+  not resolvable at all, so a partial backfill would leave two populations that look alike and mean
+  different things.
+* ⚠ **The PDF half is NOT done** — `nst-ui-ihd.lisp:1290-1291` still has the `%Order Number%`
+  substitution commented out, and `gstinvoice2.html:109` still holds the raw token, so a vendor on
+  template 10 prints `%Order Number%` to their customer. That is the next slice, and it touches the
+  LEGACY renderer shared with the standalone invoice (design D4).
+* ⚠ **Also open:** `ORDER_ITEM_ID` is a **`DOD_ORDER_ITEMS.ROW_ID`**, which is sequential and
+  enumerable. It is stored as raw attribution, never as an address, which is why that is acceptable here
+  and would not be for an order number (F1).
+
+## 16. 🚨 NINE orders are marked invoiced with NO invoice number · measured 2026-10-12
+
+`IS_CONVERTED_TO_INVOICE='Y'` on **9** `DOD_ORDER` rows whose `INVOICE_NUMBER` is **NULL** — while the
+junction's own link write sets all three columns or rolls the whole invoice back
+(`nst-bl-invhapi.lisp:1361-1373`, whose refusal sentence is "the order would not know it was
+invoiced"). The invoices that DID get their numbers written are the recent ones (10 headers match an
+order on `CONTEXT_ID`, ROW_ID 112–141), so there are **two link-write populations in the data** and only
+one of them is complete.
+
+**What the vendor sees:** `vendor/dod-ui-ven.lisp:3393` renders `INVOICE <num> (DRAFT)` with
+`(or invoicenumber "?")` — those nine orders show **`INVOICE ? (DRAFT)`** on the order details page, and
+the page also suppresses the *Generate Invoice* button for them, so the vendor can neither see the number
+nor re-raise the invoice.
+
+**The fix is not chosen yet — this is a ledger entry, not a diagnosis.** Three shapes, in the order they
+should be considered: (a) repair `INVOICE_NUMBER` for those nine from the invoice found by
+`CONTEXT_ID`; (b) find why a link write left the flag set without the number (a legacy writer, or a
+partial write before the junction's transaction existed) and stop it recurring; (c) make the READ path
+stop depending on all three columns — once the invoice carries `ORDER_NUMBER` (§15) the number can be
+read from the invoice side instead of the order side. Do NOT fold this into §15's migration: they are
+different populations and different causes.
+
+## 17. 🟡 US-013 — the invoice edit lock: the STATE, the GUARD and the VERB exist; the ROUTE and the BUTTON do not · 2026-10-12
+
+Raised by the requester: *"a vendor would not like to modify the invoice if it is originated from an
+order… a lock invoice button which will be locked by default if it is originated from an order… we will
+note it in a column named invoice unlocked by and time."*
+
+🚨 **THEN REVISED BY THE REQUESTER THE SAME DAY, AND THE REVISION IS THE DESIGN:**
+
+> *"In India … when you order something and the invoice is prepared for that order, generally people add
+> more items in the nick of time after the order is placed as well. To accommodate such use cases, I
+> thought we should keep the invoice open ended and leave it to the vendor's discretion. In fact, we can
+> create a vendor setting about it. So the column in the invoice header stays. Let the custom setting
+> decide what the vendor wants to do with it."*
+
+So the rule is **not** "order-originated invoices are locked". It is: **the column stays, a vendor setting
+decides the default, and the vendor can still lock or unlock any single invoice by hand.** An earlier
+version of this change hardcoded `:invoice-locked "Y"` in the junction and backfilled the 10 order-linked
+invoices to `'Y'`; **both were withdrawn** — the second because it applied a choice no vendor had made in
+order to make a default look already-true.
+
+**The setting.** `lock-order-derived-invoices-invoice`, shipping under `security-settings` in
+`*invoice-settings*` (`hhub/invoice/templates/invoicesettings.lisp`) as `(enabled nil)`. **ABSENT OR NIL
+MEANS DO NOT LOCK**, which is the requester's own case: a vendor who adds items after the order must not
+pay a per-invoice Unlock on every invoice. Read by `invh-lock-order-derived-invoices-p`
+(`nst-bl-invhapi.lisp` §9) through `invh-vendor-registry-value` → `invh-settings-find`.
+
+**Two measurements that shaped the reader, both worth keeping:**
+1. **`DOD_VEND_PROFILE.INVOICE_SETTINGS` carries ONLY `INVOICE-PRINT-SETTINGS`** — **0 of 15 vendors** have a
+   `security-settings` section in their blob, because the settings page writes only the print section. A
+   reader that walked to `security-settings` first would have found the key for **nobody** and the setting
+   would have looked wired while being permanently unreadable. `invh-settings-find` therefore searches the
+   whole tree recursively, matching keys with hyphens removed (the JSON round-trip spelling).
+2. **A nested section shares its parent's key namespace** — the reader returns the SECTION, so the value
+   is unwrapped by `invh-settings-boolean`, which understands both a leaf `t`/`nil` and an `(enabled …)`
+   sub-section, plus the string `"true"` a JSON round-trip can produce.
+3. 🚨 **`(cdr (assoc-style pair))` IS THE WRONG READ FOR THE SHIPPED SHAPE, AND IT FAILS SILENTLY.** A
+   shipped entry is a two-element LIST, `(enabled t)`, so a "pair" built as `(key . tail)` has `cdr` =
+   **`(t)`** — a LIST holding the value, not the value. Three versions of the reader were written before
+   this was found: the first matched only cons-headed keys (missing every shipped default), the second
+   returned the greedy tail, and only the third returns the VALUE (`cadr` for `(key value)`, `cdr` for a
+   dotted `(key . value)`). ⚠ **The failure is invisible to a truth test** (`(nil)` and `(t)` are both
+   non-nil) and my first unit test *passed* because it hand-wrote the JSON shape `((enabled nil))`. The
+   test that settles it extracts the definitions from the source and covers all eight shapes — shipped
+   `(enabled nil)`/`(enabled t)`, JSON `(:enabled . "true"/"false")`, a plain leaf, an absent key, a
+   sibling key, and a deeper nesting. **Reuse that shape of test, not a hand-copied one.**
+
+**What else shipped.** `installation/upgrades/nst-dbu-invoice-lock.lisp`, registered as
+`12102026-invoice-lock`: `INVOICE_LOCKED char(1) NOT NULL DEFAULT 'N'`, `UNLOCKED_BY_USER_ID`,
+`UNLOCKED_BY_VENDOR_ID`, `UNLOCKED_AT` — **four columns and no data change at all**. Four mirrored slots;
+`render-json` publishes `invoiceLocked`, `unlockedByUserId`, `unlockedByVendorId`, `unlockedAt`.
+**Proven offline:** `nst-preflight` PASS; `nst-invoice-mirror-check` **59/59** header slots (was 55); the
+whole tree loads. The migration calls a READ-ONLY census that reports how many headers resolve to a live
+order (**10 of 45**, measured) so the population stays visible without being acted on.
+
+**🚨 NOT APPLIED — CHECK THIS BEFORE THE NEXT RESTART.** Measured 2026-10-12: `DOD_INVOICE_HEADER` has
+`ORDER_NUMBER` and `ORDER_ID` (US-012's migration ran) but **NONE of the four lock columns**, and
+`DOD_SCHEMA_MIGRATIONS` carries no `12102026-invoice-lock` row. The running image started **18:35** and
+still carries the OLD junction, so nothing writes `INVOICE_LOCKED` today — **but the newly compiled fasls
+do.** Restarting or reloading the image before applying this migration makes `POST` / Generate-Invoice
+build a params plist containing `:invoice-locked`, and `dod-invoice-db` has no such slot, so the
+`clsql:update-records-from-instance` INSERT dies with a MISSING-SLOT **and the whole assembly rolls back**
+— every Generate Invoice fails, on a database whose version table says the migration is fine. **Apply the
+migration first, then restart.** Same two commands, same `ALTER`+`INDEX` grant note as §15.
+
+⚠ **THE SETTING IS NOT YET ON THE SETTINGS PAGE.** `security-settings` is in the shipped defaults but the
+page's template renders only the logo and print forms (`com-hhub-transaction-invoice-settings-page`
+formats exactly two arguments into `invoicesettings.html`), so this key — like `allow-invoice-deletion` and
+`allow-invoice-edit-after-generation` before it — is readable in the blob but has no control. Until that
+pane exists, the effective default for every vendor is the shipped `(enabled nil)`, i.e. **open ended**.
+
+**✅ THE GUARD AND THE VERB LANDED 2026-10-12 — the lock is now a control, not a state.**
+
+* **The guard** is in `nst-invh`'s `!update` (`hhub/invoice/nst-bl-invh.lisp`), AFTER the row is read and
+  BEFORE anything is written, so it reports on the row that exists and cannot be gone around: the API, the
+  UI and any future caller all arrive at this one seam. It **refuses with a contradiction → 409** and
+  writes nothing, rather than silently dropping fields — the order side's
+  `*ordh-never-writable-fields*` takes the same position for the same reason. Only the LOCK MISSED by the
+  guard: `invh-lock-audit-fields-p` is a **negative** list, so a call touching only
+  `:invoice-locked`/`:unlocked-by-*`/`:unlocked-at` passes and every other field is refused. A negative
+  list is chosen deliberately — a field added to `nst-invh` later is protected by DEFAULT rather than
+  being silently left out of a positive allowlist.
+* **The verb** is `lock!` on `nst-invh`, one method for both directions (`:locked "Y"` / `"N"`), because a
+  lock and an unlock are the same fact written two ways. It writes the four columns **ONE AT A TIME**
+  through `update-record-from-slot` — the order side's link-marker shape — so a concurrent write to any
+  other column cannot be clobbered by a whole-row write carrying a stale snapshot. The actor is the
+  **session vendor** and is never taken from a payload.
+* **⚠ `lock!` reads the session ITSELF rather than calling the order layer's `vordh-session-vendor`**:
+  that helper does the identical read but lives in `order/nst-bl-vordhapi.lisp`, which the asd loads AFTER
+  the invoice section, so using it would make the invoice domain depend backwards on the order domain for
+  five lines — and break any image that loaded the invoice half alone. Same read, same fail-closed rule.
+* **Verified:** the guard's decisions are unit-tested on **ten cases** (locked + each kind of field,
+  locked + no args, the audit quartet alone, the audit quartet mixed with a real field, unlocked, and a
+  NULL lock column) — all correct; `nst-preflight` PASS, `nst-invoice-mirror-check` PASS (59/59), and the
+  tree loads (`STAGE: LOADED`).
+
+**✅ THE ITEM SIDE IS GUARDED TOO (2026-10-12).** A locked invoice's LINES are its content, so the line
+route was the hole the header guard could not close. `invitm-header-lock-guard`
+(`hhub/invoice/nst-bl-invitm.lisp`) resolves the parent through the EXISTING
+`nst-fetch-visible-invoice-header`, so scope and lock are one query and a line whose parent is another
+tenant's or soft-deleted still answers 404 — a lock is never reported as an authorization fault. It gates
+**all three** item verbs: `make` (adding a line changes what the document says just as editing one does),
+`!update`, and `delete!`.
+
+⚠ **THE GUARD IS ON THE VERB, NOT THE ROUTE, AND THAT IS LOAD-BEARING.** The vendor's own invoice pages
+call these verbs **in-process** through the dispatcher (`dispatch-route2`), never over HTTP — a check in
+`route-invitm-update` would protect an API caller and leave the UI wide open. The verbs are the seam every
+caller crosses, which is why the check lives there and the route needs nothing added to it.
+
+**THE GUARD MAP, as it stands — every write crossing on the invoice and its lines:**
+
+| verb | guarded by | notes |
+|---|---|---|
+| `nst-invh` `!update` | `invh-locked-p` + `invh-lock-audit-fields-p` | the lock's own columns stay writable; everything else refused |
+| `nst-invh` `lock!` | the lock's own verb | the ONE writer of those four columns |
+| `nst-invitm` `make` / `!update` / `delete!` | `invitm-header-lock-guard` | all three, so no line operation slips past |
+| `nst-invh` `delete!` | ⚠ **NOT guarded** | it is DRAFT-only (`*invh-deletable-statuses*`) and a locked order-derived invoice **IS** a DRAFT, so this is a **real gap**: a locked invoice can still be soft-deleted. One `invh-locked-p` check; **do it next.** |
+| `nst-invh` `!settings` | n/a — vendor-scoped | the blob belongs to the vendor, not to one invoice |
+
+**⛔ STILL TO BUILD: the route and the button.** `lock!` is a Tier-1 प्रत्यय with **no action route and no
+API binding yet**, so nothing can call it over HTTP — it is reachable only from Lisp (a REPL or a UI
+controller). And the vendor page has no *Lock / Unlock* control, so a vendor whose setting turns the lock
+on has **no way to release it**. ⚠ The route must NOT accept a `:vendor-id` or any actor from the body,
+and must map a contradiction to 409, like every other invoice verb.
+
+
+**THE LOCK HAS ONE REASON, BY DECISION (2026-10-12).** The requester: *"let's go with order-to-invoice
+flow lock and that is the reason. Will extend it later."* So there is **no reason column and no reason
+code** — the reason is IMPLIED BY THE DOCUMENT: an invoice carrying `ORDER_NUMBER`/`ORDER_ID` is the one
+the junction produced, and that is why it is protected. A multi-reason design (a lock ledger keyed by
+reason, with a settings catalogue of reason codes and per-reason release authority) was designed and
+**deliberately not built**; it is additive later — a reason column or a ledger beside these columns —
+not a rewrite. Recorded so the next session does not re-derive it: the four columns ARE the single-lock
+model, and `INVOICE_LOCKED` + `UNLOCKED_AT` + actor is its complete audit.
+
+**Decisions taken, with their reasoning, so they are not re-litigated:** a **stored** flag rather than a
+derived "locked iff order-linked and never unlocked", because a derived rule has no way BACK after an
+unlock; **per document, not per field**, because a field list would have to decide which columns matter
+and would be wrong for some vendor's process — the requester refused to draw that line and said *"leave it
+open, the vendor will decide what is right for them"*, which is what the per-document lock plus the
+setting delivers; **the default is OFF**, because the requester's own case is the vendor who adds items
+after the order; and the column is `INVOICE_LOCKED` because **`LOCKED` is a reserved word in MySQL 8**, so
+a column of that name works only behind backticks, which the FORMAT-built migration statements cannot be
+trusted with.
+
+**Market note (why this is not a made-up control).** It is the standard accounting pattern: SAP refuses
+changes to a **posted** invoice outright (*"Invoice document … cannot be changed"*) and uses period locks
+alongside; Concur models the AP equivalent as a hold/exception workflow; Indian GST has no "edit an issued
+invoice" instrument at all — the correction is a **credit note**. The recorded "who and when" is what
+makes the lock a CONTROL rather than a convenience. ⚠ The one market caveat worth carrying: ERPs do this
+*silently* (you invoice from the order and editability is simply not offered), and a quick SMB tool like
+Zoho Books expects a draft to be freely editable — so the feature earns its place only while the default
+is locked and unlocking stays rare. **All ten order-linked invoices are still DRAFT**, so nothing is
+locked that a buyer has already seen; that window closes when invoices start reaching AP systems.
+
+---
+
+## 18. 📋 THE PENDING INVOICE STORIES — the invoice/epic backlog, in one place · 2026-10-12
+
+**Read this when:** you are picking up invoice work and want the open stories rather than the diagnoses
+above it. Each row is a story with acceptance criteria and the ID it should be tracked under; the detail
+behind each one is in the section named in its last column. **Nothing here is blocked on a design
+decision** — every row is unstarted work with a settled shape.
+
+| ID | Title | What it is | Acceptance criteria | Pts | Depends on | Detail |
+|---|---|---|---|---|---|---|
+| **US-013a** | *Lock / Unlock* route and button | `lock!` (`nst-invh`) has **no action route, no API binding and no control**, so a vendor whose setting turns the lock on has **no way to release it** — the feature can strand them | A vendor can lock and unlock an order-derived invoice from the invoice page; the action records WHO (session vendor) and WHEN; both directions work; a contradiction maps to 409; the actor is never read from the body | 3 | — | §17 |
+| **US-013b** | Lock guard on the header `delete!` | `nst-invh`'s `delete!` is DRAFT-only and a locked order-derived invoice **is** a DRAFT, so a locked invoice can still be soft-deleted | `delete!` refuses a locked invoice with a contradiction → 409; an unlocked one still deletes as before | 1 | — | §17, the guard map |
+| **US-014** | **The invoice settings *Security* pane — put the lock setting in front of the vendor** | `lock-order-derived-invoices-invoice` is **shipped as a default and unconfigurable**: the settings page renders only the logo and print widgets (2 `~A` slots), and the save action writes `invoice-print-settings` alone. Measured: **0 of 15** vendor blobs carry the key | A *Security* pane on `/hhub/vinvoicesettingspage` with a control for **Lock invoices generated from an order**; saving writes ONLY the `security-settings` section (the existing one-section discipline, which is what stops the blob being wiped); the page reflects the stored value on reload; the other two `security-settings` keys (`allow-invoice-deletion`, `allow-invoice-edit-after-generation`) become visible in the same pane rather than staying unexposed; a backfill migration adds the key to the 15 stored blobs so the stored copy and the shipped default agree instead of relying on the fallback | 5 | a rebuild + restart (the in-image `*invoice-settings*` is what the fallback reads) | §17, and the measurement in the story file |
+| **US-015** | Invoice numbering that satisfies Rule 46 | The invoice number is owned by a **MySQL trigger** (`NST<row_id>-<year(now())>`), so there is no per-GSTIN series, no April–March FY reset, and `invoice-number-format` is never consulted. The ORDER side already proves the machinery (`DOD_DOC_COUNTER`, `nst-format-doc-number`) | Unique per GSTIN per FY; ≤16 characters; the series resets each FY; no gaps from system errors; written past the trigger and re-read, as the junction already re-reads the stored row | 5 | — | `order-to-invoice-flow-CONTEXT.md` US-005 |
+| **US-011** | E-invoice applicability flag + IRN | No vendor-profile flag exists; `E_INVOICE_REQUIRED` and the `IRN`/`ACK_*` columns are live on `DOD_INVOICE_HEADER` and empty; `generate-irn` is a गण verb name with no implementation | A turnover/applicability declaration on the vendor profile; when applicable and no IRN is recorded the invoice is marked **not valid for ITC** and the buyer is warned; the IRN renders on the tax invoice | 5 | US-015 (the IRN references the number) | `order-to-invoice-flow-CONTEXT.md` US-011 |
+
+**Order to work them:** **US-013a first** — it is the only one that can leave a vendor stuck, and it is the
+smallest. Then US-013b (one line). US-014 is the one that makes the lock setting real rather than
+theoretical, and it is worth doing before US-015/US-011 because it needs no GST reasoning at all.
+
+⚠ **US-014 HAS A DESIGN TRAP ALREADY MEASURED, so do not re-derive it:** the pane must be a **third** `~A`
+slot rendered by `create-model-for-invoicesettingspage`, because the template's only two slots are the logo
+block and the print form — and the save action must be its own route (the print action can only ever write
+`invoice-print-settings`). Also: **do not read the setting through a fixed path** — `invh-settings-find`
+searches the whole blob because the stored sections and their key spellings differ between a shipped
+default and a JSON round-trip (hyphens are dropped on the way back).
+
+
+

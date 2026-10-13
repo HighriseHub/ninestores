@@ -89,6 +89,10 @@
 (defparameter *invitm-mirrored-slots*
   '(;; parent
     invheadid
+    ;; the ORDER LINE this line was transcribed from — NULL for the standalone POS
+    ;; invoice and for the junction's synthesised delivery line, which has no order
+    ;; line behind it by construction (see nst-invitm's own slot).
+    order-item-id
     ;; what is being sold
     prd-id prddesc hsncode
     ;; quantity and price
@@ -323,6 +327,45 @@
 ;;; make — सृजन
 ;;; ───────────────────────────────────────────────────────────────────────────
 
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; THE HEADER LOCK GATES ITS LINES (E1/US-013)
+;;; ───────────────────────────────────────────────────────────────────────────
+;;;
+;;; A LOCKED INVOICE'S LINES ARE ITS CONTENT, so they are exactly what the lock
+;;; exists to protect. Without this, the header guard (nst-invh's !update) is
+;;; decoration: `PUT /invoices/{id}/items/{item-id}` would rewrite a locked
+;;; invoice's qty and price while the header itself refused to move — which is
+;;; US-003's own complaint ("frozen from the order"), one level down.
+;;;
+;;; IT LIVES ON THE VERB, NOT ON THE ROUTE, AND THAT IS THE WHOLE POINT. The
+;;; vendor's OWN invoice pages call these verbs in-process through the dispatcher
+;;; (dispatch-route2), never over HTTP — so a check in the route would protect an
+;;; API caller and leave the UI wide open. The verbs are the seam every caller
+;;; crosses.
+;;;
+;;; THE REFUSAL IS A 409 (a contradiction), not a 404 and not a silent strip: the
+;;; invoice and the line both exist and are readable; what contradicts the request
+;;; is the vendor's own lock on the document.
+
+(defun invitm-header-lock-guard (invheadid tenant-id ctx)
+  "Whether a LINE operation may proceed against header INVHEADID.
+
+   NIL means YES. Otherwise it answers what the caller must return unchanged — the header's own sentinel
+   (404/503) when the document is not visible, or a contradiction naming the lock when it is.
+
+   The header is resolved through `nst-fetch-visible-invoice-header`, so the SCOPE check and the lock
+   check are one query: a line whose parent is another tenant's or soft-deleted is a 404 here exactly as
+   it is everywhere else in this file, and it can never be reported as 'locked'."
+  (let ((head (nst-fetch-visible-invoice-header invheadid tenant-id)))
+    (cond
+      ((not (bo-known-true-p head))
+       (domain-sentinel-from-knowledge head ctx))
+      ((invh-locked-p (bo-knowledge-payload head))
+       (make-instance 'nst-entity-contradiction
+                      :tenant-id tenant-id
+                      :reason "This invoice is locked because it was generated from an order, so its lines cannot be changed. Unlock the invoice first, then edit the line — the lock is there so an invoice that came from an order cannot be edited quietly. Nothing has been written."))
+      (t nil))))
+
 (defmethod make ((entity-class (eql 'nst-invitm)) (ctx domain-ctx) &rest initargs)
   "Add a line to a DRAFT invoice.
 
@@ -358,8 +401,16 @@
           (case (bo-knowledge-truth head)
             (:T
              (let ((header (bo-knowledge-payload head)))
-               (if (not (member (invh-status-string (status header)) *invitm-open-header-statuses*
-                                :test #'string-equal))
+               ;; 🚨 THE LOCK COMES FIRST — before the status rule, because a locked DRAFT must refuse the
+               ;; addition too. Adding a line to a locked invoice changes what the document says just as
+               ;; surely as editing one does, and it is the same act the lock exists to prevent.
+               (if (invh-locked-p header)
+                   (make-instance 'nst-entity-contradiction
+                                  :tenant-id tenant-id
+                                  :reason "This invoice is locked because it was generated from an order, so no lines can be added to it. Unlock the invoice first — the lock is there so an invoice that came from an order cannot be changed quietly. Nothing has been written.")
+                   ;; else — the status rule, unchanged
+                   (if (not (member (invh-status-string (status header)) *invitm-open-header-statuses*
+                                    :test #'string-equal))
                    (make-instance 'nst-entity-contradiction
                                   :tenant-id tenant-id
                                   :reason (format nil "Invoice header row-id ~A is ~A, not DRAFT — a line may only be added while the document is still being built. [LEGAL: an issued invoice's content is amended by a credit note, not by adding lines]"
@@ -398,7 +449,7 @@
                                               rid)))
                          (:C (error "Unreachable: no :pre-flight form supplied to with-nst-db-create in nst-invitm/make — a :C here means the macro contract changed without this method being updated"))
                          (otherwise (error "Unrecognized bo-knowledge-truth ~A from with-nst-db-create"
-                                           (bo-knowledge-truth knowledge)))))))))
+                                           (bo-knowledge-truth knowledge))))))))))
             (otherwise
              ;; :F (no such document in this tenant) and :U (the database did not
              ;; answer) both arrive here and stay distinct — the first is a 404 and
@@ -490,7 +541,13 @@
              (make-instance 'nst-entity-nil :tenant-id tenant-id
                             :reason (format nil "Invoice line row-id ~A not found in this tenant (or already deleted)" row-id))
              (let* ((head-id (slot-value dbobj 'invheadid))
-                    (head (nst-fetch-visible-invoice-header head-id tenant-id)))
+                    (head (nst-fetch-visible-invoice-header head-id tenant-id))
+                    ;; 🚨 THE LOCK GATES THE LINE. Ordered before the visibility sentinel so "not visible"
+                    ;; keeps its own 404, and so a locked line reports the LOCK rather than being
+                    ;; described as an authorization problem — they need different fixes.
+                    (locked (invitm-header-lock-guard head-id tenant-id ctx)))
+               (if locked
+                   locked
                (if (not (eq (bo-knowledge-truth head) :T))
                    (domain-sentinel-from-knowledge
                     head ctx
@@ -509,7 +566,7 @@
                               knowledge ctx
                               :reason (format nil "Invoice line update, row-id ~A: the database call did not answer — the row's current state is unknown" row-id)))
                          (:F (error "Unreachable: with-nst-db-update without :pre-flight cannot return :F (invoice line row-id ~A)" row-id))
-                         (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge))))))))))))))
+                         (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge)))))))))))))))
 
 ;;; ───────────────────────────────────────────────────────────────────────────
 ;;; delete! — लोप प्रत्यय (soft, and only while the header is a DRAFT)
@@ -545,7 +602,13 @@
               (make-instance 'nst-entity-nil :tenant-id tenant-id
                              :reason (format nil "Invoice line row-id ~A not found in this tenant" row-id))
               (let* ((head-id (slot-value dbobj 'invheadid))
-                     (head (nst-fetch-visible-invoice-header head-id tenant-id)))
+                     (head (nst-fetch-visible-invoice-header head-id tenant-id))
+                     ;; 🚨 THE LOCK GATES THE LINE — removing a line changes what the document says just
+                     ;; as adding or editing one does. Ordered before the visibility sentinel so 'not
+                     ;; visible' keeps its own 404 and a lock is never reported as an authorization fault.
+                     (locked (invitm-header-lock-guard head-id tenant-id)))
+                (if locked
+                    locked
                 (if (not (eq (bo-knowledge-truth head) :T))
                     (domain-sentinel-from-knowledge
                      head ctx
@@ -567,7 +630,7 @@
                               (:U (domain-sentinel-from-knowledge
                                    knowledge ctx
                                    :reason (format nil "Invoice line delete, row-id ~A: the database call did not answer — whether the line was soft-deleted is unknown" row-id)))
-                              (:F (error "Unreachable: with-nst-db-delete without :pre-flight cannot return :F (invoice line row-id ~A)" row-id))
+                              (:F (error "Unreachable: with-nst-db-delete without :pre-flight cannot return :F (invoice line row-id ~A)" row-id)))
                               (otherwise (error "Unrecognized bo-knowledge-truth ~A" (bo-knowledge-truth knowledge))))))))))))))
 
 ;;; ───────────────────────────────────────────────────────────────────────────
@@ -725,6 +788,8 @@
   (list
    (cons "rowId"          (response-id-string (row-id r)))
    (cons "invHeadId"      (response-id-string (invheadid r)))
+   ;; the order line this one was transcribed from; null when there is none.
+   (cons "orderItemId"    (response-id-string (order-item-id r)))
    ;; what is being sold
    (cons "prdId"          (response-id-string (prd-id r)))
    (cons "prdDesc"        (prddesc r))
