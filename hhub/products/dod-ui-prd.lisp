@@ -484,7 +484,7 @@
 	  (with-html-div-col-1 :align "right" :data-bs-toggle "tooltip" :title "Product Details"
 	  (:a :href (format nil "dodprddetailsforvendor?id=~A" prd-id) (:i :class "fa-solid fa-chevron-right"))))
 	(with-html-div-row
-	  (if (<= units-in-stock 0) 
+	  (if (or (null units-in-stock) (<= units-in-stock 0))
 	      (cl-who:htm (:div :class "stampbox rotated" "NO STOCK" ))
 					;else
 	      (cl-who:htm (with-html-div-col (:h5 (:span :class "badge badge-pill badge-light" (cl-who:str (format nil "In stock ~A  units"  units-in-stock ))))))))

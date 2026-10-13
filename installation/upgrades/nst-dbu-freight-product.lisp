@@ -19,6 +19,12 @@
 ;;; charge is set per invoice, and coded FREIGHT-<vendor-id> — PRODUCT_CODE carries a UNIQUE index, so the
 ;;; code is both the key this migration is idempotent on and the lookup the conversion uses.
 ;;;
+;;; 🚨 UNITS_IN_STOCK IS WRITTEN EXPLICITLY (1). The column is `smallint NULL DEFAULT NULL`, so OMITTING it
+;;; stores NULL, and NIL then reaches every arithmetic reader of the slot — `(<= units-in-stock 0)` on the
+;;; vendor product list signalled `The value NIL is not of type REAL` (measured 2026-10-13), and
+;;; `(mod units-in-stock 20)` / `(+ units-in-stock diff)` in the customer, order and invoice pages are the
+;;; same trap. A product row must never be inserted with the column left out.
+;;;
 ;;; REGISTER IT in the `*migrations*` list in hhub/core/nst-sch-mig.lisp (already done). An upgrade file is
 ;;; deliberately in NEITHER build list — load-upgrade-files compiles it from disk by name — so the
 ;;; reader-balance check in aiharness/deepseek/tools/nst-preflight.lisp is its only structural check.
@@ -48,9 +54,9 @@
              (format nil "INSERT INTO DOD_PRD_MASTER
                             (PRODUCT_CODE, PRD_NAME, DESCRIPTION, HSN_CODE, QTY_PER_UNIT, UNIT_OF_MEASURE,
                              CURRENT_PRICE, CURRENT_DISCOUNT, PRD_TYPE, APPROVED_FLAG, ACTIVE_FLAG,
-                             DELETED_STATE, VENDOR_ID, TENANT_ID)
+                             UNITS_IN_STOCK, DELETED_STATE, VENDOR_ID, TENANT_ID)
                           VALUES
-                            ('~A', '~A', '~A', '~A', '1.0', 'NOS', 0.00, 0.00, 'SERV', 'Y', 'Y', 'N', ~D, ~D)"
+                            ('~A', '~A', '~A', '~A', '1.0', 'NOS', 0.00, 0.00, 'SERV', 'Y', 'Y', 1, 'N', ~D, ~D)"
                       (sql-literal code)
                       (sql-literal *freight-product-name*)
                       (sql-literal "Delivery charges on an order; taxed with the goods it accompanies.")
