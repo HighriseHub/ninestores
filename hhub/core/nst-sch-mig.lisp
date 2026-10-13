@@ -86,6 +86,8 @@
     ("06102026-vendor-order-invoice-policy"   migrate-2026Oct-ordinvoice-policy-and-transaction   "Vendor order invoice ABAC seed")
     ("06102026-freight-product-per-vendor"   migrate-2026Oct-freight-product-per-vendor   "Freight charge product per vendor")
     ("09102026-vendor-order-amount-repair"   migrate-2026Oct-vendor-order-amount-repair   "Vendor order amount repair")
+    ("12102026-invoice-order-link"   migrate-2026Oct-invoice-order-link   "Invoice order reference columns")
+    ("12102026-invoice-lock"   migrate-2026Oct-invoice-lock   "Invoice edit lock + unlock audit")
     ))
 
 
@@ -395,3 +397,55 @@
                       table))
          (result (clsql:query sql :flatp t)))
     (> (first result) 0)))
+
+;;; ───────────────────────────────────────────────────────────────────────────
+;;; ADDITIVE DDL, AND WHY THESE ARE HERE RATHER THAN IN AN UPGRADE FILE
+;;;
+;;; 🚨 NEVER DEFINE A MIGRATION HELPER IN AN UPGRADE FILE. `apply-migrations` calls
+;;; `load-upgrade-files` FIRST, so a helper defined there loads AFTER this file and its
+;;; definition SILENTLY WINS over the canonical one — the trap that made the first ABAC
+;;; seed carry its own copies of five helpers, so the canonical `insert-auth-policy` (the
+;;; one that escapes every string) was never called and a DESCRIPTION with an apostrophe
+;;; died with Error 1064 while the escaping sat in the image, correct and fbound. A helper
+;;; belongs beside `table-exists-p` above, where every migration can call the SAME one.
+;;;
+;;; MySQL 8 has no `ADD COLUMN IF NOT EXISTS` and no `CREATE INDEX IF NOT EXISTS`, so an
+;;; unguarded re-run is Error 1060 / 1061 — and because `apply-migrations` catches
+;;; PER-MIGRATION and continues, the version is then never recorded and the file re-runs
+;;; forever, half-applied. These make a second run a no-op instead.
+
+(defun table-column-exists-p (table column)
+  "T when TABLE carries COLUMN. TABLE and COLUMN are literal identifiers the caller controls
+   (never user input), so they are interpolated into the catalog query."
+  (> (first (clsql:query (format nil "SELECT COUNT(*) FROM information_schema.columns
+                                      WHERE table_schema = DATABASE()
+                                        AND table_name = '~A' AND column_name = '~A'"
+                                 table column)
+                         :flatp t))
+     0))
+
+(defun table-index-exists-p (table index)
+  "T when TABLE carries an index named INDEX. Same guard as table-column-exists-p, for Error 1061."
+  (> (first (clsql:query (format nil "SELECT COUNT(*) FROM information_schema.statistics
+                                      WHERE table_schema = DATABASE()
+                                        AND table_name = '~A' AND index_name = '~A'"
+                                 table index)
+                         :flatp t))
+     0))
+
+(defun add-column-if-absent (table column ddl)
+  "ALTER TABLE TABLE ADD COLUMN COLUMN DDL — only when it is absent, so a re-run is a no-op.
+   Idempotency belongs to the STATEMENT, not to the caller remembering to check first."
+  (if (table-column-exists-p table column)
+      (format t "  ~A.~A already present - skipping~%" table column)
+      (progn
+        (clsql:execute-command (format nil "ALTER TABLE ~A ADD COLUMN ~A ~A" table column ddl))
+        (format t "  added ~A.~A~%" table column))))
+
+(defun add-index-if-absent (table index columns)
+  "CREATE INDEX INDEX ON TABLE (COLUMNS) — only when INDEX is absent. Same reason as above."
+  (if (table-index-exists-p table index)
+      (format t "  index ~A on ~A already present - skipping~%" index table)
+      (progn
+        (clsql:execute-command (format nil "CREATE INDEX ~A ON ~A (~A)" index table columns))
+        (format t "  added index ~A on ~A~%" index table))))

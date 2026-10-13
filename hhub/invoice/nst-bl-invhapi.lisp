@@ -1148,6 +1148,9 @@
       (list :prd-id (invh-slot product 'row-id)
             :prddesc (invh-slot product 'prd-name)
             :hsncode (or (invh-slot product 'hsn-code) "000000")
+            ;; PROVENANCE: the order line this one transcribes, so a later GRN or return can name it.
+            ;; NIL when the caller passed no line (invh-freight-line-args) — no order line is behind it.
+            :order-item-id (invh-slot order-line 'row-id)
             :qty qty
             :uom (format nil "~A ~A" (invh-slot product 'qty-per-unit) (invh-slot product 'unit-of-measure))
             :price price
@@ -1334,6 +1337,18 @@
                  ;; NOT :vnum — that column is varchar(20) and an ORDNUM is 23-27 characters, so
                  ;; the reference was silently TRUNCATED. The order's own context-id is the link.
                  :context-id (invh-slot order 'context-id)
+                 ;; THE ORDER REFERENCE, in its own columns: the number the counterparty reads
+                 ;; and quotes, plus the row it names. Deliberately NOT a reuse of context-id —
+                 ;; that is the cart's uuid session key (dod-bl-ord.lisp) and prints as nothing.
+                 :order-number (invh-slot order 'ordnum)
+                 :order-id (invh-slot order 'row-id)
+                 ;; 🚨 LOCKED AT BIRTH ONLY IF THE VENDOR ASKED FOR IT — see the vendor-choice note above
+                 ;; invh-lock-order-derived-invoices-p. The requester's ruling: an order-derived invoice
+                 ;; stays OPEN ENDED by default, because adding items in the nick of time after the order
+                 ;; is ordinary Indian practice, and a per-invoice Unlock on every invoice would be
+                 ;; friction for exactly the vendor this feature is meant to help. `nil` here is the
+                 ;; sentinel the ferry coerces to the column's 'N'.
+                 :invoice-locked (if (invh-lock-order-derived-invoices-p vendor) "Y" "N")
                  :totalvalue total
                  :totalinwords (convert-number-to-words-INR total)))
          (header (request->dispatch (make-instance 'NstInvhRequestModel :params header-params)
@@ -1371,6 +1386,141 @@
                      knowledge ctx
                      :reason (format nil "Invoice ~A was built, but the order could not be marked as invoiced — so nothing has been kept. The order would not know it was invoiced, and a second click would raise a second invoice."
                                      (invnum header))))))))))))
+
+;;; ── THE LOCK DEFAULT — A VENDOR'S CHOICE, NOT OURS ───────────────────────
+;;;
+;;; The requester's ruling (2026-10-12), and it overrides an earlier hardcoded "Y" in the junction:
+;;;
+;;;   "In India … when you order something and the invoice is prepared for that order, generally people add
+;;;    more items in the nick of time after the order is placed as well. To accommodate such use cases, I
+;;;    thought we should keep the invoice open ended and leave it to the vendor's discretion. In fact, we
+;;;    can create a vendor setting about it."
+;;;
+;;; So the INVOICE_LOCKED COLUMN stays and the JUNCTION no longer decides for the vendor: an invoice
+;;; derived from an order is locked at birth only when the vendor has asked for that. The setting lives
+;;; under `security-settings` in the vendor's invoice-settings blob (DOD_VEND_PROFILE.INVOICE_SETTINGS),
+;;; beside `allow-invoice-edit-after-generation` and `allow-invoice-deletion`, and is read through
+;;; `invoiceprintsettingvalue` — the ONE settings reader in this tree (nst-ui-ihd.lisp), whose job is the
+;;; (key value) vs (key . value) duality between the shipped defaults and a JSON round-trip.
+;;;
+;;; ⚠ `lock-order-derived-invoices-invoice` IS THE KEY NAME AND IT IS ODD-LOOKING ON PURPOSE. That reader
+;;; matches keys on their name with hyphens REMOVED, and `invoiceprintsettingentry` — which is how a
+;;; nested section is reached — matches on the section's own name the same way. The section must therefore
+;;; carry "INVOICE" in its symbol name or it collides with nothing but reads ambiguously beside the other
+;;; `security-settings` keys, and a saved blob comes back from JSON as `:LOCKORDERDERIVEDINVOICESINVOICE`.
+;;; Section: `(lock-order-derived-invoices-invoice (enabled nil))`.
+;;;
+;;; 🚨 ABSENT MEANS 'N' — DO NOT EDIT INVOICES. Two reasons, and the second is the one that decides:
+;;;   * an established vendor's blob predates this key, and a missing key cannot be read as consent;
+;;;   * more importantly the requester's OWN case is the vendor who adds items after the order. Defaulting
+;;;     to locked would make their ordinary workflow pay a per-invoice Unlock on every invoice — friction
+;;;     for the very user the feature exists to help.
+;;; A vendor who wants the protection being asked for turns it on and gets it on every invoice from then
+;;; on, and any single invoice can still be locked or unlocked by hand.
+
+(defun invh-settings-key-p (element key)
+  "T when ELEMENT is the settings key KEY. Names are compared with hyphens REMOVED and case folded, the
+   rule `invoiceprintsettingentry` already applies, because the shipped defaults use plain symbols
+   (lock-order-derived-invoices-invoice) while a saved blob round-trips through JSON and comes back
+   hyphen-less (:LOCKORDERDERIVEDINVOICESINVOICE).
+
+   ⚠ ELEMENT IS THE KEY ITSELF, AN ATOM — NOT `(car element)`. See invh-settings-find."
+  (and (symbolp element)
+       (string= (remove #\- (string-upcase (symbol-name element)))
+                (remove #\- (string-upcase (string key))))))
+
+(defun invh-settings-find (key tree)
+  "The settings VALUE for KEY anywhere in the nested TREE, or NIL.
+
+   SEARCHED RECURSIVELY, AND THAT IS NOT LAZINESS — IT IS WHAT THE DATA FORCES. MEASURED 2026-10-12 on the
+   live database: `DOD_VEND_PROFILE.INVOICE_SETTINGS` holds a blob carrying `INVOICE-PRINT-SETTINGS` and
+   nothing else — **0 of 15 vendors have a `security-settings` section at all** (nor a `securitysettings`
+   key of any spelling), because the settings page only ever writes the print section. A reader that walked
+   to `security-settings` first would therefore find the key for NOBODY, and the setting would look wired
+   while being permanently unreadable — the exact defect this tree keeps recording about settings that
+   exist and are read by nothing.
+
+   🚨 IT RETURNS THE VALUE, NOT A PAIR, AND THAT COST TWO WRONG VERSIONS. The natural-looking
+   `(cons element (cdr tail))` does NOT rebuild the entry: for a shipped `(enabled t)` the tail IS
+   `(enabled t)`, so the cons is `(enabled t)` and its `cdr` is **`(t)`** — a LIST holding the value, not
+   the value. Every reader that did `(cdr (invh-settings-find …))` then passed `(t)` on and a truth test
+   saw a non-nil list for `nil` and for `t` alike. The two shapes differ, so the value is taken explicitly:
+   `(cadr tail)` for `(key value)`, and the `cdr` for a DOTTED `(key . value)` from a JSON round-trip —
+   where `cadr` would be wrong and `cdr` is right. One function, one branch, no guessing at the caller."
+  (cond
+    ((null tree) nil)
+    ((consp tree)
+     (let ((element (car tree)))
+       (cond
+         ;; the key sits at the head of this list: (key value …) or (key . value)
+         ((invh-settings-key-p element key)
+          (if (consp (cdr tree)) (cadr tree) (cdr tree)))
+         ;; …or inside the element (a section's own alist)
+         ((and (consp element) (invh-settings-find key element)))
+         ;; …or further along this list
+         (t (invh-settings-find key (cdr tree))))))
+    (t nil)))
+
+;;; ⚠ THE TWO SHAPES A SETTING TAKES, AND WHY invh-settings-find RETURNS A VALUE RATHER THAN A PAIR:
+;;;
+;;;   (lock-order-derived-invoices-invoice (enabled nil))   SHIPPED DEFAULT — the value is a LIST, and
+;;;                                                        the key heads that list as a BARE ATOM
+;;;   (:lockorderderivedinvoicesinvoice (:enabled . "true")) SAVED, JSON round-tripped — DOTTED pairs,
+;;;                                                        hyphen-less keyword names
+;;;
+;;; `assoc`-style thinking (`(cdr (assoc key alist))`) looks right and is WRONG for the shipped shape
+;;; only: the pair is `(key value)` as a two-element LIST, so its `cdr` is `(value)` — a list holding the
+;;; value. Two versions of this file's reader made that mistake, one of them silently (a truth test cannot
+;;; distinguish `(nil)` from `(t)`), which is why invh-settings-find takes `cadr` for the list shape and
+;;; `cdr` for the dotted one and hands back the VALUE.
+
+(defun invh-settings-boolean (value)
+  "VALUE as a boolean, for EVERY shape a settings leaf takes in this tree:
+
+     t / nil                        a plain leaf                     → t / nil
+     \"true\"                         a JSON round-trip of a live t    → t
+     (enabled nil)                  ⚠ THE SHIPPED SHAPE: a SECTION whose first element is an ATOM
+     ((:enabled . \"true\"))         the same section saved and re-read → t
+     (:lockorderderivedinvoicesinvoice (:enabled . \"true\"))          → t
+
+   A SECTION IS UNWRAPPED BY ITS `enabled` ENTRY. Everything else is falsy, so a miss reads as 'off',
+   which is the safe direction for this setting: it gates whether an invoice arrives protected."
+  (cond
+    ((eq value t) t)
+    ((null value) nil)
+    ((and (stringp value) (string-equal (string-trim " " value) "true")) t)
+    ((consp value) (invh-settings-boolean (invh-settings-find 'enabled value)))
+    (t nil)))
+
+(defun invh-vendor-registry-value (vendor key)
+  "KEY's value in VENDOR's own stored invoice-settings blob, falling back to the shipped *invoice-settings*
+   when the blob does not carry it.
+
+   The fallback is deliberate and is the SAME rule the tree's one working settings reader uses
+   (`nst-get-vendor-invoiceprintsettings`): a vendor whose blob predates a key must not be read as having
+   said 'no' — they simply have not been asked yet, and the shipped default is the product's answer for
+   them. ⚠ That makes the DEFAULT VALUE in hhub/invoice/templates/invoicesettings.lisp the behaviour of
+   every existing vendor, so changing it there changes what happens on their next invoice.
+
+   ⚠ read-from-string IS THE ESTABLISHED READER FOR THIS BLOB (nst-ui-ihd.lisp reads it the same way, on
+   every invoice page load) and a malformed one must not 500 an invoice creation, hence ignore-errors.
+   ⚠ `invh-settings-find` RETURNS THE VALUE, NOT A PAIR — do not wrap these in `cdr`; that was the bug
+   recorded above it."
+  (let* ((raw (and vendor (ignore-errors (slot-value vendor 'invoice-settings))))
+         (settings (if (and raw (stringp raw) (plusp (length raw)))
+                       (ignore-errors (read-from-string raw))
+                       *invoice-settings*)))
+    (or (invh-settings-find key settings)
+        (invh-settings-find key *invoice-settings*))))
+
+(defun invh-lock-order-derived-invoices-p (vendor)
+  "T when VENDOR has asked for order-derived invoices to arrive LOCKED. NIL — the default — when they have
+   not asked, which is the requester's own 'open ended' case (they add items in the nick of time after the
+   order, so locking by default would charge their ordinary workflow a per-invoice Unlock).
+
+   Read through invh-settings-boolean, so both the shipped `(enabled nil)` shape and a JSON-round-tripped
+   `\"true\"` are understood."
+  (invh-settings-boolean (invh-vendor-registry-value vendor 'lock-order-derived-invoices-invoice)))
 
 (defun invh-create-from-order (request ctx)
   "कर्म = nst-invh. The junction's conditions first, then the assembly, ALL IN ONE TRANSACTION —

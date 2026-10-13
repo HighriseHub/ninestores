@@ -107,7 +107,43 @@
     :initform nil
     :documentation
     "CONTEXT_ID varchar(100) — the internal UI's invoice-edit session key
-     (sessioninvkey). Optional for an API caller.")
+     (sessioninvkey). Optional for an API caller.
+
+     ⚠ IT IS NOT THE ORDER REFERENCE, although ord→inv copies the order's own
+     context-id here: that value is a uuid:make-v1-uuid minted by the legacy CART
+     (order/dod-bl-ord.lisp), so it identifies the browsing session that placed
+     the order and NOTHING readable prints from it. The order reference this
+     invoice must show and search by is order-number below.")
+   ;; ── THE ORDER THIS INVOICE BILLS (ord→inv junction, design D1) ─────────
+   (order-number
+    :initarg :order-number
+    :accessor order-number
+    :initform nil
+    :documentation
+    "ORDER_NUMBER varchar(50) NULL — the ORDNUM of the order this invoice was
+     raised from (e.g. ORD-GCUST837-2026-27-VNNCZ9). NULL for an invoice created
+     by the STANDALONE POS-style path, which has no order: that path is
+     deliberately never broken (design D4), so this column is nullable and every
+     reader must therefore treat NIL as 'not order-linked' rather than as a
+     defect.
+
+     DENORMALISED ON PURPOSE — the number is the CROSS-PARTY key (order D4): the
+     vendor quotes it and the customer quotes it back on the phone or by email,
+     and the printed tax invoice and a search both need it WITHOUT joining
+     DOD_ORDER. It is safe to denormalise because ORDNUM is unique
+     (uk_ordnum) and immutable over HTTP (stripped from every update payload).
+     ⚠ It could NOT go in VNUM: that column is varchar(20) and the measured
+     maximum ORDNUM is 27 characters — storing it there truncated it.")
+   (order-id
+    :initarg :order-id
+    :accessor order-id
+    :initform nil
+    :documentation
+    "ORDER_ID mediumint NULL — DOD_ORDER.ROW_ID: the real link behind
+     order-number, for the queries that need the row rather than the label.
+     Nullable for the same reason, and RAW rather than a keyed reference token:
+     this column is PROVENANCE, never an address a caller resolves a document
+     from, so enumerability is not the exposure it is on an order number.")
    ;; ── PARTIES ────────────────────────────────────────────────────────────
    (vendor-id
     :initarg :vendor-id
@@ -360,7 +396,72 @@
    (last-viewed-at
     :initarg :last-viewed-at
     :accessor last-viewed-at
-    :initform nil))
+    :initform nil)
+   ;; ── THE EDIT LOCK (story E1/US-013) ────────────────────────────────────
+   (invoice-locked
+    :initarg :invoice-locked
+    :accessor invoice-locked
+    :initform "N"
+    :documentation
+    "INVOICE_LOCKED char(1) NOT NULL DEFAULT 'N'. 'Y' = the vendor has NOT authorised changes to this
+     invoice; 'N' = they have (or nobody ever locked it).
+
+     ⚠ THE COLUMN IS `INVOICE_LOCKED` AND NOT `LOCKED`, DELIBERATELY: LOCKED is a RESERVED WORD in
+     MySQL 8, so a plain unquoted reference to it is a syntax error and every DML statement against
+     this table would have to carry backticks. The migration helpers build statements with FORMAT,
+     where a backtick is a live hazard; a column name that needs none is worth the three extra
+     characters.
+
+     🚨 WHETHER AN ORDER-ORIGINATED INVOICE ARRIVES LOCKED IS THE VENDOR'S SETTING, NOT OURS
+     (requester's ruling, 2026-10-12): in India, people add more items in the nick of time after
+     the order is placed as well, so the invoice is kept OPEN ENDED and left to the vendor's
+     discretion. The junction therefore writes 'Y' ONLY when that vendor has asked for it —
+     `invh-lock-order-derived-invoices-p` reads `lock-order-derived-invoices-invoice` under
+     `security-settings` in the vendor's own invoice-settings blob, and an ABSENT key means 'N', so
+     every existing vendor keeps an open-ended invoice. A single invoice can be locked or unlocked by
+     hand whatever the setting says.
+
+     ⚠ THE COLUMN'S DEFAULT IS 'N' AND MUST STAY 'N'. A DEFAULT of 'Y' would lock every STANDALONE
+     POS-style invoice at creation — the path design D4 says is never broken — so the lock is only
+     ever set explicitly, by the one caller that both knows an order is behind the document AND has
+     read the vendor's choice.
+
+     ⚠⚠ NOT YET ENFORCED BY A WRITE GUARD. This is the STATE and its AUDIT TRAIL; `!update` does not
+     consult it yet, so the API cannot be relied on to refuse an edit to a locked invoice until that
+     slice lands. Recorded here so the gap is not mistaken for a working control — see
+     PENDING-WORK-CONTEXT.md §17.")
+   (unlocked-by-user-id
+    :initarg :unlocked-by-user-id
+    :accessor unlocked-by-user-id
+    :initform nil
+    :documentation
+    "UNLOCKED_BY_USER_ID mediumint — the USER who last unlocked or re-locked this invoice, FK
+     DOD_USERS ON DELETE SET NULL (the LAST_VIEWED_BY_USER_ID precedent, so removing a user never
+     removes the record of the unlock).
+
+     ⚠ USUALLY NULL TODAY, AND THAT IS THE SAME LIMIT `DOD_ORDER.CREATED_BY_USER_ID` HAS: a VENDOR
+     session does not set `:login-user`, so there is no user to name (nst-bl-ordh.lisp's
+     nst-actor-user-row-id records the same fact on the order side). The vendor id below is the
+     identity that IS always available, and it is the one that matters for 'who unlocked this'.")
+   (unlocked-by-vendor-id
+    :initarg :unlocked-by-vendor-id
+    :accessor unlocked-by-vendor-id
+    :initform nil
+    :documentation
+    "UNLOCKED_BY_VENDOR_ID mediumint — the VENDOR row that unlocked or re-locked this invoice, FK
+     DOD_VEND_PROFILE. Always set from the SESSION (never from a payload), which is why it can carry
+     the audit where unlocked-by-user-id cannot.")
+   (unlocked-at
+    :initarg :unlocked-at
+    :accessor unlocked-at
+    :initform nil
+    :documentation
+    "UNLOCKED_AT timestamp — WHEN the last Unlock or Lock happened. NULL means nobody has ever touched
+     the lock, which is the state every order-originated invoice starts in.
+
+     It is overwritten by the NEXT action of either kind, so on its own it does not say whether the
+     invoice is currently locked — read invoice-locked for that. The two together are the audit: the
+     state, and when it last changed and by whom."))
   (:documentation
    "Invoice HEADER domain entity — DOD_INVOICE_HEADER.
 
@@ -429,6 +530,31 @@
    (context-id
     :initarg :context-id
     :accessor context-id)
+   ;; THE ORDER THIS INVOICE BILLS — declared here because *invh-mirrored-slots*
+   ;; drives domain->response over every mirrored slot, so a slot missing from this
+   ;; model signals MISSING-SLOT and every authenticated invoice route answers 500.
+   ;; The whole reason this class is written out at all.
+   (order-number
+    :initarg :order-number
+    :accessor order-number)
+   (order-id
+    :initarg :order-id
+    :accessor order-id)
+   ;; THE EDIT LOCK and its audit trail. Declared here for the same reason order-number is: this class
+   ;; is written out because *invh-mirrored-slots* drives domain->response over every mirrored slot, so
+   ;; a slot missing from this model signals MISSING-SLOT and every invoice route answers 500.
+   (invoice-locked
+    :initarg :invoice-locked
+    :accessor invoice-locked)
+   (unlocked-by-user-id
+    :initarg :unlocked-by-user-id
+    :accessor unlocked-by-user-id)
+   (unlocked-by-vendor-id
+    :initarg :unlocked-by-vendor-id
+    :accessor unlocked-by-vendor-id)
+   (unlocked-at
+    :initarg :unlocked-at
+    :accessor unlocked-at)
    ;; PARTIES
    (vendor-id
     :initarg :vendor-id

@@ -48,17 +48,36 @@
 (load "hhub/core/nst-bl-adhara.lisp")
 (load "hhub/invoice/nst-dal-invh.lisp")
 (load "hhub/invoice/nst-dal-invitm.lisp")
+;; 🚨 THE CLSQL VIEW CLASSES ARE LOADED TOO, AND THAT IS THE WHOLE POINT OF THE THIRD SIDE
+;; BELOW. nst-copy-invoice-header-domaintodb drives (setf (slot-value destination slot) …)
+;; over the mirror list, and `destination` is a dod-Invoice-Header / dod-invoice-items — NOT
+;; the domain class. A mirrored column absent from the view class is a MISSING-SLOT that
+;; aborts the INSERT. MEASURED on order 508's Generate Invoice (2026-10-12):
+;;   the slot COM.NSTORES.APP::ORDER-NUMBER is missing from
+;;   #<COM.NSTORES.APP::DOD-INVOICE-HEADER>
+;; This checker reported PASS through that whole defect, because it only ever compared the
+;; mirror list against the DOMAIN and RESPONSE classes. Both files are legacy DDD sources
+;; but they define the classes the new copiers write, and they read cleanly here.
+(load "hhub/invoice/nst-dal-ihd.lisp")
+(load "hhub/invoice/nst-dal-itm.lisp")
 
 (in-package :nstores)
 
 (defparameter *pairs*
   '(("hhub/invoice/nst-bl-invh.lisp"   "*INVH-MIRRORED-SLOTS*"
-     nst-invh  NstInvhResponseModel   "HEADER  nst-invh  -> NstInvhResponseModel")
+     nst-invh  NstInvhResponseModel   "HEADER  nst-invh  -> NstInvhResponseModel"
+     dod-Invoice-Header)
     ("hhub/invoice/nst-bl-invitm.lisp" "*INVITM-MIRRORED-SLOTS*"
-     nst-invitm NstInvitmResponseModel "ITEM    nst-invitm -> NstInvitmResponseModel"))
-  "The (source-file, defparameter-name, entity-class, response-class, label) pairs
-   this check knows about. All four of the invoice ones follow the list-driven form;
-   nothing else in the tree does.")
+     nst-invitm NstInvitmResponseModel "ITEM    nst-invitm -> NstInvitmResponseModel"
+     dod-invoice-items))
+  "The (source-file, defparameter-name, entity-class, response-class, label, VIEW-class)
+   pairs this check knows about. All four of the invoice ones follow the list-driven form;
+   nothing else in the tree does.
+
+   ⚠ THE SIXTH ELEMENT IS THE CLSQL VIEW CLASS THE COPYERS WRITE, and it was missing until
+   2026-10-12 — which is why a MISSING-SLOT on `dod-Invoice-Header` reached production. The
+   mirror list drives THREE consumers (the two copiers AND domain->response); this check
+   covered only the domain/response pair, never the object the copiers actually write.")
 
 (defun read-mirrored-slots (path name)
   "The slot list from PATH's (defparameter NAME '…) — read, never copied.
@@ -88,12 +107,14 @@
     (sb-mop:finalize-inheritance c)
     (mapcar #'sb-mop:slot-definition-name (sb-mop:class-slots c))))
 
-(defun check-pair (path name entity-class response-class label)
-  "→ number of problems found."
+(defun check-pair (path name entity-class response-class label view-class)
+  "→ number of problems found. The VIEW-CLASS side is the one that catches the defect that
+   reached order 508: a mirrored column the DOMAIN carries but the CLSQL row class does not."
   (let ((slots (read-mirrored-slots path name)))
     (if (null slots)
         (progn (format t "~&== ~A ==~%  FAIL: ~A not found in ~A~%" label name path) 1)
         (let ((entity-slots   (class-slot-names entity-class))
+              (view-slots     (when (find-class view-class nil) (class-slot-names view-class)))
               ;; The ENTITY is not instantiated on purpose: its slot initforms
               ;; reach mysql-now and other core functions this file does not load,
               ;; so make-instance would signal undefined-function. Its own slots
@@ -101,17 +122,26 @@
               ;; actually matters. The RESPONSE model IS instantiated, because the
               ;; operation under test is a setf on it.
               (response (make-instance response-class :row-id "1"))
-              (missing-on-response '()) (missing-on-entity '()) (failed '()) (ok 0))
+              (missing-on-response '()) (missing-on-entity '()) (missing-on-view '())
+              (failed '()) (ok 0))
           (dolist (slot slots)
             (if (slot-exists-p response slot)
                 (handler-case (progn (setf (slot-value response slot) :probe) (incf ok))
                   (error (c) (push (list slot (princ-to-string c)) failed)))
                 (push slot missing-on-response))
-            (unless (member slot entity-slots) (push slot missing-on-entity)))
-          (format t "~&== ~A ==~%  mirrored list       = ~D slots~%  setf on response    = ~D OK~%  MISSING on RESPONSE = ~S~%  MISSING on ENTITY   = ~S~%  other errors        = ~S~%"
+            (unless (member slot entity-slots) (push slot missing-on-entity))
+            ;; ⚠ A MISSING VIEW CLASS IS ITSELF A FAILURE, not a skip: silently passing
+            ;; when the class was not loaded is how a check reports a healthy file green.
+            (when (and view-slots (not (member slot view-slots)))
+              (push slot missing-on-view)))
+          (when (null view-slots)
+            (format t "~&  ⚠ ~A NOT LOADED/not found — the copier target was NOT checked~%" view-class))
+          (format t "~&== ~A ==~%  mirrored list       = ~D slots~%  setf on response    = ~D OK~%  MISSING on RESPONSE = ~S~%  MISSING on ENTITY   = ~S~%  MISSING on VIEW (~A) = ~S~%  other errors        = ~S~%"
                   label (length slots) ok
-                  (reverse missing-on-response) (reverse missing-on-entity) (reverse failed))
-          (+ (length missing-on-response) (length missing-on-entity) (length failed))))))
+                  (reverse missing-on-response) (reverse missing-on-entity)
+                  view-class (reverse missing-on-view) (reverse failed))
+          (+ (length missing-on-response) (length missing-on-entity)
+             (length missing-on-view) (length failed) (if view-slots 0 1))))))
 
 (let ((problems 0))
   (format t "~&invoice mirror check — no image, no database, no build~%")

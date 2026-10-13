@@ -296,6 +296,16 @@
     :initarg :invheadid
     :type integer
     :accessor invheadid)
+   ;; ── THE ORDER LINE THIS LINE TRANSCRIBED (US-012) ─────────────────────────
+   ;; 🚨 DECLARED HERE BECAUSE *invitm-mirrored-slots* DRIVES nst-copy-invoice-item-domaintodb, which
+   ;; does (setf (slot-value destination slot) …) for EVERY mirrored slot. A column in that list but
+   ;; not in this view class is a MISSING-SLOT that aborts the INSERT — the same defect the header hit
+   ;; on order 508 (nst-dal-ihd.lisp's dod-Invoice-Header carries the full note). The domain class
+   ;; having the slot does not help: this is the object the copier writes.
+   (order-item-id
+    :initarg :order-item-id
+    :type integer
+    :accessor order-item-id)
    (prd-id
     :type integer
     :initarg :prd-id
