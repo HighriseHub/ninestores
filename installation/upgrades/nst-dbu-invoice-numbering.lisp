@@ -1,55 +1,14 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-;;; nst-dbu-invoice-numbering.lisp
-;;;
-;;; The INVOICE NUMBER gets a real series, built the way the ORDER's was (S0b/S0c):
-;;;
-;;;   1. DOD_VEND_PROFILE.DOC_PREFIX varchar(8) — the issuing vendor's series identity, the column
-;;;      the customer has carried since S0b (DOD_CUST_PROFILE.DOC_PREFIX);
-;;;   2. every existing vendor gets one, allocated by the same ladder (8 chars, then 6+2, then 5+3)
-;;;      from the same shared pool, because derivations collide and a prefix handed to two issuers
-;;;      defeats the point of one;
-;;;   3. the `before_insert_invoice` TRIGGER IS DROPPED (see below — this is the load-bearing step).
-;;;
-;;; WHY A TRIGGER HAS TO GO, AND WHY THAT IS NOT VANDALISM
-;;; -----------------------------------------------------
-;;; installation/nstdbtriggers.sql holds:
-;;;
-;;;   create trigger before_insert_invoice before insert on DOD_INVOICE_HEADER for each row
-;;;     set NEW.INVNUM = concat('NST', lpad(next_id,5,'0'), '-', year(now()));
-;;;
-;;; next_id is the table's own AUTO_INCREMENT, so the number is effectively the ROW-ID, zero-padded,
-;;; stamped with the CALENDAR year. That is three separate violations of what US-005 asks for: the
-;;; series is global rather than per vendor (per GSTIN), it is not an April–March financial year, and
-;;; it cannot be consecutive once rows are deleted. And because it fires on EVERY insert, it silently
-;;; discards whatever the application minted — `make` returns one number and the row stores another
-;;; (MEASURED, PENDING-WORK §1d; the ord→inv junction documented the same trap).
-;;;
-;;; ⚠ `hhubuser` CANNOT SEE THE TRIGGER AT ALL (INFORMATION_SCHEMA.TRIGGERS is empty without the
-;;; TRIGGER privilege), which is why this looked for months like the database eating a value. The
-;;; fix cannot be a conditional insert — it has to remove the trigger.
-;;;
-;;; 🚨 AND THE OPERATOR ACCOUNT NEEDS `TRIGGER` FOR THAT, A THIRD PRIVILEGE AFTER `ALTER` AND `INDEX`:
-;;;
+;;; nst-dbu-invoice-numbering.lisp — give the invoice number a real series, the way the ORDER's was:
+;;; DOD_VEND_PROFILE.DOC_PREFIX varchar(8) (the issuing vendor's series identity), a prefix per vendor
+;;; from the shared ladder, and the DROP of the `before_insert_invoice` trigger that re-derives INVNUM
+;;; as NST<row_id>-<calendar year> on every insert — global, wrong year, and it discarded every mint.
+;;; 🚨 THE OPERATOR NEEDS `TRIGGER` (a third privilege after ALTER and INDEX):
 ;;;   GRANT ALTER, INDEX, TRIGGER ON hhubdb.* TO 'hhubadmin'@'localhost';
-;;;
-;;; IF THE DROP IS REFUSED the migration still succeeds and reports it, because the fallback is
-;;; benign and is already in the code: nst-invh's `make` re-reads the stored row after the INSERT and
-;;; reports WHAT THE ROW HOLDS (nst-stored-invoice-number). So a refused drop leaves the old series
-;;; working — correct but not per-vendor and not FY-based — and never a lie about the number. Do not
-;;; "fix" a refused drop by writing one anyway; get the grant.
-;;;
-;;; ⚠ DROPPING IT IS NOT REVERSIBLE BY THIS FILE. The trigger's DDL is in installation/nstdbtriggers.sql,
-;;; so it can be recreated by hand, but nothing here re-creates it. That is deliberate: an automatic
-;;; down-path would be a second place that has to stay in step with the up-path, and the trigger is
-;;; exactly the kind of thing this migration exists to be rid of.
-;;;
-;;; ⚠ NO BACKFILL OF INVNUM. Existing numbers keep the trigger's shape — they are issued documents and
-;;; a changed number on an issued invoice is worse than an inconsistent series across the cutover.
-;;; The new series begins with the next invoice.
-;;;
-;;; REGISTER IT in the `*migrations*` list in hhub/core/nst-sch-mig.lisp. The helpers used below
-;;; (add-column-if-absent) live in THAT file, not here — load-upgrade-files loads this AFTER it, so a
-;;; local copy would silently win over the canonical one.
+;;; A REFUSED DROP still succeeds and is reported: `make` re-reads the stored row and reports what the
+;;; row holds, so the reply never lies, though the series stays the trigger's. Get the grant, do not
+;;; write the number by hand. Dropping is NOT reversed by this file, and INVNUM is NOT backfilled
+;;; (issued documents keep their numbers). Full reasoning: PENDING-WORK-CONTEXT.md §18 (US-015).
 
 (in-package :nstores)
 

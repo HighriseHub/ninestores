@@ -76,12 +76,9 @@
    segment, which `NST000abc123` cannot satisfy."
   (and (stringp value)
        (let* ((parts (nst-split-on-hyphen value))
-              ;; ⚠ THE SEGMENT COUNT IS NOT FIXED, AND ASSUMING ONE COST TWO WRONG VERSIONS OF THIS
-              ;; FUNCTION. The number is INV-<prefix>-<YYYY>-<YY>-<serial> and the FINANCIAL YEAR
-              ;; ITSELF CONTAINS A HYPHEN, so a normal number splits into FIVE parts, an empty prefix
-              ;; (`INV--2026-27-000012`) into FOUR, and a prefix containing a hyphen into more. Counting
-              ;; segments is therefore the wrong test; what identifies a number is its HEAD ("INV"), its
-              ;; YEAR SEGMENT (all digits, immediately before the serial) and a NON-EMPTY serial.
+              ;; ⚠ THE SEGMENT COUNT IS NOT FIXED: the FINANCIAL YEAR ITSELF CONTAINS A HYPHEN, so a
+              ;; normal number splits into FIVE parts and an empty prefix into FOUR. Assuming a count
+              ;; cost two wrong versions of this function — test the HEAD and the YEAR segment instead.
               (tail (last parts 2)))
          (and (>= (length parts) 3)
               (string-equal (first parts) "INV")
@@ -169,22 +166,9 @@
 	 (authsign (authsign requestmodel))
 	 (finyear (finyear requestmodel))
 	 ;; 🚨 THE LEGACY PATH MUST MINT ITS OWN NUMBER, AND THIS BINDING IS WHAT MAKES DROPPING THE TRIGGER
-	 ;; SAFE. What arrives as :invnum here is the wizard's SESSION KEY — the random token
-	 ;; nst-ui-ihd.lisp mints as (format nil "NST000~A" (hhub-random-token 10)) — NOT an invoice number.
-	 ;; Until 2026-10-12 the `before_insert_invoice` TRIGGER silently replaced it with
-	 ;; NST<row_id>-<year>, so nobody noticed that this path never numbered anything: the trigger was
-	 ;; the only thing standing between the wizard key and a NOT NULL INVNUM column.
-	 ;;
-	 ;; With the trigger dropped (installation/upgrades/nst-dbu-invoice-numbering.lisp) that key would
-	 ;; be STORED — a series-less placeholder in the column every GST return reads. So the number is
-	 ;; minted HERE, from the same mint the adhara path uses, BEFORE the insert. Doing it in this order
-	 ;; is also what makes this change safe to ship BEFORE the migration: the value is present whether
-	 ;; or not the trigger still exists.
-	 ;;
-	 ;; ⚠ AN ALREADY-OURS NUMBER IS KEPT, and that is not cosmetic: the update/email actions build this
-	 ;; same request model to ADDRESS an existing invoice, and re-minting there would invent a number
-	 ;; for a document that already has one. Only a create mints, and only when what arrived is not a
-	 ;; number of our shape.
+	 ;; SAFE. What arrives as :invnum is the wizard's SESSION KEY, not a number: the trigger used to
+	 ;; replace it, so with it dropped the key itself would be STORED. ⚠ An already-ours number is KEPT,
+	 ;; because the update/email actions build this same model to ADDRESS an existing invoice.
 	 (invnum (if (and (stringp invnum) (nst-invoice-number-shaped-p invnum))
 	             invnum
 	             (nst-invoice-number-for (nst-legacy-invoice-number-template vendor company)

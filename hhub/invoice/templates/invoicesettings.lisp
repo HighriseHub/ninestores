@@ -29,38 +29,9 @@
         (text "")))
 
     (invoice-general-settings
-      ;; ── THE INVOICE NUMBER'S SHAPE, NOW THE SAME SHAPE AS THE ORDER'S (2026-10-12) ──────────
-      ;; Was "INV-YYYY-MM-{counter}" — a month-stamped number with no issuer identity and no
-      ;; financial-year series. It is now <prefix>-<fy>-<counter>, rendered by nst-format-doc-number
-      ;; and allocated by nst-invoice-number-for (core/dod-bl-utl.lisp): the VENDOR's DOC_PREFIX
-      ;; (DOD_VEND_PROFILE, its own column), the April–March financial year, and a padded counter
-      ;; scoped per (vendor, financial year).
-      ;;
-      ;; 🚨 {counter} IS KEPT, AND THAT IS THE ONE PLACE THIS DOCUMENT DELIBERATELY DIFFERS FROM THE
-      ;; ORDER. An ORDER uses {ref:6}, a keyed NON-SEQUENTIAL reference, because a sequential one
-      ;; would tell every vendor how many orders its customer placed with its COMPETITORS (the F1
-      ;; decision record, order-adhara-stories-CONTEXT.md §10). AN INVOICE IS THE OPPOSITE CASE: GST
-      ;; wants a CONSECUTIVE serial for the financial year, and a non-sequential number is exactly
-      ;; what a tax invoice must NOT have. So the invoice stays consecutive on purpose — do not
-      ;; "harmonise" it with the order's {ref:6} without deciding that trade explicitly, because it
-      ;; trades a tax-compliance property for a privacy one that the invoice does not need (a
-      ;; vendor's own invoice count is not a competitor's secret).
-      ;;
-      ;; {ref:N} remains available in the token vocabulary, so a vendor who ever wants opacity on
-      ;; invoices can have it as a DATA change to this string.
-      ;;
-      ;; ⚠ THE COUNTER NOW EXISTS, so {counter} is no longer aspirational: it used to have no backing
-      ;; store at all (the "counter that {counter} never had"), and DOD_DOC_COUNTER — added for the
-      ;; order series — is that store.
-      ;;
-      ;; ⚠ AND A MYSQL TRIGGER STILL OVERWRITES INVNUM ON INSERT (PENDING-WORK §1d). The
-      ;; application's number is therefore written by an UPDATE immediately after the INSERT, in the
-      ;; same transaction; nst-invh's make carries the full note.
-      ;; ⚠ {counter:6} CARRIES AN EXPLICIT WIDTH, AND WITHOUT IT THE SERIES DOES NOT SORT. An
-      ;; UNBRACED token (bare YYYY / MM) is substituted with width NIL = NO PADDING
-      ;; (nst-doc-number-pad's `((null width) value)` branch), so a plain {counter} would render 1,
-      ;; 2, … 10 and "…-10" would sort BEFORE "…-2". The width is what makes a text column behave
-      ;; like a series, and {ref:N} reads its width from the template for the same reason.
+      ;; ── THE INVOICE NUMBER: <vendor prefix>-<April–March FY>-<counter>. 🚨 {counter} IS KEPT WHERE AN
+      ;; ORDER USES {ref:6} — GST Rule 46 wants a CONSECUTIVE serial, and an order hides its count from
+      ;; competitors (F1) while an invoice must not. ⚠ {counter:6} NEEDS ITS WIDTH or "…-10" sorts first.
       (invoice-number-format "INV-{prefix}-{fy}-{counter:6}")
       ;; The ORDER number's shape, alongside the invoice's — one vocabulary, two
       ;; document types with OPPOSITE legal requirements.
@@ -124,27 +95,9 @@
     (security-settings
       (allow-invoice-deletion nil)
       (allow-invoice-edit-after-generation t)
-      ;; ── THE ORDER-DERIVED INVOICE LOCK (story E1/US-013, requester's ruling 2026-10-12) ──────
-      ;; Should an invoice generated FROM an order arrive locked against edits?
-      ;;
-      ;;   enabled nil  (the default) — NO. The invoice stays open ended. This is the requester's own
-      ;;                case: "in India … people add more items in the nick of time after the order is
-      ;;                placed", so locking by default would charge their ordinary workflow a per-invoice
-      ;;                Unlock on every invoice — friction for the vendor the feature exists to help.
-      ;;                An absent key means exactly this, which is what every existing vendor's blob says.
-      ;;   enabled t    — YES. Every invoice from an order arrives locked; the vendor unlocks the ones
-      ;;                they need to touch, and the unlock is recorded (who, when).
-      ;;
-      ;; ⚠ THE SECTION NAME IS ODD ON PURPOSE AND MUST NOT BE TIDIED. The settings reader matches keys on
-      ;; their name with hyphens REMOVED (invoiceprintsettingentry), and a saved blob round-trips through
-      ;; JSON as `:LOCKORDERDERIVEDINVOICESINVOICE`. Renaming the section changes the key every existing
-      ;; vendor's blob would have to use.
-      ;;
-      ;; ⚠ NOT YET ON THE SETTINGS PAGE. `security-settings` is in the shipped defaults but the page's
-      ;; template renders only the logo and print forms (com-hhub-transaction-invoice-settings-page
-      ;; formats exactly two arguments into invoicesettings.html), so this — like allow-invoice-deletion
-      ;; and allow-invoice-edit-after-generation before it — is READABLE and EDITABLE IN THE BLOB but has
-      ;; no control yet. Wiring the pane is its own change; see PENDING-WORK-CONTEXT.md §17.
+      ;; ── THE ORDER-DERIVED INVOICE LOCK (E1/US-013): nil (default) = NO, open ended, because the
+      ;; requester adds items in the nick of time after the order; t = YES, vendor unlocks, recorded.
+      ;; ⚠ The ODD SECTION NAME must not be tidied (keys drop hyphens) and there is NO PAGE CONTROL yet.
       (lock-order-derived-invoices-invoice
         (enabled nil))
       (auto-logout-timer 30)

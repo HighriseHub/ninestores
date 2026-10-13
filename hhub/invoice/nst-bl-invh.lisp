@@ -230,19 +230,9 @@
                           :flatp t)))))
 
 (defun nst-invoice-number-template-for (vendor-id tenant-id)
-  "The invoice-number TEMPLATE this vendor's invoices are numbered by, or the code default.
-
-  Read from the vendor's stored invoice settings under `invoice-general-settings`
-  (`invoice-number-format`), falling back to the shipped `*invoice-settings*` — the same rule the
-  tree's settings readers use, so a vendor whose blob predates the key is NOT read as having said
-  'no'. The SHAPE stays DATA: change the string and the series changes, with no code edit.
-
-  ⚠ IT IS READ FROM THE RAW BLOB HERE RATHER THAN THROUGH nst-vendor-invoicesettings
-  (invoice/nst-ui-ihd.lisp): that helper does the identical read, but this file loads in the
-  INVOICE section BEFORE the UI file, so depending on it would leave this function undefined in any
-  image that loaded the domain half alone. The parsing rule is one line and is stated in both
-  readers; the ALTERNATIVE — moving the helper here and re-pointing the UI at it — is the tidier
-  change and is left as a follow-up rather than done mid-story."
+  "The invoice-number TEMPLATE for this vendor, or the code default — read from their stored settings.
+  ⚠ Read from the raw blob here rather than through nst-vendor-invoicesettings (nst-ui-ihd.lisp):
+  that file loads AFTER this one, so depending on it would leave this undefined in a domain-only image."
   (let* ((raw (and vendor-id
                    (ignore-errors
                      (first (clsql:query (format nil "SELECT `INVOICE_SETTINGS` FROM `DOD_VEND_PROFILE` ~
@@ -304,10 +294,8 @@
          (entity (apply #'make-instance 'nst-invh :tenant-id tenant-id initargs))
          (dbobj (make-instance 'dod-invoice-header)))
     (unless (invnum entity)
-      ;; 🚨 THE SERIES IS MINTED HERE, FROM THE VENDOR'S PREFIX AND THE (vendor, FY) COUNTER — the
-      ;; sibling of the order's mint. It replaces a RANDOM placeholder ("NST000" + hhub-random-token),
-      ;; which was addressable but meaningless: no issuer, no financial year, no series, and not
-      ;; consecutive — the three things a tax invoice number has to be.
+      ;; 🚨 THE SERIES IS MINTED HERE — the sibling of the order's mint — replacing a random placeholder
+      ;; that was addressable but meaningless: no issuer, no FY, and not consecutive.
       (setf (invnum entity)
             (nst-invoice-number-for (nst-invoice-number-template-for (vendor-id entity) tenant-id)
                                     (nst-vendor-doc-prefix-for (vendor-id entity)
@@ -327,18 +315,9 @@
                         dbobj)))
       (case (bo-knowledge-truth knowledge)
         (:T (bind-generated-row-id entity (bo-knowledge-payload knowledge))
-            ;; 🚨 THE ROW'S OWN NUMBER WINS, AND THE ENTITY IS ALIGNED TO IT — the same rule the
-            ;; ord→inv junction discovered the hard way (invoice/nst-bl-invhapi.lisp §9, trap 1): a
-            ;; database-side BEFORE INSERT trigger RE-DERIVES INVNUM, so what `make` minted is NOT what
-            ;; the table STORED. Reporting the minted value would put a number in the reply that no row
-            ;; carries — the caller would print, email and link a document that does not exist.
-            ;;
-            ;; ⚠ THIS READ IS WHY THE MIGRATION ALSO DROPS THE TRIGGER. Aligning is honest, but it means
-            ;; the series we just minted from the counter is DISCARDED, so the counter advances while the
-            ;; numbers come from the trigger — and the trigger's series is per ROW_ID and stamped with
-            ;; the CALENDAR year, which is neither per-vendor nor an April–March financial year. Until
-            ;; the trigger is gone the mint is only as good as this alignment; after it, this read
-            ;; returns exactly what was minted and the alignment is a no-op safety net.
+            ;; 🚨 THE ROW'S OWN NUMBER WINS — a BEFORE INSERT trigger used to RE-DERIVE INVNUM, so what
+            ;; `make` minted was not what the table stored, and reporting the minted value would quote a
+            ;; number no row carries. With that trigger dropped this read is a no-op safety net.
                (let ((stored (nst-stored-invoice-number (row-id entity) tenant-id)))
                  (when stored (setf (invnum entity) stored)))
                entity)

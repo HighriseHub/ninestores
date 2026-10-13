@@ -354,6 +354,45 @@ the same bug.
    `INFORMATION_SCHEMA.STATISTICS`, 2026-09-26.
 3. **The item URL puts `:invheadid` in the payload**, which `!update` refuses; the route verifies
    the pairing and strips it. Without the strip every nested PUT would 409.
+4. 🚨 **A NEW MIRRORED COLUMN NEEDS FOUR DECLARATIONS, AND THE CLSQL VIEW CLASS IS THE ONE EVERYONE
+   FORGETS.** `*invh-mirrored-slots*` / `*invitm-mirrored-slots*` drive
+   `(setf (slot-value destination slot) …)` in `nst-copy-invoice-header-domaintodb` /
+   `nst-copy-invoice-item-domaintodb`, and `destination` is a **`dod-Invoice-Header` /
+   `dod-invoice-items`** (`invoice/nst-dal-ihd.lisp:691`, `invoice/nst-dal-itm.lisp:289`) — NOT the
+   domain class. So the four places are: **the DB column, the domain class (`nst-invh`/`nst-invitm`),
+   the response model (`Nst…ResponseModel`), and the view class.** Miss the fourth and the domain
+   object carries a value its row object has nowhere to put:
+
+   ```
+   the slot COM.NSTORES.APP::ORDER-NUMBER is missing from
+   #<COM.NSTORES.APP::DOD-INVOICE-HEADER>
+   ```
+
+   MEASURED on order 508's Generate Invoice (2026-10-12), and it is not theoretical again in the
+   other direction either: a view-class slot for a column that does NOT exist yet fails the same way
+   on write, so the migration and the slot land together or not at all.
+   ⚠ **`../tools/nst-invoice-mirror-check.lisp` now checks the view class as a THIRD side.** Before
+   2026-10-12 it compared the mirror list against the entity and the response model ONLY and reported
+   **PASS** straight through the defect above — which is why the header's own note says the list drives
+   *three* consumers while the check covered *two*. It reports `MISSING on VIEW (…)`, fails when the
+   view class is not loaded rather than skipping silently, and is mutation-tested against this exact
+   failure.
+5. 🚨 **THE SETTINGS BLOB HAS TWO SHAPES AND `(cdr pair)` IS WRONG FOR ONE OF THEM.** A shipped default
+   is a two-element LIST `(invoice-number-format "INV-…")`, so its `cdr` is `("INV-…")` — a list
+   HOLDING the string; a blob round-tripped through JSON is a DOTTED pair whose `cdr` IS the string.
+   Reading `(cdr pair)` therefore works for a blob and silently hands a list for the default, and the
+   error surfaces far away:
+
+   ```
+   The value ("INV-YYYY-MM-{counter}") is not of type STRING
+   ```
+
+   MEASURED on order 510's Generate Invoice (2026-10-13). `nst-document-template-value`
+   (`core/dod-bl-utl.lisp`) is the ONE unwrap — it demands a **string** car, so `(:enabled "x")`
+   survives — and both the adhara reader (`nst-bl-invh.lisp`) and the LEGACY reader
+   (`nst-bl-ihd.lisp`) go through it, because a series with two readers is a series that forks.
+   ⚠ **This is the same defect `nst-ui-ihd.lisp`'s `invoiceprintsettingvalue` already documents** and
+   it recurred anyway, so prefer the existing reader over writing a fresh one.
 
 ---
 

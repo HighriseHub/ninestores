@@ -1444,25 +1444,11 @@ corresponding universal time."
 
 (defun nst-document-template-value (value &optional (fallback *nst-invoice-number-format*))
   "VALUE as a document-number TEMPLATE STRING, or FALLBACK.
-
-  🚨 THIS EXISTS BECAUSE THE TWO SETTINGS SHAPES DIFFER AND THE DIFFERENCE IS INVISIBLE UNTIL RUNTIME.
-  A shipped default is written as a TWO-ELEMENT LIST — `(invoice-number-format \"INV-…\")` — so its
-  `cdr` is `(\"INV-…\")`, A LIST HOLDING THE STRING. A saved blob round-trips through JSON and comes
-  back as a DOTTED PAIR — `(:invoicenumberformat . \"INV-…\")` — whose `cdr` IS the string. Reading
-  `(cdr pair)` therefore works for a blob and silently yields a LIST for the default, and the failure
-  surfaces far away, inside nst-format-doc-number:
-
-      The value (\"INV-YYYY-MM-{counter}\") is not of type STRING.
-      … MEASURED on order 510's Generate Invoice, 2026-10-13.
-
-  ⚠ THE SAME DEFECT WAS ALREADY RECORDED IN THIS TREE for the invoice-print settings
-  (nst-ui-ihd.lisp's invoiceprintsettingvalue documents exactly this shape), and it recurred here
-  because this reader was written fresh instead of reusing that rule. It lives in CORE now so the
-  adhara path (invoice/nst-bl-invh.lisp) and the LEGACY path (invoice/nst-bl-ihd.lisp) cannot drift
-  into two versions of it — a series with two readers is a series that forks.
-
-  The unwrap demands a STRING car, not merely a one-element list: `(:enabled \"x\")` is a legitimate
-  two-element list whose car is a keyword, and unwrapping that would destroy a real value."
+  🚨 A shipped default is a TWO-ELEMENT LIST `(key \"INV-…\")`, so its `cdr` is `(\"INV-…\")` — a list
+  HOLDING the string — while a JSON-round-tripped blob is a DOTTED pair whose `cdr` IS the string. So
+  `(cdr pair)` works for a blob and hands a LIST for the default, which nst-format-doc-number refuses:
+  MEASURED on order 510 (2026-10-13), `The value (\"INV-YYYY-MM-{counter}\") is not of type STRING`.
+  The unwrap demands a STRING car, not merely a one-element list, so `(:enabled \"x\")` survives."
   (cond
     ((stringp value) value)
     ((and (consp value)
@@ -1624,23 +1610,11 @@ corresponding universal time."
 
 (defun nst-invoice-number-for (template vendor-prefix invdate tenant-id vendor-id
                                        &key counter key)
-  "The next INVOICE number for VENDOR-ID on INVDATE, allocated from the counter and rendered
-  through TEMPLATE — the INVOICE's sibling of nst-order-number-for, deliberately the same shape
-  so the two series cannot drift into two implementations of one rule.
-
-  THE ONLY CALLER is nst-invh's `make` (invoice/nst-bl-invh.lisp), so every invoice that is not
-  minted here is a hole in the series.
-
-  VENDOR-PREFIX is the vendor's DOC_PREFIX (its own column, mirroring the customer's on the order
-  side): an invoice is the VENDOR's document, so the issuing vendor is what the series' identity
-  hangs off, and `DOD_VEND_PROFILE` is the row that carries the GSTIN a per-GSTIN series would
-  name. The counter is scoped per (vendor, financial year) — NOT per customer, which would restart
-  one vendor's series once per customer and make the numbers non-consecutive for the only party
-  GST cares about.
-
-  :COUNTER and :KEY exist for the DRY RUN and the offline check, exactly as in the order version:
-  allocating writes to DOD_DOC_COUNTER, so a dry run must not call the allocator, and the check has
-  no database to read the stored permutation key from."
+  "The next INVOICE number for VENDOR-ID on INVDATE — the INVOICE's sibling of nst-order-number-for,
+  same shape so the two series cannot drift. Only caller: nst-invh's `make`.
+  The counter is scoped per (VENDOR, financial year), not per customer — an invoice is the VENDOR's
+  document, and a per-customer scope would restart one vendor's series per customer and break the
+  consecutiveness GST cares about. :COUNTER/:KEY exist for the dry run and the offline check."
   (let* ((fy (nst-financial-year-short invdate))
          (seq (or counter (nst-next-doc-counter "INVOICE" "VENDOR" vendor-id fy tenant-id)))
          (ref-width (or (nst-doc-number-token-width template "ref") 6))
@@ -1659,17 +1633,9 @@ corresponding universal time."
 
 (defun nst-vendor-doc-prefix-taken ()
   "Every VENDOR DOC_PREFIX already stored, so allocation can avoid them.
-
-  ⚠ IT CHECKS THE OTHER TABLE TOO, AND THAT IS NOT PARANOIA: DOD_CUST_PROFILE.DOC_PREFIX carries a
-  UNIQUE index, and if the vendor column is ever given the same constraint the two tables must not
-  hand out the same token for two different parties — a document number is how a counterparty
-  identifies a series, and one token meaning two issuers defeats it. Sharing the pool costs a rung
-  of a ladder 99 rungs deep and removes a future collision.
-
-  ⚠ IT FAILS LOUDLY BEFORE THE COLUMN EXISTS rather than reporting an empty list: an empty list
-  would let allocation hand out a prefix already in use on a database where the column is simply
-  missing. The ALTER is the migration's first step, and this message is what a caller sees if it
-  is not."
+  ⚠ It reads the CUSTOMER table too: one token must not identify two issuers, and sharing the pool
+  costs a rung of a ladder 99 deep. ⚠ It FAILS LOUDLY before the column exists rather than returning an
+  empty list, which would hand out a prefix that is already in use."
   (handler-case
       (append (clsql:query "SELECT `DOC_PREFIX` FROM `DOD_VEND_PROFILE` WHERE `DOC_PREFIX` IS NOT NULL"
                            :flatp t)
@@ -1688,13 +1654,9 @@ corresponding universal time."
 
 (defun nst-vendor-doc-prefix-for (vendor-id name)
   "VENDOR-ID's DOC_PREFIX, allocating and STORING one from NAME when it has none — the same lazy
-  allocation the customer side chose over touching every place that creates a row (R2).
-
-  Returns NIL rather than signalling when nothing can be derived, because the CALLER has a better
-  answer available: an invoice whose vendor has no derivable prefix can still be numbered with an
-  empty prefix (the template's `{prefix}` renders as nothing), whereas refusing to invoice at all
-  would block a sale over a cosmetic token. The ladder being exhausted is the one case worth
-  signalling, and it cannot happen by accident."
+  allocation the customer side chose (R2). Returns NIL rather than signalling when nothing can be
+  derived, because `{prefix}` renders empty and the invoice can still be numbered; refusing would block
+  a sale over a cosmetic token. Only an exhausted ladder signals."
   (or (nst-vendor-doc-prefix-read vendor-id)
       (let ((base (nst-doc-prefix-base name)))
         (when base

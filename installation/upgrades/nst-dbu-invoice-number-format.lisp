@@ -1,36 +1,11 @@
 ;; -*- mode: common-lisp; coding: utf-8 -*-
-;;; nst-dbu-invoice-number-format.lisp
-;;;
-;;; Point every vendor's STORED invoice-number template at the new invoice series.
-;;;
-;;; 🚨 WHY THIS IS A SEPARATE MIGRATION RATHER THAN PART OF nst-dbu-invoice-numbering.lisp: that file
-;;; was ALREADY APPLIED (version 13102026-invoice-numbering is in DOD_SCHEMA_MIGRATIONS), and
-;;; `apply-migrations` removes every entry whose version is recorded — so editing an applied migration
-;;; does NOTHING. A step added to it after the fact would look shipped and never run. This file carries
-;;; its own version instead.
-;;;
-;;; WHY THE STEP IS NEEDED AT ALL, given the shipped default is already the new shape:
-;;;
-;;;   A VENDOR'S STORED SETTING WINS OVER THE SHIPPED DEFAULT. The shipped
-;;;   `invoice-number-format` is now INV-{prefix}-{fy}-{counter:6}, but every existing vendor blob was
-;;;   written with the OLD shape "INV-YYYY-MM-{counter}" — no issuer, no financial year. Fixing only the
-;;;   code therefore leaves a vendor reading INV-2026-10-518: longer, but still without their prefix and
-;;;   still not an April–March series. MEASURED on order 510's Generate Invoice (2026-10-13) — the old
-;;;   stored template is what nst-format-doc-number received.
-;;;
-;;; ⚠ AND IT EDITS THE BLOB BY PARSING IT, NOT BY SQL PATTERN-MATCHING. The settings column holds a
-;;; printed Lisp alist; a REPLACE() on a substring could hit a matching string anywhere in it (a footer,
-;;; a terms block), so the alist is read, the one key is set, and the whole thing is re-printed. The
-;;; write goes through `sql-literal`, because a settings blob contains apostrophes and an unescaped one
-;;; ends the SQL literal (Error 1064 — the trap the ABAC seed paid for).
-;;;
-;;; ⚠ A BLOB THAT WILL NOT PARSE IS LEFT ALONE and reported. It predates this migration, the reader
-;;; falls back safely, and rewriting a blob we could not parse is how a vendor silently loses settings
-;;; they did set.
-;;;
-;;; IDEMPOTENT: a vendor already on the new template is reported and skipped, so a re-run changes
-;;; nothing. REGISTER IT in `*migrations*` (hhub/core/nst-sch-mig.lisp) — an unregistered upgrade
-;;; function never runs.
+;;; nst-dbu-invoice-number-format.lisp — point every vendor's STORED invoice-number template at the new
+;;; series, because a stored setting beats the shipped default and every blob still holds the old shape.
+;;; Separate from nst-dbu-invoice-numbering.lisp ON PURPOSE: that version is already applied and
+;;; `apply-migrations` skips recorded versions, so a step added to it would look shipped and never run.
+;;; The blob is PARSED and re-printed (never REPLACE()d, which could hit a matching footer string), the
+;;; write goes through `sql-literal` (apostrophes, Error 1064), and an unparseable blob is left alone.
+;;; Full reasoning: aiharness/deepseek/skills/PENDING-WORK-CONTEXT.md §18 (US-015).
 
 (in-package :nstores)
 
