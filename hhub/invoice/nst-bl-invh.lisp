@@ -206,6 +206,77 @@
               :reason (format nil "Invoice number ~A: the uniqueness check did not come back free — see the provenance"
                               invnum))))))))
 
+(defun nst-stored-invoice-number (row-id tenant-id)
+  "The INVNUM the ROW actually holds, or NIL — read back after the INSERT.
+
+  🚨 MEASURED, AND IT IS WHY THIS EXISTS: a database-side BEFORE INSERT trigger on DOD_INVOICE_HEADER
+  re-derives INVNUM (`concat('NST', lpad(next_id,5,'0'), '-', year(now()))`, next_id being the table's
+  own AUTO_INCREMENT), so what `make` mints is NOT what the table stores, and the two disagree for
+  every insert. The ord→inv junction hit this first and re-reads the row for the same reason
+  (invoice/nst-bl-invhapi.lisp §9, trap 1); this is the same read for the standalone path.
+
+  ⚠ `hhubuser` CANNOT SEE THE TRIGGER (no TRIGGER privilege, so INFORMATION_SCHEMA.TRIGGERS looks
+  EMPTY) — the evidence is installation/nstdbtriggers.sql plus the observed overwrite, which is why
+  the fix is a read-back rather than a conditional INSERT.
+
+  Identifiers are backticked and the ids are integers from the caller, so the FORMAT interpolation
+  carries no user text."
+  (let ((rid (ignore-errors (parse-integer (princ-to-string row-id))))
+        (tid (ignore-errors (parse-integer (princ-to-string tenant-id)))))
+    (when (and rid tid)
+      (first (clsql:query (format nil "SELECT `INVNUM` FROM `DOD_INVOICE_HEADER` ~
+                                        WHERE `ROW_ID` = ~D AND `TENANT_ID` = ~D"
+                                  rid tid)
+                          :flatp t)))))
+
+(defun nst-invoice-number-template-for (vendor-id tenant-id)
+  "The invoice-number TEMPLATE this vendor's invoices are numbered by, or the code default.
+
+  Read from the vendor's stored invoice settings under `invoice-general-settings`
+  (`invoice-number-format`), falling back to the shipped `*invoice-settings*` — the same rule the
+  tree's settings readers use, so a vendor whose blob predates the key is NOT read as having said
+  'no'. The SHAPE stays DATA: change the string and the series changes, with no code edit.
+
+  ⚠ IT IS READ FROM THE RAW BLOB HERE RATHER THAN THROUGH nst-vendor-invoicesettings
+  (invoice/nst-ui-ihd.lisp): that helper does the identical read, but this file loads in the
+  INVOICE section BEFORE the UI file, so depending on it would leave this function undefined in any
+  image that loaded the domain half alone. The parsing rule is one line and is stated in both
+  readers; the ALTERNATIVE — moving the helper here and re-pointing the UI at it — is the tidier
+  change and is left as a follow-up rather than done mid-story."
+  (let* ((raw (and vendor-id
+                   (ignore-errors
+                     (first (clsql:query (format nil "SELECT `INVOICE_SETTINGS` FROM `DOD_VEND_PROFILE` ~
+                                                        WHERE `ROW_ID` = ~D AND `TENANT_ID` = ~D"
+                                                 vendor-id tenant-id)
+                                         :flatp t)))))
+         (settings (if (and raw (stringp raw) (plusp (length raw)))
+                       (ignore-errors (read-from-string raw))
+                       *invoice-settings*))
+         (general (cdr (assoc 'invoice-general-settings settings :test 'equal))))
+    ;; ⚠ EVERY READ GOES THROUGH nst-document-template-value — see its docstring. `(cdr pair)` is a
+    ;; LIST for a shipped default and a STRING for a saved blob, and returning the list is what broke
+    ;; order 510's Generate Invoice with "The value (\"INV-YYYY-MM-{counter}\") is not of type STRING".
+    (nst-document-template-value
+     (or (and general
+              (let ((pair (assoc "INVOICENUMBERFORMAT" general
+                                 :test (lambda (name key)
+                                         (and (symbolp key)
+                                              (string= name (remove #\- (string-upcase (symbol-name key)))))))))
+                (and pair (cdr pair))))
+         (let* ((defgeneral (cdr (assoc 'invoice-general-settings *invoice-settings* :test 'equal)))
+                (pair (and defgeneral (assoc 'invoice-number-format defgeneral))))
+           (and pair (cdr pair)))))))
+
+(defun nst-vendor-name-for (vendor-id tenant-id)
+  "The vendor's display NAME, for deriving a document prefix. NIL when it cannot be read, which
+   the caller treats as 'no prefix' rather than as a failure — see nst-vendor-doc-prefix-for."
+  (and vendor-id
+       (ignore-errors
+         (first (clsql:query (format nil "SELECT `NAME` FROM `DOD_VEND_PROFILE` ~
+                                           WHERE `ROW_ID` = ~D AND `TENANT_ID` = ~D"
+                                     vendor-id tenant-id)
+                             :flatp t)))))
+
 (defmethod make ((entity-class (eql 'nst-invh)) (ctx domain-ctx) &rest initargs)
   "Create a DRAFT invoice header.
 
@@ -233,7 +304,16 @@
          (entity (apply #'make-instance 'nst-invh :tenant-id tenant-id initargs))
          (dbobj (make-instance 'dod-invoice-header)))
     (unless (invnum entity)
-      (setf (invnum entity) (format nil "NST000~A" (hhub-random-token 10))))
+      ;; 🚨 THE SERIES IS MINTED HERE, FROM THE VENDOR'S PREFIX AND THE (vendor, FY) COUNTER — the
+      ;; sibling of the order's mint. It replaces a RANDOM placeholder ("NST000" + hhub-random-token),
+      ;; which was addressable but meaningless: no issuer, no financial year, no series, and not
+      ;; consecutive — the three things a tax invoice number has to be.
+      (setf (invnum entity)
+            (nst-invoice-number-for (nst-invoice-number-template-for (vendor-id entity) tenant-id)
+                                    (nst-vendor-doc-prefix-for (vendor-id entity)
+                                                               (nst-vendor-name-for (vendor-id entity) tenant-id))
+                                    (or (invdate entity) (clsql-sys:get-date))
+                                    tenant-id (vendor-id entity))))
     (unless (invdate entity)
       (setf (invdate entity) (clsql-sys:get-date)))
     (unless (finyear entity)
@@ -247,7 +327,21 @@
                         dbobj)))
       (case (bo-knowledge-truth knowledge)
         (:T (bind-generated-row-id entity (bo-knowledge-payload knowledge))
-            entity)
+            ;; 🚨 THE ROW'S OWN NUMBER WINS, AND THE ENTITY IS ALIGNED TO IT — the same rule the
+            ;; ord→inv junction discovered the hard way (invoice/nst-bl-invhapi.lisp §9, trap 1): a
+            ;; database-side BEFORE INSERT trigger RE-DERIVES INVNUM, so what `make` minted is NOT what
+            ;; the table STORED. Reporting the minted value would put a number in the reply that no row
+            ;; carries — the caller would print, email and link a document that does not exist.
+            ;;
+            ;; ⚠ THIS READ IS WHY THE MIGRATION ALSO DROPS THE TRIGGER. Aligning is honest, but it means
+            ;; the series we just minted from the counter is DISCARDED, so the counter advances while the
+            ;; numbers come from the trigger — and the trigger's series is per ROW_ID and stamped with
+            ;; the CALENDAR year, which is neither per-vendor nor an April–March financial year. Until
+            ;; the trigger is gone the mint is only as good as this alignment; after it, this read
+            ;; returns exactly what was minted and the alignment is a no-op safety net.
+               (let ((stored (nst-stored-invoice-number (row-id entity) tenant-id)))
+                 (when stored (setf (invnum entity) stored)))
+               entity)
         (:F ;; No unique key guards INVNUM, so a :F here means the INSERT itself
             ;; was refused — a NOT NULL column, or the tenant FK. The database
             ;; names the offender; that reason is the useful part, so it is

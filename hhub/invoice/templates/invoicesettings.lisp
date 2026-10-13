@@ -29,14 +29,41 @@
         (text "")))
 
     (invoice-general-settings
-      (invoice-number-format "INV-YYYY-MM-{counter}")
+      ;; ── THE INVOICE NUMBER'S SHAPE, NOW THE SAME SHAPE AS THE ORDER'S (2026-10-12) ──────────
+      ;; Was "INV-YYYY-MM-{counter}" — a month-stamped number with no issuer identity and no
+      ;; financial-year series. It is now <prefix>-<fy>-<counter>, rendered by nst-format-doc-number
+      ;; and allocated by nst-invoice-number-for (core/dod-bl-utl.lisp): the VENDOR's DOC_PREFIX
+      ;; (DOD_VEND_PROFILE, its own column), the April–March financial year, and a padded counter
+      ;; scoped per (vendor, financial year).
+      ;;
+      ;; 🚨 {counter} IS KEPT, AND THAT IS THE ONE PLACE THIS DOCUMENT DELIBERATELY DIFFERS FROM THE
+      ;; ORDER. An ORDER uses {ref:6}, a keyed NON-SEQUENTIAL reference, because a sequential one
+      ;; would tell every vendor how many orders its customer placed with its COMPETITORS (the F1
+      ;; decision record, order-adhara-stories-CONTEXT.md §10). AN INVOICE IS THE OPPOSITE CASE: GST
+      ;; wants a CONSECUTIVE serial for the financial year, and a non-sequential number is exactly
+      ;; what a tax invoice must NOT have. So the invoice stays consecutive on purpose — do not
+      ;; "harmonise" it with the order's {ref:6} without deciding that trade explicitly, because it
+      ;; trades a tax-compliance property for a privacy one that the invoice does not need (a
+      ;; vendor's own invoice count is not a competitor's secret).
+      ;;
+      ;; {ref:N} remains available in the token vocabulary, so a vendor who ever wants opacity on
+      ;; invoices can have it as a DATA change to this string.
+      ;;
+      ;; ⚠ THE COUNTER NOW EXISTS, so {counter} is no longer aspirational: it used to have no backing
+      ;; store at all (the "counter that {counter} never had"), and DOD_DOC_COUNTER — added for the
+      ;; order series — is that store.
+      ;;
+      ;; ⚠ AND A MYSQL TRIGGER STILL OVERWRITES INVNUM ON INSERT (PENDING-WORK §1d). The
+      ;; application's number is therefore written by an UPDATE immediately after the INSERT, in the
+      ;; same transaction; nst-invh's make carries the full note.
+      ;; ⚠ {counter:6} CARRIES AN EXPLICIT WIDTH, AND WITHOUT IT THE SERIES DOES NOT SORT. An
+      ;; UNBRACED token (bare YYYY / MM) is substituted with width NIL = NO PADDING
+      ;; (nst-doc-number-pad's `((null width) value)` branch), so a plain {counter} would render 1,
+      ;; 2, … 10 and "…-10" would sort BEFORE "…-2". The width is what makes a text column behave
+      ;; like a series, and {ref:N} reads its width from the template for the same reason.
+      (invoice-number-format "INV-{prefix}-{fy}-{counter:6}")
       ;; The ORDER number's shape, alongside the invoice's — one vocabulary, two
-      ;; document types with OPPOSITE legal requirements. The invoice keeps
-      ;; {counter} because GST wants a consecutive serial (and a MySQL trigger mints
-      ;; INVNUM today regardless); orders use {ref:6}, a NON-SEQUENTIAL reference,
-      ;; because a sequential one would tell every vendor how many orders its
-      ;; customer placed with its COMPETITORS — see the F1 decision record in
-      ;; aiharness/deepseek/skills/order-adhara-stories-CONTEXT.md §10.
+      ;; document types with OPPOSITE legal requirements.
       ;; The tokens are rendered by nst-format-doc-number (core/dod-bl-utl.lisp).
       (order-number-format "ORD-{prefix}-{fy}-{ref:6}")
       (default-currency "USD")

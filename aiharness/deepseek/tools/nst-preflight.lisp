@@ -161,6 +161,9 @@
     "installation/upgrades/nst-dbu-order-policy-transaction.lisp"
     ;; the delivery charge needs a real product row (the invoice line's FK), seeded per vendor
     "installation/upgrades/nst-dbu-freight-product.lisp"
+    ;; and that row's UNITS_IN_STOCK came out NULL, which took the vendor product list down: the repair
+    ;; is a separate, already-registered version (2026-10-13) because an applied migration never re-runs
+    "installation/upgrades/nst-dbu-prd-units-in-stock.lisp"
     "hhub/core/dod-ui-pol.lisp"
     "hhub/invoice/nst-bl-invhapi.lisp"
     "hhub/order/nst-bl-ordh.lisp"
@@ -184,6 +187,16 @@
     ;; US-013 (2026-10-12): the vendor's edit lock — the state, the audit trail, and the vendor setting
     ;; that decides the default. Also an upgrade file, for the same reason.
     "installation/upgrades/nst-dbu-invoice-lock.lisp"
+    ;; US-015 (2026-10-12): the invoice number's own series — the vendor DOC_PREFIX column, the per-vendor
+    ;; prefix allocation, and the DROP of the `before_insert_invoice` trigger that overwrites every minted
+    ;; number. An upgrade file, so this reader check is its only structural check.
+    "installation/upgrades/nst-dbu-invoice-numbering.lisp"
+    "installation/upgrades/nst-dbu-invoice-number-format.lisp"
+    ;; the mint and its helpers live in core; the caller is nst-bl-invh
+    "hhub/core/dod-bl-utl.lisp"
+    ;; 🚨 the LEGACY invoice create now mints its own number (it used to rely on the trigger we are
+    ;; dropping), so this file is in the change set and needs the reader check like any other.
+    "hhub/invoice/nst-bl-ihd.lisp"
     "hhub/invoice/nst-dal-invh.lisp"
     "hhub/invoice/nst-dal-invitm.lisp"
     "hhub/invoice/nst-bl-invh.lisp"

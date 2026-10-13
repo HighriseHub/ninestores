@@ -705,6 +705,58 @@ decision** — every row is unstarted work with a settled shape.
 | **US-015** | Invoice numbering that satisfies Rule 46 | The invoice number is owned by a **MySQL trigger** (`NST<row_id>-<year(now())>`), so there is no per-GSTIN series, no April–March FY reset, and `invoice-number-format` is never consulted. The ORDER side already proves the machinery (`DOD_DOC_COUNTER`, `nst-format-doc-number`) | Unique per GSTIN per FY; ≤16 characters; the series resets each FY; no gaps from system errors; written past the trigger and re-read, as the junction already re-reads the stored row | 5 | — | `order-to-invoice-flow-CONTEXT.md` US-005 |
 | **US-011** | E-invoice applicability flag + IRN | No vendor-profile flag exists; `E_INVOICE_REQUIRED` and the `IRN`/`ACK_*` columns are live on `DOD_INVOICE_HEADER` and empty; `generate-irn` is a गण verb name with no implementation | A turnover/applicability declaration on the vendor profile; when applicable and no IRN is recorded the invoice is marked **not valid for ITC** and the buyer is warned; the IRN renders on the tax invoice | 5 | US-015 (the IRN references the number) | `order-to-invoice-flow-CONTEXT.md` US-011 |
 
+### 🟡 US-015 IN PROGRESS — the invoice number now has a real series (2026-10-12)
+
+Built the way the ORDER's was (S0b/S0c), so the two series share one vocabulary and one allocator:
+
+* **`nst-invoice-number-for`** (`hhub/core/dod-bl-utl.lisp`) — the sibling of `nst-order-number-for`,
+  minting `INV-{prefix}-{fy}-{counter:6}` from the vendor's prefix and a counter scoped per
+  **(vendor, financial year)**, rendered by the existing `nst-format-doc-number`.
+  **Verified offline across six cases:** `INV-VND0001-2026-27-000007` (26 chars), the 6-digit boundary
+  `…-999999`, a **refusal** at 7 digits (a width overflow must never silently truncate a serial), a
+  vendor with no derivable prefix → `INV--2026-27-000012` (the `{prefix}` renders empty rather than
+  blocking a sale), the `{ref:6}` variant working as data, and a legacy template still rendering.
+* **`DOD_VEND_PROFILE.DOC_PREFIX varchar(8)`** — the issuing vendor's series identity, mirroring the
+  customer's column on the order side, with `nst-vendor-doc-prefix-for` allocating from the same ladder
+  and the same shared taken-pool (one token must not mean two issuers).
+* **`*nst-invoice-number-format*`** and the shipped `invoice-number-format` setting, now
+  `INV-{prefix}-{fy}-{counter:6}` (was `INV-YYYY-MM-{counter}` — no issuer, no FY series).
+* **`nst-invh`'s `make`** mints it; **`nst-stored-invoice-number`** re-reads the row afterwards.
+
+🚨 **`{counter:6}` NEEDS ITS WIDTH, AND THAT IS NOT COSMETIC.** An unbraced token (`YYYY`, `MM`) passes
+width NIL, which `nst-doc-number-pad` treats as NO PADDING — so a plain `{counter}` would render 1, 2,
+… 10 and `…-10` would sort BEFORE `…-2`. The width is what makes a text column behave like a series.
+
+🚨 **THE TWO SERIES DIFFER ON PURPOSE — DO NOT "HARMONISE" THEM.** An ORDER uses `{ref:6}`, a keyed
+NON-sequential reference, because a sequential one lets a vendor count how many orders its customer placed
+with its **competitors** (F1, `order-adhara-stories-CONTEXT.md` §10). An INVOICE is the opposite case:
+**GST Rule 46(b) wants a CONSECUTIVE serial** for the financial year, and a non-sequential invoice number
+is exactly what a tax invoice must not have. So the invoice keeps `{counter:6}`; `{ref:N}` stays in the
+vocabulary as a data change for anyone who ever wants opacity instead.
+
+**⛔ WHAT REMAINS, and it is the load-bearing half: the trigger.**
+`installation/upgrades/nst-dbu-invoice-numbering.lisp` (registered as `13102026-invoice-numbering`) is
+**written and NOT APPLIED**. It adds the column, allocates a prefix per vendor, and **DROPS the
+`before_insert_invoice` trigger** — which is the point, because that trigger fires on EVERY insert and
+overwrites `INVNUM` with `NST<row_id>-<calendar year>`: a global series stamped with the wrong year, which
+discards whatever the application minted.
+
+⚠ **The operator now needs a THIRD privilege — `TRIGGER`:**
+
+```
+GRANT ALTER, INDEX, TRIGGER ON hhubdb.* TO 'hhubadmin'@'localhost';
+```
+
+If the drop is refused the migration **reports it and still succeeds**, because the fallback is already in
+the code: `make` re-reads the stored row and reports what it holds, so a reply never quotes a number the
+row does not carry. The series would then stay the trigger's — correct but not per-vendor and not
+FY-based. **Do not "fix" a refused drop by writing the number anyway; get the grant.**
+
+**Also not done:** no `INVNUM` backfill (issued documents keep their numbers — a changed number on an
+issued invoice is worse than an inconsistent series across the cutover), and the 26-character length
+exceeds the 16-character figure the original US-005 notes carried — that figure was a practical
+convention, not Rule 46, and `INVNUM` is `varchar(50)`.
+
 **Order to work them:** **US-013a first** — it is the only one that can leave a vendor stuck, and it is the
 smallest. Then US-013b (one line). US-014 is the one that makes the lock setting real rather than
 theoretical, and it is worth doing before US-015/US-011 because it needs no GST reasoning at all.
