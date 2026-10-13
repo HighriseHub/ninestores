@@ -1425,6 +1425,38 @@ corresponding universal time."
   The shape is still DATA: nst-format-doc-number renders it, {ref:N} reads its width
   from it, and a caller may pass a different template without touching this default.")
 
+(defparameter *nst-invoice-number-format* "INV-{prefix}-{fy}-{counter:6}"
+  "The INVOICE number's shape, as a CODE DEFAULT behind the vendor's own setting — the sibling of
+  *nst-order-number-format* above, and deliberately the same shape: <prefix>-<fy>-<serial>.
+
+  🚨 THE ONE DELIBERATE DIFFERENCE FROM THE ORDER'S `{ref:6}` IS THE SERIAL, AND IT IS A LEGAL
+  DIFFERENCE, NOT A STYLE ONE. An ORDER uses a keyed non-sequential reference because a sequential
+  one lets a vendor count how many orders its customer placed with its COMPETITORS (F1,
+  order-adhara-stories-CONTEXT.md §10). An INVOICE is the opposite case: GST Rule 46(b) wants a
+  CONSECUTIVE serial for the financial year, and a non-sequential invoice number is precisely what a
+  tax invoice must not have. So this default keeps `{counter}`; `{ref:N}` remains in the vocabulary
+  for a vendor who ever wants opacity instead, as a data change to their setting.
+
+  ⚠ THE COUNTER IS PADDED, and that is what keeps a series sortable: nst-format-doc-number pads the
+  {counter} value, so INV-VND0001-2026-27-0007 sorts before ...-0012 as a string. The counter itself
+  is scoped per (vendor, financial year) — see nst-invoice-number-for for why the scope is the
+  VENDOR and not the customer.")
+
+(defun nst-document-template-value (value &optional (fallback *nst-invoice-number-format*))
+  "VALUE as a document-number TEMPLATE STRING, or FALLBACK.
+  🚨 A shipped default is a TWO-ELEMENT LIST `(key \"INV-…\")`, so its `cdr` is `(\"INV-…\")` — a list
+  HOLDING the string — while a JSON-round-tripped blob is a DOTTED pair whose `cdr` IS the string. So
+  `(cdr pair)` works for a blob and hands a LIST for the default, which nst-format-doc-number refuses:
+  MEASURED on order 510 (2026-10-13), `The value (\"INV-YYYY-MM-{counter}\") is not of type STRING`.
+  The unwrap demands a STRING car, not merely a one-element list, so `(:enabled \"x\")` survives."
+  (cond
+    ((stringp value) value)
+    ((and (consp value)
+          (null (cdr value))          ; exactly one element
+          (stringp (car value)))      ; and that element is the string
+     (car value))
+    (t fallback)))
+
 (defun nst-doc-prefix-valid-p (value)
   "True when VALUE can be a customer's DOC_PREFIX: 3 to 8 characters, A-Z and 0-9 only.
 
@@ -1575,6 +1607,67 @@ corresponding universal time."
        (format nil "UPDATE `DOD_CUST_PROFILE` SET `DOC_PREFIX` = '~A' WHERE `ROW_ID` = ~D"
                chosen cust-id))
       chosen)))
+
+(defun nst-invoice-number-for (template vendor-prefix invdate tenant-id vendor-id
+                                       &key counter key)
+  "The next INVOICE number for VENDOR-ID on INVDATE — the INVOICE's sibling of nst-order-number-for,
+  same shape so the two series cannot drift. Only caller: nst-invh's `make`.
+  The counter is scoped per (VENDOR, financial year), not per customer — an invoice is the VENDOR's
+  document, and a per-customer scope would restart one vendor's series per customer and break the
+  consecutiveness GST cares about. :COUNTER/:KEY exist for the dry run and the offline check."
+  (let* ((fy (nst-financial-year-short invdate))
+         (seq (or counter (nst-next-doc-counter "INVOICE" "VENDOR" vendor-id fy tenant-id)))
+         (ref-width (or (nst-doc-number-token-width template "ref") 6))
+         (ref (nst-doc-reference seq :tenant-id (or tenant-id 0)
+                                 :scope-kind "VENDOR" :scope-id vendor-id
+                                 :doc-type "INVOICE" :finyear fy :length ref-width
+                                 :key key)))
+    (nst-format-doc-number
+     template
+     (list (cons "PREFIX" (or vendor-prefix ""))
+           (cons "FY" fy)
+           (cons "REF" ref)
+           (cons "COUNTER" (princ-to-string seq))
+           (cons "YYYY" (subseq (nst-financial-year-label invdate) 0 4))
+           (cons "MM" (nst-financial-year-month invdate))))))
+
+(defun nst-vendor-doc-prefix-taken ()
+  "Every VENDOR DOC_PREFIX already stored, so allocation can avoid them.
+  ⚠ It reads the CUSTOMER table too: one token must not identify two issuers, and sharing the pool
+  costs a rung of a ladder 99 deep. ⚠ It FAILS LOUDLY before the column exists rather than returning an
+  empty list, which would hand out a prefix that is already in use."
+  (handler-case
+      (append (clsql:query "SELECT `DOC_PREFIX` FROM `DOD_VEND_PROFILE` WHERE `DOC_PREFIX` IS NOT NULL"
+                           :flatp t)
+              (clsql:query "SELECT `DOC_PREFIX` FROM `DOD_CUST_PROFILE` WHERE `DOC_PREFIX` IS NOT NULL"
+                           :flatp t))
+    (error (c)
+      (error "cannot read the stored document prefixes: ~A. If DOD_VEND_PROFILE has no DOC_PREFIX ~
+              column yet, the invoice-numbering migration has not been applied (its first step is ~
+              that ALTER)." c))))
+
+(defun nst-vendor-doc-prefix-read (vendor-id)
+  "The stored DOC_PREFIX for VENDOR-ID, or NIL when it has none yet."
+  (first (clsql:query (format nil "SELECT `DOC_PREFIX` FROM `DOD_VEND_PROFILE` ~
+                                    WHERE `ROW_ID` = ~D" vendor-id)
+                      :flatp t)))
+
+(defun nst-vendor-doc-prefix-for (vendor-id name)
+  "VENDOR-ID's DOC_PREFIX, allocating and STORING one from NAME when it has none — the same lazy
+  allocation the customer side chose (R2). Returns NIL rather than signalling when nothing can be
+  derived, because `{prefix}` renders empty and the invoice can still be numbered; refusing would block
+  a sale over a cosmetic token. Only an exhausted ladder signals."
+  (or (nst-vendor-doc-prefix-read vendor-id)
+      (let ((base (nst-doc-prefix-base name)))
+        (when base
+          (let ((chosen (nst-allocate-doc-prefix name (nst-vendor-doc-prefix-taken))))
+            (unless chosen
+              (error "every document prefix candidate for vendor ~D (~S) is already taken. ~
+                      Set DOC_PREFIX by hand for this vendor." vendor-id base))
+            (clsql:execute-command
+             (format nil "UPDATE `DOD_VEND_PROFILE` SET `DOC_PREFIX` = '~A' WHERE `ROW_ID` = ~D"
+                     chosen vendor-id))
+            chosen)))))
 
 (defun nst-order-number-for (template customer-prefix order-date tenant-id cust-id
                                       &key counter key)

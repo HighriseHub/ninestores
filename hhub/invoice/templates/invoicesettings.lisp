@@ -29,14 +29,12 @@
         (text "")))
 
     (invoice-general-settings
-      (invoice-number-format "INV-YYYY-MM-{counter}")
+      ;; ── THE INVOICE NUMBER: <vendor prefix>-<April–March FY>-<counter>. 🚨 {counter} IS KEPT WHERE AN
+      ;; ORDER USES {ref:6} — GST Rule 46 wants a CONSECUTIVE serial, and an order hides its count from
+      ;; competitors (F1) while an invoice must not. ⚠ {counter:6} NEEDS ITS WIDTH or "…-10" sorts first.
+      (invoice-number-format "INV-{prefix}-{fy}-{counter:6}")
       ;; The ORDER number's shape, alongside the invoice's — one vocabulary, two
-      ;; document types with OPPOSITE legal requirements. The invoice keeps
-      ;; {counter} because GST wants a consecutive serial (and a MySQL trigger mints
-      ;; INVNUM today regardless); orders use {ref:6}, a NON-SEQUENTIAL reference,
-      ;; because a sequential one would tell every vendor how many orders its
-      ;; customer placed with its COMPETITORS — see the F1 decision record in
-      ;; aiharness/deepseek/skills/order-adhara-stories-CONTEXT.md §10.
+      ;; document types with OPPOSITE legal requirements.
       ;; The tokens are rendered by nst-format-doc-number (core/dod-bl-utl.lisp).
       (order-number-format "ORD-{prefix}-{fy}-{ref:6}")
       (default-currency "USD")
@@ -97,27 +95,9 @@
     (security-settings
       (allow-invoice-deletion nil)
       (allow-invoice-edit-after-generation t)
-      ;; ── THE ORDER-DERIVED INVOICE LOCK (story E1/US-013, requester's ruling 2026-10-12) ──────
-      ;; Should an invoice generated FROM an order arrive locked against edits?
-      ;;
-      ;;   enabled nil  (the default) — NO. The invoice stays open ended. This is the requester's own
-      ;;                case: "in India … people add more items in the nick of time after the order is
-      ;;                placed", so locking by default would charge their ordinary workflow a per-invoice
-      ;;                Unlock on every invoice — friction for the vendor the feature exists to help.
-      ;;                An absent key means exactly this, which is what every existing vendor's blob says.
-      ;;   enabled t    — YES. Every invoice from an order arrives locked; the vendor unlocks the ones
-      ;;                they need to touch, and the unlock is recorded (who, when).
-      ;;
-      ;; ⚠ THE SECTION NAME IS ODD ON PURPOSE AND MUST NOT BE TIDIED. The settings reader matches keys on
-      ;; their name with hyphens REMOVED (invoiceprintsettingentry), and a saved blob round-trips through
-      ;; JSON as `:LOCKORDERDERIVEDINVOICESINVOICE`. Renaming the section changes the key every existing
-      ;; vendor's blob would have to use.
-      ;;
-      ;; ⚠ NOT YET ON THE SETTINGS PAGE. `security-settings` is in the shipped defaults but the page's
-      ;; template renders only the logo and print forms (com-hhub-transaction-invoice-settings-page
-      ;; formats exactly two arguments into invoicesettings.html), so this — like allow-invoice-deletion
-      ;; and allow-invoice-edit-after-generation before it — is READABLE and EDITABLE IN THE BLOB but has
-      ;; no control yet. Wiring the pane is its own change; see PENDING-WORK-CONTEXT.md §17.
+      ;; ── THE ORDER-DERIVED INVOICE LOCK (E1/US-013): nil (default) = NO, open ended, because the
+      ;; requester adds items in the nick of time after the order; t = YES, vendor unlocks, recorded.
+      ;; ⚠ The ODD SECTION NAME must not be tidied (keys drop hyphens) and there is NO PAGE CONTROL yet.
       (lock-order-derived-invoices-invoice
         (enabled nil))
       (auto-logout-timer 30)

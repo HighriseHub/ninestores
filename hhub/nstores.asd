@@ -134,9 +134,13 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS"
    (:file "invoice/nst-bl-invitmapi") ; Action routes for nst-invitm (needs conflodis2 + apidefs2 + nst-bl-invitm + nst-bl-invhapi).
    (:file "invoice/nst-ui-ihd")
    (:file "invoice/nst-ui-itm")
-   (:file "invoice/nst-dal-cusinvreg")
-   (:file "invoice/nst-bl-cusinvreg")
-   (:file "invoice/nst-ui-cusinvreg")
+   ;; CUSTOMER INWARD INVOICE REGISTER (nst-cinv) — REPLACES nst-{dal,bl,ui}-cusinvreg,
+   ;; which redefined the same page/model/widget names, so both could not be listed.
+   ;; DAL → BL → UI → API; same order in package/compile.lisp.
+   (:file "invoice/nst-dal-cusinv")     ; nst-cinv + nst-cinv-itc-summary domain classes, the slotless request model, the two nst-response-model boundaries, and the dod-v-customer-invoice-register view class (needs adhara + clsql).
+   (:file "invoice/nst-bl-cusinv")      ; Tier-1 प्रत्यय for nst-cinv: fetch / enumerate / summarize-itc, the line-derived ITC, the reverse ferry and render-json (needs nst-dal-cusinv, nst-bl-invh for the invh-json-* formatters, nst-bl-invitm for the deleted-state rule, adhara, nst-mult-logic).
+   (:file "invoice/nst-ui-cusinv")      ; the ^/hhub/nstcustinvoices register and ^/hhub/nstcustinvoicedetails pages (needs nst-bl-cusinv + cl-who + dod-ui-utl).
+   (:file "invoice/nst-bl-cusinvapi")   ; action routes + API bindings for nst-cinv (needs conflodis2 + apidefs2 + nst-bl-cusinv). At RUN time it also needs the Belnap sentinel ferry in warehouse/nst-bl-whsapi.lisp SECTION 4, which this section loads AFTER.
    (:file "invoice/templates/invoicesettings")
    
    ;; Order

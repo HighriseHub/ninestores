@@ -1107,6 +1107,39 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 			      "View invoice"))))
       nil nil))))
 
+;;; ── THE INVOICE DOCUMENT, BUILT ONCE ────────────────────────────────────────
+;;;
+;;; The vendor's chosen gstinvoice template, filled — extracted so the customer's details
+;;; page renders the SAME document. ⚠ NOT buyer-scoped: verify ownership first.
+;;; Returns the filled HTML, or NIL when the invoice does not resolve for COMPANY.
+
+(defun build-invoice-template-document (invnum vendor company)
+  (let* ((invoicetemplate (funcall (nst-get-cached-invoice-template-func
+                                    :templatenum (nst-get-vendor-invoicetemplatenum vendor))))
+         (hrequestmodel (make-instance 'InvoiceHeaderRequestModel
+                                       :invnum invnum :company company))
+         (headeradapter (make-instance 'InvoiceHeaderAdapter))
+         (invheader (processreadrequest headeradapter hrequestmodel)))
+    ;; ⚠ NIL IS A REAL ANSWER: the original inline code read (slot-value nil 'invnum)
+    ;; on a deleted invoice and answered a 500; the caller now renders a sentence.
+    (when invheader
+      (let* ((invnum (slot-value invheader 'invnum))
+             (irequestmodel (make-instance 'InvoiceItemRequestModel
+                                           :company company :invoiceheader invheader))
+             (itemsadapter (make-instance 'InvoiceItemAdapter))
+             (invoiceitems (processreadallrequest itemsadapter irequestmodel))
+             (tax-breakdown (generate-gst-tax-breakdown invheader invoiceitems))
+             (invoiceitemshtmlfunc (generate-invoice-items-rows-public invoiceitems invoicetemplate))
+             (invoicetaxbreakdownfunc (render-tax-summary-html tax-breakdown))
+             (totalvalue (calculate-invoice-totalaftertax invoiceitems))
+             (currency (get-account-currency company))
+             (qrcodepath (format nil "~A/img~A" *siteurl*
+                                 (generateqrcodeforvendor vendor "ABC" invnum totalvalue))))
+        (setf invoicetemplate (remove-invoice-item-markers-from-template invoicetemplate))
+        (funcall (invoicetemplatefill invoicetemplate invheader invoiceitems
+                                      invoiceitemshtmlfunc invoicetaxbreakdownfunc
+                                      qrcodepath currency vendor))))))
+
 (defun create-model-for-displayinvoicepublic ()
   ;; ⚠ THE KEY IS VERIFIED BEFORE A SINGLE ROW IS READ. Until now this function took the
   ;; base64 at face value, decoded a tenant and an invoice number out of it and fetched
@@ -1160,25 +1193,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (invnum (getf grant :invnum))
 	 (vendor (getf grant :vendor))
 	 (company (getf grant :company))
-	 ;; the vendor's own choice from the invoice settings page, defaulted
-	 (invoicetemplate (funcall (nst-get-cached-invoice-template-func :templatenum (nst-get-vendor-invoicetemplatenum vendor))))
-	 (hrequestmodel (make-instance 'InvoiceHeaderRequestModel
-				      :invnum invnum
-				      :company company))
-	 (headeradapter (make-instance 'InvoiceHeaderAdapter))
-	 (invheader (processreadrequest headeradapter hrequestmodel))
-         (invnum (slot-value invheader 'invnum))
-	 (irequestmodel (make-instance 'InvoiceItemRequestModel
-				       :company company
-				       :invoiceheader invheader))
-	 (itemsadapter (make-instance 'InvoiceItemAdapter))
-	 (invoiceitems (processreadallrequest itemsadapter irequestmodel))
-	 (tax-breakdown (generate-gst-tax-breakdown invheader invoiceitems))
-	 (invoiceitemshtmlfunc (generate-invoice-items-rows-public invoiceitems invoicetemplate))
-	 (invoicetaxbreakdownfunc (render-tax-summary-html tax-breakdown))
-	 (totalvalue (calculate-invoice-totalaftertax invoiceitems))
-	 (currency (get-account-currency company))
-	 (qrcodepath (format nil "~A/img~A" *siteurl* (generateqrcodeforvendor vendor "ABC" invnum totalvalue)))
+	 ;; The vendor's chosen template, filled — extracted so the customer's details
+	 ;; page can render the SAME document. May be NIL (see the builder).
+	 (invoicetemplate (build-invoice-template-document invnum vendor company))
 	 ;; The key is passed straight back, exactly as this page received it, so the download
 	 ;; route decodes the same value this model just decoded. Nothing is re-derived here.
 	 ;; ⚠ AND ON A RENDER TOKEN THE BUTTON IS SUPPRESSED ENTIRELY: wkhtmltopdf rewrites a
@@ -1187,8 +1204,6 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 ;; There is no button to offer anyway — the reader is already holding the document.
 	 (downloadurl (unless (getf grant :render)
 			(format nil "/hhub/publicinvoicepdf?key=~A" parambase64))))
-    (setf invoicetemplate (remove-invoice-item-markers-from-template invoicetemplate))
-    (setf invoicetemplate (funcall (invoicetemplatefill invoicetemplate invheader invoiceitems invoiceitemshtmlfunc invoicetaxbreakdownfunc qrcodepath currency vendor)))
     (function (lambda ()
       (values  invoicetemplate downloadurl nil))))))
 
@@ -1220,7 +1235,13 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 					 (:i :class "fa-solid fa-file-arrow-down")
 					 " Download Invoice PDF"))))
 			    (:hr :style "border-top: 2px dashed gray;")
-			    (cl-who:str invoicetemplate))))))
+			    ;; ⚠ Key verified but the invoice no longer reads: NIL, not a 500.
+			    (if invoicetemplate
+				(cl-who:str invoicetemplate)
+				(cl-who:htm
+				 (:div :class "alert alert-warning"
+				   (:strong "This invoice is no longer available. ")
+				   "It has been removed, so there is nothing to display. The link itself was valid."))))))))
 	  (list widget1)))))
 
 ;; ── The customer's copy of the PDF ──────────────────────────────────────────

@@ -88,6 +88,9 @@
     ("09102026-vendor-order-amount-repair"   migrate-2026Oct-vendor-order-amount-repair   "Vendor order amount repair")
     ("12102026-invoice-order-link"   migrate-2026Oct-invoice-order-link   "Invoice order reference columns")
     ("12102026-invoice-lock"   migrate-2026Oct-invoice-lock   "Invoice edit lock + unlock audit")
+    ("13102026-prd-units-in-stock"   migrate-2026Oct-prd-units-in-stock   "Product units-in-stock NULL repair")
+    ("13102026-invoice-numbering"   migrate-2026Oct-invoice-numbering   "Invoice number series + vendor prefix + trigger drop")
+    ("13102026-invoice-number-format"   migrate-2026Oct-invoice-number-format   "Vendor stored invoice-number-format to the new series")
     ))
 
 

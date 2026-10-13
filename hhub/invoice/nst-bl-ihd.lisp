@@ -53,6 +53,74 @@
 ;; DO NOT ADD THIS FILE TO COMPILE.LISP FOR MASS COMPILATION. 
 
 
+(defun nst-split-on-hyphen (value)
+  "VALUE split on #\\-, as a list of strings. Written out rather than pulled from a library because the two
+   splitters this tree already uses are `split-sequence:` in core and nothing at all here, and a helper
+   this small is cheaper than a new dependency in a LEGACY file."
+  (let ((out '()) (start 0))
+    (loop for i from 0 below (length value)
+          when (char= (char value i) #\-)
+            do (push (subseq value start i) out) (setf start (1+ i)))
+    (push (subseq value start) out)
+    (nreverse out)))
+
+(defun nst-invoice-number-shaped-p (value)
+  "T when VALUE already looks like a number OUR series produced — i.e. it starts with the invoice
+   prefix and carries the `-<prefix>-<fy>-<serial>` shape, so a create that was handed one keeps it.
+
+   ⚠ THIS IS A HEURISTIC ON PURPOSE, AND IT IS THE SAFE DIRECTION. The legacy create receives the
+   wizard's session key in the same slot (`NST000<random-token>`), so the two MUST be told apart:
+   mistaking a session key for a number would store the placeholder, and mistaking a number for a
+   session key would MINT A SECOND NUMBER for an invoice that already has one — the worse of the two.
+   So the test is deliberately narrow: it demands the separators and a financial-year-looking middle
+   segment, which `NST000abc123` cannot satisfy."
+  (and (stringp value)
+       (let* ((parts (nst-split-on-hyphen value))
+              ;; ⚠ THE SEGMENT COUNT IS NOT FIXED: the FINANCIAL YEAR ITSELF CONTAINS A HYPHEN, so a
+              ;; normal number splits into FIVE parts and an empty prefix into FOUR. Assuming a count
+              ;; cost two wrong versions of this function — test the HEAD and the YEAR segment instead.
+              (tail (last parts 2)))
+         (and (>= (length parts) 3)
+              (string-equal (first parts) "INV")
+              (every #'digit-char-p (first tail))
+              (plusp (length (second tail)))))))
+
+(defun nst-legacy-invoice-number-template (vendor company)
+  "The invoice-number template for the LEGACY create path — the vendor's stored
+   invoice-general-settings when readable, else the code default.
+
+   Deliberately a small local reader rather than a call into the adhara invoice file: nst-bl-ihd.lisp
+   is the LEGACY DDD layer, and importing a helper from the new domain would make the two stacks
+   depend on each other in the direction the strangler-fig rule keeps apart (design D4). The one
+   thing they must SHARE is the series itself, and that they do — through nst-invoice-number-for
+   and DOD_DOC_COUNTER in core, which is the seam that matters."
+  (declare (ignore company))
+  (let* ((vendor-id (and vendor (ignore-errors (slot-value vendor 'row-id))))
+         (tenant-id (and vendor (ignore-errors (slot-value vendor 'tenant-id))))
+         (raw (and vendor-id tenant-id
+                   (ignore-errors
+                     (first (clsql:query (format nil "SELECT `INVOICE_SETTINGS` FROM `DOD_VEND_PROFILE` ~
+                                                        WHERE `ROW_ID` = ~D AND `TENANT_ID` = ~D"
+                                                 vendor-id tenant-id)
+                                         :flatp t)))))
+         (settings (if (and raw (stringp raw) (plusp (length raw)))
+                       (ignore-errors (read-from-string raw))
+                       *invoice-settings*))
+         (general (cdr (assoc 'invoice-general-settings settings :test 'equal)))
+         (pair (and general
+                    (assoc "INVOICENUMBERFORMAT" general
+                           :test (lambda (name key)
+                                   (and (symbolp key)
+                                        (string= name (remove #\- (string-upcase (symbol-name key))))))))))
+    ;; ⚠ THE UNWRAP IS SHARED WITH THE ADHARA PATH (nst-document-template-value, core/dod-bl-utl.lisp):
+    ;; `(cdr pair)` is a LIST for a shipped default and a STRING for a saved blob, and the list is what
+    ;; nst-format-doc-number refuses. Two readers of one series would be two series.
+    (nst-document-template-value
+     (or (and pair (cdr pair))
+         (let* ((defgeneral (cdr (assoc 'invoice-general-settings *invoice-settings* :test 'equal)))
+                (defpair (and defgeneral (assoc 'invoice-number-format defgeneral))))
+           (and defpair (cdr defpair)))))))
+
 (defmethod ProcessCreateRequest ((adapter InvoiceHeaderAdapter) (requestmodel InvoiceHeaderRequestModel))
   :description  "Adapter Service method to call the BusinessService Create method. Returns the created Warehouse object."
     ;; set the business service
@@ -97,6 +165,18 @@
 	 (tnc (tnc requestmodel))
 	 (authsign (authsign requestmodel))
 	 (finyear (finyear requestmodel))
+	 ;; 🚨 THE LEGACY PATH MUST MINT ITS OWN NUMBER, AND THIS BINDING IS WHAT MAKES DROPPING THE TRIGGER
+	 ;; SAFE. What arrives as :invnum is the wizard's SESSION KEY, not a number: the trigger used to
+	 ;; replace it, so with it dropped the key itself would be STORED. ⚠ An already-ours number is KEPT,
+	 ;; because the update/email actions build this same model to ADDRESS an existing invoice.
+	 (invnum (if (and (stringp invnum) (nst-invoice-number-shaped-p invnum))
+	             invnum
+	             (nst-invoice-number-for (nst-legacy-invoice-number-template vendor company)
+	                                     (nst-vendor-doc-prefix-for (and vendor (ignore-errors (slot-value vendor 'row-id)))
+	                                                                (and vendor (ignore-errors (slot-value vendor 'name))))
+	                                     invdate
+	                                     (and company (ignore-errors (slot-value company 'row-id)))
+	                                     (and vendor (ignore-errors (slot-value vendor 'row-id))))))
 	 (domainobj (createInvoiceHeaderobject context-id invnum invdate customer custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear vendor company)))
     ;; Initialize the DB Service
     (init InvoiceHeaderdbservice domainobj)

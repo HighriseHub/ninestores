@@ -12,6 +12,18 @@ lives in tables rather than in code (ABAC policies and transactions being the ma
 
 ---
 
+## 0. 🚨 NEVER EDIT A MIGRATION THAT HAS ALREADY BEEN APPLIED
+
+`apply-migrations` builds `pending` by removing every entry whose version is in
+`DOD_SCHEMA_MIGRATIONS`, so **editing an applied migration file does NOTHING** — the version is
+recorded, the file is skipped, and the new statement looks shipped while never having run. MEASURED
+2026-10-13: a step was added to `nst-dbu-invoice-numbering.lisp` after `13102026-invoice-numbering`
+had been applied; it would silently never execute. **A step added after the fact needs its own file
+and its own version** (`nst-dbu-invoice-number-format.lisp`, registered as
+`13102026-invoice-number-format`). The same trap bites a migration that failed PART-WAY:
+`apply-migrations` catches per-migration and continues WITHOUT recording the version, so that one
+re-runs — which is why every statement in it must be guarded (`add-column-if-absent`) and idempotent.
+
 **Seeding ABAC policy/transaction rows?** Those are migrations too, and they have one
 extra rule this file does not otherwise need: **one migration version per day, applied
 once at the day's end.** Applying mid-day freezes the version and orphans every endpoint
