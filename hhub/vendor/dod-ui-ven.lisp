@@ -3214,26 +3214,151 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 
 
 
+;;; ── THE SUPPLIER CARD, AS A CUSTOMER SEES IT ────────────────────────────────
+;;;
+;;; ⚠ ALLOWLIST: the row also carries password, salt, payment-api-key, payment-api-salt
+;;;   and upi-id — read only the fields the card's own let* names. ⚠ ESCAPE everything:
+;;;   cl-who:str does NOT escape here, and the supplier edits their own name.
+
+(defun vendor-details-slot (vendor-instance slot)
+  "SLOT of VENDOR-INSTANCE as a value, or NIL when it is UNBOUND.
+
+  ⚠ NOT DEFENSIVENESS FOR ITS OWN SAKE — it is the lesson nst-dal-warehouse.lisp
+  records at length: a plain (slot-value source 'x) on an object that did not supply
+  every field signals UNBOUND-SLOT, so a caller that sets three fields gets a crash
+  that reads as a broken supplier card rather than as a missing value. A
+  CLSQL-hydrated dod-vend-profile binds every column (SQL NULL arrives as NIL), so a
+  row read from the database is safe either way; this makes the card correct for any
+  caller, and every profile field it shows is optional anyway."
+  (if (slot-boundp vendor-instance slot)
+      (slot-value vendor-instance slot)
+      nil))
+
+(defun vendor-details-present-p (value)
+  "True when VALUE is worth showing: not NIL, and not an all-whitespace string."
+  (not (or (null value)
+           (and (stringp value) (string= "" (string-trim '(#\Space #\Tab) value))))))
+
+(defun vendor-details-esc (value &optional (fallback "&mdash;"))
+  "VALUE escaped for HTML output, or FALLBACK when it is absent or blank."
+  (if (vendor-details-present-p value)
+      (cl-who:escape-string (string value))
+      fallback))
+
+(defun vendor-details-initials (name)
+  "One or two initials from NAME, for the placeholder avatar. \"?\" if unusable."
+  (handler-case
+      (let ((words (remove-if (lambda (w) (zerop (length w)))
+                              (cl-ppcre:split "\\s+" (string-trim '(#\Space #\Tab) (string name))))))
+        (if words
+            (map 'string (lambda (w) (char-upcase (char w 0)))
+                 (subseq words 0 (min 2 (length words))))
+            "?"))
+    (error () "?")))
+
+(defun vendor-details-address (vendor-instance)
+  "The vendor's address as ONE line, built from the parts that are present."
+  (let ((parts (remove-if-not #'vendor-details-present-p
+                              (list (vendor-details-slot vendor-instance 'address)
+                                    (vendor-details-slot vendor-instance 'city)
+                                    (vendor-details-slot vendor-instance 'state)
+                                    (vendor-details-slot vendor-instance 'zipcode)
+                                    (vendor-details-slot vendor-instance 'country)))))
+    (when parts (format nil "~{~A~^, ~}" parts))))
+
+(defun vendor-details-row (label inner-html)
+  "One labelled <dt>/<dd> pair, as a STRING.
+   INNER-HTML must already be escaped or explicitly composed (see
+   vendor-details-phone-html) — this function does not escape it.
+   ⚠ It opens its OWN with-html-output-to-string because cl-who's tag keywords and
+   htm/str are MACROLET-LOCAL to that macro, so a helper that RETURNS markup cannot
+   be defined inside one. It also composes the anchor itself rather than taking an
+   href, so a value that already contains a link (the phone) cannot end up with a
+   second <a> nested inside it."
+  (cl-who:with-html-output-to-string (*standard-output* nil)
+    (:dt :class "col-sm-4 text-muted fw-normal" (cl-who:str label))
+    (:dd :class "col-sm-8 text-break" (cl-who:str inner-html))))
+
+(defun vendor-details-phone-html (phone)
+  "The phone as a tel: link with a WhatsApp button beside it, or \"&mdash;\"."
+  (if (vendor-details-present-p phone)
+      (format nil "<a href='tel:~A'>~A</a> <a class='ms-1 text-success' target='_blank' rel='noopener' href='~A' title='Chat on WhatsApp'><i class='fa-brands fa-whatsapp'></i></a>"
+              (cl-who:escape-string (string phone))
+              (vendor-details-esc phone)
+              (cl-who:escape-string (createwhatsapplink phone)))
+      "&mdash;"))
+
+(defun vendor-details-email-html (email)
+  "The email as a mailto: link, or \"&mdash;\"."
+  (if (vendor-details-present-p email)
+      (format nil "<a href='mailto:~A'>~A</a>"
+              (cl-who:escape-string (string email))
+              (vendor-details-esc email))
+      "&mdash;"))
+
 (defun vendor-details-card (vendor-instance)
-  (let ((vend-name (slot-value vendor-instance 'name))
-	(vend-address  (slot-value vendor-instance 'address))
-	(phone (slot-value vendor-instance 'phone))
-	(picture-path (slot-value vendor-instance 'picture-path)))
-    (cl-who:with-html-output (*standard-output* nil)
-      (with-html-div-row
-	(with-html-div-col 
-	  (:h4 (cl-who:str vend-name))))
-      (with-html-div-row
-	(with-html-div-col
-	  (:h5 (cl-who:str vend-address))))
-      (with-html-div-row
-	(with-html-div-col
-	  (:h4  (cl-who:str phone)))
-	(with-html-div-col
-	  (:a :target "_blank" :href (createwhatsapplink phone) (:img :src (format nil "/img/~A" *HHUBWHATSAPPBUTTONIMG*) :alt "Chat on WhatsApp" " "))))
-      (with-html-div-row
-        (:div :class "col-sm-12 col-xs-12 col-md-6 col-lg-6 image-responsive"
-	      (:img :src  (format nil "~A" picture-path) :height "300" :width "400" :alt vend-name " "))))))
+  "A presentable, customer-facing supplier card for the modal opened from an
+   invoice row or a product card. Prints its markup (modal-dialog-v2 calls this
+   inside its own with-html-output); it does not return a string.
+
+   Handles a NIL VENDOR-INSTANCE with a one-line message rather than signalling:
+   select-vendor-by-id returns NIL for a vendor that is unknown or soft-deleted, and
+   an invoice row whose supplier has since been removed must still render."
+  (if (null vendor-instance)
+      (cl-who:with-html-output (*standard-output* nil)
+        (:p :class "text-muted mb-0" "Supplier details are not available for this record."))
+      (let* ((legal   (vendor-details-slot vendor-instance 'legal-name))
+             (name    (if (vendor-details-present-p legal)
+                          legal
+                          (vendor-details-slot vendor-instance 'name)))
+             (trade   (vendor-details-slot vendor-instance 'trade-name))
+             (phone   (vendor-details-slot vendor-instance 'phone))
+             (email   (vendor-details-slot vendor-instance 'email))
+             (gstin   (vendor-details-slot vendor-instance 'gstnumber))
+             (regtype (vendor-details-slot vendor-instance 'gst-registration-type))
+             (filing  (vendor-details-slot vendor-instance 'gst-filing-frequency))
+             (picture (vendor-details-slot vendor-instance 'picture-path))
+             (address (vendor-details-address vendor-instance))
+             ;; ── ROWS BUILT FIRST, EMITTED ONCE ────────────────────────────────
+             ;; Each is a STRING, so a row can be OMITTED without a tag inside `when`
+             ;; (which fails at run time). Blank fields still show an em dash.
+             (rows (list
+                    (when (vendor-details-present-p gstin)
+                      (vendor-details-row "GSTIN" (vendor-details-esc gstin)))
+                    (when (vendor-details-present-p regtype)
+                      (vendor-details-row "GST registration" (vendor-details-esc regtype)))
+                    (when (vendor-details-present-p filing)
+                      (vendor-details-row "GST filing" (vendor-details-esc filing)))
+                    (vendor-details-row "Phone"   (vendor-details-phone-html phone))
+                    (vendor-details-row "Email"   (vendor-details-email-html email))
+                    (vendor-details-row "Address" (vendor-details-esc address)))))
+        (cl-who:with-html-output (*standard-output* nil)
+          ;; ── IDENTITY ──────────────────────────────────────────────────────
+          (:div :class "d-flex align-items-center gap-3 pb-3 mb-3 border-bottom"
+            (if (vendor-details-present-p picture)
+                (cl-who:htm
+                 (:img :src (format nil "~A" picture)
+                       :alt (vendor-details-esc name)
+                       :class "rounded-circle flex-shrink-0 border"
+                       :style "width:72px;height:72px;object-fit:cover;"))
+                ;; No picture — an initialled disc, NOT an <img src=""> that renders
+                ;; as a broken-image icon.
+                (cl-who:htm
+                 (:div :class "rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                       :style "width:72px;height:72px;font-size:1.5rem;letter-spacing:1px;"
+                       (cl-who:str (vendor-details-initials name)))))
+            (:div :class "min-w-0"
+              (:h5 :class "mb-1 text-break" (cl-who:str (vendor-details-esc name)))
+              (when (vendor-details-present-p trade)
+                (cl-who:htm
+                 (:div :class "text-muted small text-break" (cl-who:str (vendor-details-esc trade)))))
+              (when (vendor-details-present-p gstin)
+                (cl-who:htm
+                 (:span :class "badge rounded-pill text-bg-light border mt-2"
+                        (cl-who:str (format nil "GSTIN ~A" (vendor-details-esc gstin))))))))
+          ;; ── THE LABELLED FACTS ────────────────────────────────────────────
+          (:dl :class "row mb-0 small"
+               (cl-who:str (format nil "~{~A~}" (remove nil rows))))))))
 		  
 
 

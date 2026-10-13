@@ -56,3 +56,59 @@ design is built on.
 
 Either way the change is **wire-visible for every product and vendor response**, so it is
 a deliberate decision rather than a cleanup.
+
+---
+
+## 9. 🚨 ITS SIBLING DEFECT, STILL LIVE: AN EMPTY LIST ENCODES AS `null`, NOT `[]`
+
+Found 2026-10-13 while building the customer-invoice API. Same family as §8b — the JSON
+layer cannot emit the value a client expects — and the same fix discipline applies.
+
+`(json:encode-json-to-string nil)` returns the text **`"null"`**. Measured on this image:
+
+```lisp
+(json:encode-json-to-string nil)                  ;=> "null"
+(json:encode-json-to-string (mapcar #'f '()))     ;=> "null"   <- mapcar over an empty list IS nil
+(json:encode-json-to-string (make-array 0 …))     ;=> "[]"     <- the workaround
+```
+
+So the obvious list renderer —
+
+```lisp
+(defmethod render-json ((responses list) (ctx domain-ctx))
+  (json:encode-json-to-string (mapcar (lambda (r) (render-json r ctx)) responses)))
+```
+
+— answers **`null`** when the collection is empty, and a client doing
+`for (const x of resp)` on null throws.
+
+### Where it is live
+
+| File | Status |
+|---|---|
+| `invoice/nst-bl-warehouse.lisp` | **live** — its docstring claims `[]` |
+| `invoice/nst-bl-invh.lisp` | **live** — its docstring claims `[]`, and `invhapi`'s own `register-api-route` description tells clients *"An empty result is 200 with `[]`, not 404"* |
+| `invoice/nst-bl-cusinv.lisp` | **fixed** — encodes the empty case explicitly through a zero-length vector |
+
+🚨 **It is a defect of the CLAIM as much as the code:** three separate places assert `[]`,
+and the encoder has been answering `null` the whole time. A docstring is not a test.
+
+### The fix, for the two remaining files
+
+```lisp
+(json:encode-json-to-string
+ (if responses
+     (mapcar (lambda (r) (render-json r ctx)) responses)
+     (make-array 0 :element-type t :adjustable t :fill-pointer 0)))
+```
+
+⚠ Check any other `render-json` method with a `list` specializer the same way — the pattern
+is copy-pasted across domains, so the defect is too.
+
+### Related: `atRisk`/`atRiskReason` as the pattern for a value that is genuinely unknown
+
+`GET /customer/itc-summary` cannot determine at-risk (the supplier-filing and GSTR-2B tables
+are empty). It answers `atRisk: null` **plus a string `atRiskReason`** rather than a boolean
+flag — because per §8b a `atRiskDetermined: false` would itself have become `null`, and the
+two nulls would have been indistinguishable. **When a value is unknown, say so in words;
+do not encode it as the same `null` that means "absent field".**

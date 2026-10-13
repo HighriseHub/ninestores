@@ -333,9 +333,6 @@
      "invoice/nst-bl-itm.lisp"
      "invoice/nst-ui-itm.lisp"
      "invoice/nst-bl-gstr1.lisp"
-     "invoice/nst-dal-cusinvreg.lisp"
-     "invoice/nst-bl-cusinvreg.lisp"
-     "invoice/nst-ui-cusinvreg.lisp"
      "invoice/nst-bl-invapi.lisp"
      ;; NST grammar invoice files (2026-09-25). These are listed in nstores.asd too, and
      ;; BOTH lists must stay in sync — this one is hand-maintained, so a new file added
@@ -352,6 +349,13 @@
      "invoice/nst-bl-invitm.lisp"
      "invoice/nst-bl-invhapi.lisp"
      "invoice/nst-bl-invitmapi.lisp"
+     ;; CUSTOMER INWARD INVOICE REGISTER (nst-cinv) — DAL → BL → UI → API, API last
+     ;; (register-api-route needs its action route registered first), placed after the
+     ;; NST invoice files whose helpers it reuses. Keep in sync with nstores.asd.
+     "invoice/nst-dal-cusinv.lisp"
+     "invoice/nst-bl-cusinv.lisp"
+     "invoice/nst-ui-cusinv.lisp"
+     "invoice/nst-bl-cusinvapi.lisp"
      
      ;; Server lifecycle (core). Deliberately LAST of the production files: 
      ;; start-nst-server registers one effect per subsystem, so every loader it calls 

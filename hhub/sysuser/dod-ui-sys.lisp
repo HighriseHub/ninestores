@@ -1051,7 +1051,12 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorstore"  'dod-controller-customer-products-by-vendor)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubcustvendorsearch"  'dod-controller-customer-search-vendor)
 	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustomeraddress/([0-9]{10})$" 'dod-controller-customer-address)
-	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustinvoices" 'com-hhub-transaction-customer-invoice-register-page)
+	;; ⚠ Anchored with $ for exactness, NOT because the names collide: these three
+	;; do not shadow each other. Matched against (script-name*), so
+	;; nstcustinvoices?itc=claimable still matches.
+	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustinvoicedetails$" 'com-hhub-transaction-customer-invoice-details-page)
+	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustinvoicedownload$" 'com-hhub-transaction-customer-invoice-download)
+	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustinvoices$" 'com-hhub-transaction-customer-invoice-register-page)
 	(hunchentoot:create-regex-dispatcher "^/hhub/nstcustprofilepage" 'com-nst-transaction-customer-profile-page)
 
 

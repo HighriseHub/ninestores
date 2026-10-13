@@ -19,15 +19,25 @@
 
 
 (defun compute-itc-summary (buyer-id tenant-id)
-  "Aggregate ITC position for the buyer ITC dashboard card."
+  "Aggregate ITC position for the buyer ITC dashboard card.
+
+DERIVED from the invoice line items, because DOD_INVOICE_HEADER.ITC_AMOUNT is NULL
+everywhere and the header carries no tax totals at all — reading it reported 0.00
+for every eligible invoice. Soft-deleted lines are excluded: they still carry tax."
   (let* ((sql "SELECT COUNT(*),
-               COALESCE(SUM(CASE WHEN ITC_ELIGIBLE=1 AND ITC_CLAIMED=0
-                           THEN ITC_AMOUNT ELSE 0 END),0),
-               COALESCE(SUM(CASE WHEN ITC_CLAIMED=1
-                           THEN ITC_AMOUNT ELSE 0 END),0),
-               COALESCE(SUM(TOTAL_AMOUNT),0)
-               FROM DOD_V_CUSTOMER_INVOICE_REGISTER
-               WHERE BUYER_ID=~A AND TENANT_ID=~A")
+               COALESCE(SUM(CASE WHEN r.ITC_ELIGIBLE=1 AND r.ITC_CLAIMED=0
+                           THEN COALESCE(t.tax,0) ELSE 0 END),0),
+               COALESCE(SUM(CASE WHEN r.ITC_CLAIMED=1
+                           THEN COALESCE(t.tax,0) ELSE 0 END),0),
+               COALESCE(SUM(r.TOTAL_AMOUNT),0)
+               FROM DOD_V_CUSTOMER_INVOICE_REGISTER r
+               LEFT JOIN (SELECT INVHEADID,
+                                 SUM(CGSTAMT+SGSTAMT+IGSTAMT) AS tax
+                            FROM DOD_INVOICE_ITEMS
+                           WHERE COALESCE(DELETED_STATE,'N') <> 'Y'
+                           GROUP BY INVHEADID) t
+                      ON t.INVHEADID = r.INVOICE_ID
+               WHERE r.BUYER_ID=~A AND r.TENANT_ID=~A")
          (row (car (clsql:query (format nil sql buyer-id tenant-id)
                                 :field-names nil))))
     (list :invoices  (nth 0 row)
