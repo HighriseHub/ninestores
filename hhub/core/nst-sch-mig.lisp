@@ -91,6 +91,7 @@
     ("13102026-prd-units-in-stock"   migrate-2026Oct-prd-units-in-stock   "Product units-in-stock NULL repair")
     ("13102026-invoice-numbering"   migrate-2026Oct-invoice-numbering   "Invoice number series + vendor prefix + trigger drop")
     ("13102026-invoice-number-format"   migrate-2026Oct-invoice-number-format   "Vendor stored invoice-number-format to the new series")
+    ("14102026-customer-invoice-list-policy"   migrate-2026Oct-cusinv-listpage-policy-and-transaction   "Customer invoice register ABAC seed")
     ))
 
 
