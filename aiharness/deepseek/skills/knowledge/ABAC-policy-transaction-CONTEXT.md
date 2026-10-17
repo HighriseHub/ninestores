@@ -14,6 +14,14 @@ enforcement is even wired up yet.
 
 ## 2. The model in one picture
 
+🚨 **THE `DOD_BUS_TRANSACTION` → `DOD_AUTH_POLICY` CHAIN BELOW IS THE LIVE ONE. THE *ATTRIBUTE*
+TABLE NEXT TO IT IS NOT.** `DOD_AUTH_ATTR_LOOKUP` (and `DOD_AUTH_POLICY_ATTR.ATTR_VAL`) is a
+catalogue with **no runtime reader**: `select-auth-attr-by-key` has zero callers, nothing
+resolves `ATTR_FUNC` and `funcall`s it, and the attribute *functions* are called directly by
+name from inside each policy. **Writing an attribute row — or an `ATTR_VAL` — therefore changes
+no decision.** The mechanism, the plan-derived entitlements that use it, and the rest of that
+catalogue's traps are owned by **`subscription-entitlements-CONTEXT.md` §4.1**.
+
 `DOD_BUS_TRANSACTION` carries the `TRANS_FUNC` lookup key, the `URI`, the `TRANS_TYPE`, the `TENANT_ID`, and the `AUTH_POLICY_ID` that points at exactly one `DOD_AUTH_POLICY` row (its `ROW_ID`). That policy names the decision function (`POLICY_FUNC`) — a real Lisp function interned in `:nstores`, reached by `funcall` as `(funcall fn params)`, one argument: the params alist. **One policy per transaction, never shared.**
 
 ---
