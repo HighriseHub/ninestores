@@ -92,6 +92,7 @@
     ("13102026-invoice-numbering"   migrate-2026Oct-invoice-numbering   "Invoice number series + vendor prefix + trigger drop")
     ("13102026-invoice-number-format"   migrate-2026Oct-invoice-number-format   "Vendor stored invoice-number-format to the new series")
     ("14102026-customer-invoice-list-policy"   migrate-2026Oct-cusinv-listpage-policy-and-transaction   "Customer invoice register ABAC seed")
+    ("17102026-vendor-order-updated-column"   migrate-2026Oct-vendor-order-updated-column   "DOD_VENDOR_ORDERS.UPDATED restore (prod drift: 59 of 60 columns)")
     ))
 
 
