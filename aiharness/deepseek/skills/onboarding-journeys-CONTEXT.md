@@ -200,6 +200,10 @@ verification has never run in production.
 
 ## 9. Open work — the template set to build (NOT built)
 
+> **2026-10-18:** V1 (E1) and V4 (E2) are **built and committed** (`57e4e29`) — see
+> `vendoronboarding/` for their copy, wiring, actors and the testing recipe. The rows below stay
+> as the original plan; V3/V5 (persona split), V2 (reject), V6–V9 are still open.
+
 Each row = new `.html` + one constant in `dod-ini-sys.lisp:42-48` + one sender defun in
 `registration.lisp` + one call site. `V1` is the only one that unblocks a user who is
 stranded *today*.

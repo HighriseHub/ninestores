@@ -19,6 +19,7 @@ Files:
 | `vendoronboarding-EMAILS.md` | the E1–E7 template catalogue: trigger, recipient, subject, tokens, copy skeleton, code touch points |
 | `vendoronboarding-FLOWS.md` | text flow charts as-is vs target, the first-login checklist, the after-login path |
 | `vendoronboarding-ACTORS.md` | one email actor vs three persona actors (vendor / customer / admin): the assessment, the recommended shape, the build order |
+| `vendoronboarding-TESTING.md` | the T0–T6 verification ladder, the per-symptom diagnostics, the FK-ordered test-data reset, and the leftovers that bite |
 
 ---
 
@@ -106,8 +107,8 @@ SLA nobody agreed), and **no "Nine Store"** (no such tenant exists in `DOD_COMPA
 ## 6. Build order (one step per session, confirmed before starting)
 
 1. **B4/B5 review** — decide whether E4 promises "re-apply" at all. If reject cannot be made safe cheaply, E4 says "contact the administrator", not "register again".
-2. **E1 + E2** together — the moment a row exists, the vendor is told and the admin is asked. This is the pair that removes the silent wait.
-3. **E3** — the approval mail; needs the login URL and nothing else.
+2. ~~**E1 + E2**~~ — **DONE 2026-10-17/18**, committed as `57e4e29`. The vendor is told it is waiting; the tenant's `COMPADMIN` addresses are told to approve. Verified end to end except the E2 *recipient* question (see `vendoronboarding-TESTING.md` §2, open case).
+3. **E3** — the approval mail; needs the login URL, the hook at the end of `doupdate` (after `db-save`) and the **copy decision** (UPI/payout route vs adding vendor bank columns).
 4. **E5** — the status lookup, which also gives E1 its button and the login page its escape hatch.
 5. **B1 + B2 → E4** — reject must be fixed and given a reason before it can be announced.
 6. **First-login UX** (FLOWS §5–§6): login-page states, then the dashboard checklist.

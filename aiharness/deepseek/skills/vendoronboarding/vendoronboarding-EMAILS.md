@@ -27,6 +27,11 @@ been told".
 - **No password language, anywhere** (B4). The door is phone + OTP, every time.
 - A send failure is silent to the caller (actor + dead letter). Anything user-visible that
   depends on a mail must also say the same thing on screen.
+- **Every sender writes an audit line before it queues** (`hhub-log-message`, 2026-10-18):
+  `[vendor-onboarding] E1 -> <address> (vendor …, tenant …)` and `E2 -> (<addresses>)`. Without it
+  a "the mail went to the wrong inbox" report is unanswerable — only failures were logged, and the
+  relay is AWS SES, whose rejections are silent. Read it with
+  `sudo tail -40 /home/hunchentoot/hhublogs/ninestores-busfunctions.log | grep vendor-onboarding`.
 
 ## 2. The substitution helper — the invoice pattern, adapted (D1, revised 2026-10-17)
 
