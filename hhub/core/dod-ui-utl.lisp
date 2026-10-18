@@ -8,172 +8,97 @@
 (in-package :nstores)
 (clsql:file-enable-sql-reader-syntax)
 
+;;; ===== layout + form macros, hoisted ABOVE their first use =====
 
 
-;; A simple UI framework within MVC which have these 3 things
-;; 1) Page - a page is html page containing one or more components
-;; 2) Component - a component is a logical UI entity containing more than one widgets.
-;; 3) Widgets - A widget is a leaf node in the page and component hierarchy. The widget contains the
-;; actual HTML, CSS and JAVASCRIPT. 
 
-;;; ============================================================================
-;;; extract-html-between-markets
-;;;
-;;; Extracts the HTML fragment that lives between two named comment markers in a
-;;; larger HTML template string.  This lets a single saved template continue to
-;;; serve as a complete standalone page, while a discrete sub-region (e.g. just
-;;; the interior fields of a <form>) can be pulled out and re-wrapped at render
-;;; time by whatever generation strategy the current request needs (a plain
-;;; server-side POST form, or a parenscript-generated submit handler).
-;;;
-;;; Marker convention:  <!--NAME_BEGIN--> ... <!--NAME_END-->
-;;;
-;;; Parameters:
-;;;   TEMPLATE     - the raw HTML template string to search in.
-;;;   BEGIN-MARKER - the opening marker, e.g. "<!--WAREHOUSE_DETAILS_FORM_BEGIN-->".
-;;;   END-MARKER   - the closing marker,   e.g. "<!--WAREHOUSE_DETAILS_FORM_END-->" .
-;;;
-;;; Returns the substring between the two markers (excluding the markers), or
-;;; NIL if either marker is not found.  Useful for wrapping a form fragment with
-;;; with-html-form-having-submit-event / parenscript.
-;;;
-;;; NOTE: "?s" makes "." match newlines so the fragment can span multiple lines.
-;;; The markers here consist only of regex-safe characters ("<!--" "-->"), so
-;;; they can be interpolated directly.  If a marker ever contains regex
-;;; metacharacters (".", "(", etc.), escape it with cl-ppcre:quote-meta-chars.
-(defun extract-html-between-markets (template begin-marker end-marker)
-  (let ((regex (format nil "(?s)~A(.*?)~A" begin-marker end-marker)))
-    (cl-ppcre:register-groups-bind (snippet) (regex template) snippet)))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-row ( &body body) 
+    :documentation "A HTML Div element having class as 'row' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "row"
+	     ,@body))))
 
-;;; ============================================================================
-;;; nst-slot-str
-;;;
-;;; Nil-safe slot read shared by all template substitution paths.  Optional
-;;; business fields are legitimately unset (e.g. a vendor below the GST
-;;; registration turnover threshold has no GST number), and cl-ppcre calls its
-;;; replacement argument as a function, so a raw NIL slot value raises
-;;; "The function COMMON-LISP:NIL is undefined".  NIL is rendered as "".
-;;; ============================================================================
-(defun nst-slot-str (object slot)
-  :documentation "Nil-safe slot read: NIL becomes an empty string so template substitution never gets NIL."
-  (let ((v (slot-value object slot)))
-    (if v (princ-to-string v) "")))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-row-fluid ( &body body) 
+    :documentation "A HTML Div element having class as 'row' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "row-fluid"
+	     ,@body))))
 
-;; Widget is a function that when called renders HTML/JS/CSS
-(defun make-ui-widget (render-fn)
-  ;; returns a widget structure containing closure
-  (list :type :widget :render render-fn))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-12 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-12"
+	     ,@body))))
 
-(defun render-ui-widget (widget)
-  ;; return closure, not immediate execution
-  (getf widget :render))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-10 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-10"
+	     ,@body))))
 
-;; Component is a collection of widgets or nested components
-(defun make-ui-component (name renderer-fn)
-  "Create a component.
-NAME is a keyword identifier.
-RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
-  (list :type :component :name name :renderer renderer-fn))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-8 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-8"
+	     ,@body))))
 
-(defun render-ui-component (component modelfunc)
-  "Render a component by invoking its renderer with MODELFUNC.
-Returns a list of widget outputs."
-  (let* ((renderer (getf component :renderer))
-         (widgets (funcall renderer modelfunc)))
-    (mapcar #'render-ui-widget widgets)))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-6 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-6"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-4 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-4"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-3 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-3"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-2 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-2"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col-1 ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-1"
+	     ,@body))))
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defmacro with-html-div-col ( &body body) 
+    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
+    `(cl-who:with-html-output (*standard-output* nil) 
+       (:div :class "col-xs-12 col-sm-12 col-md-4 col-lg-3"
+	     ,@body))))
 
-;; Page is a collection of components
-(defun make-ui-page (persona name &rest components)
-  (list :type :page :persona persona :name name :components components))
-
-(defun render-ui-page (page modelfunc)
-  (mapcan (lambda (component)
-	    (render-ui-component component modelfunc)) (getf page :components)))
-
-
-;;;;;;;;;;;;;;;;;;;; Simple UI Framework ends here ;;;;;;;;;;;;;;;;;;;;
-
-(defun nst-generic-login-with-password (persona formaction redirectonfailure)
-  (handler-case 
-      (progn  
-	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
-	(if (is-dod-session-valid?)
-	    (hunchentoot:redirect redirectonfailure))
-	(with-no-navbar-page-v2 (format nil "Welcome ~A" persona)
-	  (with-html-div-row
-	    (with-html-div-col-12
-	      (with-html-card
-		  (:title "Login"
-		   :image-src "/img/logo.png"
-		   :image-alt (format nil "~A Login" persona)
-		   :image-style "width: 200px; height: 200px;")
-		(:form :class "form-custsignin" :role "form" :method "POST" :action formaction 
-		       (:div :class "form-group"
-			     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true"))
-		       (:div :class "form-group"
-			     (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password"  :required "true"))
-		       (:div :class "form-group"
-			     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Login")))
-		(:a :data-toggle "modal" :data-target (format nil "#dascustforgotpass-modal")  :href "#"  "Forgot Password?")
-		(modal-dialog (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))
-		(hhub-html-page-footer))))))
-    (clsql:sql-database-data-error (condition)
-      (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
-							       (nst-db-refresh)
-							       (hunchentoot:redirect "/hhub/hhubcustloginv2"))))))
-
-
-(defun safe-read-from-string (string &optional default-value)
-  "Attempts to read a Lisp expression from a string, returning a default value if parsing fails."
-  (handler-case
-      (let ((trimmed-string (string-trim '(#\space) string)))
-        (if (string= trimmed-string "") ; Check for empty string
-            default-value
-            (read-from-string trimmed-string)))
-    (error () ; Catch any error during read-from-string
-      default-value)))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun displaystorepickupwidget (address)
-    (cl-who:with-html-output (*standard-output* nil)
-      (with-html-card
-	  (:title "Pickup In Store"
-	   :image-src "/img/PickupInStore.jpg" 
-	   :image-alt "Pickup In Store"
-	   :image-style "width: 100px; height: 100px;")
-	(:p (:strong "NOTE: This order needs to be picked up from store."))
-	(:p (:span (cl-who:str (format nil "&nbsp;Store Address:~A" address ))))
-	(:div :class "ribbon" "Pickup In Store")))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun with-html-collapse (collapseid listcollapseitemsfuncs) 
-    (cl-who:with-html-output (*standard-output* nil)
-      (:div :id collapseid :class "collapse" 
-	    (loop for collapse-item-func  in listcollapseitemsfuncs do 
-	      (multiple-value-bind (id buttontext itembodyhtml) (funcall collapse-item-func) 
-		(cl-who:htm
-		 (:div :class "card card-body" :id id  (format nil "~A" itembodyhtml)))))))))
-
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun with-html-accordion (accordionid listaccordionitemsfuncs) 
-    (cl-who:with-html-output (*standard-output* nil)
-      (:div :id accordionid :class "accordion" 
-	    (loop for accordion-item-func  in listaccordionitemsfuncs do 
-	      (multiple-value-bind (id buttontext itembodyhtml) (funcall accordion-item-func) 
-		(cl-who:htm
-		 (:div :class "accordion-item"
-		       (:h2 :class "accordion-header"
-			    (:button :class "accordion-button" :data-bs-toggle "collapse" :data-bs-target (format nil "#~A" id) :aria-expanded "true" :aria-controls (format nil "~A" id) :type "button" "test button" ))
-		       (:div  :class "accordion-collapse collapse" :id id :data-bs-parent (format nil "#~A" accordionid)
-			      (:div :class "accordion-body"
-				    (:strong "This is test")))))))))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun with-modal-dialog-link (name linkhtmlfunc dialogheadertext modalfunc)
-    (cl-who:with-html-output (*standard-output* nil)
-      (:a :data-bs-toggle "modal" :data-bs-target (format nil "#~A-modal" name)  :href "#" (funcall linkhtmlfunc))
-      (modal-dialog-v2 (format nil "~A-modal" name) dialogheadertext (funcall modalfunc)))))
+(defmacro with-html-card ((&key title image-src image-alt (image-style "") (image-classes '("rounded-circle" "mx-auto" "d-block" "mt-3")) (card-classes '("card")) (body-classes '("card-body" "text-center"))) &body cardbody)
+  "A HTML Bootstrap 5.x card generator macro."
+  (let ((image-classes-str (if (listp image-classes) (format nil "~{~A~^ ~}" image-classes) image-classes))
+        (card-classes-str (if (listp card-classes) (format nil "~{~A~^ ~}" card-classes) card-classes))
+        (body-classes-str (if (listp body-classes) (format nil "~{~A~^ ~}" body-classes) body-classes)))
+    `(cl-who:with-html-output (*standard-output* nil)
+       (:div :class ,card-classes-str
+             ,(when image-src
+                `(:img :src ,image-src
+                       :class ,image-classes-str
+                       :alt ,image-alt
+                       :style ,image-style))
+             (:div :class ,body-classes-str
+                   (:h3 :class "card-title" ,title)
+                   (:p :class "card-text" ,@cardbody))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form-having-submit-event (form-name form-action &body body)
@@ -198,24 +123,6 @@ Returns a list of widget outputs."
 	 (:div :id ,id
 	       ,@body)
 	 (submitformevent-js (format nil "#~A" ,id)))))
-	  
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun submitformevent-js (id-bind-element)
-    (cl-who:with-html-output (*standard-output* nil)
-      (:script :type "text/javascript"
-	       (cl-who:str		(parenscript:ps
-		 (parenscript:chain ($ "document") 
-				    (ready (lambda ()
-					     (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
-					     (if (not (null element))
-						 (parenscript:chain element (add-event-listener "submit" (lambda (e)
-													   (parenscript:chain e (prevent-default))
-													   (let ((target-form (parenscript:@ e target)))
-													     ;; if formname is fileuploadform then return as we are having a
-													     ;; different event function to handle this. 
-													     (if (= (parenscript:chain target-form name) 'file-upload-form) return)
-													     (submitformandredirect target-form)))))))))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-catch-file-upload-event (id  &body body)
@@ -224,137 +131,6 @@ Returns a list of widget outputs."
 	 (:div :id ,id
 	       ,@body)
 	 (submitfileuploadevent-js (format nil "#~A" ,id)))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun submitfileuploadevent-js (id-bind-element)
-    (cl-who:with-html-output (*standard-output* nil)
-      (:script :type "text/javascript"
-	       (cl-who:str
-		(parenscript:ps
-		 (parenscript:chain ($ "document") 
-				    (ready (lambda ()
-					     (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
-					     (if (not (null element))
-						 (parenscript:chain element (add-event-listener "submit" (lambda (e)
-													   ;; We stop event propagation here as there is another submit event on top of this. 
-													   (parenscript:chain e (stop-propagation))
-													   (submitfileuploadevent e))))))))))))))
-
-
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun sharetextorurlonclick (id-bind-element data)
-    (cl-who:with-html-output (*standard-output* nil)
-      (:script :type "text/javascript"
-	       (cl-who:str
-		(parenscript:ps
-		  (parenscript:chain ($ "document") 
-				     (ready (lambda ()
-					      (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
-					      (if (not (null element))
-						  (parenscript:chain element (add-event-listener "click" (lambda (e)
-													   (parenscript:chain e (prevent-default))
-													   (parenscript:try 
-													    (parenscript:chain navigator (share (parenscript:create title "URL" url (parenscript:lisp data))))
-													   (parenscript:chain console (log "Data was shared successfully"))
-													   (:catch (err)
-													     (parenscript:chain console (log "Share failed: use HTTPS only: " (parenscript:chain err message)))
-													     (copy-to-clipboard (parenscript:lisp data))
-													     )))))))))))))))
-
-
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun submitsearchform1event-js (id-bind-element searchresultid)
-    "Generate JS for second search with redundancy prevention"
-    ;; Strip leading # if present
-    (let ((clean-id (string-trim "#" id-bind-element)))
-      (cl-who:with-html-output (*standard-output* nil)
-        (:script :type "text/javascript"
-                 (cl-who:str
-                  (parenscript:ps
-                    (defvar *last-search2-value* "")
-                    (defun onkeyupsearchform1event ()
-                      (let ((current-value (parenscript:chain document
-                                             (get-element-by-id (parenscript:lisp clean-id))
-                                             value)))
-                        (unless (= current-value *last-search2-value*)
-                          (searchformevent (parenscript:lisp id-bind-element) 
-                                           (parenscript:lisp searchresultid))
-                          (setf *last-search2-value* current-value)))))))))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun submitsearchform2event-js (id-bind-element searchresultid)
-    "Generate JS for second search with redundancy prevention"
-    ;; Strip leading # if present
-    (let ((clean-id (string-trim "#" id-bind-element)))
-      (cl-who:with-html-output (*standard-output* nil)
-        (:script :type "text/javascript"
-                 (cl-who:str
-                  (parenscript:ps
-                    (defvar *last-search2-value* "")
-                    (defun onkeyupsearchform2event ()
-                      (let ((current-value (parenscript:chain document
-                                             (get-element-by-id (parenscript:lisp clean-id))
-                                             value)))
-                        (unless (= current-value *last-search2-value*)
-                          (searchformevent (parenscript:lisp id-bind-element) 
-                                           (parenscript:lisp searchresultid))
-                          (setf *last-search2-value* current-value)))))))))))
-				    
-
-    
-  
-
-    
-
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun submitsearchform3event-js (id-bind-element searchresultid)  
-    (cl-who:with-html-output (*standard-output* nil)
-      (:script :type "text/javascript"
-	       (cl-who:str
-		(parenscript:ps
-		  (defun onkeyupsearchform3event ()
-		    (searchformevent (parenscript:lisp id-bind-element) (parenscript:lisp searchresultid)))))))))
-
-
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun text-editor-control (idtextarea value)
-    (let ((editorid (format nil "~AEditor" (gensym "hhub")))
-	  (editorparentid (format nil "~AEditor" (gensym "hhub"))))
-	 
-      (cl-who:with-html-output (*standard-output* nil)
-	(:div :id editorparentid 
-	      (with-html-div-row
-		(with-html-div-col-8
-		  (:div :id editorid :contenteditable "true" :role "textbox" :style "display: none;text-align: left; margin-top: 10px; border: 1px solid gray; padding: 10px; border-radius: 5px;"
-			(cl-who:str value))))
-	      (with-html-div-row
-		(with-html-div-col-6
-		  (:a :id "btnpreview"  :href "" :data-toggle "tooltip" :title "HTML Preview" (:i :class "fa-regular fa-eye")"&nbsp;")
-		  (:a :id "btncode"  :href "" :data-toggle "tooltip" :title "HTML Code"  (:i :class "fa-solid fa-code")"&nbsp;"))))
-	(:script (cl-who:str (format nil "$(document).ready(function() {
-    const editorparentelem  = document.querySelector('#~A');
-    if (null != editorparentelem){
-	editorparentelem.addEventListener('click', (e) => {
-	    e.preventDefault();
-            const btnclicked = e.target.parentElement.id;
-            if (btnclicked == 'btncode'){
-            document.getElementById('~A').value = document.getElementById('~A').innerHTML;
-            document.getElementById('~A').style.display = 'block';
-            document.getElementById('~A').style.display = 'none'; 
-            }
-            if (btnclicked == 'btnpreview'){
-            document.getElementById('~A').innerHTML = document.getElementById('~A').value;
-            document.getElementById('~A').style.display = 'block';
-            document.getElementById('~A').style.display = 'none';
-            }
-            
-	});
-    }
-});" editorparentid idtextarea editorid idtextarea editorid editorid idtextarea editorid idtextarea )))))))
 
 
 
@@ -365,28 +141,6 @@ Returns a list of widget outputs."
 			   (:tr
 			    (mapcar (lambda (headercolumn)
 				      (cl-who:htm (:th (cl-who:str headercolumn)))) ,headercolumns)) ,@body))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun display-csv-as-html-table (csvstringwithheader)
-    (let* ((data (cl-csv:read-csv csvstringwithheader))
-	   (header (car data))
-	   (csvrows (cdr data)))
-      (cl-who:with-html-output (*standard-output* nil)
-	(with-html-table (format nil "~Acsvtable" (gensym)) header "1"
-	  (loop for row in csvrows do
-	    (cl-who:htm (:tr
-			 (loop for column in row do
-			   (cl-who:htm
-			    (:td  (cl-who:str column))))))))))))
-
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun html-range-control (name id min max value step)
-    (cl-who:with-html-output (*standard-output* nil)
-     (:div :class "hhub-range-body"
-	   (:div :class "hhub-range-wrap"
-		 (:div :class "hhub-range-value" :id (format nil "rangeV_~A" id))
-		 (:input :id (format nil "range_~A" id) :name name :type "range" :min min :max max :value value :step step))))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
@@ -415,132 +169,6 @@ Returns a list of widget outputs."
 	     (:ol :class "breadcrumb"
 		  (:li :class "breadcrumb-item no-print" (:a :href "/hhub/hhubcadindex" "Home"))
 		  ,@body)))))
-
-
-(defun whatsapp-widget (phone)
-  :description "This function returns the HTML required for the floating whatsapp button"
-  (cl-who:with-html-output (*standard-output* nil) 
-    (:a :id "floatingwhatsappbutton" :target "_blank"  :href (format nil "createwhatsapplinkwithmessage?phone=~A&message=Hi" phone) :style "font-weight: bold; font-size: 30px !important;"  (:i :class "fa-brands fa-whatsapp"))))
-
-(defun hhub-controller-create-whatsapp-link-with-message ()
-  (let* ((phone (hunchentoot:parameter "phone"))
-	 (message (hunchentoot:parameter "message"))
-	 (url (createwhatsapplinkwithmessage phone message)))
-    (hunchentoot:redirect url)))    
-
-(defun jscript-displaysuccess (message)
-  (cl-who:with-html-output (*standard-output* nil)
-    (:script :type "text/javascript"
-	     (cl-who:str
-	      (format nil "window.onload = function(){ ~A };" (parenscript:ps (display-success (parenscript:lisp "#hhub-success") (parenscript:lisp message) (parenscript:lisp 3000))))))))    
-
-
-(defun jscript-displayerror (message)
-  (cl-who:with-html-output (*standard-output* nil)
-    (:script :type "text/javascript"
-	     (cl-who:str
-	      (format nil "window.onload = function(){ ~A };" (parenscript:ps (display-error (parenscript:lisp "#hhub-error") (parenscript:lisp message) (parenscript:lisp 3000))))))))    
-
-
-(defun logIamhere (where)
-  (when *dod-debug-mode*
-    (hunchentoot:log-message* :info (format nil "~A" where))))
-
-(defun hhub-business-adapter (function params)
-  :documentation "This is a database adapter for HHUb. It takes parameters in a association list."
-  (if (listp params)
-      (funcall function params)))
-
-
-(defun hhub-json-body ()
-  (json:decode-json-from-string
-    (hunchentoot:raw-post-data :force-text t)))
-
-(defun attr (object field)
-  (cdr (assoc field object)))
-    
-(defun dod-controller-new-company-registration-email-sent ()
-  (with-standard-customer-page  "New Company Registration Request"
-    (:div :class "row" 
-	     (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		   (with-html-form "form-customerchangepin" "hhubcustpassreset"  
-					;(:div :class "account-wall"
-		     (:h1 :class "text-center login-title"  "New Store details have been sent. You will be contacted soon. ")
-		     (:a :class "btn btn-primary"  :role "button" :href "https://www.ninestores.in"  (:i :class "fa-solid fa-house"))
-		     (hhub-html-page-footer))))))
-
-(defun dod-controller-password-reset-mail-link-sent ()
-  (with-standard-customer-page  "Password reset mail" 
-    (:div :class "row" 
-	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
-					;(:div :class "account-wall"
-		  (:h1 :class "text-center login-title"  "Password Reset Link Sent To Your Email.")
-		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
-
-
-(defun dod-controller-password-reset-mail-sent ()
-(with-standard-customer-page  "Password reset mail"
-    (:div :class "row" 
-	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
-					;(:div :class "account-wall"
-		  (:h1 :class "text-center login-title"  "Password Reset Email Sent.")
-		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
-  
-
-(defun dod-controller-invalid-email-error ()
-  (with-standard-customer-page  "Invalid email error"
-    (:div :class "row" 
-	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
-					;(:div :class "account-wall"
-		  (:h1 :class "text-center login-title"  "Invalid Customer Email.")
-		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
-
-
-
-(defun dod-controller-password-reset-token-expired ()
-  (with-standard-customer-page "Password reset token expired"
-    (:div :class "row" 
-	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
-		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
-					;(:div :class "account-wall"
-		  (:h1 :class "text-center login-title"  "Your password reset time window has expired. Please try again." )
-		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
-
-
-
-
-
-(defun hhubsendmail (to subject body &optional (from *HHUBSMTPSENDER*) attachments-list)
-  (let ((username *HHUBSMTPUSERNAME*) 
-	(password  *HHUBSMTPPASSWORD*))  
-    
-    (cl-smtp:send-email *HHUBSMTPSERVER*
-			from to 
-			subject "Nine Stores Email."
-			:authentication (list :login username password) 
-			:ssl
-			:tls
-			:html-message body
-			:display-name "Nine Stores"
-			:attachments attachments-list)))
-
-
-
-(defun hhubsendmail-test (to subject body &optional attachments-list)
-  (let ((username *HHUBSMTPUSERNAME*) 
-	(password  *HHUBSMTPPASSWORD*)) 
-    (cl-smtp:send-email *HHUBSMTPSERVER*
-			*HHUBSMTPTESTSENDER* to 
-			subject "Ok, the HTML version of this email is totally impressive. Just trust me on this." 
-			:authentication (list :login username password) 
-			:ssl
-			:tls
-			:html-message body
-			:display-name subject
-			:attachments attachments-list)))
 
 
 
@@ -804,42 +432,6 @@ Returns a list of widget outputs."
   (defmacro with-no-navbar-page (title &body body)
     `(with-standard-page-template ,title (lambda () ()) ,@body)))
 
-(defun kill-threads-by-prefix (prefix)
-  "Kills all threads whose names start with PREFIX."
-  (dolist (thread (bt:all-threads))
-    (let ((name (bt:thread-name thread)))
-      (when (and name (search prefix name))
-        (format t "Killing thread: ~A~%" name)
-        (bt:destroy-thread thread)))))
-
-(defun print-thread-info ()
-:description "This function prints information about all threads" 
-      (let* ((curr-thread sb-thread:*current-thread*)
-             (curr-thread-name (sb-thread:thread-name curr-thread))
-             (all-threads (sb-thread:list-all-threads))
-	     (tc (length all-threads)))
-        (format t "Current thread: ~a~%~%" curr-thread)
-        (format t "Current thread name: ~a~%~%" curr-thread-name)
-        (format t "All threads:~% ~{~a~%~}~%" all-threads)
-	(format t "Threads count: ~a" tc)) 
-      nil)
-
-(defun delete-threads (count)
-  :description "This function will kill x number of threads"
-  (let* ((all-threads (bt:all-threads)))
-    (loop for item in all-threads for i from 1 to count do
-      (if (and (not (eql item (bt:current-thread)))
-	       (bt:thread-alive-p item)) 
-	  (progn
-	    (format t "Deleting thread: ~a~%~%" item)
-	    (bt:interrupt-thread  item (lambda () (abort))))))))
-
-
-(defun print-web-session-timeout ()
-    (let ((weseti ( get-web-session-timeout)))
-	(if weseti (format t "~2,'0d:~2,'0d"
-			   (nth 0  weseti)(nth 1 weseti)))))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-cust-session-check (&body body)
     `(if hunchentoot:*session* ,@body 
@@ -863,99 +455,6 @@ Returns a list of widget outputs."
     `(if hunchentoot:*session* ,@body 
 					;else 
 	 (hunchentoot:redirect *HHUBCADLOGINPAGEURL*))))
-
-;;; ─── Web-session liveness and eviction ──────────────────────────────────────
-;;;
-;;; A business-session record (VendorSessionObject / UserSessionObject in the
-;;; vendorsite / compadminsite BusinessContext) can OUTLIVE the hunchentoot
-;;; session it wraps: the web session expires after SESSION-MAX-TIME, is
-;;; dropped by a session-gc pass, or is removed by enforce-*-session. Nothing
-;;; prunes the business record, so a dead record keeps sitting in the hashtable
-;;; — and because the login-limit checks count RECORDS, ghosts consume the
-;;; vendor's quota and live devices get evicted in their place.
-
-(defun hhub-websession-live-p (websession)
-  "Is WEBSESSION still usable? NIL for a missing, foreign, expired OR already
-   dropped object. Two ways a session dies, and both must be caught:
-     1. it ages out — the session's own clock, the same predicate
-        hunchentoot:session-gc applies when it drops sessions;
-     2. it is removed while still young — an explicit remove-session, or
-        hunchentoot rejecting a presented cookie as a fake identifier. Such a
-        session is not 'old' but is no longer in the acceptor's session DB, so
-        membership is checked too.
-   Both checks use exported hunchentoot API only."
-  (and websession
-       (typep websession 'hunchentoot:session)
-       (not (hunchentoot:session-too-old-p websession))
-       (let ((id (hunchentoot:session-id websession)))
-         (and id
-              (or ;; *acceptor* is defvar-UNBOUND outside a request. If we cannot
-                  ;; consult the session DB, fall back to the clock alone rather
-                  ;; than declaring a possibly-live session dead.
-                  (not (boundp 'hunchentoot:*acceptor*))
-                  (null hunchentoot:*acceptor*)
-                  (eq websession
-                      (cdr (assoc id (hunchentoot:session-db hunchentoot:*acceptor*)
-                                  :test #'=))))))))
-
-(defun hhub-websession-start (websession)
-  "Login time of WEBSESSION as universal time, or MOST-POSITIVE-FIXNUM when it
-   is unavailable — an unusable record must never outrank a real session when
-   candidates are ordered for eviction."
-  (or (and (typep websession 'hunchentoot:session)
-           (hunchentoot:session-start websession))
-      most-positive-fixnum))
-
-(defun hhub-remove-other-websession (websession)
-  "Remove SOMEONE ELSE'S web session WITHOUT touching this reply.
-   hunchentoot:remove-session always writes
-   `Set-Cookie: <session-cookie-name>=deleted' into the CURRENT reply
-   (*reply*). When the session being evicted belongs to another client — the
-   normal case for the login-limit enforcement below — that header is delivered
-   to whoever happened to trigger the eviction, and since it carries the same
-   cookie name as the cookie start-session just issued for that caller, the
-   client applies it and destroys the very session it was just given: the new
-   login is unusable while the evicted device learns nothing. The session is
-   still removed from hunchentoot's session database (acceptor-remove-session +
-   session-db removal both run); only the misdirected header is discarded.
-   Call hunchentoot:remove-session directly when the current client genuinely
-   should be told its own cookie is dead."
-  (when websession
-    (let ((hunchentoot:*reply* (make-instance 'hunchentoot:reply)))
-      (hunchentoot:remove-session websession))))
-
-(defun response-id-string (value)
-  "Identifier fields leave a boundary response as JSON STRINGS — one id
-   convention for every entity, so a client never has to know that
-   WarehouseResponseModel.rowId is a string while ownerEntityId is an int.
-   An id is opaque: stringifying removes the temptation to do integer
-   comparisons and keeps the wire shape stable if ids later become codes or
-   UUIDs (nst-whs already carries warehouse-uuid / warehouse-code).
-   NIL (genuinely absent) stays NIL → JSON null; it must NOT become the string
-   \"NIL\", because absence is information, not an identifier."
-  (if (null value)
-      nil
-      (format nil "~A" value)))
-
-(defun print-vendor-web-session-timeout ()
-  (with-vend-session-check 
-    (let ((weseti (get-vendor-web-session-timeout)))
-      (if weseti (format t "~2,'0d:~2,'0d"
-			 (nth 0  weseti)(nth 1 weseti))))))
-
-
-(defun get-web-session-timeout ()
-  (multiple-value-bind
-	  (seconds minute hour)
-	(decode-universal-time (+ (get-universal-time) (hunchentoot:session-max-time hunchentoot:*session*)))
-      ;;(logiamhere (format nil "Session max time is ~A" (hunchentoot:session-max-time hunchentoot:*session*)))
-      (list hour minute seconds)))
-
-(defun get-vendor-web-session-timeout ()
-    (multiple-value-bind
-	(seconds minute hour)
-	(decode-universal-time (+ (getloginvendorsessionstarttime) (hunchentoot:session-max-time hunchentoot:*session*)))
-	(list hour minute seconds)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-hhub-transaction (name &optional params &body body)
@@ -1039,90 +538,6 @@ Returns a list of widget outputs."
                        (cl-who:htm (:option :value kv-key :selected "true" (cl-who:str kv-value)))
                        (cl-who:htm (:option :value kv-key (cl-who:str kv-value)))))
                  ,kvhash))))))
-  
-
-
-
-(defun display-as-table (header listdata rowdisplayfunc &rest arguments) 
-:documentation "This is a generic function which will display items in list as a html table. You need to pass the html table header and  list data, and a display function which will display data. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizing refer to style.css. " 
-  (let ((incr (let ((count 0)) (lambda () (incf count)))))
-    (cl-who:with-html-output-to-string (*standard-output* nil)
-      ;; searchresult div will be used to store the search result. 
-      (:div :id "searchresult"  :class "container-fluid" 
-	    (:table :class "table table-sm  table-striped  table-hover"
-		    (:thead (:tr
-			     (:th "Sr. No")
-			     (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
-		    (:tbody :class "table-group-divider"
-		     (mapcar (lambda (item)
-			       (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall rowdisplayfunc item arguments))))  listdata)))))))
-
-
-;; Can this function be converted into a macro?
-(defun display-as-tiles (listdata displayfunc tile-css-class) 
-:documentation "This is a generic function which will display items in list as tiles. You need to pass the list data, and a display function which will display 
-individual tiles. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizingrefer to style.css. " 
-  (cl-who:with-html-output-to-string (*standard-output* nil)
-    ; searchresult div will be used to store the search result. 
-    (:div :class "all-products"
-	  (mapcar (lambda (item)
-		    (cl-who:htm
-		     (:div :class tile-css-class (funcall displayfunc item))))  listdata))))
-
-;;; ------------------------------------------------------------------
-;;; Tile <-> Table view-mode helpers. These let a page render the same
-;;; dataset as Bootstrap "all-products" tiles or as a striped table, and
-;;; let the end user switch between them. The choice is persisted in the
-;;; session under a caller-supplied key so it survives page navigation.
-;;; Usage pattern:
-;;;   (let ((mode (dod-get-view-mode :my-view-key)))
-;;;     (dod-view-mode-toggle-links mode "/mybasepath?foo=1")
-;;;     (display-as-tiles-or-table mode listdata #'tile-fn "col-md-6 col-lg-4 col-xl-3"
-;;;                                header-list #'row-fn))
-;;; A controller that wants to honour a link-driven switch just reads the
-;;; request parameter (default name "orderview") and calls
-;;; (dod-set-view-mode :my-view-key <param>) before rendering.
-;;; ------------------------------------------------------------------
-
-(defun dod-get-view-mode (session-key &optional (default "tile"))
-  "Return the persisted tile/table preference for SESSION-KEY, or DEFAULT
-when unset/invalid. Accepted modes are the strings \"tile\" and \"table\"."
-  (let ((mode (hunchentoot:session-value session-key)))
-    (if (member mode '("tile" "table") :test #'string=) mode default)))
-
-(defun dod-set-view-mode (session-key mode)
-  "Persist MODE (\"tile\" or \"table\") for SESSION-KEY. Invalid modes fall
-back to \"tile\"."
-  (setf (hunchentoot:session-value session-key)
-        (if (member mode '("tile" "table") :test #'string=) mode "tile")))
-
-(defun display-as-tiles-or-table (mode listdata tile-display-func tile-css-class
-                                  table-header row-display-func &rest row-args)
-  "Render LISTDATA as tiles (MODE \"tile\") or as a table (MODE \"table\") so
-callers can offer one dataset in both layouts. TILE-DISPLAY-FUNC renders one
-tile, TILE-CSS-CLASS sizes it inside the all-products flex container, and the
-table view is built by display-as-table using TABLE-HEADER and
-ROW-DISPLAY-FUNC (ROW-ARGS are passed through). Returns the HTML string."
-  (if (string= mode "table")
-      (apply #'display-as-table table-header listdata row-display-func row-args)
-      (display-as-tiles listdata tile-display-func tile-css-class)))
-
-(defun dod-view-mode-toggle-links (current-mode base-href &optional (view-param "orderview"))
-  "Return a Bootstrap button-group with Tiles/Table links that switch to
-CURRENT-MODE's counterpart. Each link appends VIEW-PARAM=<mode> to BASE-HREF
-(the server reads that parameter and persists the choice via
-dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
-  (let ((sep (if (find #\? base-href) "&" "?")))
-    (cl-who:with-html-output-to-string (*standard-output* nil)
-      (:div :class "btn-group btn-group-sm" :role "group" :aria-label "Toggle view"
-            (:a :class (if (string= current-mode "tile")
-                           "btn btn-outline-primary active" "btn btn-outline-primary")
-                :href (format nil "~A~A~A=tile" base-href sep view-param)
-                (:i :class "fa-solid fa-grip") (cl-who:str " Tiles"))
-            (:a :class (if (string= current-mode "table")
-                           "btn btn-outline-primary active" "btn btn-outline-primary")
-                :href (format nil "~A~A~A=table" base-href sep view-param)
-                (:i :class "fa-solid fa-table-list") (cl-who:str " Table"))))))
 
 ;; This macro will be used for the MVC pattern on the UI display of pages. We need
 ;; to pass the model generating and view generating functions and specify for which persona this request is for.
@@ -1138,11 +553,6 @@ dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
 	 (:compadmin (display-compadmin-page-with-widgets ,pagetitle widgets))
 	 (:superadmin (display-superadmin-page-with-widgets ,pagetitle widgets))))))
 
-
-(defun create-model-withnildata ()
-  (function (lambda ()
-    (values nil))))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-mvc-binary-file (createmodelfunc createwidgetsfunc)
     `(let* ((modelfunc (funcall ,createmodelfunc))
@@ -1157,71 +567,11 @@ dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
        (funcall (nth 0 widgets)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defun create-widgets-for-genericredirect (modelfunc)
-    (multiple-value-bind (redirectlocation) (funcall modelfunc)
-      (let ((widget1 (function (lambda ()
-		       redirectlocation))))
-	(list widget1)))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-mvc-ui-component (createwidgetsfunc createmodelfunc &rest modelargs)
     `(let* ((modelfunc (funcall ,createmodelfunc ,@modelargs))
 	    (widgets (funcall ,createwidgetsfunc modelfunc)))
        (loop for widget in widgets do 
 	 (funcall widget)))))
- 
-;; This function simply displays each widget containing the html, css, javascript code in the linear order.
-(defun display-customer-page-with-widgets (pagetitle widgets)
-  (with-standard-customer-page-v2 pagetitle
-    (loop for widget in widgets do 
-      (funcall widget))))
-
-(defun vendor-breadcrumb-parents (path)
-  "Declared hierarchy for vendor pages, most specific match first.
-   Each row is (url-fragment . ((section-label . section-href) ...)) giving the
-   ancestor levels between Home and the current page. Add a row when a vendor
-   page should show where it sits. No row means Home / <page title>."
-  (cond ((search "dodvenbulkaddprodpage" path)
-	 '(("Products" . "/hhub/dodvenproducts")))
-	((or (search "displayinvoices" path) (search "editinvoicepage" path)
-	     (search "vproductsforinvoicepage" path))
-	 '(("Invoices" . "/hhub/displayinvoices")))
-	(t nil)))
-
-(defun display-vendor-page-with-widgets (pagetitle widgets)
-  ;; One breadcrumb for EVERY vendor page: Home / ancestors / page title.
-  ;; Ancestors come from vendor-breadcrumb-parents; the title is the page title
-  ;; each controller already passes to with-mvc-ui-page :role :vendor.
-  (with-standard-vendor-page pagetitle
-    (with-vendor-breadcrumb
-      (dolist (crumb (vendor-breadcrumb-parents (hunchentoot:script-name hunchentoot:*request*)))
-	(cl-who:with-html-output (*standard-output* nil)
-	  (:li :class "breadcrumb-item" (:a :href (cdr crumb) (cl-who:str (car crumb))))))
-      (:li :class "breadcrumb-item active" :aria-current "page" (cl-who:str pagetitle)))
-    (loop for widget in widgets do 
-      (funcall widget))))
-
-(defun display-compadmin-page-with-widgets (pagetitle widgets)
-  (with-standard-compadmin-page-v2 pagetitle
-    (loop for widget in widgets do 
-      (funcall widget))))
-
-(defun display-superadmin-page-with-widgets (pagetitle widgets)
-  (with-standard-admin-page pagetitle
-    (loop for widget in widgets do 
-      (funcall widget))))
-
-(defun display-search-results-with-widgets (widgets)
-  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
-      (loop for widget in widgets do
-	(funcall widget))))
-
-(defun html-back-button ()
-  :documentation "HTML Back button"
-  (cl-who:with-html-output-to-string (*standard-output* nil ) 
-     (with-html-div-row
-       (with-html-div-col 
-	 (:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "fa-solid fa-left-long"))))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -1236,15 +586,6 @@ dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
 		      (:span :class "input-group-btn" (:button :class "btn btn-primary" :type "submit" (:i :class "fa-solid fa-magnifying-glass") "&nbsp;Go!" )))
 		,@body))))))
 
-  
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun WelcomeMessage (username)
-    (cl-who:with-html-output (*standard-output* nil) 
-      (with-html-div-row
-	(with-html-div-col
-	  (:h3 "Welcome " (cl-who:str (format nil "~A" username))))))))
-
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form (form-name form-action  &body body) 
@@ -1256,93 +597,7 @@ dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
 
 
 
-(defmacro with-html-card ((&key title image-src image-alt (image-style "") (image-classes '("rounded-circle" "mx-auto" "d-block" "mt-3")) (card-classes '("card")) (body-classes '("card-body" "text-center"))) &body cardbody)
-  "A HTML Bootstrap 5.x card generator macro."
-  (let ((image-classes-str (if (listp image-classes) (format nil "~{~A~^ ~}" image-classes) image-classes))
-        (card-classes-str (if (listp card-classes) (format nil "~{~A~^ ~}" card-classes) card-classes))
-        (body-classes-str (if (listp body-classes) (format nil "~{~A~^ ~}" body-classes) body-classes)))
-    `(cl-who:with-html-output (*standard-output* nil)
-       (:div :class ,card-classes-str
-             ,(when image-src
-                `(:img :src ,image-src
-                       :class ,image-classes-str
-                       :alt ,image-alt
-                       :style ,image-style))
-             (:div :class ,body-classes-str
-                   (:h3 :class "card-title" ,title)
-                   (:p :class "card-text" ,@cardbody))))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-row ( &body body) 
-    :documentation "A HTML Div element having class as 'row' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "row"
-	     ,@body))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-row-fluid ( &body body) 
-    :documentation "A HTML Div element having class as 'row' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "row-fluid"
-	     ,@body))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-col-12 ( &body body) 
-    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-12"
-	     ,@body))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-col-10 ( &body body) 
-    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-10"
-	     ,@body))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-col-8 ( &body body) 
-    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-8"
-	     ,@body))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-col-6 ( &body body) 
-    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-6"
-	     ,@body))))
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-col-4 ( &body body) 
-    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-4"
-	     ,@body))))
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-col-3 ( &body body) 
-    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-3"
-	     ,@body))))
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-col-2 ( &body body) 
-    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-2"
-	     ,@body))))
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-col-1 ( &body body) 
-    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-1"
-	     ,@body))))
-(eval-when (:compile-toplevel :load-toplevel :execute)     
-  (defmacro with-html-div-col ( &body body) 
-    :documentation "A HTML Div element having class as 'col' and also having column sizing" 
-    `(cl-who:with-html-output (*standard-output* nil) 
-       (:div :class "col-xs-12 col-sm-12 col-md-4 col-lg-3"
-	     ,@body))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-submit-button (titletext &body other-attributes)
@@ -1442,17 +697,6 @@ dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
 	     (:div :class "panel-heading" ,panel-header-text)
 	     (:div :class "panel-body" ,@body)))))
 
-(defun copy-hash-table (hash-table)
-  (let ((ht (make-hash-table 
-             :test (hash-table-test hash-table)
-	     :rehash-size (hash-table-rehash-size hash-table)
-             :rehash-threshold (hash-table-rehash-threshold hash-table)
-             :size (hash-table-size hash-table))))
-    (loop for key being each hash-key of hash-table
-       using (hash-value value)
-       do (setf (gethash key ht) value)
-       finally (return ht))))
-
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro modal-dialog (id title &rest body )
@@ -1488,3 +732,772 @@ dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
 			   (:div :class "modal-footer"
 				 (:button :type "button" :class "btn btn-secondary" :data-bs-dismiss "modal" "Close")))))))))
 
+;;; ===== functions, page controllers and helpers =====
+;;;;;;;;;;;;;;;;;;;; Simple UI Framework ends here ;;;;;;;;;;;;;;;;;;;;
+
+
+
+
+;; A simple UI framework within MVC which have these 3 things
+;; 1) Page - a page is html page containing one or more components
+;; 2) Component - a component is a logical UI entity containing more than one widgets.
+;; 3) Widgets - A widget is a leaf node in the page and component hierarchy. The widget contains the
+;; actual HTML, CSS and JAVASCRIPT. 
+
+;;; ============================================================================
+;;; extract-html-between-markets
+;;;
+;;; Extracts the HTML fragment that lives between two named comment markers in a
+;;; larger HTML template string.  This lets a single saved template continue to
+;;; serve as a complete standalone page, while a discrete sub-region (e.g. just
+;;; the interior fields of a <form>) can be pulled out and re-wrapped at render
+;;; time by whatever generation strategy the current request needs (a plain
+;;; server-side POST form, or a parenscript-generated submit handler).
+;;;
+;;; Marker convention:  <!--NAME_BEGIN--> ... <!--NAME_END-->
+;;;
+;;; Parameters:
+;;;   TEMPLATE     - the raw HTML template string to search in.
+;;;   BEGIN-MARKER - the opening marker, e.g. "<!--WAREHOUSE_DETAILS_FORM_BEGIN-->".
+;;;   END-MARKER   - the closing marker,   e.g. "<!--WAREHOUSE_DETAILS_FORM_END-->" .
+;;;
+;;; Returns the substring between the two markers (excluding the markers), or
+;;; NIL if either marker is not found.  Useful for wrapping a form fragment with
+;;; with-html-form-having-submit-event / parenscript.
+;;;
+;;; NOTE: "?s" makes "." match newlines so the fragment can span multiple lines.
+;;; The markers here consist only of regex-safe characters ("<!--" "-->"), so
+;;; they can be interpolated directly.  If a marker ever contains regex
+;;; metacharacters (".", "(", etc.), escape it with cl-ppcre:quote-meta-chars.
+(defun extract-html-between-markets (template begin-marker end-marker)
+  (let ((regex (format nil "(?s)~A(.*?)~A" begin-marker end-marker)))
+    (cl-ppcre:register-groups-bind (snippet) (regex template) snippet)))
+
+;;; ============================================================================
+;;; nst-slot-str
+;;;
+;;; Nil-safe slot read shared by all template substitution paths.  Optional
+;;; business fields are legitimately unset (e.g. a vendor below the GST
+;;; registration turnover threshold has no GST number), and cl-ppcre calls its
+;;; replacement argument as a function, so a raw NIL slot value raises
+;;; "The function COMMON-LISP:NIL is undefined".  NIL is rendered as "".
+;;; ============================================================================
+(defun nst-slot-str (object slot)
+  :documentation "Nil-safe slot read: NIL becomes an empty string so template substitution never gets NIL."
+  (let ((v (slot-value object slot)))
+    (if v (princ-to-string v) "")))
+
+;; Widget is a function that when called renders HTML/JS/CSS
+(defun make-ui-widget (render-fn)
+  ;; returns a widget structure containing closure
+  (list :type :widget :render render-fn))
+
+(defun render-ui-widget (widget)
+  ;; return closure, not immediate execution
+  (getf widget :render))
+
+;; Component is a collection of widgets or nested components
+(defun make-ui-component (name renderer-fn)
+  "Create a component.
+NAME is a keyword identifier.
+RENDERER-FN is a function that takes MODELFUNC and returns a list of widgets."
+  (list :type :component :name name :renderer renderer-fn))
+
+(defun render-ui-component (component modelfunc)
+  "Render a component by invoking its renderer with MODELFUNC.
+Returns a list of widget outputs."
+  (let* ((renderer (getf component :renderer))
+         (widgets (funcall renderer modelfunc)))
+    (mapcar #'render-ui-widget widgets)))
+
+;; Page is a collection of components
+(defun make-ui-page (persona name &rest components)
+  (list :type :page :persona persona :name name :components components))
+
+(defun render-ui-page (page modelfunc)
+  (mapcan (lambda (component)
+	    (render-ui-component component modelfunc)) (getf page :components)))
+
+
+
+
+(defun safe-read-from-string (string &optional default-value)
+  "Attempts to read a Lisp expression from a string, returning a default value if parsing fails."
+  (handler-case
+      (let ((trimmed-string (string-trim '(#\space) string)))
+        (if (string= trimmed-string "") ; Check for empty string
+            default-value
+            (read-from-string trimmed-string)))
+    (error () ; Catch any error during read-from-string
+      default-value)))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun displaystorepickupwidget (address)
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-card
+	  (:title "Pickup In Store"
+	   :image-src "/img/PickupInStore.jpg" 
+	   :image-alt "Pickup In Store"
+	   :image-style "width: 100px; height: 100px;")
+	(:p (:strong "NOTE: This order needs to be picked up from store."))
+	(:p (:span (cl-who:str (format nil "&nbsp;Store Address:~A" address ))))
+	(:div :class "ribbon" "Pickup In Store")))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun with-html-collapse (collapseid listcollapseitemsfuncs) 
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :id collapseid :class "collapse" 
+	    (loop for collapse-item-func  in listcollapseitemsfuncs do 
+	      (multiple-value-bind (id buttontext itembodyhtml) (funcall collapse-item-func) 
+		(cl-who:htm
+		 (:div :class "card card-body" :id id  (format nil "~A" itembodyhtml)))))))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun with-html-accordion (accordionid listaccordionitemsfuncs) 
+    (cl-who:with-html-output (*standard-output* nil)
+      (:div :id accordionid :class "accordion" 
+	    (loop for accordion-item-func  in listaccordionitemsfuncs do 
+	      (multiple-value-bind (id buttontext itembodyhtml) (funcall accordion-item-func) 
+		(cl-who:htm
+		 (:div :class "accordion-item"
+		       (:h2 :class "accordion-header"
+			    (:button :class "accordion-button" :data-bs-toggle "collapse" :data-bs-target (format nil "#~A" id) :aria-expanded "true" :aria-controls (format nil "~A" id) :type "button" "test button" ))
+		       (:div  :class "accordion-collapse collapse" :id id :data-bs-parent (format nil "#~A" accordionid)
+			      (:div :class "accordion-body"
+				    (:strong "This is test")))))))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun with-modal-dialog-link (name linkhtmlfunc dialogheadertext modalfunc)
+    (cl-who:with-html-output (*standard-output* nil)
+      (:a :data-bs-toggle "modal" :data-bs-target (format nil "#~A-modal" name)  :href "#" (funcall linkhtmlfunc))
+      (modal-dialog-v2 (format nil "~A-modal" name) dialogheadertext (funcall modalfunc)))))
+	  
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitformevent-js (id-bind-element)
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str		(parenscript:ps
+		 (parenscript:chain ($ "document") 
+				    (ready (lambda ()
+					     (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
+					     (if (not (null element))
+						 (parenscript:chain element (add-event-listener "submit" (lambda (e)
+													   (parenscript:chain e (prevent-default))
+													   (let ((target-form (parenscript:@ e target)))
+													     ;; if formname is fileuploadform then return as we are having a
+													     ;; different event function to handle this. 
+													     (if (= (parenscript:chain target-form name) 'file-upload-form) return)
+													     (submitformandredirect target-form)))))))))))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitfileuploadevent-js (id-bind-element)
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str
+		(parenscript:ps
+		 (parenscript:chain ($ "document") 
+				    (ready (lambda ()
+					     (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
+					     (if (not (null element))
+						 (parenscript:chain element (add-event-listener "submit" (lambda (e)
+													   ;; We stop event propagation here as there is another submit event on top of this. 
+													   (parenscript:chain e (stop-propagation))
+													   (submitfileuploadevent e))))))))))))))
+
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun sharetextorurlonclick (id-bind-element data)
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str
+		(parenscript:ps
+		  (parenscript:chain ($ "document") 
+				     (ready (lambda ()
+					      (let ((element  (parenscript:chain document (query-selector (parenscript:lisp id-bind-element))))))
+					      (if (not (null element))
+						  (parenscript:chain element (add-event-listener "click" (lambda (e)
+													   (parenscript:chain e (prevent-default))
+													   (parenscript:try 
+													    (parenscript:chain navigator (share (parenscript:create title "URL" url (parenscript:lisp data))))
+													   (parenscript:chain console (log "Data was shared successfully"))
+													   (:catch (err)
+													     (parenscript:chain console (log "Share failed: use HTTPS only: " (parenscript:chain err message)))
+													     (copy-to-clipboard (parenscript:lisp data))
+													     )))))))))))))))
+
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitsearchform1event-js (id-bind-element searchresultid)
+    "Generate JS for second search with redundancy prevention"
+    ;; Strip leading # if present
+    (let ((clean-id (string-trim "#" id-bind-element)))
+      (cl-who:with-html-output (*standard-output* nil)
+        (:script :type "text/javascript"
+                 (cl-who:str
+                  (parenscript:ps
+                    (defvar *last-search2-value* "")
+                    (defun onkeyupsearchform1event ()
+                      (let ((current-value (parenscript:chain document
+                                             (get-element-by-id (parenscript:lisp clean-id))
+                                             value)))
+                        (unless (= current-value *last-search2-value*)
+                          (searchformevent (parenscript:lisp id-bind-element) 
+                                           (parenscript:lisp searchresultid))
+                          (setf *last-search2-value* current-value)))))))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitsearchform2event-js (id-bind-element searchresultid)
+    "Generate JS for second search with redundancy prevention"
+    ;; Strip leading # if present
+    (let ((clean-id (string-trim "#" id-bind-element)))
+      (cl-who:with-html-output (*standard-output* nil)
+        (:script :type "text/javascript"
+                 (cl-who:str
+                  (parenscript:ps
+                    (defvar *last-search2-value* "")
+                    (defun onkeyupsearchform2event ()
+                      (let ((current-value (parenscript:chain document
+                                             (get-element-by-id (parenscript:lisp clean-id))
+                                             value)))
+                        (unless (= current-value *last-search2-value*)
+                          (searchformevent (parenscript:lisp id-bind-element) 
+                                           (parenscript:lisp searchresultid))
+                          (setf *last-search2-value* current-value)))))))))))
+				    
+
+    
+  
+
+    
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun submitsearchform3event-js (id-bind-element searchresultid)  
+    (cl-who:with-html-output (*standard-output* nil)
+      (:script :type "text/javascript"
+	       (cl-who:str
+		(parenscript:ps
+		  (defun onkeyupsearchform3event ()
+		    (searchformevent (parenscript:lisp id-bind-element) (parenscript:lisp searchresultid)))))))))
+
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun text-editor-control (idtextarea value)
+    (let ((editorid (format nil "~AEditor" (gensym "hhub")))
+	  (editorparentid (format nil "~AEditor" (gensym "hhub"))))
+	 
+      (cl-who:with-html-output (*standard-output* nil)
+	(:div :id editorparentid 
+	      (with-html-div-row
+		(with-html-div-col-8
+		  (:div :id editorid :contenteditable "true" :role "textbox" :style "display: none;text-align: left; margin-top: 10px; border: 1px solid gray; padding: 10px; border-radius: 5px;"
+			(cl-who:str value))))
+	      (with-html-div-row
+		(with-html-div-col-6
+		  (:a :id "btnpreview"  :href "" :data-toggle "tooltip" :title "HTML Preview" (:i :class "fa-regular fa-eye")"&nbsp;")
+		  (:a :id "btncode"  :href "" :data-toggle "tooltip" :title "HTML Code"  (:i :class "fa-solid fa-code")"&nbsp;"))))
+	(:script (cl-who:str (format nil "$(document).ready(function() {
+    const editorparentelem  = document.querySelector('#~A');
+    if (null != editorparentelem){
+	editorparentelem.addEventListener('click', (e) => {
+	    e.preventDefault();
+            const btnclicked = e.target.parentElement.id;
+            if (btnclicked == 'btncode'){
+            document.getElementById('~A').value = document.getElementById('~A').innerHTML;
+            document.getElementById('~A').style.display = 'block';
+            document.getElementById('~A').style.display = 'none'; 
+            }
+            if (btnclicked == 'btnpreview'){
+            document.getElementById('~A').innerHTML = document.getElementById('~A').value;
+            document.getElementById('~A').style.display = 'block';
+            document.getElementById('~A').style.display = 'none';
+            }
+            
+	});
+    }
+});" editorparentid idtextarea editorid idtextarea editorid editorid idtextarea editorid idtextarea )))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun display-csv-as-html-table (csvstringwithheader)
+    (let* ((data (cl-csv:read-csv csvstringwithheader))
+	   (header (car data))
+	   (csvrows (cdr data)))
+      (cl-who:with-html-output (*standard-output* nil)
+	(with-html-table (format nil "~Acsvtable" (gensym)) header "1"
+	  (loop for row in csvrows do
+	    (cl-who:htm (:tr
+			 (loop for column in row do
+			   (cl-who:htm
+			    (:td  (cl-who:str column))))))))))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun html-range-control (name id min max value step)
+    (cl-who:with-html-output (*standard-output* nil)
+     (:div :class "hhub-range-body"
+	   (:div :class "hhub-range-wrap"
+		 (:div :class "hhub-range-value" :id (format nil "rangeV_~A" id))
+		 (:input :id (format nil "range_~A" id) :name name :type "range" :min min :max max :value value :step step))))))
+
+
+(defun whatsapp-widget (phone)
+  :description "This function returns the HTML required for the floating whatsapp button"
+  (cl-who:with-html-output (*standard-output* nil) 
+    (:a :id "floatingwhatsappbutton" :target "_blank"  :href (format nil "createwhatsapplinkwithmessage?phone=~A&message=Hi" phone) :style "font-weight: bold; font-size: 30px !important;"  (:i :class "fa-brands fa-whatsapp"))))
+
+(defun hhub-controller-create-whatsapp-link-with-message ()
+  (let* ((phone (hunchentoot:parameter "phone"))
+	 (message (hunchentoot:parameter "message"))
+	 (url (createwhatsapplinkwithmessage phone message)))
+    (hunchentoot:redirect url)))    
+
+(defun jscript-displaysuccess (message)
+  (cl-who:with-html-output (*standard-output* nil)
+    (:script :type "text/javascript"
+	     (cl-who:str
+	      (format nil "window.onload = function(){ ~A };" (parenscript:ps (display-success (parenscript:lisp "#hhub-success") (parenscript:lisp message) (parenscript:lisp 3000))))))))    
+
+
+(defun jscript-displayerror (message)
+  (cl-who:with-html-output (*standard-output* nil)
+    (:script :type "text/javascript"
+	     (cl-who:str
+	      (format nil "window.onload = function(){ ~A };" (parenscript:ps (display-error (parenscript:lisp "#hhub-error") (parenscript:lisp message) (parenscript:lisp 3000))))))))    
+
+
+(defun logIamhere (where)
+  (when *dod-debug-mode*
+    (hunchentoot:log-message* :info (format nil "~A" where))))
+
+(defun hhub-business-adapter (function params)
+  :documentation "This is a database adapter for HHUb. It takes parameters in a association list."
+  (if (listp params)
+      (funcall function params)))
+
+
+(defun hhub-json-body ()
+  (json:decode-json-from-string
+    (hunchentoot:raw-post-data :force-text t)))
+
+(defun attr (object field)
+  (cdr (assoc field object)))
+    
+
+(defun dod-controller-password-reset-mail-link-sent ()
+  (with-standard-customer-page  "Password reset mail" 
+    (:div :class "row" 
+	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
+					;(:div :class "account-wall"
+		  (:h1 :class "text-center login-title"  "Password Reset Link Sent To Your Email.")
+		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
+
+
+(defun dod-controller-password-reset-mail-sent ()
+(with-standard-customer-page  "Password reset mail"
+    (:div :class "row" 
+	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
+					;(:div :class "account-wall"
+		  (:h1 :class "text-center login-title"  "Password Reset Email Sent.")
+		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
+  
+
+(defun dod-controller-invalid-email-error ()
+  (with-standard-customer-page  "Invalid email error"
+    (:div :class "row" 
+	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
+					;(:div :class "account-wall"
+		  (:h1 :class "text-center login-title"  "Invalid Customer Email.")
+		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
+
+
+
+(defun dod-controller-password-reset-token-expired ()
+  (with-standard-customer-page "Password reset token expired"
+    (:div :class "row" 
+	  (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		(with-html-form "form-customerchangepin" "hhubcustpassreset"  
+					;(:div :class "account-wall"
+		  (:h1 :class "text-center login-title"  "Your password reset time window has expired. Please try again." )
+		  (:a :class "btn btn-primary"  :role "button" :href (format nil "~A" *siteurl*)  (:i :class "fa-solid fa-house")))))))
+
+
+
+
+
+(defun hhubsendmail (to subject body &optional (from *HHUBSMTPSENDER*) attachments-list)
+  (let ((username *HHUBSMTPUSERNAME*) 
+	(password  *HHUBSMTPPASSWORD*))  
+    
+    (cl-smtp:send-email *HHUBSMTPSERVER*
+			from to 
+			subject "Nine Stores Email."
+			:authentication (list :login username password) 
+			:ssl
+			:tls
+			:html-message body
+			:display-name "Nine Stores"
+			:attachments attachments-list)))
+
+
+
+(defun hhubsendmail-test (to subject body &optional attachments-list)
+  (let ((username *HHUBSMTPUSERNAME*) 
+	(password  *HHUBSMTPPASSWORD*)) 
+    (cl-smtp:send-email *HHUBSMTPSERVER*
+			*HHUBSMTPTESTSENDER* to 
+			subject "Ok, the HTML version of this email is totally impressive. Just trust me on this." 
+			:authentication (list :login username password) 
+			:ssl
+			:tls
+			:html-message body
+			:display-name subject
+			:attachments attachments-list)))
+
+(defun kill-threads-by-prefix (prefix)
+  "Kills all threads whose names start with PREFIX."
+  (dolist (thread (bt:all-threads))
+    (let ((name (bt:thread-name thread)))
+      (when (and name (search prefix name))
+        (format t "Killing thread: ~A~%" name)
+        (bt:destroy-thread thread)))))
+
+(defun print-thread-info ()
+:description "This function prints information about all threads" 
+      (let* ((curr-thread sb-thread:*current-thread*)
+             (curr-thread-name (sb-thread:thread-name curr-thread))
+             (all-threads (sb-thread:list-all-threads))
+	     (tc (length all-threads)))
+        (format t "Current thread: ~a~%~%" curr-thread)
+        (format t "Current thread name: ~a~%~%" curr-thread-name)
+        (format t "All threads:~% ~{~a~%~}~%" all-threads)
+	(format t "Threads count: ~a" tc)) 
+      nil)
+
+(defun delete-threads (count)
+  :description "This function will kill x number of threads"
+  (let* ((all-threads (bt:all-threads)))
+    (loop for item in all-threads for i from 1 to count do
+      (if (and (not (eql item (bt:current-thread)))
+	       (bt:thread-alive-p item)) 
+	  (progn
+	    (format t "Deleting thread: ~a~%~%" item)
+	    (bt:interrupt-thread  item (lambda () (abort))))))))
+
+
+(defun print-web-session-timeout ()
+    (let ((weseti ( get-web-session-timeout)))
+	(if weseti (format t "~2,'0d:~2,'0d"
+			   (nth 0  weseti)(nth 1 weseti)))))
+
+;;; ─── Web-session liveness and eviction ──────────────────────────────────────
+;;;
+;;; A business-session record (VendorSessionObject / UserSessionObject in the
+;;; vendorsite / compadminsite BusinessContext) can OUTLIVE the hunchentoot
+;;; session it wraps: the web session expires after SESSION-MAX-TIME, is
+;;; dropped by a session-gc pass, or is removed by enforce-*-session. Nothing
+;;; prunes the business record, so a dead record keeps sitting in the hashtable
+;;; — and because the login-limit checks count RECORDS, ghosts consume the
+;;; vendor's quota and live devices get evicted in their place.
+
+(defun hhub-websession-live-p (websession)
+  "Is WEBSESSION still usable? NIL for a missing, foreign, expired OR already
+   dropped object. Two ways a session dies, and both must be caught:
+     1. it ages out — the session's own clock, the same predicate
+        hunchentoot:session-gc applies when it drops sessions;
+     2. it is removed while still young — an explicit remove-session, or
+        hunchentoot rejecting a presented cookie as a fake identifier. Such a
+        session is not 'old' but is no longer in the acceptor's session DB, so
+        membership is checked too.
+   Both checks use exported hunchentoot API only."
+  (and websession
+       (typep websession 'hunchentoot:session)
+       (not (hunchentoot:session-too-old-p websession))
+       (let ((id (hunchentoot:session-id websession)))
+         (and id
+              (or ;; *acceptor* is defvar-UNBOUND outside a request. If we cannot
+                  ;; consult the session DB, fall back to the clock alone rather
+                  ;; than declaring a possibly-live session dead.
+                  (not (boundp 'hunchentoot:*acceptor*))
+                  (null hunchentoot:*acceptor*)
+                  (eq websession
+                      (cdr (assoc id (hunchentoot:session-db hunchentoot:*acceptor*)
+                                  :test #'=))))))))
+
+(defun hhub-websession-start (websession)
+  "Login time of WEBSESSION as universal time, or MOST-POSITIVE-FIXNUM when it
+   is unavailable — an unusable record must never outrank a real session when
+   candidates are ordered for eviction."
+  (or (and (typep websession 'hunchentoot:session)
+           (hunchentoot:session-start websession))
+      most-positive-fixnum))
+
+(defun hhub-remove-other-websession (websession)
+  "Remove SOMEONE ELSE'S web session WITHOUT touching this reply.
+   hunchentoot:remove-session always writes
+   `Set-Cookie: <session-cookie-name>=deleted' into the CURRENT reply
+   (*reply*). When the session being evicted belongs to another client — the
+   normal case for the login-limit enforcement below — that header is delivered
+   to whoever happened to trigger the eviction, and since it carries the same
+   cookie name as the cookie start-session just issued for that caller, the
+   client applies it and destroys the very session it was just given: the new
+   login is unusable while the evicted device learns nothing. The session is
+   still removed from hunchentoot's session database (acceptor-remove-session +
+   session-db removal both run); only the misdirected header is discarded.
+   Call hunchentoot:remove-session directly when the current client genuinely
+   should be told its own cookie is dead."
+  (when websession
+    (let ((hunchentoot:*reply* (make-instance 'hunchentoot:reply)))
+      (hunchentoot:remove-session websession))))
+
+(defun response-id-string (value)
+  "Identifier fields leave a boundary response as JSON STRINGS — one id
+   convention for every entity, so a client never has to know that
+   WarehouseResponseModel.rowId is a string while ownerEntityId is an int.
+   An id is opaque: stringifying removes the temptation to do integer
+   comparisons and keeps the wire shape stable if ids later become codes or
+   UUIDs (nst-whs already carries warehouse-uuid / warehouse-code).
+   NIL (genuinely absent) stays NIL → JSON null; it must NOT become the string
+   \"NIL\", because absence is information, not an identifier."
+  (if (null value)
+      nil
+      (format nil "~A" value)))
+
+(defun print-vendor-web-session-timeout ()
+  (with-vend-session-check 
+    (let ((weseti (get-vendor-web-session-timeout)))
+      (if weseti (format t "~2,'0d:~2,'0d"
+			 (nth 0  weseti)(nth 1 weseti))))))
+
+
+(defun get-web-session-timeout ()
+  (multiple-value-bind
+	  (seconds minute hour)
+	(decode-universal-time (+ (get-universal-time) (hunchentoot:session-max-time hunchentoot:*session*)))
+      ;;(logiamhere (format nil "Session max time is ~A" (hunchentoot:session-max-time hunchentoot:*session*)))
+      (list hour minute seconds)))
+
+(defun get-vendor-web-session-timeout ()
+    (multiple-value-bind
+	(seconds minute hour)
+	(decode-universal-time (+ (getloginvendorsessionstarttime) (hunchentoot:session-max-time hunchentoot:*session*)))
+	(list hour minute seconds)))
+  
+
+
+
+(defun display-as-table (header listdata rowdisplayfunc &rest arguments) 
+:documentation "This is a generic function which will display items in list as a html table. You need to pass the html table header and  list data, and a display function which will display data. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizing refer to style.css. " 
+  (let ((incr (let ((count 0)) (lambda () (incf count)))))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      ;; searchresult div will be used to store the search result. 
+      (:div :id "searchresult"  :class "container-fluid" 
+	    (:table :class "table table-sm  table-striped  table-hover"
+		    (:thead (:tr
+			     (:th "Sr. No")
+			     (mapcar (lambda (item) (cl-who:htm (:th (cl-who:str item)))) header))) 
+		    (:tbody :class "table-group-divider"
+		     (mapcar (lambda (item)
+			       (cl-who:htm (:tr (:td (cl-who:str (funcall incr))) (funcall rowdisplayfunc item arguments))))  listdata)))))))
+
+
+;; Can this function be converted into a macro?
+(defun display-as-tiles (listdata displayfunc tile-css-class) 
+:documentation "This is a generic function which will display items in list as tiles. You need to pass the list data, and a display function which will display 
+individual tiles. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizingrefer to style.css. " 
+  (cl-who:with-html-output-to-string (*standard-output* nil)
+    ; searchresult div will be used to store the search result. 
+    (:div :class "all-products"
+	  (mapcar (lambda (item)
+		    (cl-who:htm
+		     (:div :class tile-css-class (funcall displayfunc item))))  listdata))))
+
+;;; ------------------------------------------------------------------
+;;; Tile <-> Table view-mode helpers. These let a page render the same
+;;; dataset as Bootstrap "all-products" tiles or as a striped table, and
+;;; let the end user switch between them. The choice is persisted in the
+;;; session under a caller-supplied key so it survives page navigation.
+;;; Usage pattern:
+;;;   (let ((mode (dod-get-view-mode :my-view-key)))
+;;;     (dod-view-mode-toggle-links mode "/mybasepath?foo=1")
+;;;     (display-as-tiles-or-table mode listdata #'tile-fn "col-md-6 col-lg-4 col-xl-3"
+;;;                                header-list #'row-fn))
+;;; A controller that wants to honour a link-driven switch just reads the
+;;; request parameter (default name "orderview") and calls
+;;; (dod-set-view-mode :my-view-key <param>) before rendering.
+;;; ------------------------------------------------------------------
+
+(defun dod-get-view-mode (session-key &optional (default "tile"))
+  "Return the persisted tile/table preference for SESSION-KEY, or DEFAULT
+when unset/invalid. Accepted modes are the strings \"tile\" and \"table\"."
+  (let ((mode (hunchentoot:session-value session-key)))
+    (if (member mode '("tile" "table") :test #'string=) mode default)))
+
+(defun dod-set-view-mode (session-key mode)
+  "Persist MODE (\"tile\" or \"table\") for SESSION-KEY. Invalid modes fall
+back to \"tile\"."
+  (setf (hunchentoot:session-value session-key)
+        (if (member mode '("tile" "table") :test #'string=) mode "tile")))
+
+(defun display-as-tiles-or-table (mode listdata tile-display-func tile-css-class
+                                  table-header row-display-func &rest row-args)
+  "Render LISTDATA as tiles (MODE \"tile\") or as a table (MODE \"table\") so
+callers can offer one dataset in both layouts. TILE-DISPLAY-FUNC renders one
+tile, TILE-CSS-CLASS sizes it inside the all-products flex container, and the
+table view is built by display-as-table using TABLE-HEADER and
+ROW-DISPLAY-FUNC (ROW-ARGS are passed through). Returns the HTML string."
+  (if (string= mode "table")
+      (apply #'display-as-table table-header listdata row-display-func row-args)
+      (display-as-tiles listdata tile-display-func tile-css-class)))
+
+(defun dod-view-mode-toggle-links (current-mode base-href &optional (view-param "orderview"))
+  "Return a Bootstrap button-group with Tiles/Table links that switch to
+CURRENT-MODE's counterpart. Each link appends VIEW-PARAM=<mode> to BASE-HREF
+(the server reads that parameter and persists the choice via
+dod-set-view-mode). The active mode is highlighted. Returns the HTML string."
+  (let ((sep (if (find #\? base-href) "&" "?")))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      (:div :class "btn-group btn-group-sm" :role "group" :aria-label "Toggle view"
+            (:a :class (if (string= current-mode "tile")
+                           "btn btn-outline-primary active" "btn btn-outline-primary")
+                :href (format nil "~A~A~A=tile" base-href sep view-param)
+                (:i :class "fa-solid fa-grip") (cl-who:str " Tiles"))
+            (:a :class (if (string= current-mode "table")
+                           "btn btn-outline-primary active" "btn btn-outline-primary")
+                :href (format nil "~A~A~A=table" base-href sep view-param)
+                (:i :class "fa-solid fa-table-list") (cl-who:str " Table"))))))
+
+
+(defun create-model-withnildata ()
+  (function (lambda ()
+    (values nil))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)     
+  (defun create-widgets-for-genericredirect (modelfunc)
+    (multiple-value-bind (redirectlocation) (funcall modelfunc)
+      (let ((widget1 (function (lambda ()
+		       redirectlocation))))
+	(list widget1)))))
+ 
+;; This function simply displays each widget containing the html, css, javascript code in the linear order.
+(defun display-customer-page-with-widgets (pagetitle widgets)
+  (with-standard-customer-page-v2 pagetitle
+    (loop for widget in widgets do 
+      (funcall widget))))
+
+(defun vendor-breadcrumb-parents (path)
+  "Declared hierarchy for vendor pages, most specific match first.
+   Each row is (url-fragment . ((section-label . section-href) ...)) giving the
+   ancestor levels between Home and the current page. Add a row when a vendor
+   page should show where it sits. No row means Home / <page title>."
+  (cond ((search "dodvenbulkaddprodpage" path)
+	 '(("Products" . "/hhub/dodvenproducts")))
+	((or (search "displayinvoices" path) (search "editinvoicepage" path)
+	     (search "vproductsforinvoicepage" path))
+	 '(("Invoices" . "/hhub/displayinvoices")))
+	(t nil)))
+
+(defun display-vendor-page-with-widgets (pagetitle widgets)
+  ;; One breadcrumb for EVERY vendor page: Home / ancestors / page title.
+  ;; Ancestors come from vendor-breadcrumb-parents; the title is the page title
+  ;; each controller already passes to with-mvc-ui-page :role :vendor.
+  (with-standard-vendor-page pagetitle
+    (with-vendor-breadcrumb
+      (dolist (crumb (vendor-breadcrumb-parents (hunchentoot:script-name hunchentoot:*request*)))
+	(cl-who:with-html-output (*standard-output* nil)
+	  (:li :class "breadcrumb-item" (:a :href (cdr crumb) (cl-who:str (car crumb))))))
+      (:li :class "breadcrumb-item active" :aria-current "page" (cl-who:str pagetitle)))
+    (loop for widget in widgets do 
+      (funcall widget))))
+
+(defun display-compadmin-page-with-widgets (pagetitle widgets)
+  (with-standard-compadmin-page-v2 pagetitle
+    (loop for widget in widgets do 
+      (funcall widget))))
+
+(defun display-superadmin-page-with-widgets (pagetitle widgets)
+  (with-standard-admin-page pagetitle
+    (loop for widget in widgets do 
+      (funcall widget))))
+
+(defun display-search-results-with-widgets (widgets)
+  (cl-who:with-html-output-to-string (*standard-output* nil :prologue t :indent t)
+      (loop for widget in widgets do
+	(funcall widget))))
+
+(defun html-back-button ()
+  :documentation "HTML Back button"
+  (cl-who:with-html-output-to-string (*standard-output* nil ) 
+     (with-html-div-row
+       (with-html-div-col 
+	 (:a :class "btn btn-primary" :onclick "window.history.back();"  :role "button" :href "#" (:i :class "fa-solid fa-left-long"))))))
+
+  
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; Literal tags, not with-html-div-* : this defun once sat ABOVE those macros and a cold
+  ;; compile turned (:h3 …) into a call to :H3 (cl-who-rendering-CONTEXT.md §6.3).
+  (defun WelcomeMessage (username)
+    (cl-who:with-html-output (*standard-output* nil) 
+      (:div :class "row"
+	    (:div :class "col-xs-12 col-sm-12 col-md-4 col-lg-3"
+		  (:h3 "Welcome " (cl-who:str (format nil "~A" username))))))))
+
+(defun copy-hash-table (hash-table)
+  (let ((ht (make-hash-table 
+             :test (hash-table-test hash-table)
+	     :rehash-size (hash-table-rehash-size hash-table)
+             :rehash-threshold (hash-table-rehash-threshold hash-table)
+             :size (hash-table-size hash-table))))
+    (loop for key being each hash-key of hash-table
+       using (hash-value value)
+       do (setf (gethash key ht) value)
+       finally (return ht))))
+
+
+
+(defun nst-generic-login-with-password (persona formaction redirectonfailure)
+  (handler-case 
+      (progn  
+	(if (equal (caar (clsql:query "select 1" :flatp nil :field-names nil :database *dod-db-instance*)) 1) T)      
+	(if (is-dod-session-valid?)
+	    (hunchentoot:redirect redirectonfailure))
+	(with-no-navbar-page-v2 (format nil "Welcome ~A" persona)
+	  (with-html-div-row
+	    (with-html-div-col-12
+	      (with-html-card
+		  (:title "Login"
+		   :image-src "/img/logo.png"
+		   :image-alt (format nil "~A Login" persona)
+		   :image-style "width: 200px; height: 200px;")
+		(:form :class "form-custsignin" :role "form" :method "POST" :action formaction 
+		       (:div :class "form-group"
+			     (:input :class "form-control" :name "phone" :placeholder "Enter RMN. Ex: 9999999999" :type "number" :required "true"))
+		       (:div :class "form-group"
+			     (:input :class "form-control" :name "password" :placeholder "password=Welcome1" :type "password"  :required "true"))
+		       (:div :class "form-group"
+			     (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Login")))
+		(:a :data-toggle "modal" :data-target (format nil "#dascustforgotpass-modal")  :href "#"  "Forgot Password?")
+		(modal-dialog (format nil "dascustforgotpass-modal") "Forgot Password?" (modal.customer-forgot-password))
+		(hhub-html-page-footer))))))
+    (clsql:sql-database-data-error (condition)
+      (if (equal (clsql:sql-error-error-id condition) 2013 ) (progn
+							       (nst-db-refresh)
+							       (hunchentoot:redirect "/hhub/hhubcustloginv2"))))))
+
+(defun dod-controller-new-company-registration-email-sent ()
+  (with-standard-customer-page  "New Company Registration Request"
+    (:div :class "row" 
+	     (:div :class "col-xs-12 col-sm-12 col-md-12 col-lg-12"
+		   (with-html-form "form-customerchangepin" "hhubcustpassreset"  
+					;(:div :class "account-wall"
+		     (:h1 :class "text-center login-title"  "New Store details have been sent. You will be contacted soon. ")
+		     (:a :class "btn btn-primary"  :role "button" :href "https://www.ninestores.in"  (:i :class "fa-solid fa-house"))
+		     (hhub-html-page-footer))))))

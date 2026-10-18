@@ -162,6 +162,47 @@ etc. as `(defmacro with-html-div-col-3 (&body body) \`(cl-who:with-html-output
 That is what makes the strip menu (`cinv-itc-summary-html`) and `modal-dialog-v2` —
 both printing — work inside a collecting parent.
 
+3. 🚨 **A `defun` placed ABOVE a macro it uses compiles to a call to the tag keyword.**
+   `WelcomeMessage` used `with-html-div-row`/`-col`, whose `defmacro`s sat **later in the same
+   file**. `compile-file` processes top-level forms in order, so a *cold* compile sees undefined
+   functions and emits `(with-html-div-col (:h3 "Welcome " …))` as a function call whose argument
+   is the evaluated `(:h3 …)`. Runtime symptom: **`The function :H3 is undefined`, with the args
+   of the tag in the backtrace** (`("undefined function" "Welcome " "Demo Administrator")`) —
+   measured 2026-10-18 on `/hhub/hhubvendorapprovalpage`.
+
+   **Only forward references to MACROS are fatal this way.** A forward reference to a *function*
+   is harmless: the same fasl defines the function later, and the call only runs at request time.
+   That distinction is why the file "mostly worked" while six call sites were poisoned.
+
+   **Why the tree's own build driver does NOT catch it:** `compile-production` runs after a
+   `ql:quickload`, so the macros are already defined globally by then and the *second* pass
+   expands them correctly — the same file compiles clean and the broken first-pass `.fasl` stays
+   in the ASDF cache, loaded on every boot.
+
+   **FIXED 2026-10-18 — the file is now stable-partitioned:** every one of `dod-ui-utl.lisp`'s
+   62 `defmacro` forms sits above all 69 `defun` forms (prelude `in-package` /
+   `file-enable-sql-reader-syntax` untouched), so no macro forward reference can exist. The
+   broken call sites were `WelcomeMessage`, `html-back-button` (permission-denied page),
+   `text-editor-control` (product-description and invoice-draft editors),
+   `nst-generic-login-with-password` (no callers), and `dod-controller-new-company-registration-email-sent`
+   (`/hhub/hhubnewcompreqemailsent`).
+
+   **How to prove this class is fixed** (two gates, both offline, both needed — the second is the
+   only one that reproduces the defect):
+
+   ```bash
+   # 1. cold build: an EMPTY cache is the point; the warm driver hides the defect
+   XDG_CACHE_HOME=/tmp/cold-cache sbcl --noinform --non-interactive \
+     --eval '(load "~/quicklisp/setup.lisp")' \
+     --eval '(push #p"/tmp/nst-asdf/clsql-dist/clsql-20221106-git/" asdf:*central-registry*)' \
+     --eval '(push "/home/ubuntu/ninestores/hhub/" asdf:*central-registry*)' \
+     --eval '(ql:quickload :nstores :silent t)'
+   # 2. run the renderers out of the COLD fasls — a probe, not a grep
+   #    (html-back-button, text-editor-control, welcomemessage all render real markup)
+   ```
+   ⚠ The cold build itself prints no warnings for this (`0` undefined-function lines in a
+   711-fasl build), so **a clean cold build is NOT evidence**. Executing the renderers is.
+
 ---
 
 ## 7. RECIPE — RENDER A RENDERER OFFLINE

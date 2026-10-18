@@ -170,3 +170,23 @@
  
 
 
+
+;;; ── company-administrator recipients ────────────────────────────────────────────────────────
+;;; DOD_USERS.EMAIL is the only place an administrator's address exists. Nothing in the tree
+;;; read it for a notification until the vendor-approval mail (E2), so this is the single query.
+
+(defun select-compadmin-emails-for-tenant (tenant-id)
+  :documentation "Distinct, non-empty e-mail addresses of TENANT-ID's COMPANY ADMINISTRATORS (DOD_ROLES 'COMPADMIN'), for notifying a human who can approve. Empty list when the tenant has no admin or no admin address; callers must treat that as normal, not as an error."
+  (remove-duplicates
+   (remove-if (lambda (e) (or (null e) (zerop (length e))))
+	      (mapcar #'car
+		      (clsql:query
+		       (format nil "select distinct u.EMAIL from DOD_USERS u ~
+                                    join DOD_USER_ROLES ur on ur.USER_ID = u.ROW_ID ~
+                                    join DOD_ROLES r on r.ROW_ID = ur.ROLE_ID ~
+                                    where r.NAME = 'COMPADMIN' and ur.TENANT_ID = ~D ~
+                                      and u.DELETED_STATE = 'N' ~
+                                      and u.EMAIL is not null and u.EMAIL <> ''"
+			       tenant-id)
+		       :database *dod-db-instance* :field-names nil)))
+   :test #'string=))

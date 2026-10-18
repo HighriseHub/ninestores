@@ -1692,13 +1692,14 @@ Only shows sections based on availability flags and customer type."
 	   ;; 1 
 	   (clsql:update-records-from-instance vendor)
 	   (sleep 1) ; Sleep for 1 second after creating the vendor record.  
-	   (let ((name (slot-value vendor 'name))
-		 (email (slot-value vendor 'email)))
+	   (progn
 	     (create-vendor-tenant vendor "Y" company)
 	     ;; 2
 	     (create-free-shipping-method *HHUBFREESHIPMINORDERAMT*  vendor company)
-	     ;; 3
-	     (send-registration-email name email))
+	     ;; 3  E1: vendor-specific mail, not the legacy customer welcome (see onboarding-journeys-CONTEXT.md)
+	     (send-vendor-registered-email vendor company)
+	     ;; E2: the company administrator is told, or nobody ever approves
+	     (send-vendor-admin-pending-email vendor company))
 	   ;; 4
 	   (with-no-navbar-page "Welcome to Nine Stores platform"
 	     (:h3 (cl-who:str(format nil "Your record has been successfully added" )))

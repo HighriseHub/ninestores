@@ -145,7 +145,27 @@
   (unless (find-package :cl-who)
     (defpackage :cl-who (:use :cl) (:export #:with-html-output-to-string #:str)))
   (unless (find-package :clsql)
-    (defpackage :clsql (:use :cl) (:export #:file-enable-sql-reader-syntax))))
+    (defpackage :clsql (:use :cl) (:export #:file-enable-sql-reader-syntax)))
+  ;; registration.lisp fills email templates through hhub-fill-email-template, which calls this.
+  (unless (find-package :cl-ppcre)
+    (defpackage :cl-ppcre (:use :cl) (:export #:regex-replace-all))))
+
+;; Literal stand-in for cl-ppcre:regex-replace-all. Every %Token% name in an email template is
+;; literal text, so pattern and text coincide here; a NIL replacement errors, as production does.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (fboundp 'cl-ppcre:regex-replace-all)
+    (defun cl-ppcre:regex-replace-all (pattern string replacement)
+      (when (null replacement)
+	(error "cl-ppcre stand-in : NIL is not a replacement"))
+      (when (functionp replacement)
+	(error "cl-ppcre stand-in : the replacement-FUNCTION form is unsupported"))
+      (with-output-to-string (out)
+	(loop with start = 0
+	      for pos = (search pattern string :start2 start)
+	      do (write-string string out :start start :end (or pos (length string)))
+	      while pos
+	      do (write-string replacement out)
+	      do (setf start (+ pos (length pattern))))))))
 
 ;; The discarded-template marker lives in THIS package and never in cl-who's. A guard around a form
 ;; cannot protect the READ of it : writing cl-who::att-discarded-template makes the reader intern a
@@ -192,6 +212,11 @@
 ;; live value in the application image is never touched.
 (unless (boundp '*NSTGENERICEMAILACTOR*)
   (defvar *NSTGENERICEMAILACTOR* nil))
+
+;; The persona alist lives in dod-ini-sys.lisp too, and send-email-async reads it on every send.
+;; NIL is the correct harness value : every mail falls through to the generic actor under test.
+(unless (boundp '*NST-EMAIL-ACTORS*)
+  (defvar *NST-EMAIL-ACTORS* nil))
 
 ;; ── The real code under test ─────────────────────────────────────────────────
 ;; Each file is loaded ONLY when what it provides is missing, exactly as hhub-tst-act.lisp does it.

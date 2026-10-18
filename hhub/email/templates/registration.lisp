@@ -148,6 +148,59 @@
 	 (cust-reg-email (format nil reg-templ-str name)))
     (send-email-async email "Welcome to Nine Stores" cust-reg-email)))
 
+;; ── %Token% filling for email templates — the invoicetemplatefill pattern, adapted ──────────
+;; One ordered cl-ppcre pass per token, NIL rendered as "". A NIL passed to cl-ppcre AS the
+;; replacement gets CALLED (nil-safe-template-substitution-CONTEXT.md), so the value is guarded here.
+(defun hhub-fill-email-template (template replacements)
+  :documentation "Replace every (\"%Token%\" . VALUE) in TEMPLATE, in list order, the way invoicetemplatefill fills an invoice template. VALUE may be any printable or NIL."
+  (dolist (pair replacements template)
+    (let ((value (cdr pair)))
+      (setf template (cl-ppcre:regex-replace-all (car pair) template
+						 (if value (princ-to-string value) ""))))))
+
+(defun send-vendor-registered-email (vendor company)
+  :documentation "Vendor onboarding E1: the row is committed, the company administrator holds the approval, and the vendor cannot sign in yet. A mail failure must never roll back the registration."
+  (let ((to (slot-value vendor 'email))
+	(cmpname (slot-value company 'name)))
+    (when to
+      (let* ((templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-VENDOR-REGISTERED-TEMPLATE-FILE*)))
+	     (body (hhub-fill-email-template templ-str
+					     (list (cons "%CompanyName%" cmpname)
+						   (cons "%VendorName%" (slot-value vendor 'name))
+						   (cons "%VendorPhone%" (slot-value vendor 'phone))
+						   (cons "%VendorEmail%" to)
+						   (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
+	(hhub-log-message (format nil "~&[vendor-onboarding] E1 -> ~A (vendor ~A, tenant ~A)~%"
+				  to (slot-value vendor 'name) (slot-value company 'row-id)))
+	(send-email-async to (format nil "Registration received - ~A on Nine Stores" cmpname) body nil :persona :vendor)))))
+
+(defun send-vendor-admin-pending-email (vendor company)
+  :documentation "Vendor onboarding E2: tell each COMPANY ADMINISTRATOR that a vendor is waiting on them. The vendor cannot sign in until one of them approves, and nothing else in the system asks them to."
+  (let* ((tenant-id (slot-value company 'row-id))
+	 (cmpname (slot-value company 'name))
+	 (vname (slot-value vendor 'name))
+	 (vemail (slot-value vendor 'email))
+	 (gst (and (slot-boundp vendor 'gstnumber) (slot-value vendor 'gstnumber)))
+	 (pending (ignore-errors (length (get-vendors-for-approval tenant-id))))
+	 (recipients (select-compadmin-emails-for-tenant tenant-id)))
+    (hhub-log-message (format nil "~&[vendor-onboarding] E2 -> ~A (admin of tenant ~A ~A, vendor ~A)~%"
+			      recipients tenant-id cmpname vname))
+    (when recipients
+      (let ((templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-VENDOR-ADMIN-PENDING-TEMPLATE-FILE*))))
+	(dolist (admin-email recipients)
+	  (let ((body (hhub-fill-email-template templ-str
+						(list (cons "%VendorName%" vname)
+						      (cons "%CompanyName%" cmpname)
+						      (cons "%VendorPhone%" (slot-value vendor 'phone))
+						      (cons "%VendorEmail%" vemail)
+						      (cons "%GSTINLine%" (if gst (format nil "GSTIN: ~A" gst) "GSTIN: not provided"))
+						      (cons "%QueueUrl%" (format nil "~A/hhub/hhubvendorapprovalpage" *siteurl*))
+						      (cons "%PendingCount%" pending)
+						      (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
+	    (send-email-async admin-email
+			      (format nil "Approval needed - ~A registered as a vendor" vname)
+			      body nil :persona :admin)))))))
+
 (defun send-order-mail (email subject  order-disp-str)
   :documentation "Renders the guest order email and hands it to the shared email actor, so the calling request does not wait for SMTP."
   (let* ((order-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*)))
@@ -170,12 +223,14 @@
     (incf state)))
 
 
-(defun send-email-async (to subject body &optional attachments)
-  :documentation "Queues an email on the shared email actor instead of blocking the calling request thread on the SMTP round trip. Returns T when the actor accepted the message. A send that fails is retried by the actor and then dead lettered, so a mail outage shows up in the log instead of in the caller's stack. ATTACHMENTS is a cl-smtp attachment list (pathnames, pathname strings or cl-smtp:make-attachment objects); it is read from disk when the actor performs the send, so the file must still exist then."
-  (if *NSTGENERICEMAILACTOR*
-      (send-message *NSTGENERICEMAILACTOR* (lambda () (values to subject body attachments)))
-      ;;else the actor is not up (early startup, tests) : send it inline rather than lose it
-      (progn (hhubsendmail to subject body *HHUBSMTPSENDER* attachments) t)))
+(defun send-email-async (to subject body &optional attachments &key persona)
+  :documentation "Queues an email on the dedicated PERSONA actor (:vendor, later :customer/:admin), falling back to the shared generic actor and then to an inline send, instead of blocking the calling request thread on the SMTP round trip. Returns T when the actor accepted the message. A send that fails is retried by the actor and then dead lettered, so a mail outage shows up in the log instead of in the caller's stack. ATTACHMENTS is a cl-smtp attachment list (pathnames, pathname strings or cl-smtp:make-attachment objects); it is read from disk when the actor performs the send, so the file must still exist then. The persona actors are built and disposed in nst-server-context.lisp; see vendoronboarding-ACTORS.md."
+  (let ((actor (or (cdr (assoc persona *NST-EMAIL-ACTORS*))
+		   *NSTGENERICEMAILACTOR*)))
+    (if actor
+	(send-message actor (lambda () (values to subject body attachments)))
+	;;else the actor is not up (early startup, tests) : send it inline rather than lose it
+	(progn (hhubsendmail to subject body *HHUBSMTPSENDER* attachments) t))))
 
 
 
