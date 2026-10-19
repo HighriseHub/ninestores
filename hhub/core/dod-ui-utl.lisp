@@ -84,21 +84,38 @@
        (:div :class "col-xs-12 col-sm-12 col-md-4 col-lg-3"
 	     ,@body))))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+ (defun nst-css-classes-str (classes)
+  :documentation "A class argument as one space-separated string: a LIST of names, a plain string or NIL. Called at RUNTIME from with-html-card, because a macro receives a SUPPLIED argument as a form but a DEFAULTED one as an already-evaluated value."
+  (cond ((null classes) "")
+	((listp classes) (format nil "~{~A~^ ~}" (remove nil classes)))
+	((stringp classes) classes)
+	(t (princ-to-string classes))))
+
+(defun nst-css-classes-form (arg)
+  "The class ARG as a FORM that evaluates to the class string. ARG is a VALUE when the
+   caller omitted the key (macros evaluate their defaults) and a FORM when it passed one."
+  (cond ((null arg) "")
+	((stringp arg) arg)
+	((and (listp arg)
+	      (not (eq (car arg) 'quote))
+	      (every (lambda (e) (or (null e) (stringp e))) arg))
+	 `(quote ,arg))                     ; the defaulted-value case
+	(t arg)))                            ; a supplied form, already usable
+)
+
 (defmacro with-html-card ((&key title image-src image-alt (image-style "") (image-classes '("rounded-circle" "mx-auto" "d-block" "mt-3")) (card-classes '("card")) (body-classes '("card-body" "text-center"))) &body cardbody)
-  "A HTML Bootstrap 5.x card generator macro."
-  (let ((image-classes-str (if (listp image-classes) (format nil "~{~A~^ ~}" image-classes) image-classes))
-        (card-classes-str (if (listp card-classes) (format nil "~{~A~^ ~}" card-classes) card-classes))
-        (body-classes-str (if (listp body-classes) (format nil "~{~A~^ ~}" body-classes) body-classes)))
-    `(cl-who:with-html-output (*standard-output* nil)
-       (:div :class ,card-classes-str
-             ,(when image-src
-                `(:img :src ,image-src
-                       :class ,image-classes-str
-                       :alt ,image-alt
-                       :style ,image-style))
-             (:div :class ,body-classes-str
-                   (:h3 :class "card-title" ,title)
-                   (:p :class "card-text" ,@cardbody))))))
+  "A HTML Bootstrap 5.x card generator macro. The class arguments accept a quoted list, a bare list or a string: a quoted list is a FORM (it arrives unevaluated) while an omitted key's default arrives as a VALUE, and nst-css-classes-form normalises both."
+  `(cl-who:with-html-output (*standard-output* nil)
+     (:div :class (nst-css-classes-str ,(nst-css-classes-form card-classes))
+	   ,(when image-src
+	      `(:img :src ,image-src
+		     :class (nst-css-classes-str ,(nst-css-classes-form image-classes))
+		     :alt ,image-alt
+		     :style ,image-style))
+	   (:div :class (nst-css-classes-str ,(nst-css-classes-form body-classes))
+		 (:h3 :class "card-title" ,title)
+		 (:p :class "card-text" ,@cardbody)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-html-form-having-submit-event (form-name form-action &body body)
@@ -1309,6 +1326,18 @@ Returns a list of widget outputs."
 
 
 ;; Can this function be converted into a macro?
+(defun display-approval-tiles (listdata displayfunc &key (tile-class "nst-approval-tile"))
+  :documentation "The approval queues' tile grid: one tile div per item inside a CSS grid. Deliberately NOT display-as-tiles, whose .all-products flex row and .product-card rules pin a 300px x 180px product tile and left the old approval tiles (vendor-card / product-box) with no width at all. TILE-CLASS lets one queue use a wider/doubled tile."
+  (cl-who:with-html-output-to-string (*standard-output* nil)
+    (if listdata
+	(cl-who:htm
+	 (:div :class "nst-approval-grid"
+	       (mapcar (lambda (item)
+			 (cl-who:htm
+			  (:div :class tile-class (funcall displayfunc item)))) listdata)))
+	(cl-who:htm
+	 (:div :class "nst-approval-empty" "Nothing is waiting for approval.")))))
+
 (defun display-as-tiles (listdata displayfunc tile-css-class) 
 :documentation "This is a generic function which will display items in list as tiles. You need to pass the list data, and a display function which will display 
 individual tiles. It also supports search functionality by including the searchresult div. To implement the search functionality refer to livesearch examples. For tiles sizingrefer to style.css. " 

@@ -148,8 +148,10 @@
     (when (eq (bo-knowledge-truth dbvpayments-knowledge) :T)
       (let ((dbvpayments (bo-knowledge-payload dbvpayments-knowledge)))
 	(copyvpaymentmethods-dbtodomain dbvpayments vpaymentmethodsobj)
-	(setf (bo-knowledge-payload dbvpayments-knowledge) vpaymentmethodsobj)
-	(setf (bo-knowledge service) dbvpayments-knowledge)))
+	(setf (bo-knowledge-payload dbvpayments-knowledge) vpaymentmethodsobj)))
+    ;; ALWAYS propagate: a vendor with no payment-method row must surface as :F, not as a
+    ;; service whose knowledge was never set (that answered UNBOUND-SLOT TRUTH on first login).
+    (setf (bo-knowledge service) dbvpayments-knowledge)
     vpaymentmethodsobj))
 
 (defun copyvpaymentmethods-dbtodomain (source destination)
@@ -188,3 +190,28 @@
 					 :caching *dod-database-caching* :flatp t)))
 
 
+
+
+;;; ── the payment-method row every vendor gets ─────────────────────────────────────────────
+(defun create-default-vendor-payment-methods (vendor company)
+  :documentation "Seed one DOD_VPAYMENT_METHODS row for the vendor, idempotent per (vendor, tenant). All five flags start 'Y' - the shipped column defaults and the shape of the one pre-existing row - and the vendor narrows them on the payment settings page. Without a row addloginvendorsettings reads :F and the vendor's session carries no payment settings at all."
+  (let* ((vendor-id (slot-value vendor 'row-id))
+	 (tenant-id (slot-value company 'row-id)))
+    (if (clsql:query (format nil "SELECT ROW_ID FROM DOD_VPAYMENT_METHODS WHERE VENDOR_ID = ~D AND TENANT_ID = ~D AND (DELETED_STATE IS NULL OR DELETED_STATE <> 'Y') LIMIT 1"
+			     vendor-id tenant-id))
+	nil
+	(progn
+	  ;; ⚠ UPIENABLED's initarg is :ENABLED, not :upienabled (dod-dal-vpm.lisp) - the accessor is
+	  ;; the only place the field's real name appears.
+	  (clsql:update-records-from-instance
+	   (make-instance 'dod-vpayment-methods
+			  :codenabled "Y"
+			  :enabled "Y"
+			  :payprovidersenabled "Y"
+			  :walletenabled "Y"
+			  :paylaterenabled "Y"
+			  :vendor-id vendor-id
+			  :tenant-id tenant-id
+			  :deleted-state "N"
+			  :active-flag "Y"))
+	  t))))

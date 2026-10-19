@@ -100,6 +100,23 @@ Each item is a read, and every one already has a page to send the vendor to.
 | 4 | A product customers can order | `DOD_PRD_MASTER` for this vendor with `active_flag='Y'` **and** `approved_flag='Y'` (`products/dod-bl-prd.lisp:68-76`) | tenant 2: 146/171 approved; tenant 5: 10/17 | `dodvenproducts` |
 | 5 | Shipping zones | `DOD_VENDOR_SHIP_ZONES` rows for the vendor | not measured | `hhubvendorshipmethods` |
 
+### What registration already creates (verified 2026-10-19) — and what stays empty
+
+| row | written by | consequence |
+|---|---|---|
+| `DOD_VENDOR_TENANTS`, `DEFAULT_FLAG='Y'` | `create-vendor-tenant` | the vendor belongs to the store |
+| `DOD_SHIPPING_METHODS` — one free method, `MINORDERAMT` ₹500 | `create-free-shipping-method` | ⚠ **"a shipping method exists" is true for every new vendor** — the checklist must key on **zones**, never on methods |
+| `DOD_PRD_MASTER` — `PRODUCT_CODE 'FREIGHT-<vid>'`, `SERV`, HSN 9965, price 0, auto-approved | `create-freight-product-for-vendor` (new, 2026-10-19) | the order→invoice delivery charge has a product row to attach to; without it `nst-select-freight-product` finds nothing and `nst-cart-with-delivery-line` **silently drops the charge** |
+| `DOD_VEND_PROFILE.INVOICE_SETTINGS` — the seeded blob | the `VEN` branch's `:invoice-settings` initarg | invoice numbering and the settings page work from the first invoice |
+
+Still empty, and that is exactly what the checklist below measures: **products 0**, **shipping zones 0**,
+**`DOD_VPAYMENT_METHODS` 0**, **GSTIN/PAN blank**.
+
+⚠ The freight product's **rate is not read from it**. The delivery charge is a composite supply taxed at
+the principal goods line's rate (`knowledge/gst-tax-jurisdiction-CONTEXT.md` §1), so do not "fix" a 0 on
+that line by seeding a 9965 rate — `get-gstvalues-for-product` would only turn a silent zero into a
+wrong number.
+
 ### Two traps this table exists to stop
 
 - **"Shipping configured" is always true on day one.** Registration creates a free shipping method

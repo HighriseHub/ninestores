@@ -2102,3 +2102,19 @@ corresponding universal time."
                    nil))))
     (error (c)
       (values nil (format nil "the order number could not be minted for customer ~D (~A)" cust-id c)))))
+
+(defun nst-initials (text &key (limit 2))
+  :documentation "Up to LIMIT initial letters of the first words of TEXT, uppercased : the avatar text on an approval card for an entity that has no picture. Dependency-free and empty-string safe, because every caller runs it on a database column that can be blank."
+  (let ((words (let ((acc '()) (cur (make-string-output-stream)))
+		 (flet ((flush () (let ((w (get-output-stream-string cur)))
+				    (when (plusp (length w)) (push w acc)))))
+		   (loop for ch across (or text "")
+			 do (if (member ch '(#\Space #\Tab #\Newline #\Return))
+				(flush)
+				(write-char ch cur)))
+		   (flush))
+		 (nreverse acc))))
+    (string-upcase
+     (coerce (loop for w in (subseq words 0 (min limit (length words)))
+		   collect (char w 0))
+	     'string))))

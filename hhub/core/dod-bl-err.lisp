@@ -317,3 +317,10 @@
             message 
             payload)))
 
+
+;;; ── fallback reporter ───────────────────────────────────────────────────────────────────────
+;;; The reader exists only on hhub conditions, so a TYPE-ERROR raised NO-APPLICABLE-METHOD and hid the real error (2026-10-19, invoice create).
+
+(defmethod GetExceptionStr ((c condition))
+  :documentation "Report ANY condition as a string. Without this method, a handler-case that reports through GETEXCEPTIONSTR turns the original error into NO-APPLICABLE-METHOD and the real cause is lost."
+  (princ-to-string c))

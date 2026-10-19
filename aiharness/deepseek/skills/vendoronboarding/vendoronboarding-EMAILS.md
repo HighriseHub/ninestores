@@ -130,6 +130,7 @@ loaded into the running image.
 | To | every `COMPADMIN` user of the vendor's tenant with a non-empty `EMAIL` (B3 helper) |
 | Subject | `Approval needed — %VendorName% registered as a vendor` |
 | Tokens | `%VendorName% %VendorPhone% %VendorEmail% %GSTINLine% %CompanyName% %QueueUrl% %VendorCount%` |
+| Verified | **E2 arrives in the admin's inbox, 2026-10-19** (two separate Guerrilla sessions; E1 to the vendor, E2 to the tenant's `COMPADMIN`) |
 | Needs | **B3 — DONE**: `select-compadmin-emails-for-tenant` returns the distinct non-empty `DOD_USERS.EMAIL` of the tenant's `COMPADMIN` role holders. ⚠ Delivery depends on that address being real: the live tenants still carry `…@example.com` placeholders (tenant 2's second admin row is a real mailbox), and a bounce is silent — the actor dead-letters SMTP failures, nothing reports them. |
 
 ```

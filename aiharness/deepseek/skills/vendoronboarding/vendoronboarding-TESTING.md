@@ -61,7 +61,8 @@ so it cannot be scripted). This is the `VEN` branch verbatim:
                               :email "you@yourmailbox.com" :phone "9000000009"
                               :username "" :password ""
                               :approved-flag "N" :active-flag "Y" :approval-status "PENDING"
-                              :tenant-id 5 :push-notify-subs-flag "N" :deleted-state "N")))
+                              :tenant-id 5 :push-notify-subs-flag "N" :deleted-state "N"
+                              :invoice-settings (nst-invoicesettings-seed-string))))
   (clsql:update-records-from-instance vendor)
   (create-vendor-tenant vendor "Y" company)
   (create-free-shipping-method *HHUBFREESHIPMINORDERAMT* vendor company)
@@ -86,12 +87,13 @@ TTL is **120 s** (`*otp-default-ttl*`), the session is 5 minutes; miss it and re
 | # | check | expected |
 |---|---|---|
 | 1 | vendor's inbox | E1 `Registration received - <store> on Nine Stores` |
-| 2 | admin's inbox | E2 `Approval needed - <vendor> registered as a vendor` |
+| 2 | admin's inbox | E2 `Approval needed - <vendor> registered as a vendor` — **confirmed 2026-10-19** with the admin address in its own Guerrilla session |
 | 3 | `[vendor-onboarding]` log lines | one `E1 -> <vendor>` and one `E2 -> (<admin emails>)` |
 | 4 | `(actors-status-report)` | Vendor Email Actor +1, **Company Admin Email Actor +1**, generic `Send Email Actor` unchanged |
-| 5 | `DOD_VEND_PROFILE` | `APPROVED_FLAG='N'`, `APPROVAL_STATUS='PENDING'` |
+| 5 | `DOD_VEND_PROFILE` | `APPROVED_FLAG='N'`, `APPROVAL_STATUS='PENDING'`, and **`INVOICE_SETTINGS` seeded** — 2,600–2,800 chars, head `((INVOICE-PRINT-SETTINGS (:DEFAULTINVOICETEMPLATENUM . "13")`. A 9-byte `undefined` here is B8 |
 | 6 | `DOD_VENDOR_TENANTS` | one row, `DEFAULT_FLAG='Y'` |
 | 7 | vendor login | still refused (the gate needs `Y` **and** `APPROVED`) |
+| 7b | vendor login **after** approval | reaches `/hhub/dodvendindex?context=home`; a 500 with `UNBOUND-SLOT TRUTH` is B7 and is fixed |
 | 8 | approval page | the vendor's tile appears; approving flips the row to `Y/APPROVED` |
 
 **T6 — reset.** See §3.
@@ -113,13 +115,19 @@ sudo tail -40 /home/hunchentoot/hhublogs/ninestores-busfunctions.log | grep vend
 | mail missing although the log says it was addressed | `(length (actor-dead-letters (cdr (assoc :admin *NST-EMAIL-ACTORS*))))`, and grep the log for `actor Company Admin Email Actor : giving up … dead lettered`. The relay is **AWS SES**: in sandbox mode it refuses unverified recipients, and that refusal is invisible here |
 | mail at the **wrong inbox** | the message's **`To:` header**, not the list view. Then the timeline: `DOD_USERS.UPDATED` (when the admin address last changed) against `DOD_VEND_PROFILE.CREATED` (when the vendor registered). Both mails landing in one window is otherwise a mail-client artefact — `guerrillamail.org` and `sharklasers.com` are the same disposable service, and their addresses carry a `+tag` |
 | the whole registration 500s | rebuild the message in isolation with the T2/T3 forms before touching the web flow |
+| **the first login 500s with `The slot …TRUTH is unbound`** | `select count(*) from DOD_VPAYMENT_METHODS where VENDOR_ID=<id>` — **0 is the normal state right after registration**, and it used to be fatal (`addloginvendorsettings` → `VPaymentMethodsService.doread` → unbound Belnap default). Fixed 2026-10-19; see `../knowledge/belnap-four-states-CONTEXT.md` §17 |
 
-**Open case from 2026-10-18, kept deliberately:** vendor 24 (`zfmz7f+…@guerrillamail.org`) and its
-E2 both appeared in the vendor's Guerrilla window although `DOD_USERS.ROW_ID 6` had held
-`zflyzs+…@sharklasers.com` since 23:25 and the vendor was created at 23:44 — so the app's recipient
-*should* have been the admin. The app side was proven correct (helper SQL, sender's `to`, no
-CC/BCC, `hhubsendmail` passthrough); the `To:` header of that message was never read. **Do not
-re-debug this from the app before that header is checked.**
+**CLOSED BY OBSERVATION 2026-10-19 — E1 and E2 do reach their own inboxes.** Re-run with the
+vendor's address and the tenant's `COMPADMIN` address in **two separate Guerrilla sessions** (two
+browsers): E1 landed in the vendor's inbox and E2 in the admin's, as designed. Treat that as the
+working configuration for testing.
+
+**Still unexplained, deliberately recorded:** the 2026-10-18 run in which *both* mails appeared in
+the vendor's window (`zfmz7f+…@guerrillamail.org`) while `DOD_USERS.ROW_ID 6` held
+`zflyzs+…@sharklasers.com`. The app side was proven correct (the helper's SQL, the sender's `to`,
+no CC/BCC anywhere, `hhubsendmail` passing `to` straight through) — so this was **not** reproduced
+as an application fault. If it ever recurs, the first measurement is still the message's **`To:`
+header**, not the app: read that before touching code.
 
 ## 3. Deleting test vendors — the FK order
 

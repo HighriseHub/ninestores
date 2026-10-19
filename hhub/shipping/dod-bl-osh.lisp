@@ -45,6 +45,41 @@
      (persist-free-shipping-method minordamt vendor-id tenant-id)))
 
 
+;;; ── the delivery-charge PRODUCT every vendor needs ────────────────────────────────────────────
+;;; The charge prints as a LINE and a line needs a product row (FK on PRD_ID): same row the backfill migration seeds, whose literals are duplicated because it must also run standalone.
+(defparameter *freight-product-name* "Freight & Shipping charges"
+  "The invoice line's description. DOD_PRD_MASTER.PRD_NAME is varchar(70) - keep it short.")
+
+(defparameter *freight-product-hsn* "9965"
+  "SAC 9965 (goods transport services) shown as the line's HSN. 🚨 THE RATE IS NOT READ FROM IT: the delivery charge is a composite supply taxed at the principal goods line's rate, see gst-tax-jurisdiction-CONTEXT.md §1.")
+
+(defparameter *freight-product-description*
+  "Delivery charges on an order; taxed with the goods it accompanies.")
+
+(defun create-freight-product-for-vendor (vendor company)
+  :documentation "Seed the vendor's delivery-charge product (PRODUCT_CODE FREIGHT-<vendor-id>), idempotent on that code. Without it `nst-select-freight-product` finds nothing and `nst-cart-with-delivery-line` silently drops the delivery line - a new vendor's orders then arrive with no shipping charge to invoice. Auto-approved: it is a system row, not a vendor listing."
+  (let* ((vendor-id (slot-value vendor 'row-id))
+	 (tenant-id (slot-value company 'row-id))
+	 (code (format nil "FREIGHT-~D" vendor-id)))
+    (if (clsql:query (format nil "SELECT ROW_ID FROM DOD_PRD_MASTER WHERE PRODUCT_CODE = '~A' LIMIT 1"
+			     (sql-literal code)))
+	nil
+	(progn
+	  (clsql:execute-command
+	   (format nil "INSERT INTO DOD_PRD_MASTER
+                          (PRODUCT_CODE, PRD_NAME, DESCRIPTION, HSN_CODE, QTY_PER_UNIT, UNIT_OF_MEASURE,
+                           CURRENT_PRICE, CURRENT_DISCOUNT, PRD_TYPE, APPROVED_FLAG, ACTIVE_FLAG,
+                           UNITS_IN_STOCK, DELETED_STATE, VENDOR_ID, TENANT_ID)
+                        VALUES
+                          ('~A', '~A', '~A', '~A', '1.0', 'NOS', 0.00, 0.00, 'SERV', 'Y', 'Y', 1, 'N', ~D, ~D)"
+			(sql-literal code)
+			(sql-literal *freight-product-name*)
+			(sql-literal *freight-product-description*)
+			(sql-literal *freight-product-hsn*)
+			vendor-id tenant-id))
+	  t))))
+
+
 (defun getratetablecsv (shippingmethod)
   (let ((tablerateshipenabled (slot-value shippingmethod 'tablerateshipenabled))
 	(ratetablecsv (slot-value shippingmethod 'ratetablecsv)))

@@ -1633,7 +1633,13 @@ Only shows sections based on availability flags and customer type."
 				     :approval-status "PENDING"
 				     :tenant-id tenant-id
 				     :push-notify-subs-flag "N"
-				     :deleted-state "N")))
+				     :deleted-state "N"
+				     ;; seed the invoice settings now: a NULL column reads back as the
+				     ;; DAL void-value "undefined" and the first update WRITES that text.
+				     :invoice-settings (nst-invoicesettings-seed-string)
+				     ;; the public invoice link is SIGNED with this salt; with none the
+				     ;; first invoice dies on "vendor N has no SALT to sign it with".
+				     :salt (createciphersalt))))
 	  (setf (hunchentoot:session-value :newvendorcreate) vendor)
 	  (setf redirectlocation (generateotp&redirect persona purpose phone context)))))
     (when (equal reg-type "CUS")
@@ -1696,6 +1702,12 @@ Only shows sections based on availability flags and customer type."
 	     (create-vendor-tenant vendor "Y" company)
 	     ;; 2
 	     (create-free-shipping-method *HHUBFREESHIPMINORDERAMT*  vendor company)
+	     ;; the delivery charge can only print as a LINE, and a line needs a product row
+	     (create-freight-product-for-vendor vendor company)
+	     ;; one editable SALE row, so the catalogue and the invoice step are not empty
+	     (create-default-product-for-vendor vendor company)
+	     ;; one payment-method row, so the vendor's session has payment settings to read
+	     (create-default-vendor-payment-methods vendor company)
 	     ;; 3  E1: vendor-specific mail, not the legacy customer welcome (see onboarding-journeys-CONTEXT.md)
 	     (send-vendor-registered-email vendor company)
 	     ;; E2: the company administrator is told, or nobody ever approves

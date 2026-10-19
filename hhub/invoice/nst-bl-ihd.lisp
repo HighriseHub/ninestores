@@ -227,7 +227,10 @@
   (let ((vendor (slot-value source 'vendor))
 	(customer (slot-value source 'customer))
 	(company (slot-value source 'company)))
-    (with-slots (context-id invdate custname custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear external-url status deleted-state  custid vendor-id tenant-id) destination
+    ;; 🚨 INVNUM BELONGS HERE: doCreate mints it on the domain object and this copier is the only
+    ;; bridge to the row. Omitted, CLSQL inserted '' and the 2nd invoice died on Error 1062 (2026-10-19).
+    (with-slots (invnum context-id invdate custname custaddr custgstin statecode billaddr shipaddr placeofsupply revcharge transmode vnum totalvalue totalinwords bankaccnum bankifsccode tnc authsign finyear external-url status deleted-state  custid vendor-id tenant-id) destination
+      (setf invnum (slot-value source 'invnum))
       (setf context-id (slot-value source 'context-id))
       (setf vendor-id (slot-value vendor 'row-id))
       (setf tenant-id (slot-value company 'row-id))

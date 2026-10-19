@@ -336,3 +336,41 @@ provenance thanks to `domain-sentinel-from-knowledge`. One `when` around the exi
 `api-write-json` call.
 
 ---
+
+## 17. 🚨 THE DEFAULT KNOWLEDGE WAS UNBOUND — a service that never propagated 500s every caller (fixed 2026-10-19)
+
+**Symptom:** the first login of a freshly registered vendor — or any page reaching an adapter whose
+business service never set its knowledge — dies with
+`The slot COM.NSTORES.APP::TRUTH is unbound in the object #<BO-KNOWLEDGE …>`, raised from
+`SLOT-UNBOUND` under the generic `ProcessReadRequest` (`hhub-bl-ent.lisp:597`), which does
+`(transferknowledge bserviceinstance service)` → `(with-bo-knowledge-check …)` → `(truth)`.
+
+**Mechanism, measured.** `bo-knowledge`'s `truth` slot had `:initarg :truth` and **no initform**, so
+the default knowledge objects on every adapter and business service —
+`:initform (make-instance 'bo-knowledge)` at `hhub-bl-ent.lisp:181` and `:204` — were born with an
+**unbound** `truth`. `TransferKnowledge` copies whatever that slot holds (`:719-724`), so a service
+that never assigned its knowledge left the adapter holding the unbound default, and
+`with-bo-knowledge-check` signalled on the first slot read. The four states were never reached.
+
+**Who forgot:** `doread` for `VPaymentMethodsService` (`vendor/dod-bl-vpm.lisp`) assigned
+`(bo-knowledge service)` **only inside `(when (eq … :T) …)`** — correct for a vendor that has a
+payment-method row, fatal for one that does not, which is **every** vendor created by registration
+(`create-vendor-tenant` + `create-free-shipping-method` create no `DOD_VPAYMENT_METHODS` row, so
+`with-db-call` returns `:F`). The vendor login path calls it from `addloginvendorsettings`
+(`vendor/dod-ui-ven.lisp:2541`), so the first login 500'd for a vendor the approval flow had just
+let in.
+
+**The fix is two lines and both halves matter:**
+1. **`truth` defaults to `+unknown+`** (`nst-bl-beltrusys.lisp`). A knowledge nobody set means *we do
+   not know* — so a forgetful service now degrades into the framework's `:U` branch instead of
+   raising. This closes the *class*, not just this instance: any other service with the same
+   "only on :T" shape is now a defined state.
+2. **`VPaymentMethodsService.doread` propagates unconditionally** (the `setf` moved out of the
+   `when`), so a vendor with no payment methods surfaces as **`:F`** — an honest "none configured"
+   — and `ProcessReadRequest` answers `BusinessObjectNIL`, which `addloginvendorsettings`'s
+   `typep` guard already tolerates.
+
+**Verification:** compile gate PASS (`Failed: 0`); `nst-mult-logic` (the `+unknown+` / `+true+` /
+`+false+` / `+contradiction+` constants, `:137-139`) loads **before** `nst-bl-beltrusys` in
+`nstores.asd` (`:73` then `:74`), so the initform's symbol is bound. The runtime proof is the
+vendor's next login — **not yet retested**.

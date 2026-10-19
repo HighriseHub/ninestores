@@ -127,3 +127,49 @@
   (let ((section-list (assoc section config)))
     (when section-list
       (setf (cdr (assoc key section-list)) new-value))))
+
+
+;;; ── the seed a NEW vendor is created with ─────────────────────────────────────────────────────
+;;; Vendor registration never set INVOICE_SETTINGS, so the row was born NULL, the DAL's
+;;; :void-value "undefined" got written into the column by the first update, and the first
+;;; invoice then read (read-from-string "undefined") = the SYMBOL and died on a LIST type-error.
+;;; These three definitions are the same ones the backfill migration carries
+;;; (installation/upgrades/nst-dbu-invoicesettings.lisp), which must also run standalone - so the
+;;; literals below are kept in step with it BY HAND. They are literals; *invoice-settings* changes
+;;; flow through both automatically.
+
+(defparameter *nst-invoicesettings-print-defaults*
+  '((:defaultinvoicetemplatenum . "13")
+    (:defaultpapersize . "A4")
+    (:orientation . "Portrait")
+    (:fontsize . "12")
+    (:margin (:top . "1cm") (:bottom . "1cm") (:left . "1cm") (:right . "1cm"))
+    (:header (:enable . t)
+	     (:text . "Company Name - Invoice")
+	     (:logopath . "/img/logo.png"))
+    (:footer (:enable . t)
+	     (:text . "Thank you for your business!"))
+    (:watermark (:enable . nil)
+		(:text . "")))
+  "The invoice print settings a vendor is seeded with, in the keyword shape a settings save writes.")
+
+(defun nst-invoicesettings-seed ()
+  :documentation "The settings a vendor is seeded with : the shipped *invoice-settings* with its print section replaced by *nst-invoicesettings-print-defaults*. A fresh copy per call, so no caller can affect another."
+  (let ((shipped (and (boundp '*invoice-settings*)
+		      (listp *invoice-settings*)
+		      (copy-tree *invoice-settings*))))
+    (if shipped
+	(progn
+	  (let ((printsection (assoc 'invoice-print-settings shipped :test #'equal)))
+	    (if printsection
+		(setf (cdr printsection) (copy-tree *nst-invoicesettings-print-defaults*))
+		(push (cons 'invoice-print-settings
+			    (copy-tree *nst-invoicesettings-print-defaults*))
+		      shipped)))
+	  shipped)
+	(list (cons 'invoice-print-settings (copy-tree *nst-invoicesettings-print-defaults*))))))
+
+(defun nst-invoicesettings-seed-string ()
+  :documentation "The seed as the string stored in INVOICE_SETTINGS. Symbols are printed as keywords (*package* bound to :keyword) so the settings page's (assoc 'invoice-print-settings …) matches whatever package reads it back, and a created row has the same shape as a migrated or saved one."
+  (let ((*package* (find-package :keyword)))
+    (write-to-string (nst-invoicesettings-seed) :readably t)))

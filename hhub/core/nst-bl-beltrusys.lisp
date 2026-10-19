@@ -13,7 +13,8 @@
   ((truth
     :initarg :truth
     :accessor bo-knowledge-truth
-    :documentation "One of +true+, +false+, +unknown+, +contradiction+ (i.e. :T/:F/:U/:C).")
+    :initform +unknown+
+    :documentation "One of +true+, +false+, +unknown+, +contradiction+ (i.e. :T/:F/:U/:C). Defaults to +unknown+: knowledge nobody set means we do not know, not an unbound slot that 500s every caller.")
    (payload
     :initarg :payload
     :accessor bo-knowledge-payload
