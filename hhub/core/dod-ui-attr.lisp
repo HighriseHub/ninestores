@@ -28,15 +28,12 @@
  (let ((order (get-order-by-id order-id (get-login-cust-company))))
    (slot-value order 'payment-mode)))
 
-
-
 (defun com-hhub-attribute-role-instance ()
   (let* ((user-id (get-login-userid))
 	 (tenant-id (get-login-tenant-id))
 	 (userrole-instance (select-user-role-by-userid user-id tenant-id))
 	 (role-id (slot-value userrole-instance 'role-id)))
     (select-role-by-id role-id)))
-    
 
 (defun com-hhub-attribute-role-name ()
 :documentation "Role name is described. The attribute function will get the role name of the currently logged in user"
@@ -58,16 +55,20 @@
 (defun com-hhub-attribute-company-maxvendorcount (subscription-plan cmp-type)
   (cond
     ((equal cmp-type "COMMUNITY") 999)
-    ((equal subscription-plan "BASIC") 5)
-    ((equal subscription-plan "PROFESSIONAL") 10)
-    ((equal subscription-plan "TRIAL") 1)))
+    ((equal subscription-plan "TRIAL") 10)
+    ((equal subscription-plan "BASIC") 40)
+    ((equal subscription-plan "PROFESSIONAL") 150)
+    ((equal subscription-plan "ENTERPRISE") 500)
+    (t 1))) ; safe fallback for unknown plans
 
 (defun com-hhub-attribute-vendor-maxproductcount (subscription-plan cmp-type)
   (cond
     ((equal cmp-type "COMMUNITY") 50)
+    ((equal subscription-plan "TRIAL") 100)
     ((equal subscription-plan "BASIC") 1000)
-    ((equal subscription-plan "PROFESSIONAL") 3000)
-    ((equal subscription-plan "TRIAL") 100)))
+    ((equal subscription-plan "PROFESSIONAL") 5000)
+    ((equal subscription-plan "ENTERPRISE") 25000)
+    (t 50)))
 
 
 (defun com-hhub-attribute-company-prdbulkupload-enabled (subscription-plan cmp-type)
@@ -113,12 +114,16 @@
 (defun com-hhub-attribute-company-subscription-plan (company)
   (slot-value company 'subscription-plan))
 
-(defun com-hhub-attribute-company-maxprodcatgcount  (subscription-plan cmp-type)
+
+(defun com-hhub-attribute-company-maxprodcatgcount (subscription-plan cmp-type)
   (cond
     ((equal cmp-type "COMMUNITY") 20)
-    ((equal subscription-plan "BASIC") 20)
-    ((equal subscription-plan "PROFESSIONAL") 50)
-    ((equal subscription-plan "TRIAL") 10)))
+    ((equal subscription-plan "TRIAL") 15)
+    ((equal subscription-plan "BASIC") 40)
+    ((equal subscription-plan "PROFESSIONAL") 120)
+    ((equal subscription-plan "ENTERPRISE") 300)
+    (t 10))) ; safe fallback for unknown plans
+
 
 (defun com-hhub-attribute-vendor-currentprodcatgcount (company)
   (length (select-prdcatg-by-company company)))
