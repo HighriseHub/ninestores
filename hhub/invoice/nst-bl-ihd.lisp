@@ -173,7 +173,7 @@
 	             invnum
 	             (nst-invoice-number-for (nst-legacy-invoice-number-template vendor company)
 	                                     (nst-vendor-doc-prefix-for (and vendor (ignore-errors (slot-value vendor 'row-id)))
-	                                                                (and vendor (ignore-errors (slot-value vendor 'name))))
+	                                                                (nst-vendor-display-name vendor))
 	                                     invdate
 	                                     (and company (ignore-errors (slot-value company 'row-id)))
 	                                     (and vendor (ignore-errors (slot-value vendor 'row-id))))))
