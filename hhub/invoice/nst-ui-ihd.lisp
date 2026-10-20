@@ -1326,7 +1326,8 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 (defun invoicetemplatefill (invoicetemplate invheader invoiceitems invoiceitemshtmlfunc  invoicetaxbreakdownfunc qrcodepath currency vendor) 
   (function (lambda ()
     (progn
-      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Name%" invoicetemplate (nst-slot-str vendor 'name)))
+      (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Name%" invoicetemplate
+						       (or (nst-vendor-display-name vendor) (nst-slot-str vendor 'name))))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Address%" invoicetemplate (nst-slot-str vendor 'address)))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Phone%" invoicetemplate (nst-slot-str vendor 'phone)))
       (setf invoicetemplate (cl-ppcre:regex-replace-all "%Vendor Email%" invoicetemplate (nst-slot-str vendor 'email)))

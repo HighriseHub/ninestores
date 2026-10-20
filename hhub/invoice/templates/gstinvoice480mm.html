@@ -1,74 +1,89 @@
 <style>
-  /* Base Printer Settings */
+  /* ---------- Printer settings: 58mm roll, 48mm printable ---------- */
+  @page {
+      size: 58mm auto;
+      margin: 0;
+  }
   @media print {
-      @page {
-          size: 80mm auto;
-          margin: 0;
+      html, body {
+          width: 48mm;
+          margin: 0 auto;
+          padding: 0;
+          background: #fff;
       }
-      body {
-          margin: 0;
+      .invoice-box {
+          min-height: 0;
           padding: 0;
       }
-      .no-print {
-          display: none;
-            }
+      .no-print { display: none !important; }
   }
-  
-  /* Styling for 80mm width */
+
+  /* ---------- Base ---------- */
+  * { box-sizing: border-box; }
+
   body {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 10pt;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9pt;
+      line-height: 1.25;
+      color: #000;
       background-color: #eee;
       margin: 0;
       padding: 0;
       display: flex;
       justify-content: center;
   }
-  
+
   .invoice-box {
-      width: 80mm;
+      width: 48mm;
       background: #fff;
-      padding: 3mm;
-      box-sizing: border-box;
-      min-height: 100vh;
+      padding: 1mm;
+      overflow-wrap: anywhere;
+      word-break: break-word;
   }
-  
-  /* Typography & Helpers */
+
+  /* ---------- Helpers ---------- */
   .text-center { text-align: center; }
-  .text-right { text-align: right; }
-  .bold { font-weight: bold; }
-  .brand-header { font-size: 14pt; font-weight: bold; display: block; }
-  
-  /* Table Formatting */
+  .text-right  { text-align: right; }
+  .bold        { font-weight: bold; }
+  .brand-header { font-size: 11pt; font-weight: bold; display: block; }
+  .dashed-top  { border-top: 1px dashed #000; }
+  .row-flex    { display: flex; justify-content: space-between; gap: 2mm; }
+
+  img { max-width: 100%; height: auto; }
+
+  /* ---------- Tables ---------- */
   table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 5px;
+      table-layout: fixed;
   }
-  
-  /* Make the multi-column table readable on narrow paper */
-  th, td {
+  td, th {
       text-align: left;
-      padding: 2px 0;
-      font-size: 9pt; /* Smaller font for dense data */
+      padding: 1px 0;
+      font-size: 9pt;
+      vertical-align: top;
   }
-  
-  thead th {
-      border-bottom: 1px dashed #000;
-      border-top: 1px dashed #000;
-  }
-  
   .no-border td { border: none; }
-  
-  /* Footer & Extra Info */
+
+  /* Item block (one per line item) */
+  .item-desc  { padding-top: 3px; border-top: 1px dashed #000; font-weight: bold; }
+  .item-hsn   { font-size: 8pt; }
+  .item-calc  { padding-bottom: 2px; }
+
+  /* GST breakdown: whatever the generator emits, keep it narrow */
+  .gst-box, .gst-box table { width: 100%; font-size: 8pt; }
+  .gst-box td, .gst-box th { font-size: 8pt; padding: 1px 0; }
+
+  /* ---------- Footer ---------- */
   .invoice-footer {
-      margin-top: 15px;
+      margin-top: 6px;
       text-align: center;
       border-top: 1px dashed #000;
-      padding-top: 10px;
+      padding-top: 4px;
   }
-  
-        /* Screen-only Print Button */
+  .terms { font-size: 8pt; margin-top: 4px; color: #000; }
+
+  /* ---------- Screen-only print button ---------- */
   .print-btn {
       position: fixed;
       top: 20px;
@@ -86,15 +101,15 @@
 
 <div class="invoice-box">
     <!--TEMPLATE HEADER / LOGO-->
-    <div class="template-header" style="text-align: center; margin-bottom: 6px;">
+    <div class="template-header" style="text-align: center; margin-bottom: 4px;">
       %Template Logo Image%
       %Template Header%
     </div>
-    <div class="text-center bold" style="margin-bottom: 5px;">TAX INVOICE</div>
-    
+    <div class="text-center bold" style="margin-bottom: 3px;">TAX INVOICE</div>
+
     <table class="no-border">
         <tr>
-            <td style="width: 100%;">
+            <td>
                 <span class="brand-header">%Vendor Name%</span>
                 %Vendor Address%,<br>
                 %Vendor Phone%,<br>
@@ -103,51 +118,47 @@
             </td>
         </tr>
         <tr>
-            <td style="width: 100%; border-top: 1px dashed #000; padding-top: 5px;">
+            <td class="dashed-top" style="padding-top: 3px;">
                 INV No: <span class="bold">%Invoice Number%</span><br>
                 Date: %Invoice Date%
             </td>
         </tr>
     </table>
 
-    <div class="responsive-scroll">
-        <table>
-            <thead>
-                <tr>
-                    <th>Desc</th>
-                    <th>Qty</th>
-                    <th>Rate</th>
-                    <th class="text-right">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                %Invoice Items Rows%
-		 <!--ROW_SNIPPET_BEGIN-->    
-		<tr>
-                    <td colspan="4" style="padding-top: 5px;">%srno%. %row prddesc%</td>
-                </tr>
-                <tr>
-                    <td><small>%row hsncode%</small></td>
-                    <td>%row qty% %row uom%</td>
-                    <td>%row price%</td>
-                    <td class="text-right">%row totalitemval%</td>
-                </tr>
-		 <!--ROW_SNIPPET_END-->  
-                </tbody>
-        </table>
-    </div>
-
-    <div class="bold" style="margin-top: 10px; border-top: 1px solid #000;">GST Tax Breakdown:</div>
-    <div style="font-size: 9pt;">%GST Tax Breakdown%</div>
-
-    <table class="no-border" style="margin-top: 10px; border-top: 1px double #000;">
-        <tr>
-            <td class="text-right bold" style="font-size: 12pt;">GRAND TOTAL:</td>
-            <td class="text-right bold" style="font-size: 14pt;"> %Total After Tax%</td>
-        </tr>
+    <!-- Items: stacked layout, one block per item, single column -->
+    <table style="margin-top: 3px;">
+        <tbody>
+            %Invoice Items Rows%
+            <!--ROW_SNIPPET_BEGIN-->
+            <tr>
+                <td class="item-desc">%srno%. %row prddesc%</td>
+            </tr>
+            <tr>
+                <td class="item-hsn">HSN: %row hsncode%</td>
+            </tr>
+            <tr>
+                <td class="item-calc">
+                    <div class="row-flex">
+                        <span>%row qty% %row uom% x %row price%</span>
+                        <span class="bold">%row totalitemval%</span>
+                    </div>
+                </td>
+            </tr>
+            <!--ROW_SNIPPET_END-->
+        </tbody>
     </table>
 
-    <div style="margin-top: 10px; font-size: 9pt;">
+    <div class="bold dashed-top" style="margin-top: 4px; padding-top: 3px;">GST Tax Breakdown:</div>
+    <div class="gst-box">%GST Tax Breakdown%</div>
+
+    <div class="dashed-top" style="margin-top: 4px; padding-top: 3px; border-top-style: double; border-top-width: 3px;">
+        <div class="row-flex bold" style="align-items: baseline;">
+            <span style="font-size: 10pt;">GRAND TOTAL</span>
+            <span style="font-size: 12pt;">%Total After Tax%</span>
+        </div>
+    </div>
+
+    <div style="margin-top: 5px; font-size: 8pt;">
         <span class="bold">Amount in Words:</span><br>
         %Total in Words%
     </div>
@@ -156,11 +167,11 @@
         <span class="bold">Thank you, Visit Again</span><br>
         Mob: %Vendor Phone%<br>
         <span class="bold">%Vendor Email%</span>
-        <p style="font-size: 8pt; margin-top: 10px; color: #555;">
+        <div class="terms">
             %Terms and Conditions%
-        </p>
+        </div>
     </div>
     <!--TEMPLATE FOOTER-->
-    <div class="template-footer" style="text-align: center; margin-top: 6px;">%Template Footer%</div>
+    <div class="template-footer" style="text-align: center; margin-top: 4px;">%Template Footer%</div>
 </div>
 

@@ -59,16 +59,18 @@
   :description "Syncs the dbobject and the domainobject"
   (let ((dbobj (slot-value dbas 'dbobject))
 	(businessobject (slot-value dbas 'businessobject)))
-    (setf (slot-value dbas 'dbobject) (copyvendor-domaintodb businessobject dbobj))))
+    (setf (slot-value dbas 'dbobject) (dod-copyvendor-domaintodb businessobject dbobj))))
 
 (defmethod Copy-DBObject-To-BusinessObject ((dbas vendorDBService))
   :description "Syncs the dbobject and the domainobject"
   (let ((dbobj (slot-value dbas 'dbobject))
 	(businessobject (slot-value dbas 'businessobject)))
-    (setf (slot-value dbas 'dbobject) (copyvendor-dbtodomain dbobj  businessobject))))
+    (setf (slot-value dbas 'dbobject) (dod-copyvendor-dbtodomain dbobj  businessobject))))
 
   
-(defun copyvendor-domaintodb (businessobj dbobj)
+;; ⚠ The DOD- prefix is load-bearing: nst-bl-vnd.lisp defines copyVendor-domaintodb /
+;; copyVendor-dbtodomain, the SAME symbols case-insensitively, and it loads later.
+(defun dod-copyvendor-domaintodb (businessobj dbobj)
   (let* ((company (slot-value businessobj 'company))
 	 (tid (slot-value company 'row-id)))
     (with-slots
@@ -91,7 +93,7 @@
       dbobj)))
 
 
-(defun copyvendor-dbtodomain (dbobj businessobj)
+(defun dod-copyvendor-dbtodomain (dbobj businessobj)
   (let* ((comp (select-company-by-id (slot-value dbobj 'tenant-id))))
     (with-slots (row-id name address phone email  email-add-verified suspend-flag active-flag approved-flag approval-status approved-by upi-id company) businessobj
       (setf row-id (slot-value dbobj 'row-id))
@@ -137,7 +139,7 @@
     ;; return back a list of upi payments response model
     (mapcar (lambda (dbvendor)
 	      (let ((vendor (make-instance 'vendor)))
-		(copyvendor-dbtodomain dbvendor vendor))) vendorlist)))
+		(dod-copyvendor-dbtodomain dbvendor vendor))) vendorlist)))
         
 
 (defmethod CreateViewModel ((presenter VendorPresenter) (responsemodel ResponseVendor))
@@ -190,7 +192,7 @@
   (let ((dbvendor (select-vendor-by-id row-id))
 	(vendor (businessobject dbas)))
     (setf (dbobject dbas) dbvendor)
-    (setf (businessobject dbas) (copyvendor-dbtodomain dbvendor vendor)))) 
+    (setf (businessobject dbas) (dod-copyvendor-dbtodomain dbvendor vendor)))) 
 
 (defmethod db-delete ((dbas vendorDBService))
   :description "Will be implementd by the derived class objects"

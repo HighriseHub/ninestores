@@ -509,44 +509,50 @@
 
 
 (defun product-card-for-approval (product-instance &rest arguments)
+  "One pending-product tile for the company-administrator approval queue."
   (declare (ignore arguments))
-    (let* ((prd-name (slot-value product-instance 'prd-name))
-	   (current-price (slot-value product-instance 'current-price))
-	   (images-str (slot-value product-instance 'prd-image-path))
-	   (imageslst (safe-read-from-string images-str))
-	   (prd-id (slot-value product-instance 'row-id))
-	   ;;(active-flag (slot-value product-instance 'active-flag))
-	   (approved-flag (slot-value product-instance 'approved-flag))
-	   (tenant-id (slot-value product-instance 'tenant-id))
-	   (company (select-company-by-id tenant-id))
-	   (company-name (slot-value company 'name))
-	   (approval-status (slot-value product-instance 'approval-status))
-	   (subscribe-flag (slot-value product-instance 'subscribe-flag)))
-	    
-	(cl-who:with-html-output (*standard-output* nil)
-	  (:div :style "background-color:#E2DBCD; border-bottom: solid 1px; margin-bottom: 3px;" :class "row"
-		(:div :class "col-12" (:h5 (cl-who:str (format nil "~A" company-name)))))
-	  (with-html-div-row
-	    (with-html-div-col-6
-	      (render-single-product-image prd-name imageslst images-str "100" "83"))
-	    (with-html-div-col-4
-	      (:h3 (:span :class "label label-default" (cl-who:str (format nil "Rs. ~$"  current-price))))))
-	  
-	  (with-html-div-row
-	    (:div :class "col-xs-6"
-		  (:h5 :class "product-name" (cl-who:str (if (> (length prd-name) 30)  (subseq prd-name  0 30) prd-name))))
-	    (:div :class "col-xs-6"
-		  (if (equal subscribe-flag "Y") (cl-who:htm (:div :class "col-xs-6"  (:h5 (:span :class "label label-default" "Can be Subscribed")))))))
-	  (if (equal approved-flag "N")
-	      (cl-who:htm (:div :class "stampbox rotated" (cl-who:str (format nil "~A" approval-status)))))
-	  
-	  (with-html-div-row
-	    (:div :class "col-xs-6"
-		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendrejectprod-modal~A" prd-id)  :href "#"  (:i :class "fa-solid fa-ban") " Reject")
-		  (modal-dialog-v2 (format nil "dodvendrejectprod-modal~A" prd-id) "Reject Product" (modal.vendor-product-reject-html  prd-id tenant-id)))
-	    (:div :class "col-xs-6"
-		  (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendacceptprod-modal~A" prd-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") " Approve")
-		  (modal-dialog-v2 (format nil "dodvendacceptprod-modal~A" prd-id) "Approve Product" (modal.vendor-product-accept-html  prd-id tenant-id)))))))
+  (let* ((prd-name        (or (slot-value product-instance 'prd-name) ""))
+	 (current-price   (or (slot-value product-instance 'current-price) 0))
+	 (images-str      (slot-value product-instance 'prd-image-path))
+	 (imageslst       (ignore-errors (safe-read-from-string images-str)))
+	 (prd-id          (slot-value product-instance 'row-id))
+	 (approved-flag   (slot-value product-instance 'approved-flag))
+	 (tenant-id       (slot-value product-instance 'tenant-id))
+	 (company         (select-company-by-id tenant-id))
+	 (company-name    (if company (slot-value company 'name) ""))
+	 (approval-status (or (slot-value product-instance 'approval-status) ""))
+	 (subscribe-flag  (slot-value product-instance 'subscribe-flag))
+	 (image-url       (cond ((and imageslst (listp imageslst) (stringp (first imageslst))) (first imageslst))
+				((and (stringp images-str) (> (length images-str) 0)) images-str)))
+	 (reject-id       (format nil "dodvendrejectprod-modal~A" prd-id))
+	 (accept-id       (format nil "dodvendacceptprod-modal~A" prd-id)))
+    (cl-who:with-html-output (*standard-output* nil)
+      (with-html-card (:title (cl-who:str (cl-who:escape-string (nst-plain-excerpt prd-name 42)))
+		       :image-src image-url
+		       :image-alt prd-name
+		       :image-classes '("card-img-top" "nst-approval-media")
+		       :card-classes '("card" "h-100" "border-0" "shadow-sm" "rounded-4")
+		       :body-classes '("card-body" "text-start"))
+	(:span :class "nst-approval-badges"
+	       (:span :class "badge bg-dark" (cl-who:str (format nil "Rs. ~$" current-price)))
+	       (when (equal approved-flag "N")
+		 (cl-who:htm
+		  (:span :class "badge bg-warning text-dark" (cl-who:str (cl-who:escape-string approval-status)))))
+	       (when (equal subscribe-flag "Y")
+		 (cl-who:htm
+		  (:span :class "badge bg-info text-dark" "Subscribable"))))
+	(:span :class "nst-approval-meta"
+	       (:i :class "fa-solid fa-store")
+	       (:span (cl-who:str (cl-who:escape-string company-name))))
+	(:span :class "nst-approval-actions"
+	      (:button :type "button" :class "btn btn-sm btn-success flex-fill"
+		       :data-bs-toggle "modal" :data-bs-target (format nil "#~A" accept-id)
+		       (:i :class "fa-regular fa-thumbs-up me-1") "Approve")
+	      (:button :type "button" :class "btn btn-sm btn-outline-danger flex-fill"
+		       :data-bs-toggle "modal" :data-bs-target (format nil "#~A" reject-id)
+		       (:i :class "fa-solid fa-ban me-1") "Reject")))
+      (modal-dialog-v2 reject-id "Reject Product" (modal.vendor-product-reject-html prd-id tenant-id))
+      (modal-dialog-v2 accept-id "Approve Product" (modal.vendor-product-accept-html prd-id tenant-id)))))
 
 
 

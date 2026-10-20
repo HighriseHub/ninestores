@@ -339,7 +339,7 @@
 				 (:b (:span :class "position-relative translate-middle badge rounded-pill bg-success" (cl-who:str (format nil "~d" numproducts)))))))
 		       (:hr)
 		       (with-catch-submit-event  "idcompadminhome" 
-			 (cl-who:str (display-as-tiles products 'product-card-for-approval "product-box" ))))))))
+			 (cl-who:str (display-approval-tiles products 'product-card-for-approval))))))))
       (list widget1))))
 
 (defun com-hhub-transaction-compadmin-home () 
@@ -467,7 +467,7 @@
 	 (with-html-div-col :align "right"
  	   (:span :class "badge" (cl-who:str (format nil "~A" (length products))))))
        (:hr)
-       (cl-who:str (display-as-tiles products 'product-card-for-approval 'product-box ))))))
+       (cl-who:str (display-approval-tiles products 'product-card-for-approval))))))
 
 (defun dod-controller-vendor-approval-page ()
   :documentation "This controller function is used by the System admin and Company Admin to approve vendors" 
@@ -481,36 +481,105 @@
 	 (with-html-div-col :align "right"
 	   (:span :class "badge" (cl-who:str (format nil "~A" (length pendingvendors))))))
        (:hr)
-       (cl-who:str (display-as-tiles pendingvendors 'vendor-card-for-approval "vendor-card" ))))))
+       (cl-who:str (display-approval-tiles pendingvendors 'vendor-approval-card :tile-class "nst-approval-tile nst-approval-tile--double"))))))
 
 
+
+(defun vendor-approval-card (vendor-instance)
+  "The DOUBLE-SIZED copy of vendor-card-for-approval, used by hhubvendorapprovalpage: same
+   information and the same approve/reject modals, rendered in a tile that spans two grid
+   columns with every internal dimension scaled up (see .nst-approval-card--lg in style.css)."
+  (let* ((name            (or (slot-value vendor-instance 'name) ""))
+	 (phone           (or (slot-value vendor-instance 'phone) ""))
+	 (vendor-id       (slot-value vendor-instance 'row-id))
+	 (approved-flag   (slot-value vendor-instance 'approved-flag))
+	 (tenant-id       (slot-value vendor-instance 'tenant-id))
+	 (company         (select-company-by-id tenant-id))
+	 (company-name    (if company (slot-value company 'name) ""))
+	 (approval-status (slot-value vendor-instance 'approval-status))
+	 (gst             (and (slot-boundp vendor-instance 'gstnumber) (slot-value vendor-instance 'gstnumber)))
+	 (email           (and (slot-boundp vendor-instance 'email) (slot-value vendor-instance 'email)))
+	 (reject-id       (format nil "dodvendreject-modal~A" vendor-id))
+	 (accept-id       (format nil "dodvendaccept-modal~A" vendor-id)))
+    (when (and (equal approved-flag "N") (equal approval-status "PENDING"))
+      (cl-who:with-html-output (*standard-output* nil)
+	(with-html-card (:title (cl-who:str (cl-who:escape-string name))
+			 :card-classes '("card" "h-100" "border-0" "shadow-sm" "rounded-4" "nst-approval-card--lg")
+			 :body-classes '("card-body" "text-start"))
+	  (:span :class "nst-approval-avatar" (cl-who:str (nst-initials name)))
+	  (:span :class "nst-approval-badges"
+		 (:span :class "badge bg-warning text-dark" "Awaiting approval"))
+	  (:span :class "nst-approval-meta"
+		 (:i :class "fa-solid fa-store")
+		 (:span (cl-who:str (cl-who:escape-string company-name))))
+	  (:span :class "nst-approval-meta"
+		 (:i :class "fa-solid fa-phone")
+		 (:span (cl-who:str (cl-who:escape-string phone))))
+	  (when email
+	    (cl-who:htm
+	     (:span :class "nst-approval-meta"
+		    (:i :class "fa-regular fa-envelope")
+		    (:span (cl-who:str (cl-who:escape-string email))))))
+	  (:span :class "nst-approval-meta"
+		 (:i :class "fa-solid fa-receipt")
+		 (:span (cl-who:str (cl-who:escape-string (if gst (format nil "GSTIN ~A" gst) "GSTIN not provided")))))
+	  (:span :class "nst-approval-actions"
+		(:button :type "button" :class "btn btn-success flex-fill"
+			 :data-bs-toggle "modal" :data-bs-target (format nil "#~A" accept-id)
+			 (:i :class "fa-regular fa-thumbs-up me-1") "Approve")
+		(:button :type "button" :class "btn btn-outline-danger flex-fill"
+			 :data-bs-toggle "modal" :data-bs-target (format nil "#~A" reject-id)
+			 (:i :class "fa-solid fa-ban me-1") "Reject")))
+	(modal-dialog-v2 reject-id "Reject Vendor" (modal.reject-vendor-html vendor-id))
+	(modal-dialog-v2 accept-id "Approve Vendor" (modal.approve-vendor-html vendor-id))))))
 
 (defun vendor-card-for-approval (vendor-instance)
-    (let* ((name (slot-value vendor-instance 'name))
-	   (phone (slot-value vendor-instance 'phone))
-	   (vendor-id (slot-value vendor-instance 'row-id))
-	   ;; (active-flag (slot-value vendor-instance 'active-flag))
-	   (approved-flag (slot-value vendor-instance 'approved-flag))
-	   (tenant-id (slot-value vendor-instance 'tenant-id))
-	   (company (select-company-by-id tenant-id))
-	   (company-name (slot-value company 'name))
-	   (approval-status (slot-value vendor-instance 'approval-status)))
-      (when (and (equal approved-flag "N") (equal approval-status "PENDING"))
-	(cl-who:with-html-output (*standard-output* nil)
-	  (with-html-div-row
-	    (with-html-div-col-12
-	      (:h5 (cl-who:str (format nil "~A" company-name)))))
-	  (with-html-div-row
-	    (:h5 :class "product-name" (cl-who:str (if (> (length name) 30)  (subseq name  0 30) name))))
-	  (with-html-div-row
-	    (:h5 :class "product-name" (cl-who:str phone)))
-	  (with-html-div-row
-	    (with-html-div-col-6
-	      (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendreject-modal~A" vendor-id)  :href "#"  (:i :class "fa-solid fa-ban") "Reject")
-	      (modal-dialog-v2 (format nil "dodvendreject-modal~A" vendor-id) "Reject Vendor" (modal.reject-vendor-html vendor-id)))
-	    (with-html-div-col-6
-	      (:button :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendaccept-modal~A" vendor-id)  :href "#"  (:i :class "fa-regular fa-thumbs-up") "Approve")
-	      (modal-dialog-v2 (format nil "dodvendaccept-modal~A" vendor-id) "Approve Vendor" (modal.approve-vendor-html vendor-id ))))))))
+  "One pending-vendor tile for the company-administrator approval queue."
+  (let* ((name            (or (slot-value vendor-instance 'name) ""))
+	 (phone           (or (slot-value vendor-instance 'phone) ""))
+	 (vendor-id       (slot-value vendor-instance 'row-id))
+	 (approved-flag   (slot-value vendor-instance 'approved-flag))
+	 (tenant-id       (slot-value vendor-instance 'tenant-id))
+	 (company         (select-company-by-id tenant-id))
+	 (company-name    (if company (slot-value company 'name) ""))
+	 (approval-status (slot-value vendor-instance 'approval-status))
+	 (gst             (and (slot-boundp vendor-instance 'gstnumber) (slot-value vendor-instance 'gstnumber)))
+	 (email           (and (slot-boundp vendor-instance 'email) (slot-value vendor-instance 'email)))
+	 (reject-id       (format nil "dodvendreject-modal~A" vendor-id))
+	 (accept-id       (format nil "dodvendaccept-modal~A" vendor-id)))
+    (when (and (equal approved-flag "N") (equal approval-status "PENDING"))
+      (cl-who:with-html-output (*standard-output* nil)
+	(with-html-card (:title (cl-who:str (cl-who:escape-string name))
+			 :card-classes '("card" "h-100" "border-0" "shadow-sm" "rounded-4")
+			 :body-classes '("card-body" "text-start"))
+	  (:span :class "nst-approval-avatar" (cl-who:str (nst-initials name)))
+	  (:span :class "nst-approval-badges"
+		 (:span :class "badge bg-warning text-dark" "Awaiting approval"))
+	  (:span :class "nst-approval-meta"
+		 (:i :class "fa-solid fa-store")
+		 (:span (cl-who:str (cl-who:escape-string company-name))))
+	  (:span :class "nst-approval-meta"
+		 (:i :class "fa-solid fa-phone")
+		 (:span (cl-who:str (cl-who:escape-string phone))))
+	  (when email
+	    (cl-who:htm
+	     (:span :class "nst-approval-meta"
+		    (:i :class "fa-regular fa-envelope")
+		    (:span (cl-who:str (cl-who:escape-string email))))))
+	  (:span :class "nst-approval-meta"
+		 (:i :class "fa-solid fa-receipt")
+		 (:span (cl-who:str (cl-who:escape-string (if gst (format nil "GSTIN ~A" gst) "GSTIN not provided")))))
+	  (:span :class "nst-approval-actions"
+		(:button :type "button" :class "btn btn-sm btn-success flex-fill"
+			 :data-bs-toggle "modal" :data-bs-target (format nil "#~A" accept-id)
+			 (:i :class "fa-regular fa-thumbs-up me-1") "Approve")
+		(:button :type "button" :class "btn btn-sm btn-outline-danger flex-fill"
+			 :data-bs-toggle "modal" :data-bs-target (format nil "#~A" reject-id)
+			 (:i :class "fa-solid fa-ban me-1") "Reject")))
+	;; the modals are siblings of the card: a modal inside the card body would nest a
+	;; block element inside <p class="card-text">, which browsers silently reparent.
+	(modal-dialog-v2 reject-id "Reject Vendor" (modal.reject-vendor-html vendor-id))
+	(modal-dialog-v2 accept-id "Approve Vendor" (modal.approve-vendor-html vendor-id))))))
 
 
 

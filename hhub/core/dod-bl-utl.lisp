@@ -2102,3 +2102,96 @@ corresponding universal time."
                    nil))))
     (error (c)
       (values nil (format nil "the order number could not be minted for customer ~D (~A)" cust-id c)))))
+
+(defun nst-initials (text &key (limit 2))
+  :documentation "Up to LIMIT initial letters of the first words of TEXT, uppercased : the avatar text on an approval card for an entity that has no picture. Dependency-free and empty-string safe, because every caller runs it on a database column that can be blank."
+  (let ((words (let ((acc '()) (cur (make-string-output-stream)))
+		 (flet ((flush () (let ((w (get-output-stream-string cur)))
+				    (when (plusp (length w)) (push w acc)))))
+		   (loop for ch across (or text "")
+			 do (if (member ch '(#\Space #\Tab #\Newline #\Return))
+				(flush)
+				(write-char ch cur)))
+		   (flush))
+		 (nreverse acc))))
+    (string-upcase
+     (coerce (loop for w in (subseq words 0 (min limit (length words)))
+		   collect (char w 0))
+	     'string))))
+
+;;; ── signup country profiles + the vendor signup validator ────────────────────────────────────
+;;; One entry per country drives the form and its checks; adding a country is data, not code.
+(defparameter *registration-country-profiles*
+  '(("IN" :name "India" :dial "+91" :currency "INR"
+	 :region-label "State" :region-source :gst-statecodes
+	 :postal-regex "^[1-9][0-9]{5}$" :phone-regex "^[6-9][0-9]{9}$"))
+  "Signup country profiles. IN is the only entry until a second jurisdiction lands, and this file
+   keeps the FORM honest in the meantime: no tax field is rendered from here - that is the profile page.")
+
+(defun nst-registration-country-profile (iso2)
+  :documentation "The profile plist for ISO2, or NIL when the country is not supported yet."
+  (cdr (assoc (string-upcase (or iso2 "")) *registration-country-profiles* :test #'string=)))
+
+(defun nst-registration-country-names ()
+  :documentation "(ISO2 . display name) for every supported country, for the form's select."
+  (mapcar (lambda (pair) (cons (car pair) (getf (cdr pair) :name))) *registration-country-profiles*))
+
+(defun nst-registration-country-iso (name-or-iso)
+  :documentation "ISO2 for a country that may arrive as a stored NAME (\"India\") or an ISO code; IN when unknown, because every live store is Indian and a form must never be blank."
+  (or (car (find (string-upcase (or name-or-iso "")) *registration-country-profiles*
+		 :test (lambda (x pair) (or (string= x (car pair)) (string= x (string-upcase (getf (cdr pair) :name)))))))
+      "IN"))
+
+(defun nst-registration-regions (iso2)
+  :documentation "Sorted region names for ISO2. The signup stores the NAME; the tax code is derived later on the profile page, from the tax id."
+  (case (getf (nst-registration-country-profile iso2) :region-source)
+    (:gst-statecodes
+     (sort (remove-duplicates (loop for v being the hash-values of *NSTGSTSTATECODES-HT* collect v)
+			      :test #'string=)
+	   #'string<))
+    (t '())))
+
+(defun nst-matches-p (pattern text)
+  :documentation "T when TEXT matches the cl-ppcre PATTERN; NIL when either is missing or the scan fails."
+  (and pattern text (ignore-errors (cl-ppcre:scan pattern text)) t))
+
+(defun nst-validate-business-signup (&key company-name trade-name contact-name prefix phone email
+					country address city state zipcode)
+  :documentation "Every problem with a signup as a list of (FIELD . MESSAGE); empty means good to OTP. The SAME identity block serves both personas; tax ids are the profile page's job."
+  (let ((errors '())
+	(profile (nst-registration-country-profile country)))
+    (unless (nst-doc-prefix-base (or trade-name company-name))
+      (push (cons "company-name" "Company name needs at least 3 letters or digits - it becomes the invoice prefix.") errors))
+    (unless (and contact-name (plusp (length (string-trim " " contact-name))))
+      (push (cons "name" "Contact person is required.") errors))
+    (when (and prefix (plusp (length prefix)))
+      (unless (and (>= (length prefix) 3) (<= (length prefix) 8) (every #'alphanumericp prefix))
+	(push (cons "doc-prefix" "Document prefix must be 3 to 8 letters or digits.") errors))
+      (when (member (string-upcase prefix)
+		    (mapcar #'string-upcase (ignore-errors (nst-doc-prefix-taken)))
+		    :test #'string=)
+	(push (cons "doc-prefix" "That document prefix is already in use - choose another.") errors)))
+    (unless profile
+      (push (cons "country" "That country is not supported yet.") errors))
+    (when profile
+      (unless (nst-matches-p (getf profile :phone-regex) phone)
+	(push (cons "phone" "Phone number is not valid for this country.") errors))
+      (unless (nst-matches-p (getf profile :postal-regex) zipcode)
+	(push (cons "zipcode" "Postal code is not valid for this country.") errors))
+      (when (and (getf profile :region-source)
+		 (not (and state (plusp (length (string-trim " " state))))))
+	(push (cons "state" "State or region is required.") errors)))
+    (unless (and email (find #\@ email))
+      (push (cons "email" "A valid email is required.") errors))
+    (unless (and address (plusp (length (string-trim " " address))))
+      (push (cons "address" "Registered address is required.") errors))
+    (unless (and city (plusp (length (string-trim " " city))))
+      (push (cons "city" "City is required.") errors))
+    (nreverse errors)))
+
+(defun nst-vendor-display-name (vendor)
+  :documentation "The seller name for a document: trade name, else legal name, else the legacy name. Guarded because nst-vend and dod-vend-profile spell the last one differently."
+  (loop for slot in '(trade-name legal-name vnd-name name)
+	for value = (ignore-errors (slot-value vendor slot))
+	when (and value (plusp (length (string-trim " " (princ-to-string value)))))
+	  return (princ-to-string value)))

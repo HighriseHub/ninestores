@@ -1452,19 +1452,25 @@ Only shows sections based on availability flags and customer type."
   (let* ((cname (hunchentoot:parameter "cname"))
 	 (company (select-company-by-name cname))
 	 (cmpname (slot-value company 'name))
-         (cmpaddress (slot-value company 'address)))
+         (cmpaddress (slot-value company 'address))
+	 (cmpcountry (nst-registration-country-iso (slot-value company 'country)))
+	 (signup-error (hunchentoot:parameter "err")))
     ;; Need to logout of all logged in sessions if any
     (if hunchentoot:*session*  (hunchentoot:remove-session hunchentoot:*session*))
     (function (lambda ()
-      (values cmpname cmpaddress)))))
+      (values cmpname cmpaddress cmpcountry signup-error)))))
 
 (defun create-widgets-for-custven-signup-page (modelfunc)
-  (multiple-value-bind (cmpname cmpaddress) (funcall modelfunc)
+  (multiple-value-bind (cmpname cmpaddress cmpcountry signup-error) (funcall modelfunc)
     ;; --- WIDGET 1: Company Header & Read-only Info ---
     (let* ((widget1 (function (lambda ()
                      (cl-who:with-html-output (*standard-output* nil)
                          ;; This widget contains the Company/Tenant Name, Address, and the Reg Type dropdown
                          (:div :class "mb-4"
+                           (when signup-error
+                             (cl-who:htm
+                              (:div :class "alert alert-danger" :role "alert"
+                                    (cl-who:str (cl-who:escape-string signup-error)))))
                            (:p :class "text-muted mb-4" (cl-who:str (format nil "Joining: ~A Store" cmpname)))
                            ;; Read-Only Company Name
                            (:div :class "mb-3 text-start"
@@ -1488,7 +1494,7 @@ Only shows sections based on availability flags and customer type."
                              (:h5 :class "text-primary mb-3" "Your Contact Details")
                              ;; Full Name Field
                              (:div :class "mb-3"
-				   (:input :class "form-control" :name "name" :placeholder "Full Name (Required)"
+				   (:input :class "form-control" :name "name" :placeholder "Contact Person - Full Name (Required)"
 					   :type "text" :required T ))
                              ;; Email Field
                              (:div :class "mb-3"
@@ -1503,45 +1509,48 @@ Only shows sections based on availability flags and customer type."
 	  (widget3 (function (lambda ()
                            (cl-who:with-html-output (*standard-output* nil)
                              ;; d-none hides this section initially - controlled by JS based on widget1's dropdown
-                             (:div :id "vendor-fields" :class "border p-3 rounded mb-4 d-none"
-                               (:h5 :class "mb-3 text-danger" "Vendor Tax & Payment Details (India)")
-                               
-                               ;; GSTIN
+                             (:div :id "business-fields" :class "border p-3 rounded mb-4"
+                               (:h5 :class "mb-3 text-primary" "Company Details")
+                               (:p :class "text-muted small" "GSTIN, PAN and payout details are collected later, on your profile.")
                                (:div :class "mb-3"
-                                 (:input :class "form-control" :name "gstin" :placeholder "GSTIN (Required for Vendors)"
-                                         :type "text" :maxlength "15"))
-
-                               ;; PAN
+                                 (:label :class "form-label" "Company legal name")
+                                 (:input :class "form-control" :name "company-name" :type "text"
+                                         :placeholder "Acme Traders Pvt Ltd (Required)" :maxlength "70"))
                                (:div :class "mb-3"
-                                 (:input :class "form-control" :name "pan" :placeholder "PAN Number (Required)"
-                                         :type "text" :maxlength "10"))
-
-                               ;; Bank Account Details
+                                 (:label :class "form-label" "Trade / brand name")
+                                 (:input :class "form-control" :name "trade-name" :type "text"
+                                         :placeholder "Optional - the name your customers know" :maxlength "70"))
                                (:div :class "mb-3"
-                                 (:input :class "form-control" :name "bank-acc-no" :placeholder "Bank Account Number"
-                                         :type "text"))
-                               
+                                 (:label :class "form-label" "Document prefix")
+                                 (:input :class "form-control" :name "doc-prefix" :type "text"
+                                         :placeholder "3-8 letters or digits, e.g. ACME - blank derives it from the company name"
+                                         :maxlength "8" :pattern "[A-Za-z0-9]{3,8}"))
+                               (:input :type "hidden" :name "country" :value (cl-who:str (or cmpcountry "IN")))
                                (:div :class "mb-3"
-                                 (:input :class "form-control" :name "ifsc-code" :placeholder "IFSC Code"
-                                         :type "text"))
+                                 (:label :class "form-label" "Registered address")
+                                 (:textarea :class "form-control" :name "biz-address" :id "bizaddress" :rows "2"
+                                            :placeholder "Street, building, area"))
+                               (:div :class "mb-3"
+                                 (:label :class "form-label" "PIN code")
+                                 (:input :class "form-control" :name "biz-zipcode" :id "bizzipcode" :type "text"
+                                         :maxlength "6" :onkeyup "hhubFillCityState()"
+                                         :placeholder "6-digit PIN code - city and state fill in"))
+                               (:div :class "mb-3"
+                                 (:label :class "form-label" "City")
+                                 (:input :class "form-control" :name "biz-city" :id "bizcity" :type "text"))
+                               (:div :class "mb-3"
+                                 (:label :class "form-label" "State")
+                                 (:input :class "form-control" :name "biz-state" :id "bizstate" :type "text"))
+                               (:script :type "text/javascript"
+					(cl-who:str
+					 "function hhubFillCityState(){var p=document.getElementById('bizzipcode').value;
+if(!p||p.length!==6)return;
+fetch('/hhub/hhubpincodecheck?pincode='+encodeURIComponent(p)).then(function(r){return r.json()}).then(function(d){
+if(d&&d.result&&d.result.length){var a=d.result[0];
+document.getElementById('bizcity').value=a.city||'';
+document.getElementById('bizstate').value=a.state||'';}}).catch(function(){});}
+window.addEventListener('DOMContentLoaded',function(){var z=document.getElementById('bizzipcode');if(z){z.addEventListener('change',hhubFillCityState)}});"))
                              )))))
-          ;; --- WIDGET 4: Conditional Customer Fields (Billing/B2B) ---
-	  (widget4 (function (lambda ()
-                             (cl-who:with-html-output (*standard-output* nil)
-                               ;; d-none hides this section initially - controlled by JS based on widget1's dropdown
-                               (:div :id "customer-fields" :class "border p-3 rounded mb-4 d-none"
-                                 (:h5 :class "mb-3 text-success" "Billing/B2B Details (Optional)")
-                                 
-                                 ;; Customer GSTIN (Optional B2B)
-                                 (:div :class "mb-3"
-                                   (:input :class "form-control" :name "cust-gstin" :placeholder "GSTIN (If claiming Input Tax Credit)"
-                                           :type "text" :maxlength "15"))
-                                 
-                                 ;; Billing Address
-                                 (:div :class "mb-3"
-                                   (:textarea :class "form-control" :name "billing-address" :rows "2" :placeholder "Billing/Registered Address"))
-                               )))))
-            
             ;; --- WIDGET 5: Submit Button and Captcha (Optional, but included for completeness) ---
             ;; We'll use 4 widgets and put the last elements here for simplicity,
             ;; or treat them as a part of widget2 for a strict 4-widget division.
@@ -1564,7 +1573,6 @@ Only shows sections based on availability flags and customer type."
 						  (funcall widget1)
 						  (funcall widget2)
 						  (funcall widget3)
-						  (funcall widget4)
 						  ;; Final Elements (reCAPTCHA and Submit Button)
 						  (:div :class "mb-4 text-center"
 							(:div :class "g-recaptcha d-inline-block" :data-sitekey *HHUBRECAPTCHAV2KEY*))
@@ -1576,6 +1584,7 @@ Only shows sections based on availability flags and customer type."
                                        ) ; end row justify-content-center
                                   ) ; end container
                             (hhub-html-page-footer))))))
+
       ;; Return only the primary, final wrapper widget to be rendered by the caller
       (list main-wrapper))))
 
@@ -1595,8 +1604,8 @@ Only shows sections based on availability flags and customer type."
 	 (name (hunchentoot:parameter "name"))
 	 (email (hunchentoot:parameter "email"))
 	 (groupname (hunchentoot:parameter "tenant-name"))
-	 (address (hunchentoot:parameter "address"))
-	 (fulladdress (concatenate 'string  groupname ", " address)) 
+	 ;; the vendor/customer now types its own address; "address" here was the STORE's, and fulladdress only fed the slot with it
+
 	 (phone (hunchentoot:parameter "phone"))
 	 ;; We are not getting initial password from the customer or vendor as we have moved to OTP based authentication.
 	 ;; Customer & vendor passwords will still remain part of the system which can be used for impersonation. 
@@ -1604,6 +1613,14 @@ Only shows sections based on availability flags and customer type."
 	 ;;(confirmpass (hunchentoot:parameter "confirmpass"))
 	 ;;(salt (createciphersalt))
 	 ;;(encryptedpass (check&encrypt password confirmpass salt))
+	 (company-name (hunchentoot:parameter "company-name"))
+	 (trade-name (hunchentoot:parameter "trade-name"))
+	 (doc-prefix (hunchentoot:parameter "doc-prefix"))
+	 (biz-address (hunchentoot:parameter "biz-address"))
+	 (biz-city (hunchentoot:parameter "biz-city"))
+	 (biz-state (hunchentoot:parameter "biz-state"))
+	 (biz-zipcode (hunchentoot:parameter "biz-zipcode"))
+	 (country (hunchentoot:parameter "country"))
 	 (tenant-name (hunchentoot:parameter "tenant-name"))
 	 (company (select-company-by-name tenant-name))
 	 (tenant-id (slot-value company 'row-id))
@@ -1617,51 +1634,78 @@ Only shows sections based on availability flags and customer type."
     (hunchentoot:start-session)
     ;; Keep the session for 5 mins only. 
     (setf hunchentoot:*session-max-time* (* 60 5))
-    (when (equal reg-type "VEN")
-      (progn
-        (logiamhere (format nil "Registration type is Vendor ~A" reg-type))
-	(let ((vendor (make-instance 'dod-vend-profile
+    ;; The identity block is the SAME for both personas (turn 51), so it is validated once.
+    (let ((signup-errors (nst-validate-business-signup
+			  :company-name company-name :trade-name trade-name :contact-name name
+			  :prefix doc-prefix :phone phone :email email :country country
+			  :address biz-address :city biz-city :state biz-state
+			  :zipcode biz-zipcode)))
+      (when signup-errors
+	(setf redirectlocation
+	      (format nil "/hhub/custsignup1action?cname=~A&err=~A"
+		      (hunchentoot:url-encode (or groupname ""))
+		      (hunchentoot:url-encode (format nil "~{~A~^; ~}" (mapcar #'cdr signup-errors))))))
+      (when (and (equal reg-type "VEN") (null signup-errors))
+	(progn
+	      (logiamhere (format nil "Registration type is Vendor ~A" reg-type))
+	      (let ((vendor (make-instance 'dod-vend-profile
 				     :name name
-				     :address fulladdress
+				     :legal-name company-name
+				     :trade-name trade-name
+				     :address biz-address
 				     :email email 
 				     :phone phone
-				     :city nil 
-				     :state nil 
-				     :zipcode nil
+				     :city biz-city
+				     :state biz-state
+				     :zipcode biz-zipcode
+				     :country country
 				     :approved-flag "N"
 				     :active-flag "Y"
 				     :approval-status "PENDING"
 				     :tenant-id tenant-id
 				     :push-notify-subs-flag "N"
-				     :deleted-state "N")))
-	  (setf (hunchentoot:session-value :newvendorcreate) vendor)
-	  (setf redirectlocation (generateotp&redirect persona purpose phone context)))))
-    (when (equal reg-type "CUS")
-     ;; Check for duplicate customer FIRST within the CUS block
-      (cond
-	((duplicate-customerp phone company)
-	 (progn
-	   ;; let us logout of the session that we created
-	   (hunchentoot:remove-session hunchentoot:*session*)
-	   (setf redirectlocation (format nil "/hhub/duplicate-cust.html?email=~A&phone=~A" email phone))))
-	(T ; If not duplicate, create customer
-	 (let ((customer (make-instance 'dod-cust-profile
-					:name name
-					:address fulladdress
-					:email email 
-					:birthdate nil 
-					:phone phone
-					:city nil
-					:state nil
-					:zipcode nil
-					:approved-flag "N"
-					:active-flag "Y"
-					:approval-status "PENDING"
-					:tenant-id tenant-id
-					:cust-type "STANDARD"
-					:deleted-state "N")))
-	   (setf (hunchentoot:session-value :newcustomercreate) customer)
-	   (setf redirectlocation (generateotp&redirect persona purpose phone context))))))
+				     :deleted-state "N"
+				     ;; seed the invoice settings now: a NULL column reads back as the
+				     ;; DAL void-value "undefined" and the first update WRITES that text.
+				     :invoice-settings (nst-invoicesettings-seed-string)
+				     ;; the public invoice link is SIGNED with this salt; with none the
+				     ;; first invoice dies on "vendor N has no SALT to sign it with".
+				     :salt (createciphersalt))))
+		(setf (hunchentoot:session-value :newvendorcreate) vendor)
+		(when (and doc-prefix (plusp (length doc-prefix)))
+		  (setf (hunchentoot:session-value :newvendorcreate-docprefix)
+			(string-upcase doc-prefix)))
+		(setf redirectlocation (generateotp&redirect persona purpose phone context)))))
+      (when (equal reg-type "CUS")
+	(cond
+	  ((duplicate-customerp phone company)
+	   (progn
+	     (hunchentoot:remove-session hunchentoot:*session*)
+	     (setf redirectlocation (format nil "/hhub/duplicate-cust.html?email=~A&phone=~A" email phone))))
+	  (T
+	   (let ((customer (make-instance 'dod-cust-profile
+					  :name name
+					  :legal-company-name company-name
+					  :company-name trade-name
+					  :address biz-address
+					  :email email
+					  :birthdate nil
+					  :phone phone
+					  :city biz-city
+					  :state biz-state
+					  :zipcode biz-zipcode
+					  :country country
+					  :approved-flag "N"
+					  :active-flag "Y"
+					  :approval-status "PENDING"
+					  :tenant-id tenant-id
+					  :cust-type "STANDARD"
+					  :deleted-state "N")))
+	     (setf (hunchentoot:session-value :newcustomercreate) customer)
+	     (when (and doc-prefix (plusp (length doc-prefix)))
+	       (setf (hunchentoot:session-value :newcustomercreate-docprefix)
+		     (string-upcase doc-prefix)))
+	     (setf redirectlocation (generateotp&redirect persona purpose phone context)))))))
     ;; Universal Check 1: Check whether captcha has been solved (If this applies to ALL types)
     (when (null (cdr (car json-response))) (dod-response-captcha-error))
     
@@ -1691,14 +1735,27 @@ Only shows sections based on availability flags and customer type."
 	 (progn
 	   ;; 1 
 	   (clsql:update-records-from-instance vendor)
+	   ;; the class has no DOC_PREFIX slot, so a chosen prefix is written by SQL like nst-vendor-doc-prefix-for does
+	   (let ((chosen (hunchentoot:session-value :newvendorcreate-docprefix)))
+	     (when (and chosen (slot-value vendor 'row-id))
+	       (clsql:execute-command
+		(format nil "UPDATE DOD_VEND_PROFILE SET DOC_PREFIX = '~A' WHERE ROW_ID = ~D"
+			(sql-literal chosen) (slot-value vendor 'row-id)))))
 	   (sleep 1) ; Sleep for 1 second after creating the vendor record.  
-	   (let ((name (slot-value vendor 'name))
-		 (email (slot-value vendor 'email)))
+	   (progn
 	     (create-vendor-tenant vendor "Y" company)
 	     ;; 2
 	     (create-free-shipping-method *HHUBFREESHIPMINORDERAMT*  vendor company)
-	     ;; 3
-	     (send-registration-email name email))
+	     ;; the delivery charge can only print as a LINE, and a line needs a product row
+	     (create-freight-product-for-vendor vendor company)
+	     ;; one editable SALE row, so the catalogue and the invoice step are not empty
+	     (create-default-product-for-vendor vendor company)
+	     ;; one payment-method row, so the vendor's session has payment settings to read
+	     (create-default-vendor-payment-methods vendor company)
+	     ;; 3  E1: vendor-specific mail, not the legacy customer welcome (see onboarding-journeys-CONTEXT.md)
+	     (send-vendor-registered-email vendor company)
+	     ;; E2: the company administrator is told, or nobody ever approves
+	     (send-vendor-admin-pending-email vendor company))
 	   ;; 4
 	   (with-no-navbar-page "Welcome to Nine Stores platform"
 	     (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
@@ -1707,6 +1764,12 @@ Only shows sections based on availability flags and customer type."
 	 (progn 
 	   ;; 1 
 	   (clsql:update-records-from-instance customer)
+	   ;; the class has no DOC_PREFIX slot, so a chosen prefix is written by SQL (same as the vendor)
+	   (let ((chosen (hunchentoot:session-value :newcustomercreate-docprefix)))
+	     (when (and chosen (slot-value customer 'row-id))
+	       (clsql:execute-command
+		(format nil "UPDATE DOD_CUST_PROFILE SET DOC_PREFIX = '~A' WHERE ROW_ID = ~D"
+			(sql-literal chosen) (slot-value customer 'row-id)))))
 	   ;; 2
 	   (let ((name (slot-value customer 'name))
 		 (email (slot-value customer 'email)))

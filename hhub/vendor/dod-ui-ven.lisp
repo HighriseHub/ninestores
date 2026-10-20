@@ -2505,7 +2505,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     (setf (slot-value vsessionobj 'companyname) (slot-value company 'name))
     (setf (hunchentoot:session-value :login-vendor-company) company)
     (setf (hunchentoot:session-value :login-vendor-currency) (get-account-currency company))
-    (setf (hunchentoot:session-value :login-vendor-invoice-settings) (read-from-string (slot-value vendor 'invoice-settings)))
+    (setf (hunchentoot:session-value :login-vendor-invoice-settings) (read-invoice-settings-blob (slot-value vendor 'invoice-settings)))
     ;;(setf (hunchentoot:session-value :login-prd-cache )  (select-products-by-company company))
     ;;set vendor related params 
     (if vendor (setf (hunchentoot:session-value :login-vendor-tenants) (get-vendor-tenants-as-companies vendor)))
@@ -2528,14 +2528,25 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       sessionkey)))
 
 
+
+;;; ── the vendor's INVOICE_SETTINGS blob ─────────────────────────────────────────────────────
+;;; A NULL column reads back as the void-value "undefined", and (read-from-string "undefined") is the SYMBOL, not a list — a TYPE-ERROR on a new vendor's first invoice (2026-10-19).
+(defun read-invoice-settings-blob (blob)
+  :documentation "Stored INVOICE_SETTINGS (string or already-parsed list) as a settings alist. Anything that does not parse to a list - the void-value \"undefined\", a truncated blob, junk - falls back to *invoice-settings*, because every caller maps over the result."
+  (let ((default *invoice-settings*))
+    (cond
+      ((and blob (listp blob)) blob)
+      ((and (stringp blob) (plusp (length blob))
+	    (not (string-equal (string-trim '(#\Space #\Tab #\Newline #\Return) blob) "undefined")))
+       (handler-case (let* ((*read-eval* nil)
+			    (form (read-from-string blob)))
+		       (if (listp form) form default))
+	 (error () default)))
+      (t default))))
+
 (defun get-vendor-invoice-settings ()
-  (let ((vinvsettingstr (hunchentoot:session-value :login-vendor-invoice-settings))
-	(defaultinvsettings *invoice-settings*))
-    (if (and vinvsettingstr (> (length vinvsettingstr) 0)) 
-	;; if invoice settings are defined for a vendor, return it. 
-	(read-from-string vinvsettingstr)
-	;;else return the default invoice settings.
-	defaultinvsettings)))
+  (read-invoice-settings-blob (hunchentoot:session-value :login-vendor-invoice-settings)))
+
 
 
 (defun addloginvendorsettings ()

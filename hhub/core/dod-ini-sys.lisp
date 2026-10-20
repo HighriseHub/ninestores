@@ -46,6 +46,8 @@
 (defvar *HHUB-NEW-COMPANY-REQUEST* "newcompanyrequest.html")
 (defvar *HHUB-CONTACTUS-EMAIL-TEMPLATE* "contactustemplate.html")
 (defvar *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE* "guestcustorder.html")
+(defvar *HHUB-VENDOR-REGISTERED-TEMPLATE-FILE* "vend-registered.html")
+(defvar *HHUB-VENDOR-ADMIN-PENDING-TEMPLATE-FILE* "vend-admin-pending.html")
 (defvar *HHUB-TERMSANDCONDITIONS-FILE* "tnc.html")
 (defvar *HHUB-PRIVACY-FILE* "privacy.html")
 (defvar *HHUB-STATIC-FILES* "/home/ubuntu/ninestores/site/public")
@@ -189,6 +191,8 @@
 ;; shared actor for every already rendered email : see send-email-async
 (defvar *NSTGENERICEMAILACTOR* NIL)
 (defvar *NSTAWSS3FILEDELETEACTOR* NIL)
+;; one email actor per persona, ((:vendor . actor) ...): see send-email-async's PERSONA key
+(defvar *NST-EMAIL-ACTORS* NIL)
 ;; NINE STORE OTP store
 (defvar *otp-store* nil)
 ;; Agentic AI with ollama

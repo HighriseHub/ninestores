@@ -1722,3 +1722,35 @@
    (cons "shippingWeightKg"  (shipping-weight-kg r))))
 
 
+
+
+;;; ── the starting product every vendor gets ────────────────────────────────────────────────
+;;; A new vendor owns only FREIGHT, so the invoice step has nothing to add. APPROVED_FLAG 'N' hides it from buyers until approved; ACTIVE_FLAG 'Y' keeps it visible to the vendor.
+(defparameter *default-product-name* "My first product (edit before publishing)"
+  "DOD_PRD_MASTER.PRD_NAME is varchar(70) - keep it short.")
+
+(defparameter *default-product-code-prefix* "SAMPLE"
+  "PRODUCT_CODE is UNIQUE, so SAMPLE-<vendor-id> is both the idempotency key and a recognisable
+   marker that this row was seeded rather than typed by the vendor.")
+
+(defun create-default-product-for-vendor (vendor company)
+  :documentation "Seed the vendor's one starting SALE product, idempotent on PRODUCT_CODE SAMPLE-<vid>. HSN_CODE is left NULL and the price 0.00: the vendor must set both, and until the HSN is set get-gstvalues-for-product answers 0% (the silent-zero the GST skills warn about)."
+  (let* ((vendor-id (slot-value vendor 'row-id))
+	 (tenant-id (slot-value company 'row-id))
+	 (code (format nil "~A-~D" *default-product-code-prefix* vendor-id)))
+    (if (clsql:query (format nil "SELECT ROW_ID FROM DOD_PRD_MASTER WHERE PRODUCT_CODE = '~A' LIMIT 1"
+			     (sql-literal code)))
+	nil
+	(progn
+	  (clsql:execute-command
+	   (format nil "INSERT INTO DOD_PRD_MASTER
+                          (PRODUCT_CODE, PRD_NAME, DESCRIPTION, QTY_PER_UNIT, UNIT_OF_MEASURE,
+                           CURRENT_PRICE, CURRENT_DISCOUNT, PRD_TYPE, APPROVED_FLAG, ACTIVE_FLAG,
+                           UNITS_IN_STOCK, DELETED_STATE, VENDOR_ID, TENANT_ID)
+                        VALUES
+                          ('~A', '~A', '~A', '1.0', 'NOS', 0.00, 0.00, 'SALE', 'N', 'Y', 1, 'N', ~D, ~D)"
+			(sql-literal code)
+			(sql-literal *default-product-name*)
+			(sql-literal "Rename this, set its HSN/GST and price, then publish it.")
+			vendor-id tenant-id))
+	  t))))

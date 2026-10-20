@@ -378,6 +378,40 @@ Call STOP-NST-SERVER to revert, in reverse registration order."
            (setf *NSTGENERICEMAILACTOR* nil)))
        :name "Send Email Actor")
 
+      ;; persona email actors : a separate queue per persona, so a vendor batch cannot
+      ;; delay or (at 200 messages) DROP an unrelated customer's mail. Same behaviour.
+      (register-effect
+       (lambda ()
+         (setf *NST-EMAIL-ACTORS*
+               (list (cons :vendor
+                           (make-instance 'nst-actor
+                                          :name "Vendor Email Actor"
+                                          :behavior #'send-generic-email-behavior
+                                          :stateful t
+                                          :state-clean-callback (function (lambda (actor) (declare (ignore actor)) nil))
+                                          :initial-state 0
+                                          :retry-limit 1
+                                          :retry-delay 2
+                                          :max-queue-size 200))
+                     (cons :admin
+                           (make-instance 'nst-actor
+                                          :name "Company Admin Email Actor"
+                                          :behavior #'send-generic-email-behavior
+                                          :stateful t
+                                          :state-clean-callback (function (lambda (actor) (declare (ignore actor)) nil))
+                                          :initial-state 0
+                                          :retry-limit 1
+                                          :retry-delay 2
+                                          :max-queue-size 200))))
+         (dolist (pair *NST-EMAIL-ACTORS*)
+           (register-actor (cdr pair))
+           (start-actor (cdr pair))))
+       (lambda ()
+         (dolist (pair *NST-EMAIL-ACTORS*)
+           (destroy-actor (cdr pair)))          ; destroy-actor unregisters from the supervisor itself
+         (setf *NST-EMAIL-ACTORS* nil))
+       :name "Persona Email Actors")
+
       ;; the supervisor revives any registered actor whose thread dies unexpectedly
       (register-effect
        (lambda () (start-actor-supervisor))
