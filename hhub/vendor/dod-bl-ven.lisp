@@ -35,18 +35,12 @@
     (Copy-DBObject-To-BusinessObject dbas)))
     
 (defun reject-vendor (vendor companyadmin reason)
-  (let ((dbas (make-instance 'vendorDBService))
-	(rejected-by-phone (slot-value companyadmin 'phone-mobile)))
-	
-    (setf (slot-value vendor 'approved-flag) "N")
-    (setf (slot-value vendor 'approval-status) "REJECTED")
-    (setf (slot-value vendor 'approved-by) rejected-by-phone)
-    (setf (slot-value vendor 'rejection-reason) reason)
-    ;; initialise the dbservice with vendor object. 
-    (init dbas vendor)
-    (Copy-BusinessObject-To-DBObject dbas)
-    (db-save dbas)
-    (send-vendor-rejected-email vendor (get-vendor-company vendor) companyadmin reason)))
+  (setf (slot-value vendor 'approved-flag) "N")
+  (setf (slot-value vendor 'approval-status) "REJECTED")
+  (setf (slot-value vendor 'approved-by) (slot-value companyadmin 'phone-mobile))
+  (setf (slot-value vendor 'rejection-reason) reason)
+  (clsql:update-record-from-slots vendor '(approved-flag approval-status approved-by rejection-reason))
+  (send-vendor-rejected-email vendor (get-vendor-company vendor) companyadmin reason))
     
 
 (defmethod init ((dbas vendorDBService) (bo vendor))
