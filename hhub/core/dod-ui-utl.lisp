@@ -132,6 +132,65 @@
               ,@body)
        (submitformevent-js (format nil "#id~A" ,form-name)))))
 
+(defun render-doc-prefix-change-card (persona current document-count action ok err)
+  "Render the Document numbering card and its confirmation modal."
+  (let* ((customer-p (eq persona :customer))
+         (doc-word (if customer-p "purchase order" "tax invoice"))
+         (doc-code (if customer-p "ORD" "INV"))
+         (warning (if customer-p
+                      "Changing the prefix affects only purchase orders placed after the change. Orders already placed keep the number they were issued with."
+                      "Changing the prefix starts a new invoice series. Invoices already issued keep their number; GST requires every series to stay consecutive and unique within the financial year.")))
+    (cl-who:with-html-output-to-string (*standard-output* nil :indent nil)
+      (:div :class "card mt-4"
+        (:div :class "card-body"
+          (:h5 :class "card-title" "Document numbering")
+          (:p :class "text-muted small mb-2"
+              (cl-who:str (format nil "Your ~As use ~A-<prefix>-<FY>-..." doc-word doc-code)))
+          (:p :class "mb-3"
+              "Current prefix: "
+              (:code (cl-who:str (or current "not assigned yet")))
+              (when (and document-count (plusp document-count))
+                (cl-who:str (format nil " - ~D ~A(s) already issued" document-count doc-word))))
+          (when ok
+            (cl-who:htm (:div :class "alert alert-success py-2" "Document prefix updated. New documents will use it.")))
+          (when err
+            (cl-who:htm (:div :class "alert alert-danger py-2" (cl-who:str err))))
+          (:button :class "btn btn-outline-primary" :type "button"
+                   :data-bs-toggle "modal" :data-bs-target "#docPrefixChangeModal"
+                   "Change document prefix")))
+      (:div :class "modal fade" :id "docPrefixChangeModal" :tabindex "-1"
+            :aria-labelledby "docPrefixChangeModalLabel" :aria-hidden "true"
+        (:div :class "modal-dialog"
+          (:div :class "modal-content"
+            (:div :class "modal-header"
+              (:h5 :class "modal-title" :id "docPrefixChangeModalLabel" "Change document prefix")
+              (:button :type "button" :class "btn-close" :data-bs-dismiss "modal" :aria-label "Close"))
+            (with-html-form-having-submit-event "docprefixchangeform" action
+              (:div :class "modal-body"
+                (:input :type "hidden" :name "doc-prefix-change" :value "Y")
+                (:div :class "alert alert-warning" (cl-who:str warning))
+                (when (and document-count (plusp document-count))
+                  (cl-who:htm
+                   (:p :class "small"
+                       (cl-who:str
+                        (if customer-p
+                            (format nil "~D existing order(s) keep their old numbers. Vendors may still quote them, so keep them for reference; open orders are not renumbered." document-count)
+                            (format nil "~D invoice(s) are already issued. A mid-year prefix change can complicate GSTR-1 matching and your buyer's input-tax credit - prefer a financial-year boundary or your accountant's advice." document-count))))))
+                (:div :class "mb-3"
+                  (:label :class "form-label fw-bold" :for "docPrefixInput" "New prefix")
+                  (:input :class "form-control" :id "docPrefixInput" :name "doc-prefix"
+                          :required "required" :maxlength "8" :pattern "[A-Z0-9]{3,8}"
+                          :placeholder "e.g. ACME01" :value (or current "")
+                          :oninput "this.value=this.value.toUpperCase()"))
+                (:p :class "small text-muted" "3 to 8 characters: A-Z and 0-9 only.")
+                (:div :class "form-check"
+                  (:input :class "form-check-input" :type "checkbox" :id "docPrefixConfirm" :required "required")
+                  (:label :class "form-check-label" :for "docPrefixConfirm"
+                          "I understand existing documents keep their old numbers and new documents will use the new prefix.")))
+              (:div :class "modal-footer"
+                (:button :type "button" :class "btn btn-secondary" :data-bs-dismiss "modal" "Cancel")
+                (:button :type "submit" :class "btn btn-primary" "Change prefix")))))))))
+
 
 (eval-when (:compile-toplevel :load-toplevel :execute)     
   (defmacro with-catch-submit-event (id  &body body)

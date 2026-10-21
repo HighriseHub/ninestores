@@ -35,14 +35,15 @@
     (update-prd-details product)))
 
 (defun get-products-for-approval (tenant-id)
-:documentation "This function will be used only by the superadmin user. "
+:documentation "Products waiting for approval in TENANT-ID. NULL status counts as PENDING: the old default-product seed omitted it."
   (clsql:select 'dod-prd-master  :where 
 		[and 
 		[= [:deleted-state] "N"] 
 		[= [:active-flag] "Y"]
 		[= [:approved-flag] "N"]
 		[= [:tenant-id] tenant-id]
-		[= [:approval-status] "PENDING"]]
+		[or [= [:approval-status] "PENDING"]
+		    [null [:approval-status]]]]
 		:caching *dod-database-caching* :flatp t ))
 
 
@@ -1448,7 +1449,8 @@
   (case status
     (:active   [and [= [:active-flag] "Y"] [= [:approved-flag] "Y"]])
     (:inactive [= [:active-flag] "N"])
-    (:pending  [= [:approval-status] "PENDING"])
+    (:pending  [and [= [:approved-flag] "N"]
+                     [or [= [:approval-status] "PENDING"] [null [:approval-status]]]])
     (:rejected [= [:approval-status] "REJECTED"])
     (otherwise (error "enumerate: unknown status ~S — expected one of :active :inactive :pending :rejected"
                       status))))
@@ -1745,10 +1747,10 @@
 	  (clsql:execute-command
 	   (format nil "INSERT INTO DOD_PRD_MASTER
                           (PRODUCT_CODE, PRD_NAME, DESCRIPTION, QTY_PER_UNIT, UNIT_OF_MEASURE,
-                           CURRENT_PRICE, CURRENT_DISCOUNT, PRD_TYPE, APPROVED_FLAG, ACTIVE_FLAG,
-                           UNITS_IN_STOCK, DELETED_STATE, VENDOR_ID, TENANT_ID)
+                           CURRENT_PRICE, CURRENT_DISCOUNT, PRD_TYPE, APPROVED_FLAG, APPROVAL_STATUS,
+                           ACTIVE_FLAG, UNITS_IN_STOCK, DELETED_STATE, VENDOR_ID, TENANT_ID)
                         VALUES
-                          ('~A', '~A', '~A', '1.0', 'NOS', 0.00, 0.00, 'SALE', 'N', 'Y', 1, 'N', ~D, ~D)"
+                          ('~A', '~A', '~A', '1.0', 'NOS', 0.00, 0.00, 'SALE', 'N', 'PENDING', 'Y', 1, 'N', ~D, ~D)"
 			(sql-literal code)
 			(sql-literal *default-product-name*)
 			(sql-literal "Rename this, set its HSN/GST and price, then publish it.")

@@ -201,6 +201,28 @@
 			      (format nil "Approval needed - ~A registered as a vendor" vname)
 			      body nil :persona :admin)))))))
 
+(defun send-vendor-approved-email (vendor company)
+  :documentation "Vendor onboarding E3: the approval is committed; tell the vendor they are live and give them the three jobs. A mail failure must never roll back the approval."
+  (handler-case
+      (let ((to (slot-value vendor 'email))
+	    (cmpname (and company (slot-value company 'name))))
+	(when (and to cmpname)
+	  (let* ((templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-VENDOR-APPROVED-TEMPLATE-FILE*)))
+		 (body (hhub-fill-email-template templ-str
+						 (list (cons "%CompanyName%" cmpname)
+						       (cons "%VendorName%" (slot-value vendor 'name))
+						       (cons "%VendorPhone%" (slot-value vendor 'phone))
+						       (cons "%ApprovedDate%" (current-date-string-ddmmyyyy))
+						       (cons "%LoginUrl%" (format nil "~A/hhub/hhubvendloginv2" *siteurl*))
+						       (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
+	    (hhub-log-message (format nil "~&[vendor-onboarding] E3 -> ~A (vendor ~A, tenant ~A)~%"
+				      to (slot-value vendor 'name) (slot-value company 'row-id)))
+	    (send-email-async to (format nil "Approved - you can sign in to ~A" cmpname) body nil :persona :vendor))))
+    (error (c)
+      (hhub-log-message (format nil "~&[vendor-onboarding] E3 FAILED for vendor ~A: ~A~%"
+				(ignore-errors (slot-value vendor 'name)) c))
+      nil)))
+
 (defun send-order-mail (email subject  order-disp-str)
   :documentation "Renders the guest order email and hands it to the shared email actor, so the calling request does not wait for SMTP."
   (let* ((order-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*)))

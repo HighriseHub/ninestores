@@ -676,6 +676,23 @@
                                       current)))
       (t nil))))
 
+(defun nst-customer-doc-prefix-set (cust-id tenant-id requested)
+  "The explicit writer for a customer's DOC_PREFIX: validates, then stores. Returns (values OK MESSAGE)."
+  (let* ((row (nst-select-customer-by-id cust-id tenant-id))
+         (current (and row (slot-value row 'doc-prefix)))
+         (refusal (if row
+                      (nst-doc-prefix-change-refusal requested current)
+                      "That customer record no longer exists.")))
+    (if refusal
+        (values nil refusal)
+        (handler-case
+            (progn
+              (setf (slot-value row 'doc-prefix) requested)
+              (clsql:update-record-from-slot row 'doc-prefix)
+              (values t requested))
+          (error (c)
+            (values nil (format nil "Could not change the prefix: ~A" c)))))))
+
 (defmethod !update ((entity-class (eql 'nst-customer)) (row-id string) (ctx domain-ctx)
                     &rest update-args)
   (let* ((tenant-id (slot-value (domain-ctx-tenant ctx) 'row-id))
