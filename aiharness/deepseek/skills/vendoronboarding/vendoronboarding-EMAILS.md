@@ -4,8 +4,8 @@
 goes out when", "what tokens does this file take", "who is the recipient", "why hasn't the vendor
 been told".
 
-> **Status: SPEC — 2026-10-17. Nothing built.** Companion to `vendoronboarding-CONTEXT.md`
-> (decisions D1–D7) and `vendoronboarding-FLOWS.md` (where each mail sits in the journey).
+> **Status: E1–E4 BUILT (2026-10-21). E5 is next; E6 is phase 2; E7 exists but is still orphaned.**
+> Companion to `vendoronboarding-CONTEXT.md` (decisions D1–D7) and `vendoronboarding-FLOWS.md` (where each mail sits in the journey).
 
 ---
 
@@ -129,7 +129,7 @@ loaded into the running image.
 | Trigger | same call site as E1, immediately after it |
 | To | every `COMPADMIN` user of the vendor's tenant with a non-empty `EMAIL` (B3 helper) |
 | Subject | `Approval needed — %VendorName% registered as a vendor` |
-| Tokens | `%VendorName% %VendorPhone% %VendorEmail% %GSTINLine% %CompanyName% %QueueUrl% %VendorCount%` |
+| Tokens | `%VendorName% %VendorPhone% %VendorEmail% %GSTINLine% %CompanyName% %QueueUrl% %PendingCount%` |
 | Verified | **E2 arrives in the admin's inbox, 2026-10-19** (two separate Guerrilla sessions; E1 to the vendor, E2 to the tenant's `COMPADMIN`) |
 | Needs | **B3 — DONE**: `select-compadmin-emails-for-tenant` returns the distinct non-empty `DOD_USERS.EMAIL` of the tenant's `COMPADMIN` role holders. ⚠ Delivery depends on that address being real: the live tenants still carry `…@example.com` placeholders (tenant 2's second admin row is a real mailbox), and a bounce is silent — the actor dead-letters SMTP failures, nothing reports them. |
 
@@ -146,48 +146,52 @@ Send **one mail per registration**, never a digest, until a digest exists — th
 
 ### E3 — `vend-approved.html` · "you are live, and here is the whole job"
 
+**Status: BUILT 2026-10-21** — template + `*HHUB-VENDOR-APPROVED-TEMPLATE-FILE*` + `send-vendor-approved-email`, queued after `db-save` in `doupdate`.
+
 | | |
 |---|---|
-| Trigger | `doupdate` for `VendorApprovalService` (`vendor/dod-bl-ven.lisp:17-33`), after the row is saved |
+| Trigger | `doupdate` for `VendorApprovalService` (`vendor/dod-bl-ven.lisp`), after `db-save` |
 | To | `DOD_VEND_PROFILE.EMAIL` |
-| Subject | `Approved — you can sign in to %CompanyName%` |
-| Tokens | `%VendorName% %CompanyName% %VendorPhone% %LoginUrl% %SupportEmail%` |
-| Needs | login URL (`/hhub/hhubvendloginv2`), nothing else |
+| Subject | `Approved - you can sign in to %CompanyName%` |
+| Tokens | `%VendorName% %CompanyName% %VendorPhone% %ApprovedDate% %LoginUrl% %SupportEmail%` |
+| Needs | nothing new; the copy uses tax/payment, not bank |
 
 ```
 %VendorName%, you are approved by %CompanyName% on %ApprovedDate%.
-Sign in with %VendorPhone% and the one-time code we SMS you — there is no password.
+Sign in with %VendorPhone% and the one-time code we SMS you - there is no password.
 
 Finish these three, then you can take orders:
-1. GSTIN, PAN and bank details      — they print on every invoice we raise for you.
-2. Your first product               — customers can only order what is listed.
-3. Where you ship                   — set your zones and charges.
+1. Tax and payment details - GSTIN and PAN print on every invoice; your UPI payout route tells us where to remit.
+2. Your first product - customers can only order what is listed.
+3. Where you ship - set your zones and charges.
 
-[ Sign in and finish setup ]    ← %LoginUrl%
+[ Sign in and finish setup ]    <- %LoginUrl%
 ```
 
-The three items **must** match the dashboard checklist (`vendoronboarding-FLOWS.md` §6) word for
-word, or the vendor is taught two different stories.
+The three items are the dashboard checklist (`vendoronboarding-FLOWS.md` §6) grouped into tax/payment, first product and shipping.
 
 ### E4 — `vend-rejected.html` · "no, and here is why, and what to do"
 
+**Status: BUILT 2026-10-21** — B1 fixed (`phone` → `phone-mobile`), B2 added (`REJECTION_REASON`), B5 avoided (no self-service re-apply promise), template + `*HHUB-VENDOR-REJECTED-TEMPLATE-FILE*` + `send-vendor-rejected-email`, queued from `reject-vendor` after the row update.
+
 | | |
 |---|---|
-| Trigger | `reject-vendor` (`vendor/dod-bl-ven.lisp:36-46`) |
+| Trigger | `reject-vendor` (`vendor/dod-bl-ven.lisp`), after the row update |
 | To | `DOD_VEND_PROFILE.EMAIL` |
-| Subject | `Not approved — your vendor registration with %CompanyName%` |
+| Subject | `Not approved - your vendor registration with %CompanyName%` |
 | Tokens | `%VendorName% %CompanyName% %ReasonLine% %AdminContactLine% %SupportEmail% %ReapplyLine%` |
-| Needs | **B1** (reject currently signals on a missing slot), **B2** (no reason field), **B5** (re-apply 500s on the unique key) |
+| Needs | **DONE**: B1/B2; B5 avoided |
 
 ```
 %CompanyName% has not approved your vendor registration.
-Reason: %ReasonLine%                        ← "Not given" is a legitimate, honest value
-%AdminContactLine%                           ← the administrator's email + phone, named
-%ReapplyLine%                                ← only offered once B5 is fixed
+
+Reason: %ReasonLine%          <- "Not given" when the administrator left it blank
+%AdminContactLine%            <- the rejecting administrator's name, email and phone
+%ReapplyLine%                 <- "Contact the administrator..." (no self-service re-apply)
+Need help? %SupportEmail%
 ```
 
-Never send this mail with an empty reason and no contact — that is the current behaviour minus
-the silence.
+The reason column requires `21102026-vendor-rejection-reason` applied before the build.
 
 ### E5 — `vend-status.html` · the escape hatch, and E1's button
 
