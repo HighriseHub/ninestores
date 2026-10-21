@@ -257,8 +257,8 @@ E2, E3, the vendor queue, the product queue and the post-signup admin-contact bl
 
 Built: E1–E4; the signup document prefix moved to warned profile dialogs; the post-signup pending page; the NULL-`APPROVAL_STATUS` product-approval fix; the login-page four states (pending/rejected/stranded/no-row).
 
-Open: E5 (status lookup), the dashboard checklist, E7, E6, and tenant-scoped vendor identity.
+Open: E5 (status lookup), the dashboard checklist, E7, E6.
 
 The rejection reason needs `21102026-vendor-rejection-reason` applied **before** the build: `REJECTION_REASON` is mapped on `dod-vend-profile`, so a build without the column breaks every vendor select.
 
-Non-negotiable still open: tenant-scoped vendor identity (`(phone, tenant)`). The rejection leg and the login-state panels are built; the legacy login is still phone-only across tenants, which matters for the dedicated-portal mode.
+Tenant-scoped vendor identity is now membership-scoped: `vendor-login-company` resolves the default/first active `DOD_VENDOR_TENANTS` membership, the login page stays phone-only, and My Groups switches tenants. Separate duplicate vendor rows for the same phone remain a data-consolidation edge.

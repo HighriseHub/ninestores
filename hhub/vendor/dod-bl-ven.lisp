@@ -401,4 +401,20 @@
 	      (let ((tenant-id (slot-value vt 'tenant-id)))
 		(select-company-by-id tenant-id))) vendor-tenants-list)))
 
+(defun vendor-login-company (vendor)
+  "The company a vendor logs into by default: the default membership, else the first active one, else the home company."
+  (when vendor
+    (let* ((memberships (get-vendor-tenants vendor))
+	   (default (find-if (lambda (vt) (equal (slot-value vt 'default-flag) "Y")) memberships))
+	   (default-company (and default (select-company-by-id (slot-value default 'tenant-id))))
+	   (active-companies (loop for vt in memberships
+				   for c = (select-company-by-id (slot-value vt 'tenant-id))
+				   when (and c (not (equal (slot-value c 'suspend-flag) "Y")))
+				     collect c)))
+      (or (and default-company
+	       (not (equal (slot-value default-company 'suspend-flag) "Y"))
+	       default-company)
+	  (first active-companies)
+	  (get-vendor-company vendor)))))
+
     

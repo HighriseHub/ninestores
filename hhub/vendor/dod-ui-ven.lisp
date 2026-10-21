@@ -2437,7 +2437,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				  [= [:phone] phone]
 				  [= [:deleted-state] "N"]]
 			   :caching nil :flatp t)))
-	 (company (and vendor (get-vendor-company vendor))))
+	 (company (and vendor (vendor-login-company vendor))))
     (if (null vendor)
 	(list :state :no-row)
 	(unless (and (equal (slot-value vendor 'approved-flag) "Y")
@@ -2511,7 +2511,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					  [= [:approval-status] "APPROVED"]
 					  [= [:deleted-state] "N"]]
 				   :caching nil :flatp t)))
-	     (vendor-company (if dbvendor  (get-vendor-company dbvendor))))
+	     (vendor-company (if dbvendor (vendor-login-company dbvendor))))
 	(when (and  dbvendor
 		    (null (hunchentoot:session-value :login-vendor-name))) ;; vendor should not be logged-in in the first place.
 	  (set-vendor-session-params  vendor-company dbvendor)))
@@ -2535,7 +2535,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	     (pwd (if dbvendor (slot-value dbvendor 'password)))
 	     (salt (if dbvendor (slot-value dbvendor 'salt)))
 	     (password-verified (if dbvendor  (check-password password salt pwd)))
-	     (vendor-company (if dbvendor  (get-vendor-company dbvendor))))
+	     (vendor-company (if dbvendor (vendor-login-company dbvendor))))
 	;;(logiamhere (format nil  "db vendor is ~A phone : ~A password : ~A and password verified is ~A db password is ~A" dbvendor phone password password-verified pwd))
 	(cond
 	  ;; Vendor is already logged-in in this web session: no-op.
