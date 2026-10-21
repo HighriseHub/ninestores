@@ -34,17 +34,13 @@
     (send-vendor-approved-email dbvendor company)
     (Copy-DBObject-To-BusinessObject dbas)))
     
-(defun reject-vendor (vendor companyadmin)
-  (let ((dbas (make-instance 'vendorDBService))
-	(rejected-by-phone (slot-value companyadmin 'phone)))
-	
-    (setf (slot-value vendor 'approved-flag) "N")
-    (setf (slot-value vendor 'approval-status) "REJECTED")
-    (setf (slot-value vendor 'approved-by) rejected-by-phone)
-    ;; initialise the dbservice with vendor object. 
-    (init dbas vendor)
-    (Copy-BusinessObject-To-DBObject dbas)
-    (db-save dbas)))
+(defun reject-vendor (vendor companyadmin reason)
+  (setf (slot-value vendor 'approved-flag) "N")
+  (setf (slot-value vendor 'approval-status) "REJECTED")
+  (setf (slot-value vendor 'approved-by) (slot-value companyadmin 'phone-mobile))
+  (setf (slot-value vendor 'rejection-reason) reason)
+  (clsql:update-record-from-slots vendor '(approved-flag approval-status approved-by rejection-reason))
+  (send-vendor-rejected-email vendor (get-vendor-company vendor) companyadmin reason))
     
 
 (defmethod init ((dbas vendorDBService) (bo vendor))
@@ -75,7 +71,7 @@
   (let* ((company (slot-value businessobj 'company))
 	 (tid (slot-value company 'row-id)))
     (with-slots
-	  (row-id name address phone email  email-add-verified suspend-flag active-flag approved-flag approval-status approved-by upi-id tenant-id) dbobj
+	  (row-id name address phone email  email-add-verified suspend-flag active-flag approved-flag approval-status approved-by rejection-reason upi-id tenant-id) dbobj
       (setf row-id (slot-value businessobj 'row-id))
       (setf (slot-value dbobj 'salt) (slot-value businessobj 'salt))
       (setf name (slot-value businessobj 'name))
@@ -89,6 +85,7 @@
       (setf approved-flag (slot-value businessobj 'approved-flag))
       (setf approval-status (slot-value businessobj 'approval-status))
       (setf approved-by (slot-value businessobj 'approved-by))
+      (setf rejection-reason (slot-value businessobj 'rejection-reason))
       (setf upi-id (slot-value businessobj 'upi-id))
       (setf tenant-id tid)
       dbobj)))
@@ -96,7 +93,7 @@
 
 (defun dod-copyvendor-dbtodomain (dbobj businessobj)
   (let* ((comp (select-company-by-id (slot-value dbobj 'tenant-id))))
-    (with-slots (row-id name address phone email  email-add-verified suspend-flag active-flag approved-flag approval-status approved-by upi-id company) businessobj
+    (with-slots (row-id name address phone email  email-add-verified suspend-flag active-flag approved-flag approval-status approved-by rejection-reason upi-id company) businessobj
       (setf row-id (slot-value dbobj 'row-id))
       (setf name (slot-value dbobj 'name))
       (setf address (slot-value dbobj 'address))
@@ -110,6 +107,7 @@
       (setf approved-flag (slot-value dbobj 'approved-flag))
       (setf approval-status (slot-value dbobj 'approval-status))
       (setf approved-by (slot-value dbobj 'approved-by))
+      (setf rejection-reason (slot-value dbobj 'rejection-reason))
       (setf upi-id (slot-value dbobj 'upi-id))
       (setf company comp)
       businessobj)))
@@ -402,5 +400,21 @@
     (mapcar (lambda (vt) 
 	      (let ((tenant-id (slot-value vt 'tenant-id)))
 		(select-company-by-id tenant-id))) vendor-tenants-list)))
+
+(defun vendor-login-company (vendor)
+  "The company a vendor logs into by default: the default membership, else the first active one, else the home company."
+  (when vendor
+    (let* ((memberships (get-vendor-tenants vendor))
+	   (default (find-if (lambda (vt) (equal (slot-value vt 'default-flag) "Y")) memberships))
+	   (default-company (and default (select-company-by-id (slot-value default 'tenant-id))))
+	   (active-companies (loop for vt in memberships
+				   for c = (select-company-by-id (slot-value vt 'tenant-id))
+				   when (and c (not (equal (slot-value c 'suspend-flag) "Y")))
+				     collect c)))
+      (or (and default-company
+	       (not (equal (slot-value default-company 'suspend-flag) "Y"))
+	       default-company)
+	  (first active-companies)
+	  (get-vendor-company vendor)))))
 
     

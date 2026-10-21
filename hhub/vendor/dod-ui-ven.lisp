@@ -1723,6 +1723,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    ;;<!-- Title -->
 		    (:h1 :class "text-2xl font-bold mb-2" "Welcome to Nine Stores")
 		    (:p :class "text-gray-300 mb-6" "Vendor OTP Login Portal")
+		     (when (hunchentoot:session-value :vendor-login-state)
+		       (let ((state (hunchentoot:session-value :vendor-login-state)))
+			 (setf (hunchentoot:session-value :vendor-login-state) nil)
+			 (cl-who:str (render-vendor-login-state state))))
 		     (with-catch-submit-event "idform-vendsignin"
 		      (:form :id "vendsigninwithotp" :method "POST" :action "hhubvendloginotpstep" :class "space-y-5"
 			     (:div :class "space-y-5"
@@ -2427,12 +2431,76 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (context (format nil "hhubvendloginwithotp?phone=~A" phone)))
     (generateotp&redirect "vendor" "login" phone context)))
 
+(defun dod-vendor-login-state-for-phone (phone)
+  "NIL when PHONE belongs to an approved vendor; otherwise the login-page state."
+  (let* ((vendor (car (clsql:select 'dod-vend-profile :where [and
+				  [= [:phone] phone]
+				  [= [:deleted-state] "N"]]
+			   :caching nil :flatp t)))
+	 (company (and vendor (vendor-login-company vendor))))
+    (if (null vendor)
+	(list :state :no-row)
+	(unless (and (equal (slot-value vendor 'approved-flag) "Y")
+		     (equal (slot-value vendor 'approval-status) "APPROVED"))
+	  (let* ((admins (and company (select-compadmin-contacts-for-tenant (slot-value company 'row-id))))
+		 (admin (or (find-if (lambda (a) (getf a :email)) admins) (first admins))))
+	    (list :state (cond
+			   ((equal (slot-value vendor 'approval-status) "REJECTED") :rejected)
+			   ((equal (slot-value vendor 'approved-flag) "Y") :stranded)
+			   (t :pending))
+		  :company (and company (slot-value company 'name))
+		  :reason (slot-value vendor 'rejection-reason)
+		  :admin admin))))))
+
+(defun render-vendor-login-state (state)
+  "Render the login-page panel for one non-approved vendor state."
+  (let* ((kind (getf state :state))
+	 (company (or (getf state :company) "the store"))
+	 (reason (or (getf state :reason) "Not given"))
+	 (admin (getf state :admin))
+	 (admin-line
+	   (when admin
+	     (let ((name (getf admin :name))
+		   (email (getf admin :email))
+		   (phone (getf admin :phone)))
+	       (cond
+		 ((and name email phone) (format nil "Contact ~A at ~A or ~A." name email phone))
+		 ((and name email) (format nil "Contact ~A at ~A." name email))
+		 (email (format nil "Contact the company administrator at ~A." email))
+		 (phone (format nil "Contact the company administrator on ~A." phone))))))
+	 (title (case kind
+		  (:pending "Registration received")
+		  (:rejected (format nil "Not approved by ~A" company))
+		  (:stranded "Approved but not fully activated")
+		  (otherwise "No vendor account for this number on this store")))
+	 (message (case kind
+		    (:pending (format nil "Waiting for approval by ~A. The company administrator has been notified; nothing else is needed from you right now." company))
+		    (:rejected (format nil "Reason: ~A" reason))
+		    (:stranded "We have flagged this to support. Please reply with your registered phone number.")
+		    (otherwise "You can register as a vendor from the store's sign-up page."))))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      (:div :class (case kind
+		     (:pending "mb-6 rounded-lg border border-amber-400/40 bg-amber-400/10 p-4 text-left text-sm text-amber-100")
+		     (:rejected "mb-6 rounded-lg border border-red-400/40 bg-red-400/10 p-4 text-left text-sm text-red-100")
+		     (:stranded "mb-6 rounded-lg border border-amber-400/40 bg-amber-400/10 p-4 text-left text-sm text-amber-100")
+		     (otherwise "mb-6 rounded-lg border border-sky-400/40 bg-sky-400/10 p-4 text-left text-sm text-sky-100"))
+	(:p :class "font-semibold mb-1" (cl-who:str (cl-who:escape-string title)))
+	(:p (cl-who:str (cl-who:escape-string message)))
+	(when admin-line
+	  (cl-who:htm (:p :class "mt-2" (cl-who:str (cl-who:escape-string admin-line)))))))))
+
 (defun dod-controller-vend-login-with-otp ()
-  (let  ((phone (hunchentoot:parameter "phone")))
-    (unless ( or (null phone) (zerop (length phone)))
-      (unless (dod-vend-login-with-otp :phone phone)
-	(hunchentoot:redirect "/hhub/hhubvendloginv2"))
-      (hunchentoot:redirect "/hhub/dodvendindex?context=home"))))
+  (let ((phone (hunchentoot:parameter "phone")))
+    (unless (or (null phone) (zerop (length phone)))
+      (let ((state (dod-vendor-login-state-for-phone phone)))
+	(if state
+	    (progn
+	      (setf (hunchentoot:session-value :vendor-login-state) state)
+	      (hunchentoot:redirect "/hhub/hhubvendloginv2"))
+	    (progn
+	      (unless (dod-vend-login-with-otp :phone phone)
+		(hunchentoot:redirect "/hhub/hhubvendloginv2"))
+	      (hunchentoot:redirect "/hhub/dodvendindex?context=home")))))))
       
 
 (defun dod-vend-login-with-otp (&key phone)
@@ -2443,7 +2511,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 					  [= [:approval-status] "APPROVED"]
 					  [= [:deleted-state] "N"]]
 				   :caching nil :flatp t)))
-	     (vendor-company (if dbvendor  (get-vendor-company dbvendor))))
+	     (vendor-company (if dbvendor (vendor-login-company dbvendor))))
 	(when (and  dbvendor
 		    (null (hunchentoot:session-value :login-vendor-name))) ;; vendor should not be logged-in in the first place.
 	  (set-vendor-session-params  vendor-company dbvendor)))
@@ -2467,7 +2535,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	     (pwd (if dbvendor (slot-value dbvendor 'password)))
 	     (salt (if dbvendor (slot-value dbvendor 'salt)))
 	     (password-verified (if dbvendor  (check-password password salt pwd)))
-	     (vendor-company (if dbvendor  (get-vendor-company dbvendor))))
+	     (vendor-company (if dbvendor (vendor-login-company dbvendor))))
 	;;(logiamhere (format nil  "db vendor is ~A phone : ~A password : ~A and password verified is ~A db password is ~A" dbvendor phone password password-verified pwd))
 	(cond
 	  ;; Vendor is already logged-in in this web session: no-op.

@@ -223,6 +223,41 @@
 				(ignore-errors (slot-value vendor 'name)) c))
       nil)))
 
+(defun send-vendor-rejected-email (vendor company companyadmin reason)
+  :documentation "Vendor onboarding E4: the rejection is committed; say why, who holds it and how to reach them. A mail failure must never roll back the rejection."
+  (handler-case
+      (let* ((to (slot-value vendor 'email))
+	     (cmpname (and company (slot-value company 'name)))
+	     (reason-line (if (and reason (plusp (length reason))) reason "Not given"))
+	     (admin-name (and companyadmin (ignore-errors (slot-value companyadmin 'name))))
+	     (admin-email (and companyadmin (ignore-errors (slot-value companyadmin 'email))))
+	     (admin-phone (and companyadmin (ignore-errors (slot-value companyadmin 'phone-mobile))))
+	     (admin-line
+	       (cond
+		 ((and admin-name admin-email admin-phone)
+		  (format nil "Contact ~A at ~A or ~A." admin-name admin-email admin-phone))
+		 ((and admin-name admin-email)
+		  (format nil "Contact ~A at ~A." admin-name admin-email))
+		 (admin-email (format nil "Contact the company administrator at ~A." admin-email))
+		 (admin-phone (format nil "Contact the company administrator on ~A." admin-phone))
+		 (t "Contact the company administrator through the store."))))
+	(when (and to cmpname)
+	  (let* ((templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-VENDOR-REJECTED-TEMPLATE-FILE*)))
+		 (body (hhub-fill-email-template templ-str
+						 (list (cons "%CompanyName%" cmpname)
+						       (cons "%VendorName%" (slot-value vendor 'name))
+						       (cons "%ReasonLine%" reason-line)
+						       (cons "%AdminContactLine%" admin-line)
+						       (cons "%ReapplyLine%" "Contact the administrator if you would like to discuss re-applying.")
+						       (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
+	    (hhub-log-message (format nil "~&[vendor-onboarding] E4 -> ~A (vendor ~A, tenant ~A)~%"
+				      to (slot-value vendor 'name) (slot-value company 'row-id)))
+	    (send-email-async to (format nil "Not approved - your vendor registration with ~A" cmpname) body nil :persona :vendor))))
+    (error (c)
+      (hhub-log-message (format nil "~&[vendor-onboarding] E4 FAILED for vendor ~A: ~A~%"
+				(ignore-errors (slot-value vendor 'name)) c))
+      nil)))
+
 (defun send-order-mail (email subject  order-disp-str)
   :documentation "Renders the guest order email and hands it to the shared email actor, so the calling request does not wait for SMTP."
   (let* ((order-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*)))
