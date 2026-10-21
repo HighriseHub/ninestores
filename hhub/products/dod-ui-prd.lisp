@@ -520,6 +520,13 @@
 	 (tenant-id       (slot-value product-instance 'tenant-id))
 	 (company         (select-company-by-id tenant-id))
 	 (company-name    (if company (slot-value company 'name) ""))
+	 (vendor-id       (slot-value product-instance 'vendor-id))
+	 (vendor          (and vendor-id
+			       (ignore-errors (select-vendor-by-id-in-tenant vendor-id tenant-id))))
+	 (vendor-name     (and vendor (slot-value vendor 'name)))
+	 (vendor-phone    (and vendor (slot-value vendor 'phone)))
+	 (vendor-status   (and vendor (slot-value vendor 'approval-status)))
+	 (vendor-approved (and vendor (equal (slot-value vendor 'approved-flag) "Y")))
 	 (approval-status (or (slot-value product-instance 'approval-status) ""))
 	 (subscribe-flag  (slot-value product-instance 'subscribe-flag))
 	 (image-url       (cond ((and imageslst (listp imageslst) (stringp (first imageslst))) (first imageslst))
@@ -544,6 +551,22 @@
 	(:span :class "nst-approval-meta"
 	       (:i :class "fa-solid fa-store")
 	       (:span (cl-who:str (cl-who:escape-string company-name))))
+	(:span :class "nst-approval-meta"
+	       (:i :class "fa-solid fa-user-tie")
+	       (:span "Vendor: " (cl-who:str (cl-who:escape-string (or vendor-name "not found")))))
+	(when vendor-phone
+	  (cl-who:htm
+	   (:span :class "nst-approval-meta"
+		  (:i :class "fa-solid fa-phone")
+		  (:a :href (format nil "tel:~A" vendor-phone)
+		      :style "color:inherit;"
+		      (cl-who:str (cl-who:escape-string vendor-phone))))))
+	(when (and vendor (not vendor-approved))
+	  (cl-who:htm
+	   (:span :class "nst-approval-meta"
+		  (:i :class "fa-solid fa-triangle-exclamation")
+		  (:span (cl-who:str (format nil "Vendor ~A - verify before approving"
+					      (or vendor-status "not approved")))))))
 	(:span :class "nst-approval-actions"
 	      (:button :type "button" :class "btn btn-sm btn-success flex-fill"
 		       :data-bs-toggle "modal" :data-bs-target (format nil "#~A" accept-id)
