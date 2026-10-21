@@ -36,8 +36,9 @@
       (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
    (with-hhub-transaction "com-hhub-transaction-vendor-reject-action" params
      (let* ((id (hunchentoot:parameter "vendor-id"))
+	    (reason (hunchentoot:parameter "reason"))
 	    (vendor (select-vendor-by-id id)))
-       (reject-vendor vendor companyadmin)
+       (reject-vendor vendor companyadmin reason)
        (hunchentoot:redirect "/hhub/hhubvendorapprovalpage"))))))
       
 (defun com-hhub-transaction-vendor-approve-action () 
@@ -588,6 +589,10 @@
     (with-html-form "form-vendorreject" "hhubvendorrejectaction" 
       (:div :class "form-group" :style "display: none"
 	    (:input :class "form-control" :name "vendor-id" :value vendor-id :type "text" :readonly T ))
+      (:div :class "form-group"
+	    (:label :for "reason" "Reason (optional)")
+	    (:textarea :class "form-control" :name "reason" :rows "3"
+		       :placeholder "Tell the vendor why - this appears in the rejection email."))
       (:div :class "form-group"
 	    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Reject")))))
 

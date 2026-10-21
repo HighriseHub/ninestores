@@ -335,6 +335,14 @@
     :accessor approved-by
     :type (string 30)
     :initarg :approved-by)
+
+   (rejection-reason
+    :accessor rejection-reason
+    :type (string 500)
+    :column "REJECTION_REASON"
+    :void-value nil
+    :initform nil
+    :initarg :rejection-reason)
    
    (push-notify-subs-flag
     :accessor push-notify-subs-flag 

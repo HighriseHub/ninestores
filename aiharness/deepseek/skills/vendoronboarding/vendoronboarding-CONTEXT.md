@@ -218,10 +218,10 @@ lock every cross-border vendor out on day one.
 
 1. **B4/B5 review** — decide whether E4 promises "re-apply" at all. If reject cannot be made safe cheaply, E4 says "contact the administrator", not "register again".
 2. ~~**E1 + E2**~~ — **DONE 2026-10-17/18**, committed as `57e4e29`. The vendor is told it is waiting; the tenant's `COMPADMIN` addresses are told to approve. **Verified end to end 2026-10-19**: E1 lands in the vendor's inbox and E2 in the tenant administrator's, each in its own session.
-3. **E3** — the approval mail; needs the login URL, the hook at the end of `doupdate` (after `db-save`) and the **copy decision** (UPI/payout route vs adding vendor bank columns).
+3. ~~**E3**~~ — **DONE 2026-10-21**: `vend-approved.html` + sender + hook after `db-save`; the copy uses tax/payment, not bank.
 4. **E5** — the status lookup, which also gives E1 its button and the login page its escape hatch.
-5. **B1 + B2 → E4** — reject must be fixed and given a reason before it can be announced.
-6. **First-login UX** (FLOWS §5–§6): login-page states, then the dashboard checklist.
+5. ~~**B1 + B2 → E4**~~ — **DONE 2026-10-21**: `phone` → `phone-mobile`, a rejection-reason column + modal field, `vend-rejected.html` + sender.
+6. **First-login UX** (FLOWS §5–§6): ~~login-page states~~ **DONE 2026-10-21** (pending/rejected/stranded/no-row); the dashboard checklist is still open.
 7. **E7** — wire the existing, orphaned `vendor-order.html` after deleting its stray "Thanks for registering" line.
 8. **E6** — only if a scheduler appears.
 
@@ -255,8 +255,10 @@ E2, E3, the vendor queue, the product queue and the post-signup admin-contact bl
 
 ## 9. Status at close — 2026-10-21
 
-Built: E1, E2, E3; the signup document prefix moved to warned profile dialogs; the post-signup pending page; the NULL-`APPROVAL_STATUS` product-approval fix.
+Built: E1–E4; the signup document prefix moved to warned profile dialogs; the post-signup pending page; the NULL-`APPROVAL_STATUS` product-approval fix; the login-page four states (pending/rejected/stranded/no-row).
 
-Open: E5 (status lookup), E4 (blocked by B1/B2/B5), the login-page four states plus dashboard checklist, E7, E6.
+Open: E5 (status lookup), the dashboard checklist, E7, E6, and tenant-scoped vendor identity.
 
-Non-negotiable before the journey is complete: the rejection leg — fix B1 (`phone` → `phone-mobile`), add B2's reason, send E4 — and the login page naming PENDING/REJECTED. Without them a rejected vendor is a silent dead end. Tenant-scoped vendor identity (`(phone, tenant)`) is also non-negotiable for the dedicated-portal mode; the legacy login is phone-only across tenants.
+The rejection reason needs `21102026-vendor-rejection-reason` applied **before** the build: `REJECTION_REASON` is mapped on `dod-vend-profile`, so a build without the column breaks every vendor select.
+
+Non-negotiable still open: tenant-scoped vendor identity (`(phone, tenant)`). The rejection leg and the login-state panels are built; the legacy login is still phone-only across tenants, which matters for the dedicated-portal mode.
