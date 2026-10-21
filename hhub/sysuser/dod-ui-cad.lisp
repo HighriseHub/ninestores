@@ -34,6 +34,7 @@
 	  (companyadmin (get-login-user)))
       (setf params (acons "uri" (hunchentoot:request-uri*)  params))
       (setf params (acons "rolename" (com-hhub-attribute-role-name) params))
+      (setf params (acons "company" (get-login-company) params))
    (with-hhub-transaction "com-hhub-transaction-vendor-reject-action" params
      (let* ((id (hunchentoot:parameter "vendor-id"))
 	    (reason (hunchentoot:parameter "reason"))
