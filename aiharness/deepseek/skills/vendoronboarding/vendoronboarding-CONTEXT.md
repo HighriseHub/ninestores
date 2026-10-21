@@ -241,3 +241,22 @@ lock every cross-border vendor out on day one.
 | Template constants | `hhub/core/dod-ini-sys.lisp:42-48` |
 | All email senders | `hhub/email/templates/registration.lisp` |
 | Token substitution precedent + NIL trap | `../nil-safe-template-substitution-CONTEXT.md` |
+
+## 8. Two deployment modes — marketplace vs dedicated portal
+
+A B2B buyer has two choices, and the code treats both the same way: the approving `COMPADMIN` is whichever company owns the vendor's `TENANT_ID`.
+
+| Mode | Tenant / store | Company administrator | Approves |
+|---|---|---|---|
+| Marketplace | a Nine Technologies store (e.g. Nine Stores Bakery) | a Nine Technologies employee | vendors, products and customers for that store |
+| Dedicated | a new company row (e.g. ACME Bakery Procurement Portal) | the buyer's own employee, profile provisioned by Nine Technologies | its own vendors, products, customers and categories |
+
+E2, E3, the vendor queue, the product queue and the post-signup admin-contact block are all tenant-scoped, so no template or sender hardcodes Nine Technologies. The dedicated portal needs a real `COMPADMIN` email and phone; a placeholder makes E2 and the contact block point at nobody.
+
+## 9. Status at close — 2026-10-21
+
+Built: E1, E2, E3; the signup document prefix moved to warned profile dialogs; the post-signup pending page; the NULL-`APPROVAL_STATUS` product-approval fix.
+
+Open: E5 (status lookup), E4 (blocked by B1/B2/B5), the login-page four states plus dashboard checklist, E7, E6.
+
+Non-negotiable before the journey is complete: the rejection leg — fix B1 (`phone` → `phone-mobile`), add B2's reason, send E4 — and the login page naming PENDING/REJECTED. Without them a rejected vendor is a silent dead end. Tenant-scoped vendor identity (`(phone, tenant)`) is also non-negotiable for the dedicated-portal mode; the legacy login is phone-only across tenants.
