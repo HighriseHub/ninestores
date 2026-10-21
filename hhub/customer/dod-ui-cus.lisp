@@ -669,7 +669,9 @@ Only shows sections based on availability flags and customer type."
    the update and returns ONLY the redirect URL, which the generic redirect
    widget emits."
   (with-cust-session-check
-    (with-mvc-redirect-ui #'create-model-for-customer-update-action
+    (with-mvc-redirect-ui (if (equal (hunchentoot:parameter "doc-prefix-change") "Y")
+                              #'create-model-for-customer-docprefix-change
+                              #'create-model-for-customer-update-action)
                           #'create-widgets-for-genericredirect)))
 
 (defun create-model-for-customer-update-action ()
@@ -816,6 +818,24 @@ Only shows sections based on availability flags and customer type."
       (function (lambda () redirecturl)))))
 
       
+(defun create-model-for-customer-docprefix-change ()
+  "Explicit DOC_PREFIX change; existing orders keep their number. The generic !update freeze stays."
+  (let* ((customer (get-login-customer))
+         (row-id (slot-value customer 'row-id))
+         (tenant-id (slot-value customer 'tenant-id))
+         (requested (hunchentoot:parameter "doc-prefix"))
+         (redirecturl
+           (multiple-value-bind (ok message)
+               (nst-customer-doc-prefix-set row-id tenant-id requested)
+             (if ok
+                 (progn
+                   (setf (slot-value customer 'doc-prefix) requested)
+                   (logiamhere (format nil "customer ~D set DOC_PREFIX to ~A" row-id requested))
+                   "/hhub/nstcustprofilepage?docprefixok=1")
+                 (format nil "/hhub/nstcustprofilepage?docprefixerr=~A"
+                         (hunchentoot:url-encode message))))))
+    (function (lambda () redirecturl))))
+
 (defun modal.customer-change-pin ()
   (cl-who:with-html-output (*standard-output* nil)
     (with-html-div-row
@@ -1472,16 +1492,15 @@ Only shows sections based on availability flags and customer type."
                               (:div :class "alert alert-danger" :role "alert"
                                     (cl-who:str (cl-who:escape-string signup-error)))))
                            (:p :class "text-muted mb-4" (cl-who:str (format nil "Joining: ~A Store" cmpname)))
-                           ;; Read-Only Company Name
+                           ;; Read-Only Company Name — static label, not a control
                            (:div :class "mb-3 text-start"
-                             (:label :for "tenant-name" :class "form-label fw-bold" "Company:")
-                             (:input :class "form-control-plaintext border-bottom" :name "tenant-name"
-                                     :value (format nil "~A" cmpname) :type "text" :readonly T))
-                           ;; Read-Only Address
+                             (:label :class "form-label fw-bold d-block" "Company:")
+                             (:div :class "form-control-plaintext border-bottom" (cl-who:str (format nil "~A" cmpname)))
+                             (:input :type "hidden" :name "tenant-name" :value (format nil "~A" cmpname)))
+                           ;; Read-Only Address — static label, not a control
                            (:div :class "mb-4 text-start"
-                             (:label :for "address" :class "form-label fw-bold" "Address:")
-                             (:textarea :class "form-control-plaintext border-bottom" :name "address"
-                                        :rows "2" :readonly T (cl-who:str (format nil "~A" cmpaddress))))
+                             (:label :class "form-label fw-bold d-block" "Address:")
+                             (:div :class "form-control-plaintext border-bottom" (cl-who:str (format nil "~A" cmpaddress))))
                            ;; Registration Type Dropdown (CRITICAL for conditional logic)
                            (:div :class "mb-3 text-start"
                              (:label :for "reg-type" :class "form-label" "Register as:")
@@ -1520,11 +1539,6 @@ Only shows sections based on availability flags and customer type."
                                  (:label :class "form-label" "Trade / brand name")
                                  (:input :class "form-control" :name "trade-name" :type "text"
                                          :placeholder "Optional - the name your customers know" :maxlength "70"))
-                               (:div :class "mb-3"
-                                 (:label :class "form-label" "Document prefix")
-                                 (:input :class "form-control" :name "doc-prefix" :type "text"
-                                         :placeholder "3-8 letters or digits, e.g. ACME - blank derives it from the company name"
-                                         :maxlength "8" :pattern "[A-Za-z0-9]{3,8}"))
                                (:input :type "hidden" :name "country" :value (cl-who:str (or cmpcountry "IN")))
                                (:div :class "mb-3"
                                  (:label :class "form-label" "Registered address")
@@ -1615,7 +1629,6 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
 	 ;;(encryptedpass (check&encrypt password confirmpass salt))
 	 (company-name (hunchentoot:parameter "company-name"))
 	 (trade-name (hunchentoot:parameter "trade-name"))
-	 (doc-prefix (hunchentoot:parameter "doc-prefix"))
 	 (biz-address (hunchentoot:parameter "biz-address"))
 	 (biz-city (hunchentoot:parameter "biz-city"))
 	 (biz-state (hunchentoot:parameter "biz-state"))
@@ -1637,7 +1650,7 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
     ;; The identity block is the SAME for both personas (turn 51), so it is validated once.
     (let ((signup-errors (nst-validate-business-signup
 			  :company-name company-name :trade-name trade-name :contact-name name
-			  :prefix doc-prefix :phone phone :email email :country country
+			  :phone phone :email email :country country
 			  :address biz-address :city biz-city :state biz-state
 			  :zipcode biz-zipcode)))
       (when signup-errors
@@ -1672,9 +1685,6 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
 				     ;; first invoice dies on "vendor N has no SALT to sign it with".
 				     :salt (createciphersalt))))
 		(setf (hunchentoot:session-value :newvendorcreate) vendor)
-		(when (and doc-prefix (plusp (length doc-prefix)))
-		  (setf (hunchentoot:session-value :newvendorcreate-docprefix)
-			(string-upcase doc-prefix)))
 		(setf redirectlocation (generateotp&redirect persona purpose phone context)))))
       (when (equal reg-type "CUS")
 	(cond
@@ -1702,9 +1712,6 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
 					  :cust-type "STANDARD"
 					  :deleted-state "N")))
 	     (setf (hunchentoot:session-value :newcustomercreate) customer)
-	     (when (and doc-prefix (plusp (length doc-prefix)))
-	       (setf (hunchentoot:session-value :newcustomercreate-docprefix)
-		     (string-upcase doc-prefix)))
 	     (setf redirectlocation (generateotp&redirect persona purpose phone context)))))))
     ;; Universal Check 1: Check whether captcha has been solved (If this applies to ALL types)
     (when (null (cdr (car json-response))) (dod-response-captcha-error))
@@ -1735,12 +1742,6 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
 	 (progn
 	   ;; 1 
 	   (clsql:update-records-from-instance vendor)
-	   ;; the class has no DOC_PREFIX slot, so a chosen prefix is written by SQL like nst-vendor-doc-prefix-for does
-	   (let ((chosen (hunchentoot:session-value :newvendorcreate-docprefix)))
-	     (when (and chosen (slot-value vendor 'row-id))
-	       (clsql:execute-command
-		(format nil "UPDATE DOD_VEND_PROFILE SET DOC_PREFIX = '~A' WHERE ROW_ID = ~D"
-			(sql-literal chosen) (slot-value vendor 'row-id)))))
 	   (sleep 1) ; Sleep for 1 second after creating the vendor record.  
 	   (progn
 	     (create-vendor-tenant vendor "Y" company)
@@ -1757,19 +1758,57 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
 	     ;; E2: the company administrator is told, or nobody ever approves
 	     (send-vendor-admin-pending-email vendor company))
 	   ;; 4
-	   (with-no-navbar-page "Welcome to Nine Stores platform"
-	     (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
-	     (:a :href "/hhub/hhubvendloginv2" "Vendor Login"))))
+	   (let* ((tenant-id (slot-value company 'row-id))
+		  (admins (select-compadmin-contacts-for-tenant tenant-id))
+		  (contact (or (find-if (lambda (a) (getf a :email)) admins)
+			       (first admins)))
+		  (admin-emailed (find-if (lambda (a) (getf a :email)) admins)))
+	     (with-no-navbar-page "Vendor registration received"
+	       (:div :class "container"
+		 (:div :class "row"
+		   (:div :class "col-md-8 col-md-offset-2"
+		     (:div :class "panel panel-default"
+		       (:div :class "panel-heading"
+			 (:h3 :class "panel-title" "Vendor registration received"))
+		       (:div :class "panel-body"
+			 (:p "Thank you, " (:strong (cl-who:str (slot-value vendor 'name)))
+			     ". Your vendor registration with "
+			     (:strong (cl-who:str (slot-value company 'name))) " has been received.")
+			 (:div :class "alert alert-info"
+			   (:h4 "Approval is pending")
+			   (:p "A company administrator at "
+			       (:strong (cl-who:str (slot-value company 'name)))
+			       " must review and approve your registration before you can sign in.")
+			   (if admin-emailed
+			       (cl-who:htm (:p "We have emailed the administrator about your registration."))
+			       (cl-who:htm (:p "We could not find an administrator email on file. Please contact the store or our support team."))))
+			 (when contact
+			   (cl-who:htm
+			    (:div :class "well"
+			      (:h4 "Your approval contact")
+			      (when (getf contact :name)
+				(cl-who:htm (:p (:strong (cl-who:str (getf contact :name))))))
+			      (when (getf contact :email)
+				(cl-who:htm (:p "Email: " (:a :href (format nil "mailto:~A" (getf contact :email))
+							     (cl-who:str (getf contact :email))))))
+			      (when (getf contact :phone)
+				(cl-who:htm (:p "Phone: " (cl-who:str (getf contact :phone)))))
+			      (:p :class "text-muted" "Quote your registered phone number and company name when you follow up."))))
+			 (:h4 "What happens next")
+			 (:ol
+			  (:li "The company administrator reviews your registration.")
+			  (:li "We email you as soon as it is approved.")
+			  (:li "Only then can you sign in - with your phone and a one-time code. There is no password."))
+			 (:p "There is nothing else you need to do right now.")
+			 (:p "Need help? Write to "
+			     (:a :href (format nil "mailto:~A" *HHUBSUPPORTEMAIL*)
+				 (cl-who:str *HHUBSUPPORTEMAIL*))
+			     ".")
+			 (:a :class "btn btn-default" :href "/hhub/dodcustindex" "Return to store"))))))))))
         ((equal reg-type "CUS")  
 	 (progn 
 	   ;; 1 
 	   (clsql:update-records-from-instance customer)
-	   ;; the class has no DOC_PREFIX slot, so a chosen prefix is written by SQL (same as the vendor)
-	   (let ((chosen (hunchentoot:session-value :newcustomercreate-docprefix)))
-	     (when (and chosen (slot-value customer 'row-id))
-	       (clsql:execute-command
-		(format nil "UPDATE DOD_CUST_PROFILE SET DOC_PREFIX = '~A' WHERE ROW_ID = ~D"
-			(sql-literal chosen) (slot-value customer 'row-id)))))
 	   ;; 2
 	   (let ((name (slot-value customer 'name))
 		 (email (slot-value customer 'email)))
@@ -4125,7 +4164,14 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
          (form-snippet (extract-html-between-markets
                         customerprofilepagetempl
                         "<!--CUSTOMER_PROFILE_FORM_BEGIN-->"
-                        "<!--CUSTOMER_PROFILE_FORM_END-->")))
+                        "<!--CUSTOMER_PROFILE_FORM_END-->"))
+         (current-prefix (and customer (slot-value customer 'doc-prefix)))
+         (document-count (and customer
+                               (nst-customer-document-count
+                                (slot-value customer 'row-id)
+                                (slot-value customer 'tenant-id))))
+         (docprefix-ok (hunchentoot:parameter "docprefixok"))
+         (docprefix-err (hunchentoot:parameter "docprefixerr")))
     (unless form-snippet
       (error "Could not find the <!--CUSTOMER_PROFILE_FORM_BEGIN--> / <!--CUSTOMER_PROFILE_FORM_END--> markers in the customer profile template."))
 
@@ -4186,13 +4232,14 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
     ;; widget layer can wrap it in the <form> without repeating the
     ;; create/edit decision logic.
     (function (lambda ()
-      (values form-snippet action)))))
+      (values form-snippet action current-prefix document-count docprefix-ok docprefix-err)))))
 
 (defun create-widgets-for-customer-profile-page (modelfunc)
   ;; The model hands us the form-content fragment and the action it should
   ;; POST to.  Wrap the fragment with with-html-form-having-submit-event so
   ;; the form submission is wired up via parenscript-generated frontend JS.
-  (multiple-value-bind (form-snippet action) (funcall modelfunc)
+  (multiple-value-bind (form-snippet action current-prefix document-count docprefix-ok docprefix-err)
+      (funcall modelfunc)
     (let ((widget1 (function (lambda ()
                   (cl-who:with-html-output (*standard-output* nil)
                     (with-html-form-having-submit-event "customerprofileform" action
@@ -4209,7 +4256,11 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
 			                                            (or (parenscript:chain document (get-element-by-id "idcustomerprofileform"))
 			                                                (parenscript:chain document (query-selector "form[name=\"customerprofileform\"]")))))
 			                                      (enable-tab-aware-form-validation warehouse-form)))))))))))))
-      (list widget1 widget2))))
+      (let ((widget3 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(cl-who:str (render-doc-prefix-change-card
+				     :customer current-prefix document-count action docprefix-ok docprefix-err)))))))
+        (list widget1 widget2 widget3)))))
 
 
 

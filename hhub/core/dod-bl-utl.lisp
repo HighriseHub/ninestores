@@ -1669,6 +1669,29 @@ corresponding universal time."
                      chosen vendor-id))
             chosen)))))
 
+(defun nst-vendor-document-count (vendor-id tenant-id)
+  "How many invoices already carry this vendor's prefix, within TENANT-ID."
+  (first (clsql:query (format nil "SELECT COUNT(*) FROM `DOD_INVOICE_HEADER` ~
+                                    WHERE `VENDOR_ID` = ~D AND `TENANT_ID` = ~D"
+                              vendor-id tenant-id)
+                      :flatp t)))
+
+(defun nst-doc-prefix-change-refusal (requested current)
+  "NIL when REQUESTED may replace CURRENT; otherwise the sentence explaining the refusal."
+  (cond
+    ((or (null requested) (string= requested ""))
+     "Enter the new document prefix.")
+    ((not (nst-doc-prefix-valid-p requested))
+     "Use 3 to 8 characters: capital A-Z and digits 0-9 only, no spaces or hyphens.")
+    ((and current (string-equal requested current))
+     "That is already your document prefix.")
+    (t
+     (handler-case
+         (when (find requested (nst-vendor-doc-prefix-taken) :test #'string-equal)
+           "That prefix is already used by another customer or vendor. Choose another.")
+       (error (c)
+         (format nil "Could not check the prefix register: ~A" c))))))
+
 (defun nst-order-number-for (template customer-prefix order-date tenant-id cust-id
                                       &key counter key)
   "The next ORDER number for CUST-ID on ORDER-DATE, allocated from the counter and

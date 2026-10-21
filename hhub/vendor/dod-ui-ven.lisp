@@ -820,8 +820,11 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			    (:button :class "btn btn-lg btn-primary btn-block" :type "submit" "Save"))))))))
 
 (defun dod-controller-vendor-update-action ()
-  (with-vend-session-check 
-    (with-mvc-redirect-ui #'create-model-for-vendorupdateaction #'create-widgets-for-genericredirect)))
+  (with-vend-session-check
+    (with-mvc-redirect-ui (if (equal (hunchentoot:parameter "doc-prefix-change") "Y")
+                              #'create-model-for-vendor-docprefix-change
+                              #'create-model-for-vendorupdateaction)
+                          #'create-widgets-for-genericredirect)))
 
 (defun create-model-for-vendorupdateaction ()
   "Model for the vendor profile update action. Reads every posted field of
@@ -920,6 +923,23 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
       ;; genericredirect consumes to emit the browser redirect.
       (function (lambda () redirecturl)))))
 
+
+(defun create-model-for-vendor-docprefix-change ()
+  "Explicit DOC_PREFIX change; existing invoices keep their number. The generic update freeze stays."
+  (let* ((vendor (get-login-vendor))
+         (row-id (slot-value vendor 'row-id))
+         (tenant-id (slot-value vendor 'tenant-id))
+         (requested (hunchentoot:parameter "doc-prefix"))
+         (redirecturl
+           (multiple-value-bind (ok message)
+               (nst-vendor-doc-prefix-set row-id tenant-id requested)
+             (if ok
+                 (progn
+                   (logiamhere (format nil "vendor ~D set DOC_PREFIX to ~A" row-id requested))
+                   "/hhub/nstvendprofilepage?docprefixok=1")
+                 (format nil "/hhub/nstvendprofilepage?docprefixerr=~A"
+                         (hunchentoot:url-encode message))))))
+    (function (lambda () redirecturl))))
 
 (defun modal.vendor-update-UPI-payment-settings-page ()
   (let* ((vendor (get-login-vendor))
@@ -3693,7 +3713,14 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
          (form-snippet (extract-html-between-markets
                         vendorprofilepagetempl
                         "<!--VENDOR_PROFILE_FORM_BEGIN-->"
-                        "<!--VENDOR_PROFILE_FORM_END-->")))
+                        "<!--VENDOR_PROFILE_FORM_END-->"))
+         (current-prefix (and vendor (nst-vendor-doc-prefix-read (slot-value vendor 'row-id))))
+         (document-count (and vendor
+                              (nst-vendor-document-count
+                               (slot-value vendor 'row-id)
+                               (slot-value vendor 'tenant-id))))
+         (docprefix-ok (hunchentoot:parameter "docprefixok"))
+         (docprefix-err (hunchentoot:parameter "docprefixerr")))
     (unless form-snippet
       (error "Could not find the <!--VENDOR_PROFILE_FORM_BEGIN--> / <!--VENDOR_PROFILE_FORM_END--> markers in the vendor profile template."))
 
@@ -3746,13 +3773,14 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
     ;; widget layer can wrap it in the <form> without repeating the
     ;; action decision logic.
     (function (lambda ()
-      (values form-snippet action)))))
+      (values form-snippet action current-prefix document-count docprefix-ok docprefix-err)))))
 
 (defun create-widgets-for-vendor-profile-page (modelfunc)
   ;; The model hands us the form-content fragment and the action it should
   ;; POST to.  Wrap the fragment with with-html-form-having-submit-event so
   ;; the form submission is wired up via parenscript-generated frontend JS.
-  (multiple-value-bind (form-snippet action) (funcall modelfunc)
+  (multiple-value-bind (form-snippet action current-prefix document-count docprefix-ok docprefix-err)
+      (funcall modelfunc)
     (let ((widget1 (function (lambda ()
                   (cl-who:with-html-output (*standard-output* nil)
                     (with-html-form-having-submit-event "vendorprofileform" action
@@ -3769,4 +3797,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			                                            (or (parenscript:chain document (get-element-by-id "idvendorprofileform"))
 			                                                (parenscript:chain document (query-selector "form[name=\"vendorprofileform\"]")))))
 			                                      (enable-tab-aware-form-validation vendor-form)))))))))))))
-      (list widget1 widget2))))
+      (let ((widget3 (function (lambda ()
+		      (cl-who:with-html-output (*standard-output* nil)
+			(cl-who:str (render-doc-prefix-change-card
+				     :vendor current-prefix document-count action docprefix-ok docprefix-err)))))))
+        (list widget1 widget2 widget3)))))

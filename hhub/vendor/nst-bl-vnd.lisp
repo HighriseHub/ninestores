@@ -482,6 +482,23 @@
                                  [= [:tenant-id] tenant-id]]
                      :caching *dod-database-caching* :flatp t)))
 
+(defun nst-vendor-doc-prefix-set (vendor-id tenant-id requested)
+  "The explicit writer for a vendor's DOC_PREFIX: validates, then stores. Returns (values OK MESSAGE)."
+  (let* ((row (select-vendor-by-id-in-tenant vendor-id tenant-id))
+         (current (and row (slot-value row 'doc-prefix)))
+         (refusal (if row
+                      (nst-doc-prefix-change-refusal requested current)
+                      "That vendor record no longer exists.")))
+    (if refusal
+        (values nil refusal)
+        (handler-case
+            (progn
+              (setf (slot-value row 'doc-prefix) requested)
+              (clsql:update-record-from-slot row 'doc-prefix)
+              (values t requested))
+          (error (c)
+            (values nil (format nil "Could not change the prefix: ~A" c)))))))
+
 (defmethod fetch ((entity-class (eql 'nst-vnd)) (id string) (ctx domain-ctx))
   "स्मरण प्रत्यय — recall one vendor by row-id, WITHIN THE SESSION TENANT.
 

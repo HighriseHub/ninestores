@@ -31,6 +31,7 @@
     ;; initialise the dbservice with vendor object. 
     (setcompany dbas company)
     (db-save dbas)
+    (send-vendor-approved-email dbvendor company)
     (Copy-DBObject-To-BusinessObject dbas)))
     
 (defun reject-vendor (vendor companyadmin)

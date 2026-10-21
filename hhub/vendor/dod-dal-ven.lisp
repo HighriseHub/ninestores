@@ -362,6 +362,13 @@
     :void-value "undefined"
     :initarg :invoice-settings)
 
+   (doc-prefix
+    :type (string 8)
+    :column "DOC_PREFIX"
+    :void-value nil
+    :initform nil
+    :initarg :doc-prefix)
+
    (legal-name
     :type (string 255)
     :initarg :legal-name)
