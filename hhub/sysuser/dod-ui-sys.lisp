@@ -1130,6 +1130,7 @@
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginotpstep"  'dod-controller-vend-login-otpstep)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginwithotp"  'dod-controller-vend-login-with-otp)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendloginv2"  'dod-controller-vendor-otploginpage)
+	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendstatusmail"  'dod-controller-vendor-status-mail)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvendprodpricingsaveaction"  'dod-controller-vendor-product-pricing-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/hhubvpmupdateaction"  'dod-controller-vendor-payment-methods-update-action)
 	(hunchentoot:create-regex-dispatcher "^/hhub/displayinvoices" 'com-hhub-transaction-show-invoices-page)

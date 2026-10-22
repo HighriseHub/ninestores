@@ -50,6 +50,8 @@
 (defvar *HHUB-VENDOR-ADMIN-PENDING-TEMPLATE-FILE* "vend-admin-pending.html")
 (defvar *HHUB-VENDOR-APPROVED-TEMPLATE-FILE* "vend-approved.html")
 (defvar *HHUB-VENDOR-REJECTED-TEMPLATE-FILE* "vend-rejected.html")
+(defvar *HHUB-VENDOR-STATUS-TEMPLATE-FILE* "vend-status.html")
+(defvar *HHUB-CUSTOMER-REGISTERED-TEMPLATE-FILE* "cust-registered.html")
 (defvar *HHUB-TERMSANDCONDITIONS-FILE* "tnc.html")
 (defvar *HHUB-PRIVACY-FILE* "privacy.html")
 (defvar *HHUB-STATIC-FILES* "/home/ubuntu/ninestores/site/public")
@@ -621,16 +623,26 @@ a caller that has already been told `reconnected' is never handed a dead connect
 ;;;;;;;;;;;;;;;;;;EMAIL TEMPLATES ;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun nst-load-email-templates ()
-  :documentation "Load the product templates at startup"
-  (let* ((order-email-template (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*))))
+  :documentation "Read every .html in the email folder ONCE at startup, keyed by bare filename.
+The template set is scanned rather than enumerated, so a new mail file is cached without editing a list."
+  (let ((alist (mapcar (lambda (path)
+			 (cons (file-namestring path) (hhub-read-file (namestring path))))
+		       (directory (format nil "~A/*.html" *HHUB-EMAIL-TEMPLATES-FOLDER*)))))
     (function (lambda ()
-      (values (function (lambda () order-email-template)))))))
+      (values alist)))))
+
+(defun nst-cached-email-template (filename)
+  :documentation "The cached body for FILENAME, or a per-send read when the cache is not up
+(REPL, tests, early startup). A cached body is fixed until the image restarts — the cost of caching."
+  (or (and *NST-EMAIL-TEMPLATES*
+	   (cdr (assoc filename (funcall *NST-EMAIL-TEMPLATES*) :test #'string-equal)))
+      (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* filename))))
 
 (defun nst-get-cached-email-template-func (&key templatenum)
-  :documentation "returns the function responsible for product HTML template. Call the returning function to get the HTML."
-  (multiple-value-bind (orderemailtempl) (funcall *NST-EMAIL-TEMPLATES*)
-    (case templatenum
-      (1 orderemailtempl))))
+  :documentation "Legacy accessor used by the guest-order actor behaviour: returns a function
+that returns the body text. Kept so send-order-email-behavior is unchanged."
+  (case templatenum
+    (1 (lambda () (nst-cached-email-template *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*)))))
 
 
 

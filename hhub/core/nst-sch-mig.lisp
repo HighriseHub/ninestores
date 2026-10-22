@@ -94,6 +94,7 @@
     ("14102026-customer-invoice-list-policy"   migrate-2026Oct-cusinv-listpage-policy-and-transaction   "Customer invoice register ABAC seed")
     ("17102026-vendor-order-updated-column"   migrate-2026Oct-vendor-order-updated-column   "DOD_VENDOR_ORDERS.UPDATED restore (prod drift: 59 of 60 columns)")
     ("21102026-vendor-rejection-reason"   migrate-2026Oct-vendor-rejection-reason   "Vendor rejection reason column")
+    ("22102026-customer-approval"   migrate-2026Oct-customer-approval   "Customer approval: rejection reason + existing-buyer backfill")
     ))
 
 

@@ -402,6 +402,16 @@ Call STOP-NST-SERVER to revert, in reverse registration order."
                                           :initial-state 0
                                           :retry-limit 1
                                           :retry-delay 2
+                                          :max-queue-size 200))
+                     (cons :customer
+                           (make-instance 'nst-actor
+                                          :name "Customer Email Actor"
+                                          :behavior #'send-generic-email-behavior
+                                          :stateful t
+                                          :state-clean-callback (function (lambda (actor) (declare (ignore actor)) nil))
+                                          :initial-state 0
+                                          :retry-limit 1
+                                          :retry-delay 2
                                           :max-queue-size 200))))
          (dolist (pair *NST-EMAIL-ACTORS*)
            (register-actor (cdr pair))

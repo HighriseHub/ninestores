@@ -341,6 +341,10 @@
    (approved-by
     :initarg :approved-by
     :accessor approved-by)
+   (rejection-reason
+    :initarg :rejection-reason
+    :accessor rejection-reason
+    :initform nil)
    (cust-type
     :initarg :cust-type
     :accessor cust-type)
@@ -592,6 +596,10 @@
    (approved-by
     :initarg :approved-by
     :accessor approved-by)
+   (rejection-reason
+    :initarg :rejection-reason
+    :accessor rejection-reason
+    :initform nil)
    (cust-type
     :initarg :cust-type
     :accessor cust-type)
@@ -933,6 +941,14 @@
    (approved-by 
     :type (string 30) 
     :initarg :approved-by)
+   
+   (rejection-reason
+    :accessor rejection-reason
+    :type (string 500)
+    :column "REJECTION_REASON"
+    :void-value nil
+    :initform nil
+    :initarg :rejection-reason)
    
    (cust-type 
     :type (string 50) 

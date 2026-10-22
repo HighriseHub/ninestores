@@ -103,7 +103,7 @@
 					     (:a :class "button raised" :href verify-url :target "_blank" :style "font-size: 14px; line-height: 14px; font-weight: 500; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; :border-radius: 3px; padding: 10px 25px; :border: 1px solid #17bef7; display: inline-block;" "Activate Your Account") )))))))))))))
 
 (defmethod send-test-email (customer)
-  (let* ((reg-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-REG-TEMPLATE-FILE*)))
+  (let* ((reg-templ-str (nst-cached-email-template *HHUB-CUST-REG-TEMPLATE-FILE*))
 	(cust-reg-email (format nil reg-templ-str (slot-value customer 'name)))) 
   (hhubsendmail "<<enter email to send>>" "Welcome to Nine Stores" cust-reg-email)))
 
@@ -111,20 +111,20 @@
 
 (defun send-password-reset-link (object url) 
   :documentation "Here object is either CUSTOMER, VENDOR OR EMPLOYEE"
-  (let* ((password-reset-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-PASSWORD-RESET-FILE* )))
+  (let* ((password-reset-str (nst-cached-email-template *HHUB-CUST-PASSWORD-RESET-FILE*))
 	 (email (slot-value object 'email))
 	 (password-reset-email (format nil password-reset-str url url)))
   (send-email-async email  "Your Password Reset Link" password-reset-email)))
 
 (defun send-temp-password  (object temp-pass url)
-  (let* ((temp-password-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-TEMP-PASSWORD-FILE* )))
+  (let* ((temp-password-str (nst-cached-email-template *HHUB-CUST-TEMP-PASSWORD-FILE*))
 	 (email (slot-value object 'email))
 	 (temp-password-email (format nil temp-password-str temp-pass url ))) 
   (send-email-async email  "Your Password Has Been Reset" temp-password-email)))
 
 
 (defun send-new-company-registration-email  (object custname phone email )
-  (let* ((temp-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-NEW-COMPANY-REQUEST*)))
+  (let* ((temp-str (nst-cached-email-template *HHUB-NEW-COMPANY-REQUEST*))
 	 (cmpname (slot-value object 'name))
 	 (cmpaddress (slot-value object 'address))
 	 (cmpcity (slot-value object 'city))
@@ -138,13 +138,13 @@
 
 (defun send-contactus-email (firstname lastname businessname email subject message)
   :documentation "Send the email with data filled from the contact us form"
-(let* ((temp-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER*  *HHUB-CONTACTUS-EMAIL-TEMPLATE* )))
+(let* ((temp-str (nst-cached-email-template *HHUB-CONTACTUS-EMAIL-TEMPLATE*))
       (temp-str-email (format nil temp-str firstname lastname businessname email message)))
   (send-email-async *HHUBSUPPORTEMAIL* subject temp-str-email)))
 
   
 (defun send-registration-email (name email)
-  (let* ((reg-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-CUST-REG-TEMPLATE-FILE*)))
+  (let* ((reg-templ-str (nst-cached-email-template *HHUB-CUST-REG-TEMPLATE-FILE*))
 	 (cust-reg-email (format nil reg-templ-str name)))
     (send-email-async email "Welcome to Nine Stores" cust-reg-email)))
 
@@ -158,17 +158,35 @@
       (setf template (cl-ppcre:regex-replace-all (car pair) template
 						 (if value (princ-to-string value) ""))))))
 
+(defun send-customer-registered-email (customer company)
+  :documentation "Customer onboarding C1: the buyer row is committed and the company administrator holds the approval. Queued on the customer persona actor; a mail failure must never roll back the registration."
+  (let ((to (slot-value customer 'email))
+	(cmpname (slot-value company 'name)))
+    (when to
+      (let ((body (hhub-fill-email-template
+		   (nst-cached-email-template *HHUB-CUSTOMER-REGISTERED-TEMPLATE-FILE*)
+		   (list (cons "%CompanyName%" cmpname)
+			 (cons "%CustomerName%" (slot-value customer 'name))
+			 (cons "%CustomerPhone%" (slot-value customer 'phone))
+			 (cons "%CustomerEmail%" to)
+			 (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
+	(hhub-log-message (format nil "~&[customer-onboarding] C1 -> ~A (customer ~A, tenant ~A)~%"
+				  to (slot-value customer 'name) (slot-value company 'row-id)))
+	(send-email-async to (format nil "Registration received - ~A on Nine Stores" cmpname)
+			 body nil :persona :customer)))))
+
 (defun send-vendor-registered-email (vendor company)
   :documentation "Vendor onboarding E1: the row is committed, the company administrator holds the approval, and the vendor cannot sign in yet. A mail failure must never roll back the registration."
   (let ((to (slot-value vendor 'email))
 	(cmpname (slot-value company 'name)))
     (when to
-      (let* ((templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-VENDOR-REGISTERED-TEMPLATE-FILE*)))
+      (let* ((templ-str (nst-cached-email-template *HHUB-VENDOR-REGISTERED-TEMPLATE-FILE*))
 	     (body (hhub-fill-email-template templ-str
 					     (list (cons "%CompanyName%" cmpname)
 						   (cons "%VendorName%" (slot-value vendor 'name))
 						   (cons "%VendorPhone%" (slot-value vendor 'phone))
 						   (cons "%VendorEmail%" to)
+						   (cons "%StatusUrl%" (format nil "~A/hhub/hhubvendloginv2?status=1" *siteurl*))
 						   (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
 	(hhub-log-message (format nil "~&[vendor-onboarding] E1 -> ~A (vendor ~A, tenant ~A)~%"
 				  to (slot-value vendor 'name) (slot-value company 'row-id)))
@@ -186,7 +204,7 @@
     (hhub-log-message (format nil "~&[vendor-onboarding] E2 -> ~A (admin of tenant ~A ~A, vendor ~A)~%"
 			      recipients tenant-id cmpname vname))
     (when recipients
-      (let ((templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-VENDOR-ADMIN-PENDING-TEMPLATE-FILE*))))
+      (let ((templ-str (nst-cached-email-template *HHUB-VENDOR-ADMIN-PENDING-TEMPLATE-FILE*)))
 	(dolist (admin-email recipients)
 	  (let ((body (hhub-fill-email-template templ-str
 						(list (cons "%VendorName%" vname)
@@ -199,7 +217,8 @@
 						      (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
 	    (send-email-async admin-email
 			      (format nil "Approval needed - ~A registered as a vendor" vname)
-			      body nil :persona :admin)))))))
+			      body nil :persona :admin))))
+      (and recipients t))))
 
 (defun send-vendor-approved-email (vendor company)
   :documentation "Vendor onboarding E3: the approval is committed; tell the vendor they are live and give them the three jobs. A mail failure must never roll back the approval."
@@ -207,7 +226,7 @@
       (let ((to (slot-value vendor 'email))
 	    (cmpname (and company (slot-value company 'name))))
 	(when (and to cmpname)
-	  (let* ((templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-VENDOR-APPROVED-TEMPLATE-FILE*)))
+	  (let* ((templ-str (nst-cached-email-template *HHUB-VENDOR-APPROVED-TEMPLATE-FILE*))
 		 (body (hhub-fill-email-template templ-str
 						 (list (cons "%CompanyName%" cmpname)
 						       (cons "%VendorName%" (slot-value vendor 'name))
@@ -242,7 +261,7 @@
 		 (admin-phone (format nil "Contact the company administrator on ~A." admin-phone))
 		 (t "Contact the company administrator through the store."))))
 	(when (and to cmpname)
-	  (let* ((templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-VENDOR-REJECTED-TEMPLATE-FILE*)))
+	  (let* ((templ-str (nst-cached-email-template *HHUB-VENDOR-REJECTED-TEMPLATE-FILE*))
 		 (body (hhub-fill-email-template templ-str
 						 (list (cons "%CompanyName%" cmpname)
 						       (cons "%VendorName%" (slot-value vendor 'name))
@@ -258,9 +277,65 @@
 				(ignore-errors (slot-value vendor 'name)) c))
       nil)))
 
+(defun send-vendor-status-email (vendor company state &key renotified-p)
+  :documentation "Vendor onboarding E5: email the vendor their registration state; the login page always shows the same sentence."
+  (handler-case
+      (let* ((to (slot-value vendor 'email))
+	     (cmpname (and company (slot-value company 'name)))
+	     (vname (slot-value vendor 'name))
+	     (admin-line
+	       (when (eq state :rejected)
+		 (let* ((admins (and company (select-compadmin-contacts-for-tenant (slot-value company 'row-id))))
+			(admin (or (find-if (lambda (a) (getf a :email)) admins) (first admins))))
+		   (if admin
+		       (let ((name (getf admin :name))
+			     (email (getf admin :email))
+			     (phone (getf admin :phone)))
+			 (cond ((and name email phone) (format nil "Contact ~A at ~A or ~A." name email phone))
+			       ((and name email) (format nil "Contact ~A at ~A." name email))
+			       (email (format nil "Contact the company administrator at ~A." email))
+			       (phone (format nil "Contact the company administrator on ~A." phone))
+			       (t "Contact the company administrator through the store.")))
+		       "Contact the company administrator through the store."))))
+	     (state-line (case state
+			   (:pending (format nil "Waiting for approval by ~A." (or cmpname "the store")))
+			   (:approved "Approved. You can sign in now.")
+			   (:rejected (format nil "Not approved by ~A." (or cmpname "the store")))
+			   (:stranded "Approved, but the account is not fully activated.")
+			   (otherwise "No registration found for this number.")))
+	     (next-step (case state
+			  (:pending (if renotified-p
+					"The company administrator has been re-notified; nothing else is needed from you right now."
+					"The company administrator has your registration; nothing else is needed from you right now."))
+			  (:approved "Sign in with your registered phone and the one-time code we SMS you.")
+			  (:rejected (or admin-line "Contact the company administrator through the store."))
+			  (:stranded (format nil "We have flagged this to ~A; reply with your registered phone number." *HHUBSUPPORTEMAIL*))
+			  (otherwise "You can register from the store's sign-up page.")))
+	     (action-block (if (eq state :approved)
+			       (format nil "<p style=\"margin:24px 0;\"><a href=\"~A\" style=\"display:inline-block; padding:12px 20px; background:#2563eb; color:#ffffff; text-decoration:none; border-radius:6px;\">Sign in</a></p>"
+				       (format nil "~A/hhub/hhubvendloginv2" *siteurl*))
+			       "")))
+	(when (and to cmpname)
+	  (let* ((templ-str (nst-cached-email-template *HHUB-VENDOR-STATUS-TEMPLATE-FILE*))
+		 (body (hhub-fill-email-template templ-str
+						 (list (cons "%CompanyName%" cmpname)
+						       (cons "%VendorName%" vname)
+						       (cons "%StateLine%" state-line)
+						       (cons "%NextStepLine%" next-step)
+						       (cons "%ActionBlock%" action-block)
+						       (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
+	    (hhub-log-message (format nil "~&[vendor-onboarding] E5 -> ~A (vendor ~A, tenant ~A, state ~A)~%"
+				      to vname (slot-value company 'row-id) state))
+	    (send-email-async to (format nil "Your ~A registration status" cmpname) body nil :persona :vendor)
+	    t)))
+    (error (c)
+      (hhub-log-message (format nil "~&[vendor-onboarding] E5 FAILED for vendor ~A: ~A~%"
+				(ignore-errors (slot-value vendor 'name)) c))
+      nil)))
+
 (defun send-order-mail (email subject  order-disp-str)
   :documentation "Renders the guest order email and hands it to the shared email actor, so the calling request does not wait for SMTP."
-  (let* ((order-templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*)))
+  (let* ((order-templ-str (nst-cached-email-template *HHUB-GUEST-CUST-ORDER-TEMPLATE-FILE*))
 	 (cust-order-email (format nil order-templ-str order-disp-str)))
     (send-email-async email subject cust-order-email)))
 

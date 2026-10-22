@@ -874,7 +874,6 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (gstregistrationtype (hunchentoot:parameter "gstregistrationtype"))
 	   (gstfilingfrequency (hunchentoot:parameter "gstfilingfrequency"))
 	   (paymentgatewaymode (hunchentoot:parameter "paymentgatewaymode"))
-	   (approvalstatus (hunchentoot:parameter "approvalstatus"))
 	   ;; Optional picture upload (only posted by the legacy Contact
 	   ;; Information modal; the tabbed profile form has no file input)
 	   (prodimageparams (hunchentoot:post-parameter "picturepath"))
@@ -906,8 +905,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			      'upi-id upi-id
 			      'gst-registration-type gstregistrationtype
 			      'gst-filing-frequency gstfilingfrequency
-			      'payment-gateway-mode paymentgatewaymode
-			      'approval-status approvalstatus))
+			      'payment-gateway-mode paymentgatewaymode))
 	   (redirecturl "/hhub/dodvendprofile"))
       (with-nst-error-handler
 	  (progn
@@ -1723,6 +1721,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    ;;<!-- Title -->
 		    (:h1 :class "text-2xl font-bold mb-2" "Welcome to Nine Stores")
 		    (:p :class "text-gray-300 mb-6" "Vendor OTP Login Portal")
+		     (when (equal (hunchentoot:parameter "statusmail") "1")
+		       (cl-who:htm
+			(:div :class "mb-4 rounded-lg border border-sky-400/40 bg-sky-400/10 p-3 text-sm text-sky-100"
+			  "If that number is registered, we have emailed the status.")))
 		     (when (hunchentoot:session-value :vendor-login-state)
 		       (let ((state (hunchentoot:session-value :vendor-login-state)))
 			 (setf (hunchentoot:session-value :vendor-login-state) nil)
@@ -1741,6 +1743,14 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				      "Get OTP")))
 		     ;;<!-- Divider -->
 		     (:div :class "my-6 border-t border-white/20")
+		     (:details :class "mt-6 text-left" :open (when (equal (hunchentoot:parameter "status") "1") "open")
+		       (:summary :class "cursor-pointer text-sm text-gray-300 hover:text-white" "Email me my status")
+		       (:form :method "POST" :action "hhubvendstatusmail" :class "mt-3 space-y-3"
+			      (:input :type "number" :name "phone" :required "true" :placeholder "Registered phone"
+				      :class "w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder-gray-300 text-white")
+			      (:button :type "submit"
+				       :class "w-full py-2 bg-white/10 hover:bg-white/20 border border-white/30 rounded-lg text-white font-semibold text-sm"
+				       "Email me my status")))
 		     ;;<!-- Alternative login -->
 		     
 		     ;;<!-- Footer -->
@@ -2002,6 +2012,33 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (with-vend-session-check
     (with-mvc-ui-page "Vendor Shipping Methods for E-Commerce" #'create-model-for-vendshippingmethods #'create-widgets-for-vendshippingmethods :role :vendor)))
 
+(defun render-shipping-help ()
+  "The collapsible shipping help card for hhubvendorshipmethods."
+  (cl-who:with-html-output-to-string (*standard-output* nil)
+    (:div :class "card border-0 shadow-sm rounded-4 mb-4"
+      (:div :class "card-body text-start"
+        (:div :class "d-flex flex-wrap justify-content-between align-items-center gap-2"
+          (:h4 :class "card-title mb-1" "How these shipping settings work")
+          (:button :class "btn btn-sm btn-outline-secondary" :type "button"
+                   :data-bs-toggle "collapse" :data-bs-target "#shippingHelp"
+                   :aria-expanded "true" :aria-controls "shippingHelp"
+                   "Show / hide help"))
+        (:div :class "collapse show" :id "shippingHelp"
+          (:p :class "small text-muted" "A guide only - it does not change any setting.")
+          (:h6 :class "mt-3" "Free Shipping")
+          (:p :class "small" "Seeded as a rate at registration, but the master Shipping switch is off. It applies when you enable Shipping and the order value reaches the minimum amount; set the minimum to 0 to make it always free.")
+          (:h6 :class "mt-3" "Flat Rate Shipping")
+          (:p :class "small" "One charge for the order (or per item, depending on the type). Use it when your delivery cost does not vary by location.")
+          (:h6 :class "mt-3" "Zonewise Shipping")
+          (:p :class "small" "Varies the rate by PIN-code zone. The Zonewise Shipping page takes the rate-table CSV and the zones/pincodes CSV, with sample files linked there. This is the only method that prices different areas differently.")
+          (:h6 :class "mt-3" "External Shipping Partners")
+          (:p :class "small" "Use this only if a courier or provider gives you a key and secret to calculate rates.")
+          (:h6 :class "mt-3" "Select Default Shipping Method")
+          (:p :class "small" "This is where you enable Shipping and/or Store Pickup. If both are off, the store treats you as not using shipping - fine for digital products or POS. When more than one paid method is enabled, the default decides which one the storefront uses.")
+          (:p :class "small text-muted mb-0" "On day one the Free Shipping rate is seeded, but Shipping and Store Pickup are both off. Enable one if you deliver; leave both off for digital products or POS."))))
+    (:script :type "text/javascript"
+      (cl-who:str "if (window.matchMedia('(max-width: 991.98px)').matches) { var h=document.getElementById('shippingHelp'); if(h){h.classList.remove('show');} var b=document.querySelector('[data-bs-target=\"#shippingHelp\"]'); if(b){b.setAttribute('aria-expanded','false');} }"))))
+
 (defun create-model-for-vendshippingmethods ()
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
@@ -2021,6 +2058,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (multiple-value-bind (vendor shippingmethod flatrateshipenabled flatratetype flatrateprice extshipenabled shippartnerkey shippartnersecret minorderamt freeshipenabled) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
+		       (cl-who:str (render-shipping-help))
 		       (:br)
 		       (:div :class "list-group col-6"
 			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendfreeshipping-modal")  :href "#"  "Free Shipping")
@@ -2451,6 +2489,51 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		  :company (and company (slot-value company 'name))
 		  :reason (slot-value vendor 'rejection-reason)
 		  :admin admin))))))
+
+(defvar *vendor-status-mail-last-sent* (make-hash-table :test 'equal))
+(defvar *vendor-status-mail-lock* (sb-thread:make-mutex :name "vendor-status-mail"))
+(defparameter *vendor-status-mail-interval* 600)
+
+(defun vendor-status-mail-allowed-p (phone)
+  (sb-thread:with-mutex (*vendor-status-mail-lock*)
+    (let ((last (gethash phone *vendor-status-mail-last-sent*)))
+      (or (null last)
+	  (>= (- (get-universal-time) last) *vendor-status-mail-interval*)))))
+
+(defun vendor-status-mail-mark-sent (phone)
+  (sb-thread:with-mutex (*vendor-status-mail-lock*)
+    (setf (gethash phone *vendor-status-mail-last-sent*) (get-universal-time))))
+
+(defun dod-vendor-status-for-phone (phone)
+  "Resolve PHONE to its vendor row, company and one of the five E5 states."
+  (let* ((vendor (car (clsql:select 'dod-vend-profile :where [and
+				  [= [:phone] phone]
+				  [= [:deleted-state] "N"]]
+			   :caching nil :flatp t)))
+	 (company (and vendor (vendor-login-company vendor))))
+    (if (null vendor)
+	(list :state :no-row)
+	(list :state (cond ((and (equal (slot-value vendor 'approved-flag) "Y")
+				 (equal (slot-value vendor 'approval-status) "APPROVED")) :approved)
+			   ((equal (slot-value vendor 'approval-status) "REJECTED") :rejected)
+			   ((equal (slot-value vendor 'approved-flag) "Y") :stranded)
+			   (t :pending))
+	      :vendor vendor
+	      :company company))))
+
+(defun dod-controller-vendor-status-mail ()
+  (let ((phone (hunchentoot:post-parameter "phone")))
+    (when (and phone (plusp (length phone)) (vendor-status-mail-allowed-p phone))
+      (let* ((status (dod-vendor-status-for-phone phone))
+	     (vendor (getf status :vendor))
+	     (company (getf status :company))
+	     (state (getf status :state))
+	     (renotified (and vendor company (slot-value vendor 'email) (eq state :pending)
+			      (not (null (ignore-errors (send-vendor-admin-pending-email vendor company)))))))
+	(when (and vendor company
+		   (send-vendor-status-email vendor company state :renotified-p renotified))
+	  (vendor-status-mail-mark-sent phone))))
+    (hunchentoot:redirect "/hhub/hhubvendloginv2?statusmail=1")))
 
 (defun render-vendor-login-state (state)
   "Render the login-page panel for one non-approved vendor state."
@@ -3122,9 +3205,105 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
                                              "col-md-6 col-lg-4 col-xl-3"
                                              order-table-header 'vendor-order-row)))))
 
+(defun vendor-setup-status ()
+  "The four scored setup items and the shipping note for the vendor dashboard guide."
+  (let* ((vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (present-p (lambda (value)
+		      (and value (stringp value)
+			   (plusp (length (string-trim " " value))))))
+	 (upi (and vendor (slot-value vendor 'upi-id)))
+	 (legal (and vendor (slot-value vendor 'legal-name)))
+	 (gst (and vendor (slot-value vendor 'gstnumber)))
+	 (fy (and vendor (slot-value vendor 'fy-start-month)))
+	 (shippingmethod (and vendor company (get-shipping-method-for-vendor vendor company)))
+	 (shipping-on (and vendor (equal (slot-value vendor 'shipping-enabled) "Y")))
+	 (pickup-on (and shippingmethod (equal (slot-value shippingmethod 'storepickupenabled) "Y")))
+	 (shipping-note (cond (shipping-on "Shipping is enabled.")
+			      (pickup-on "Store pickup is enabled.")
+			      (t "Not using shipping - fine for digital products or POS.")))
+	 (items
+	   (list
+	    (list :key :upi :label "UPI ID"
+		  :done (funcall present-p upi)
+		  :where "Vendor Settings -> Vendor Profile -> Payment Gateway tab"
+		  :why "Invoices will not show a QR code image unless a UPI ID is entered into the system.")
+	    (list :key :legal :label "Legal company name"
+		  :done (funcall present-p legal)
+		  :where "Vendor Settings -> Vendor Profile -> Company Details"
+		  :why "The seller name printed on invoices and tax records.")
+	    (list :key :gst :label "GST number"
+		  :done (funcall present-p gst)
+		  :where "Vendor Settings -> Vendor Profile -> GST & Tax"
+		  :why "The tax identity on every invoice.")
+	    (list :key :fy :label "Financial year start month"
+		  :done (and (integerp fy) (<= 1 fy 12))
+		  :where "Vendor Settings -> Vendor Profile -> Company Details"
+		  :why "The financial year the invoice series follows; April is 4.")))
+	 (done (count-if (lambda (item) (getf item :done)) items))
+	 (total (length items)))
+    (list :items items :done done :total total
+	  :percent (round (* 100 done) total)
+	  :shipping-note shipping-note)))
+
+(defun render-vendor-setup-guide ()
+  "The collapsible setup guide and completion percentage for the vendor dashboard."
+  (let* ((status (vendor-setup-status))
+	 (items (getf status :items))
+	 (done (getf status :done))
+	 (total (getf status :total))
+	 (pct (getf status :percent))
+	 (shipping-note (getf status :shipping-note)))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      (:div :class "card border-0 shadow-sm rounded-4 mb-4"
+	(:div :class "card-body text-start"
+	  (:div :class "d-flex flex-wrap justify-content-between align-items-center gap-2"
+	    (:div
+	      (:h4 :class "card-title mb-1" "Complete your vendor setup")
+	      (:p :class "text-muted small mb-0"
+		  (cl-who:str (format nil "~D of ~D complete - ~D%" done total pct))))
+	    (:button :class "btn btn-sm btn-outline-secondary" :type "button"
+		     :data-bs-toggle "collapse" :data-bs-target "#vendorSetupGuide"
+		     :aria-expanded (if (>= pct 100) "false" "true") :aria-controls "vendorSetupGuide"
+		     "Show / hide guide"))
+	  (:div :class "progress mt-3" :role "progressbar" :aria-valuenow pct
+		:aria-valuemin "0" :aria-valuemax "100" :style "height: 8px;"
+	    (:div :class "progress-bar bg-success" :style (format nil "width: ~D%" pct)))
+	  (:p :class "small text-muted mt-2" "A guide only - use the vendor menu to make changes. Nothing here submits a form.")
+	  (:div :class (if (>= pct 100) "collapse" "collapse show") :id "vendorSetupGuide"
+	    (:ul :class "list-unstyled small mt-3 mb-3"
+	      (dolist (item items)
+		(cl-who:htm
+		 (:li :class "mb-2"
+		   (if (getf item :done)
+		       (cl-who:htm (:i :class "fa-solid fa-circle-check text-success me-2"))
+		       (cl-who:htm (:i :class "fa-regular fa-circle text-muted me-2")))
+		   (:strong (cl-who:str (getf item :label)))
+		   (cl-who:str (if (getf item :done) " - done" " - missing"))
+		   (:div :class "text-muted" (cl-who:str (getf item :where)))
+		   (:div :class "text-muted" (cl-who:str (getf item :why)))))))
+	    (:div :class "small mb-3"
+	      (:i :class "fa-solid fa-truck me-2")
+	      (:strong "Shipping: ")
+	      (cl-who:str shipping-note))
+	    (:h6 :class "mt-4" "Payments & UPI")
+	    (:p :class "small" "Invoices will not show a QR code image unless a UPI ID is entered into the system. Add it at Vendor Settings -> Vendor Profile -> Payment Gateway tab.")
+	    (:p :class "small" "Cash, UPI, Wallet, Payment Gateway and Pay Later are enabled at registration. Review them at Vendor Settings -> E-Commerce Payment Methods and turn off what you do not accept.")
+	    (:h6 :class "mt-4" "Company profile")
+	    (:p :class "small" "Legal company name, GST number and financial-year start month are the invoice identity. PAN and trade name are recommended but not scored. Use Vendor Settings -> Vendor Profile -> Company Details and GST & Tax.")
+	    (:h6 :class "mt-4" "Shipping")
+	    (:p :class "small" "If you deliver, enable Store Pickup or Shipping at Vendor Settings -> E-Commerce Shipping Methods. If neither is enabled, the store treats you as not using shipping - fine for digital products or POS. Free Shipping is seeded as a rate, but the master shipping switch is off at registration.")
+	    (:h6 :class "mt-4" "Products")
+	    (:p :class "small" "List a product; the store administrator approves it before customers can order it. This is advisory and not part of the percentage.")
+	    (:h6 :class "mt-4" "What happens next")
+	    (:p :class "small mb-0" "Once the store administrator approves your vendor account, you can sign in with your phone and a one-time code. Invoices will not show a QR code image unless a UPI ID is entered into the system."))))
+      (:script :type "text/javascript"
+	(cl-who:str "if (window.matchMedia('(max-width: 991.98px)').matches) { var h=document.getElementById('vendorSetupGuide'); if(h){h.classList.remove('show');} var b=document.querySelector('[data-bs-target=\"#vendorSetupGuide\"]'); if(b){b.setAttribute('aria-expanded','false');} }")))))
+
 (defun render-vendor-dashboard-home (order-count)
   "Render the home dashboard view with cards using Font Awesome icons."
   (cl-who:with-html-output (*standard-output* nil)
+    (cl-who:str (render-vendor-setup-guide))
     (:div :class "row g-4"
           ;; Orders Card
           (:div :class "col-12 col-md-6 col-lg-3"

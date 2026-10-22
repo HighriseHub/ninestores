@@ -253,12 +253,33 @@ A B2B buyer has two choices, and the code treats both the same way: the approvin
 
 E2, E3, the vendor queue, the product queue and the post-signup admin-contact block are all tenant-scoped, so no template or sender hardcodes Nine Technologies. The dedicated portal needs a real `COMPADMIN` email and phone; a placeholder makes E2 and the contact block point at nobody.
 
-## 9. Status at close — 2026-10-21
+## 9. Status at close — 2026-10-22
 
-Built: E1–E4; the signup document prefix moved to warned profile dialogs; the post-signup pending page; the NULL-`APPROVAL_STATUS` product-approval fix; the login-page four states (pending/rejected/stranded/no-row).
+Built: E1–E5; the signup document prefix moved to warned profile dialogs; the post-signup pending page; the NULL-`APPROVAL_STATUS` product-approval fix; the login-page four states (pending/rejected/stranded/no-row); the membership-scoped login (`vendor-login-company`); the product card's vendor name and phone; the vendor setup guide (four scored items, shipping optional); the approval-status write fix.
 
-Open: E5 (status lookup), the dashboard checklist, E7, E6.
+Open: the interactive dashboard checklist, E7, E6; customer onboarding is next.
 
 The rejection reason needs `21102026-vendor-rejection-reason` applied **before** the build: `REJECTION_REASON` is mapped on `dod-vend-profile`, so a build without the column breaks every vendor select.
 
 Tenant-scoped vendor identity is now membership-scoped: `vendor-login-company` resolves the default/first active `DOD_VENDOR_TENANTS` membership, the login page stays phone-only, and My Groups switches tenants. Separate duplicate vendor rows for the same phone remain a data-consolidation edge.
+
+## 10. Session handoff — 2026-10-22
+
+**Status:** E1–E5 built; document-prefix dialogs; post-signup pending page; login four-state panels; membership-scoped login; product-approval vendor identity and NULL-status fix; the vendor setup guide; the approval-status write fix.
+
+**Commits:** `2453de7` (prefix/E3/pending), `7433486` (product NULL), `4c1a6d1` (two-mode note), `6bc3832` (E4/login states), `19001c4` (reject policy company), `5baaad4` (reject direct ORM), `8c34cab` (product card vendor), `20b87e4` (membership login), `c8a50b2` (setup guide), `5cfbf29` (guide macro fix), `b971d4b` (approval-status write), `abb7bba` (shipping note), `de5db32` (E5 status email).
+
+**Deploy order:** apply `21102026-vendor-rejection-reason` with a privileged account **before** build/restart. `REJECTION_REASON` is mapped on `dod-vend-profile`; a build without the column breaks every vendor select.
+
+**Reject path traps (all fixed — do not reintroduce):**
+- the action's policy params must include `"company"` or the shared approve policy reads `suspend-flag` from NIL;
+- the legacy `init` expects a `vendor` business object, not the `dod-vend-profile` row; reject now uses `clsql:update-record-from-slots`;
+- B1 was reading `phone`; the user class has `phone-mobile`.
+
+**Login:** phone-only, no company names on the page. `vendor-login-company` (in `dod-bl-ven.lisp`) chooses the `DEFAULT_FLAG='Y'` membership, else the first active (not suspended) one, else the home company. `:vendor-login-state` drives the panel and is cleared on render; My Groups still switches tenants.
+
+**Next:** E5 is built; next is the interactive dashboard checklist, E7, E6, then customer onboarding. Customer approval remains a separate buyer-onboarding feature; the admin navbar's "Customer Approvals" label points at product approvals and is wrong.
+
+**E5:** the login page's "Email me my status" details form posts to `/hhub/hhubvendstatusmail`; the route resolves the five states, rate-limits per phone (10 min, mutex), mails the vendor, and re-notifies E2 for pending. E1 now links to `?status=1`.
+
+**Edge:** duplicate vendor rows for the same phone are separate accounts; the cross-company path is "Add New Group" (`DOD_VENDOR_TENANTS`), not re-registration.

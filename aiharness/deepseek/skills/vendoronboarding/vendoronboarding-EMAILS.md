@@ -4,8 +4,8 @@
 goes out when", "what tokens does this file take", "who is the recipient", "why hasn't the vendor
 been told".
 
-> **Status: SPEC — 2026-10-17. Nothing built.** Companion to `vendoronboarding-CONTEXT.md`
-> (decisions D1–D7) and `vendoronboarding-FLOWS.md` (where each mail sits in the journey).
+> **Status: E1–E5 BUILT (2026-10-22). E6 is phase 2; E7 exists but is still orphaned.**
+> Companion to `vendoronboarding-CONTEXT.md` (decisions D1–D7) and `vendoronboarding-FLOWS.md` (where each mail sits in the journey).
 
 ---
 
@@ -57,10 +57,9 @@ email helper is the same shape, minus the row block (no vendor email has line ro
   is what makes an unset GST number or a missing phone safe.
 - `princ-to-string` means numbers and dates go in without pre-formatting; anything that needs a
   format (money, dates) is formatted **at the call site**, as `invoicetemplatefill` does.
-- The template is read per send (`hhub-read-file`), not cached at boot the way invoice layouts are:
-  mail is rare, and a cached copy means a restart to fix a typo in copy. There is a boot cache for
-  email templates (`nst-load-email-templates`, `dod-ini-sys.lisp:617`) but it holds **one**
-  template, the guest order — do not extend it for onboarding.
+- **2026-10-23 — the whole folder is cached at boot.** `nst-load-email-templates` (`dod-ini-sys.lisp:624`)
+  scans `hhub/email/templates/*.html`; every sender now calls `nst-cached-email-template` (per-send
+  fallback when the cache is down). A copy edit needs an image restart — accepted deliberately.
 - **Rule for every new template file:** a `<!-- tokens: … -->` comment at the top listing every
   token it uses, so a reviewer can check the alist without reading the whole HTML.
 
@@ -70,21 +69,16 @@ Every row's "Needs" column is what must exist before the mail can be truthful.
 
 ### E1 — `vend-registered.html` · "we have you, here is what is happening"
 
-**Status: BUILT 2026-10-17** — file + constant `*HHUB-VENDOR-REGISTERED-TEMPLATE-FILE*`
-(`core/dod-ini-sys.lisp:49`) + sender `send-vendor-registered-email` (`registration.lisp:161`) +
-call site swapped for the legacy mail in the `VEN` branch (`customer/dod-ui-cus.lisp:1695-1700`),
-and queued with `:persona :vendor` so it travels on the **Vendor Email Actor** (falling back to the
-generic actor when that one is not up). **Not yet loaded into the running image**, so no mail has
-been sent by it; the persona actor itself is created by `start-nst-server`, not by a file load.
+**Status: BUILT 2026-10-17; status link added 2026-10-22** — file + constant `*HHUB-VENDOR-REGISTERED-TEMPLATE-FILE*` (`core/dod-ini-sys.lisp:49`) + sender `send-vendor-registered-email` (`registration.lisp:161`) + call site swapped for the legacy mail in the `VEN` branch (`customer/dod-ui-cus.lisp:1695-1700`), and queued with `:persona :vendor`.
 
 | | |
 |---|---|
 | Trigger | end of the `VEN` branch of `com-hhub-transaction-customer&vendor-create`, replacing `send-registration-email` (`customer/dod-ui-cus.lisp:1700`) |
 | To | `DOD_VEND_PROFILE.EMAIL` |
 | Subject | `Registration received - %CompanyName% on Nine Stores` |
-| Tokens | `%VendorName% %CompanyName% %VendorPhone% %VendorEmail% %SupportEmail%` |
+| Tokens | `%VendorName% %CompanyName% %VendorPhone% %VendorEmail% %StatusUrl% %SupportEmail%` |
 | Needs | nothing (all values are in the row just inserted) |
-| **No button** | E1 ships without a CTA on purpose: the only honest action ("check my status") does not exist until **E5**. Do not add a button that points at the login page — that page still says nothing about approval. |
+| **Status link** | `%StatusUrl%` opens `/hhub/hhubvendloginv2?status=1`, which expands the login page's "Email me my status" form (E5). |
 
 Body as built (kept here so spec and artifact cannot drift):
 
@@ -129,7 +123,7 @@ loaded into the running image.
 | Trigger | same call site as E1, immediately after it |
 | To | every `COMPADMIN` user of the vendor's tenant with a non-empty `EMAIL` (B3 helper) |
 | Subject | `Approval needed — %VendorName% registered as a vendor` |
-| Tokens | `%VendorName% %VendorPhone% %VendorEmail% %GSTINLine% %CompanyName% %QueueUrl% %VendorCount%` |
+| Tokens | `%VendorName% %VendorPhone% %VendorEmail% %GSTINLine% %CompanyName% %QueueUrl% %PendingCount%` |
 | Verified | **E2 arrives in the admin's inbox, 2026-10-19** (two separate Guerrilla sessions; E1 to the vendor, E2 to the tenant's `COMPADMIN`) |
 | Needs | **B3 — DONE**: `select-compadmin-emails-for-tenant` returns the distinct non-empty `DOD_USERS.EMAIL` of the tenant's `COMPADMIN` role holders. ⚠ Delivery depends on that address being real: the live tenants still carry `…@example.com` placeholders (tenant 2's second admin row is a real mailbox), and a bounce is silent — the actor dead-letters SMTP failures, nothing reports them. |
 
@@ -146,70 +140,74 @@ Send **one mail per registration**, never a digest, until a digest exists — th
 
 ### E3 — `vend-approved.html` · "you are live, and here is the whole job"
 
+**Status: BUILT 2026-10-21** — template + `*HHUB-VENDOR-APPROVED-TEMPLATE-FILE*` + `send-vendor-approved-email`, queued after `db-save` in `doupdate`.
+
 | | |
 |---|---|
-| Trigger | `doupdate` for `VendorApprovalService` (`vendor/dod-bl-ven.lisp:17-33`), after the row is saved |
+| Trigger | `doupdate` for `VendorApprovalService` (`vendor/dod-bl-ven.lisp`), after `db-save` |
 | To | `DOD_VEND_PROFILE.EMAIL` |
-| Subject | `Approved — you can sign in to %CompanyName%` |
-| Tokens | `%VendorName% %CompanyName% %VendorPhone% %LoginUrl% %SupportEmail%` |
-| Needs | login URL (`/hhub/hhubvendloginv2`), nothing else |
+| Subject | `Approved - you can sign in to %CompanyName%` |
+| Tokens | `%VendorName% %CompanyName% %VendorPhone% %ApprovedDate% %LoginUrl% %SupportEmail%` |
+| Needs | nothing new; the copy uses tax/payment, not bank |
 
 ```
 %VendorName%, you are approved by %CompanyName% on %ApprovedDate%.
-Sign in with %VendorPhone% and the one-time code we SMS you — there is no password.
+Sign in with %VendorPhone% and the one-time code we SMS you - there is no password.
 
 Finish these three, then you can take orders:
-1. GSTIN, PAN and bank details      — they print on every invoice we raise for you.
-2. Your first product               — customers can only order what is listed.
-3. Where you ship                   — set your zones and charges.
+1. Tax and payment details - GSTIN and PAN print on every invoice; your UPI payout route tells us where to remit.
+2. Your first product - customers can only order what is listed.
+3. Where you ship - set your zones and charges.
 
-[ Sign in and finish setup ]    ← %LoginUrl%
+[ Sign in and finish setup ]    <- %LoginUrl%
 ```
 
-The three items **must** match the dashboard checklist (`vendoronboarding-FLOWS.md` §6) word for
-word, or the vendor is taught two different stories.
+The three items are the dashboard checklist (`vendoronboarding-FLOWS.md` §6) grouped into tax/payment, first product and shipping.
 
 ### E4 — `vend-rejected.html` · "no, and here is why, and what to do"
 
+**Status: BUILT 2026-10-21** — B1 fixed (`phone` → `phone-mobile`), B2 added (`REJECTION_REASON`), B5 avoided (no self-service re-apply promise), template + `*HHUB-VENDOR-REJECTED-TEMPLATE-FILE*` + `send-vendor-rejected-email`, queued from `reject-vendor` after the row update.
+
 | | |
 |---|---|
-| Trigger | `reject-vendor` (`vendor/dod-bl-ven.lisp:36-46`) |
+| Trigger | `reject-vendor` (`vendor/dod-bl-ven.lisp`), after the row update |
 | To | `DOD_VEND_PROFILE.EMAIL` |
-| Subject | `Not approved — your vendor registration with %CompanyName%` |
+| Subject | `Not approved - your vendor registration with %CompanyName%` |
 | Tokens | `%VendorName% %CompanyName% %ReasonLine% %AdminContactLine% %SupportEmail% %ReapplyLine%` |
-| Needs | **B1** (reject currently signals on a missing slot), **B2** (no reason field), **B5** (re-apply 500s on the unique key) |
+| Needs | **DONE**: B1/B2; B5 avoided |
 
 ```
 %CompanyName% has not approved your vendor registration.
-Reason: %ReasonLine%                        ← "Not given" is a legitimate, honest value
-%AdminContactLine%                           ← the administrator's email + phone, named
-%ReapplyLine%                                ← only offered once B5 is fixed
+
+Reason: %ReasonLine%          <- "Not given" when the administrator left it blank
+%AdminContactLine%            <- the rejecting administrator's name, email and phone
+%ReapplyLine%                 <- "Contact the administrator..." (no self-service re-apply)
+Need help? %SupportEmail%
 ```
 
-Never send this mail with an empty reason and no contact — that is the current behaviour minus
-the silence.
+The reason column requires `21102026-vendor-rejection-reason` applied before the build.
 
 ### E5 — `vend-status.html` · the escape hatch, and E1's button
+
+**Status: BUILT 2026-10-22** — login-page `<details>` form, `POST /hhub/hhubvendstatusmail`, in-memory rate limit (10 min per phone), E1 `%StatusUrl%` link, template + sender.
 
 | | |
 |---|---|
 | Trigger | `POST /hhub/hhubvendstatusmail` from the login page ("Email me my status") and from E1 |
 | To | **the vendor's registered email**, never echoed into the page |
-| Subject | `Your Nine Stores registration status` |
-| Tokens | `%VendorName% %CompanyName% %StateLine% %NextStepLine% %QueueUrl% %LoginUrl% %RegisterUrl% %SupportEmail%` |
-| Needs | a controller + route. Phone lookup → row → one of four states |
+| Subject | `Your %CompanyName% registration status` |
+| Tokens | `%VendorName% %CompanyName% %StateLine% %NextStepLine% %ActionBlock% %SupportEmail%` |
+| Needs | **DONE**: controller + route + template + sender; pending re-notifies E2; no-row or no-email sends nothing |
 
 | Row state | `%StateLine%` | `%NextStepLine%` |
 |---|---|---|
-| `N/PENDING` | "Waiting for approval by %CompanyName% (registered %Date%)." | "We have re-notified their administrator. Nothing for you to do." |
-| `Y/APPROVED` | "Approved. You can sign in now." | button → `%LoginUrl%` |
+| `N/PENDING` | "Waiting for approval by %CompanyName%." | "The company administrator has been re-notified; nothing else is needed from you right now." |
+| `Y/APPROVED` | "Approved. You can sign in now." | `%ActionBlock%` → login URL |
 | `N/REJECTED` | "Not approved by %CompanyName%." | contact the administrator (see E4) |
 | `Y/PENDING` (stranded) | "Approved, but the account is not fully activated." | "We have flagged this to %SupportEmail%; reply with your phone number." |
-| no row | "No registration found for this number." | button → `%RegisterUrl%` |
+| no row / no email | no mail | the page sentence is unchanged |
 
-The mail is **always sent**, whatever the state, and the page response is always the same
-sentence ("If that number is registered, we have emailed the status") — that is what keeps this
-from becoming a phone-number oracle. Rate-limit per phone (e.g. one mail per 10 min).
+The page response is always the same sentence ("If that number is registered, we have emailed the status") — that is what keeps this from becoming a phone-number oracle. Rate-limit per phone; only a row with an email gets a mail.
 
 ### E6 — `vend-kyc-nudge.html` · phase 2 (needs a scheduler, D7)
 

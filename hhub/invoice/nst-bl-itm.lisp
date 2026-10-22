@@ -361,6 +361,14 @@
       (setf (slot-value InvoiceItemdbobj 'cgstamt) cgstamt)
       (setf (slot-value InvoiceItemdbobj 'sgstamt) sgstamt)
       (setf (slot-value InvoiceItemdbobj 'igstamt) igstamt)
+      ;; RATES BELONG TO THE LINE: nothing here wrote them, so an edited row kept 0.00% beside a
+      ;; non-zero amount (measured invoice 151 line 518: CGST 266.76 at CGSTRATE 0.00).
+      (when (slot-boundp requestmodel 'cgstrate)
+	(setf (slot-value InvoiceItemdbobj 'cgstrate) (cgstrate requestmodel)))
+      (when (slot-boundp requestmodel 'sgstrate)
+	(setf (slot-value InvoiceItemdbobj 'sgstrate) (sgstrate requestmodel)))
+      (when (slot-boundp requestmodel 'igstrate)
+	(setf (slot-value InvoiceItemdbobj 'igstrate) (igstrate requestmodel)))
       (setf (slot-value InvoiceItemdbobj 'totalitemval) totalitemval)
       (setf (slot-value InvoiceItemdbobj 'status) status))
     ;;  FIELD UPDATE CODE ENDS HERE. 
