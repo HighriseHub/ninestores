@@ -3234,9 +3234,9 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    (:h6 :class "mt-4" "Products")
 	    (:p :class "small" "List a product; the store administrator approves it before customers can order it. This is advisory and not part of the percentage.")
 	    (:h6 :class "mt-4" "What happens next")
-	    (:p :class "small mb-0" "Once the store administrator approves your vendor account, you can sign in with your phone and a one-time code. Invoices will not show a QR code image unless a UPI ID is entered into the system.")))))
+	    (:p :class "small mb-0" "Once the store administrator approves your vendor account, you can sign in with your phone and a one-time code. Invoices will not show a QR code image unless a UPI ID is entered into the system."))))
       (:script :type "text/javascript"
-	(cl-who:str "if (window.matchMedia('(max-width: 991.98px)').matches) { var h=document.getElementById('vendorSetupGuide'); if(h){h.classList.remove('show');} var b=document.querySelector('[data-bs-target=\"#vendorSetupGuide\"]'); if(b){b.setAttribute('aria-expanded','false');} }"))))
+	(cl-who:str "if (window.matchMedia('(max-width: 991.98px)').matches) { var h=document.getElementById('vendorSetupGuide'); if(h){h.classList.remove('show');} var b=document.querySelector('[data-bs-target=\"#vendorSetupGuide\"]'); if(b){b.setAttribute('aria-expanded','false');} }")))))
 
 (defun render-vendor-dashboard-home (order-count)
   "Render the home dashboard view with cards using Font Awesome icons."
