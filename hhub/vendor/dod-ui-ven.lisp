@@ -874,7 +874,6 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	   (gstregistrationtype (hunchentoot:parameter "gstregistrationtype"))
 	   (gstfilingfrequency (hunchentoot:parameter "gstfilingfrequency"))
 	   (paymentgatewaymode (hunchentoot:parameter "paymentgatewaymode"))
-	   (approvalstatus (hunchentoot:parameter "approvalstatus"))
 	   ;; Optional picture upload (only posted by the legacy Contact
 	   ;; Information modal; the tabbed profile form has no file input)
 	   (prodimageparams (hunchentoot:post-parameter "picturepath"))
@@ -906,8 +905,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 			      'upi-id upi-id
 			      'gst-registration-type gstregistrationtype
 			      'gst-filing-frequency gstfilingfrequency
-			      'payment-gateway-mode paymentgatewaymode
-			      'approval-status approvalstatus))
+			      'payment-gateway-mode paymentgatewaymode))
 	   (redirecturl "/hhub/dodvendprofile"))
       (with-nst-error-handler
 	  (progn
