@@ -2002,6 +2002,33 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (with-vend-session-check
     (with-mvc-ui-page "Vendor Shipping Methods for E-Commerce" #'create-model-for-vendshippingmethods #'create-widgets-for-vendshippingmethods :role :vendor)))
 
+(defun render-shipping-help ()
+  "The collapsible shipping help card for hhubvendorshipmethods."
+  (cl-who:with-html-output-to-string (*standard-output* nil)
+    (:div :class "card border-0 shadow-sm rounded-4 mb-4"
+      (:div :class "card-body text-start"
+        (:div :class "d-flex flex-wrap justify-content-between align-items-center gap-2"
+          (:h4 :class "card-title mb-1" "How these shipping settings work")
+          (:button :class "btn btn-sm btn-outline-secondary" :type "button"
+                   :data-bs-toggle "collapse" :data-bs-target "#shippingHelp"
+                   :aria-expanded "true" :aria-controls "shippingHelp"
+                   "Show / hide help"))
+        (:div :class "collapse show" :id "shippingHelp"
+          (:p :class "small text-muted" "A guide only - it does not change any setting.")
+          (:h6 :class "mt-3" "Free Shipping")
+          (:p :class "small" "Enabled by default at registration. It applies when the order value reaches the minimum amount; set the minimum to 0 to make it always free.")
+          (:h6 :class "mt-3" "Flat Rate Shipping")
+          (:p :class "small" "One charge for the order (or per item, depending on the type). Use it when your delivery cost does not vary by location.")
+          (:h6 :class "mt-3" "Zonewise Shipping")
+          (:p :class "small" "Varies the rate by PIN-code zone. The Zonewise Shipping page takes the rate-table CSV and the zones/pincodes CSV, with sample files linked there. This is the only method that prices different areas differently.")
+          (:h6 :class "mt-3" "External Shipping Partners")
+          (:p :class "small" "Use this only if a courier or provider gives you a key and secret to calculate rates.")
+          (:h6 :class "mt-3" "Select Default Shipping Method")
+          (:p :class "small" "When more than one method is enabled, the default decides which one the storefront uses. Store pickup and vendor shipping are separate toggles.")
+          (:p :class "small text-muted mb-0" "On day one only Free Shipping is on, and there are no zones. Add a zone and a rate before relying on paid delivery."))))
+    (:script :type "text/javascript"
+      (cl-who:str "if (window.matchMedia('(max-width: 991.98px)').matches) { var h=document.getElementById('shippingHelp'); if(h){h.classList.remove('show');} var b=document.querySelector('[data-bs-target=\"#shippingHelp\"]'); if(b){b.setAttribute('aria-expanded','false');} }"))))
+
 (defun create-model-for-vendshippingmethods ()
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
@@ -2021,6 +2048,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
   (multiple-value-bind (vendor shippingmethod flatrateshipenabled flatratetype flatrateprice extshipenabled shippartnerkey shippartnersecret minorderamt freeshipenabled) (funcall modelfunc)
     (let ((widget1 (function (lambda ()
 		     (cl-who:with-html-output (*standard-output* nil)
+		       (cl-who:str (render-shipping-help))
 		       (:br)
 		       (:div :class "list-group col-6"
 			     (:a :class "list-group-item list-group-item-action" :data-bs-toggle "modal" :data-bs-target (format nil "#dodvendfreeshipping-modal")  :href "#"  "Free Shipping")
@@ -3122,9 +3150,98 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
                                              "col-md-6 col-lg-4 col-xl-3"
                                              order-table-header 'vendor-order-row)))))
 
+(defun vendor-setup-status ()
+  "The five scored setup items for the vendor dashboard guide."
+  (let* ((vendor (get-login-vendor))
+	 (company (get-login-vendor-company))
+	 (present-p (lambda (value)
+		      (and value (stringp value)
+			   (plusp (length (string-trim " " value))))))
+	 (upi (and vendor (slot-value vendor 'upi-id)))
+	 (legal (and vendor (slot-value vendor 'legal-name)))
+	 (gst (and vendor (slot-value vendor 'gstnumber)))
+	 (fy (and vendor (slot-value vendor 'fy-start-month)))
+	 (zones (and vendor company (get-ship-zones-for-vendor vendor company)))
+	 (items
+	   (list
+	    (list :key :upi :label "UPI ID"
+		  :done (funcall present-p upi)
+		  :where "Vendor Settings -> Vendor Profile -> Payment Gateway tab"
+		  :why "Invoices will not show a QR code image unless a UPI ID is entered into the system.")
+	    (list :key :legal :label "Legal company name"
+		  :done (funcall present-p legal)
+		  :where "Vendor Settings -> Vendor Profile -> Company Details"
+		  :why "The seller name printed on invoices and tax records.")
+	    (list :key :gst :label "GST number"
+		  :done (funcall present-p gst)
+		  :where "Vendor Settings -> Vendor Profile -> GST & Tax"
+		  :why "The tax identity on every invoice.")
+	    (list :key :fy :label "Financial year start month"
+		  :done (and (integerp fy) (<= 1 fy 12))
+		  :where "Vendor Settings -> Vendor Profile -> Company Details"
+		  :why "The financial year the invoice series follows; April is 4.")
+	    (list :key :zones :label "Shipping zones and rates"
+		  :done (and zones (plusp (length zones)))
+		  :where "Vendor Settings -> E-Commerce Shipping Methods"
+		  :why "Only FREE shipping is enabled by default; without zones, paid delivery cannot be priced.")))
+	 (done (count-if (lambda (item) (getf item :done)) items))
+	 (total (length items)))
+    (list :items items :done done :total total
+	  :percent (round (* 100 done) total))))
+
+(defun render-vendor-setup-guide ()
+  "The collapsible setup guide and completion percentage for the vendor dashboard."
+  (let* ((status (vendor-setup-status))
+	 (items (getf status :items))
+	 (done (getf status :done))
+	 (total (getf status :total))
+	 (pct (getf status :percent)))
+    (cl-who:with-html-output-to-string (*standard-output* nil)
+      (:div :class "card border-0 shadow-sm rounded-4 mb-4"
+	(:div :class "card-body text-start"
+	  (:div :class "d-flex flex-wrap justify-content-between align-items-center gap-2"
+	    (:div
+	      (:h4 :class "card-title mb-1" "Complete your vendor setup")
+	      (:p :class "text-muted small mb-0"
+		  (cl-who:str (format nil "~D of ~D complete - ~D%" done total pct))))
+	    (:button :class "btn btn-sm btn-outline-secondary" :type "button"
+		     :data-bs-toggle "collapse" :data-bs-target "#vendorSetupGuide"
+		     :aria-expanded "true" :aria-controls "vendorSetupGuide"
+		     "Show / hide guide"))
+	  (:div :class "progress mt-3" :role "progressbar" :aria-valuenow pct
+		:aria-valuemin "0" :aria-valuemax "100" :style "height: 8px;"
+	    (:div :class "progress-bar bg-success" :style (format nil "width: ~D%" pct)))
+	  (:p :class "small text-muted mt-2" "A guide only - use the vendor menu to make changes. Nothing here submits a form.")
+	  (:div :class "collapse show" :id "vendorSetupGuide"
+	    (:ul :class "list-unstyled small mt-3 mb-3"
+	      (dolist (item items)
+		(cl-who:htm
+		 (:li :class "mb-2"
+		   (if (getf item :done)
+		       (cl-who:htm (:i :class "fa-solid fa-circle-check text-success me-2"))
+		       (cl-who:htm (:i :class "fa-regular fa-circle text-muted me-2")))
+		   (:strong (cl-who:str (getf item :label)))
+		   (cl-who:str (if (getf item :done) " - done" " - missing"))
+		   (:div :class "text-muted" (cl-who:str (getf item :where)))
+		   (:div :class "text-muted" (cl-who:str (getf item :why)))))))
+	    (:h6 :class "mt-4" "Payments & UPI")
+	    (:p :class "small" "Invoices will not show a QR code image unless a UPI ID is entered into the system. Add it at Vendor Settings -> Vendor Profile -> Payment Gateway tab.")
+	    (:p :class "small" "Cash, UPI, Wallet, Payment Gateway and Pay Later are enabled at registration. Review them at Vendor Settings -> E-Commerce Payment Methods and turn off what you do not accept.")
+	    (:h6 :class "mt-4" "Company profile")
+	    (:p :class "small" "Legal company name, GST number and financial-year start month are the invoice identity. PAN and trade name are recommended but not scored. Use Vendor Settings -> Vendor Profile -> Company Details and GST & Tax.")
+	    (:h6 :class "mt-4" "Shipping")
+	    (:p :class "small" "Only FREE shipping is enabled by default, with no zones. Add zones and rates at Vendor Settings -> E-Commerce Shipping Methods; that page has its own help section.")
+	    (:h6 :class "mt-4" "Products")
+	    (:p :class "small" "List a product; the store administrator approves it before customers can order it. This is advisory and not part of the percentage.")
+	    (:h6 :class "mt-4" "What happens next")
+	    (:p :class "small mb-0" "Once the store administrator approves your vendor account, you can sign in with your phone and a one-time code. Invoices will not show a QR code image unless a UPI ID is entered into the system.")))))
+      (:script :type "text/javascript"
+	(cl-who:str "if (window.matchMedia('(max-width: 991.98px)').matches) { var h=document.getElementById('vendorSetupGuide'); if(h){h.classList.remove('show');} var b=document.querySelector('[data-bs-target=\"#vendorSetupGuide\"]'); if(b){b.setAttribute('aria-expanded','false');} }"))))
+
 (defun render-vendor-dashboard-home (order-count)
   "Render the home dashboard view with cards using Font Awesome icons."
   (cl-who:with-html-output (*standard-output* nil)
+    (cl-who:str (render-vendor-setup-guide))
     (:div :class "row g-4"
           ;; Orders Card
           (:div :class "col-12 col-md-6 col-lg-3"
