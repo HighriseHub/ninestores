@@ -4,7 +4,7 @@
 goes out when", "what tokens does this file take", "who is the recipient", "why hasn't the vendor
 been told".
 
-> **Status: E1–E4 BUILT (2026-10-21). E5 is next; E6 is phase 2; E7 exists but is still orphaned.**
+> **Status: E1–E5 BUILT (2026-10-22). E6 is phase 2; E7 exists but is still orphaned.**
 > Companion to `vendoronboarding-CONTEXT.md` (decisions D1–D7) and `vendoronboarding-FLOWS.md` (where each mail sits in the journey).
 
 ---
@@ -70,21 +70,16 @@ Every row's "Needs" column is what must exist before the mail can be truthful.
 
 ### E1 — `vend-registered.html` · "we have you, here is what is happening"
 
-**Status: BUILT 2026-10-17** — file + constant `*HHUB-VENDOR-REGISTERED-TEMPLATE-FILE*`
-(`core/dod-ini-sys.lisp:49`) + sender `send-vendor-registered-email` (`registration.lisp:161`) +
-call site swapped for the legacy mail in the `VEN` branch (`customer/dod-ui-cus.lisp:1695-1700`),
-and queued with `:persona :vendor` so it travels on the **Vendor Email Actor** (falling back to the
-generic actor when that one is not up). **Not yet loaded into the running image**, so no mail has
-been sent by it; the persona actor itself is created by `start-nst-server`, not by a file load.
+**Status: BUILT 2026-10-17; status link added 2026-10-22** — file + constant `*HHUB-VENDOR-REGISTERED-TEMPLATE-FILE*` (`core/dod-ini-sys.lisp:49`) + sender `send-vendor-registered-email` (`registration.lisp:161`) + call site swapped for the legacy mail in the `VEN` branch (`customer/dod-ui-cus.lisp:1695-1700`), and queued with `:persona :vendor`.
 
 | | |
 |---|---|
 | Trigger | end of the `VEN` branch of `com-hhub-transaction-customer&vendor-create`, replacing `send-registration-email` (`customer/dod-ui-cus.lisp:1700`) |
 | To | `DOD_VEND_PROFILE.EMAIL` |
 | Subject | `Registration received - %CompanyName% on Nine Stores` |
-| Tokens | `%VendorName% %CompanyName% %VendorPhone% %VendorEmail% %SupportEmail%` |
+| Tokens | `%VendorName% %CompanyName% %VendorPhone% %VendorEmail% %StatusUrl% %SupportEmail%` |
 | Needs | nothing (all values are in the row just inserted) |
-| **No button** | E1 ships without a CTA on purpose: the only honest action ("check my status") does not exist until **E5**. Do not add a button that points at the login page — that page still says nothing about approval. |
+| **Status link** | `%StatusUrl%` opens `/hhub/hhubvendloginv2?status=1`, which expands the login page's "Email me my status" form (E5). |
 
 Body as built (kept here so spec and artifact cannot drift):
 
@@ -195,25 +190,25 @@ The reason column requires `21102026-vendor-rejection-reason` applied before the
 
 ### E5 — `vend-status.html` · the escape hatch, and E1's button
 
+**Status: BUILT 2026-10-22** — login-page `<details>` form, `POST /hhub/hhubvendstatusmail`, in-memory rate limit (10 min per phone), E1 `%StatusUrl%` link, template + sender.
+
 | | |
 |---|---|
 | Trigger | `POST /hhub/hhubvendstatusmail` from the login page ("Email me my status") and from E1 |
 | To | **the vendor's registered email**, never echoed into the page |
-| Subject | `Your Nine Stores registration status` |
-| Tokens | `%VendorName% %CompanyName% %StateLine% %NextStepLine% %QueueUrl% %LoginUrl% %RegisterUrl% %SupportEmail%` |
-| Needs | a controller + route. Phone lookup → row → one of four states |
+| Subject | `Your %CompanyName% registration status` |
+| Tokens | `%VendorName% %CompanyName% %StateLine% %NextStepLine% %ActionBlock% %SupportEmail%` |
+| Needs | **DONE**: controller + route + template + sender; pending re-notifies E2; no-row or no-email sends nothing |
 
 | Row state | `%StateLine%` | `%NextStepLine%` |
 |---|---|---|
-| `N/PENDING` | "Waiting for approval by %CompanyName% (registered %Date%)." | "We have re-notified their administrator. Nothing for you to do." |
-| `Y/APPROVED` | "Approved. You can sign in now." | button → `%LoginUrl%` |
+| `N/PENDING` | "Waiting for approval by %CompanyName%." | "The company administrator has been re-notified; nothing else is needed from you right now." |
+| `Y/APPROVED` | "Approved. You can sign in now." | `%ActionBlock%` → login URL |
 | `N/REJECTED` | "Not approved by %CompanyName%." | contact the administrator (see E4) |
 | `Y/PENDING` (stranded) | "Approved, but the account is not fully activated." | "We have flagged this to %SupportEmail%; reply with your phone number." |
-| no row | "No registration found for this number." | button → `%RegisterUrl%` |
+| no row / no email | no mail | the page sentence is unchanged |
 
-The mail is **always sent**, whatever the state, and the page response is always the same
-sentence ("If that number is registered, we have emailed the status") — that is what keeps this
-from becoming a phone-number oracle. Rate-limit per phone (e.g. one mail per 10 min).
+The page response is always the same sentence ("If that number is registered, we have emailed the status") — that is what keeps this from becoming a phone-number oracle. Rate-limit per phone; only a row with an email gets a mail.
 
 ### E6 — `vend-kyc-nudge.html` · phase 2 (needs a scheduler, D7)
 
