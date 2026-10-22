@@ -1520,7 +1520,7 @@ Only shows sections based on availability flags and customer type."
             (:dd "6 digits; city and state fill automatically.")
             (:dt "City / State")
             (:dd "Confirm the auto-filled values; edit them if needed."))
-          (:p :class "small text-muted mt-2" "Company Details apply to vendor registration. If you register as a customer, skip that block.")
+          (:p :class "small text-muted mt-2" "Company Details apply to B2B registrations - both vendors and business customers fill this block.")
           (:h6 :class "mt-4" "What happens after you submit")
           (:ol :class "small ps-3"
             (:li "Solve the captcha and submit. We send an OTP to your mobile.")
