@@ -406,7 +406,7 @@
 (defparameter *nst-customer-business-fields*
   '(row-id name address phone email firstname lastname fullname salutation
     title birthdate picture-path city state country zipcode approved-flag
-    approval-status approved-by cust-type active-flag email-add-verified
+    approval-status approved-by rejection-reason cust-type active-flag email-add-verified
     suspend-flag upi-id legal-company-name gst-customer-type company-name
     legal-name gstin pan-number business-type organization-type
     gst-registration-type tan-number msme-number is-tax-exempt
@@ -447,6 +447,7 @@
     (approved-flag . "approvedFlag")
     (approval-status . "approvalStatus")
     (approved-by . "approvedBy")
+    (rejection-reason . "rejectionReason")
     (cust-type . "custType")
     (active-flag . "activeFlag")
     (email-add-verified . "emailAddVerified")

@@ -1863,10 +1863,8 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
 	 (progn 
 	   ;; 1 
 	   (clsql:update-records-from-instance customer)
-	   ;; 2
-	   (let ((name (slot-value customer 'name))
-		 (email (slot-value customer 'email)))
-	     (send-registration-email name email))
+	   ;; 2  C1: buyer-specific mail, not the legacy B2C welcome (see customeronboarding-EMAILS.md)
+	   (send-customer-registered-email customer company)
 	   ;; 3
 	   (with-no-navbar-page "Welcome to Nine Stores platform"
 	     (:h3 (cl-who:str(format nil "Your record has been successfully added" )))
