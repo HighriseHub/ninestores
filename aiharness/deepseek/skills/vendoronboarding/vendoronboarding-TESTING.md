@@ -28,7 +28,7 @@ enough:
 sudo systemctl restart hunchentoot && curl -sI http://127.0.0.1:4244/ | head -1
 ```
 ```lisp
-(actors-status-report)   ; want 5: Send Order Email, Send Email, Vendor Email, Company Admin Email, S3
+(actors-status-report)   ; want 6: Send Order, Send Email, Vendor Email, Company Admin Email, Customer Email, S3
 ```
 🚨 Testing before the restart silently exercises the **previous** image: you will get the old
 `cust-reg.html` and no admin mail, and conclude the code is wrong.

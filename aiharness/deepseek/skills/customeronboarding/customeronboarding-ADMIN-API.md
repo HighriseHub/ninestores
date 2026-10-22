@@ -4,10 +4,10 @@
 a product, a customer; categories; profile), wondering **where the admin portal should call**,
 or asking *"which endpoint does C1–C4 ride on?"*
 
-> **Status: DESIGN ONLY (2026-10-22). Nothing in §5 is built.** The customer half (C1–C4) is the
-> first consumer; vendors/products are phase 2.
-> Companion: `vendoronboarding-EMAILS.md` (E1–E5), `knowledge/nst-bl-apidefs2-CONTEXT.md`
-> (transport, statuses, traps), `knowledge/nst-bl-conflodis2-DESIGN.md` (Tier-2/3 grammar).
+> **Status 2026-10-23: §10 steps 1–2 DONE (migration applied, domain field plumbed); §5 endpoints NOT built.**
+> The customer half (C1–C4) is the first consumer; vendors/products are phase 2.
+> Companion: `customeronboarding-EMAILS.md` (C1–C4), `vendoronboarding-EMAILS.md` (E1–E5),
+> `knowledge/nst-bl-apidefs2-CONTEXT.md` (transport, statuses, traps), `knowledge/nst-bl-conflodis2-DESIGN.md`.
 
 ---
 
@@ -234,9 +234,9 @@ Recorded, not built. Phase 1 is exercised from the CompAdmin session only.
 
 ## 10. Build order (one step per session, confirmed before starting)
 
-1. Migration + backfill — **done** (`22102026-customer-approval`).
-2. Domain field `rejection-reason` on `dod-cust-profile`, `nst-customer`, response model — **done**.
-3. `select-pending-customers-for-tenant` + `approve-customer` + `reject-customer` + the PENDING guard.
+1. Migration + backfill — **DONE 2026-10-22** (`22102026-customer-approval`, applied).
+2. Domain field `rejection-reason` on `dod-cust-profile`, `nst-customer`, response model — **DONE**.
+3. `select-pending-customers-for-tenant` + `approve-customer` + `reject-customer` + the PENDING guard. **← next**
 4. `nst-bl-cusadmapi.lisp` — 3 verbs, 3 action routes, 3 API bindings.
 5. asd + compile.lisp wiring; `(asdf:load-system :nstores)`; `(list-api-routes)` shows the three.
 6. curl proof: pending → approve → 200; second approve → 409; reject without reason → 400.

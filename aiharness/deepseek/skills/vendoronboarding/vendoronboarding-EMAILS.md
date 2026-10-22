@@ -57,10 +57,9 @@ email helper is the same shape, minus the row block (no vendor email has line ro
   is what makes an unset GST number or a missing phone safe.
 - `princ-to-string` means numbers and dates go in without pre-formatting; anything that needs a
   format (money, dates) is formatted **at the call site**, as `invoicetemplatefill` does.
-- The template is read per send (`hhub-read-file`), not cached at boot the way invoice layouts are:
-  mail is rare, and a cached copy means a restart to fix a typo in copy. There is a boot cache for
-  email templates (`nst-load-email-templates`, `dod-ini-sys.lisp:617`) but it holds **one**
-  template, the guest order — do not extend it for onboarding.
+- **2026-10-23 — the whole folder is cached at boot.** `nst-load-email-templates` (`dod-ini-sys.lisp:624`)
+  scans `hhub/email/templates/*.html`; every sender now calls `nst-cached-email-template` (per-send
+  fallback when the cache is down). A copy edit needs an image restart — accepted deliberately.
 - **Rule for every new template file:** a `<!-- tokens: … -->` comment at the top listing every
   token it uses, so a reviewer can check the alist without reading the whole HTML.
 
