@@ -2014,7 +2014,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
         (:div :class "collapse show" :id "shippingHelp"
           (:p :class "small text-muted" "A guide only - it does not change any setting.")
           (:h6 :class "mt-3" "Free Shipping")
-          (:p :class "small" "Enabled by default at registration. It applies when the order value reaches the minimum amount; set the minimum to 0 to make it always free.")
+          (:p :class "small" "Seeded as a rate at registration, but the master Shipping switch is off. It applies when you enable Shipping and the order value reaches the minimum amount; set the minimum to 0 to make it always free.")
           (:h6 :class "mt-3" "Flat Rate Shipping")
           (:p :class "small" "One charge for the order (or per item, depending on the type). Use it when your delivery cost does not vary by location.")
           (:h6 :class "mt-3" "Zonewise Shipping")
@@ -2022,8 +2022,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
           (:h6 :class "mt-3" "External Shipping Partners")
           (:p :class "small" "Use this only if a courier or provider gives you a key and secret to calculate rates.")
           (:h6 :class "mt-3" "Select Default Shipping Method")
-          (:p :class "small" "When more than one method is enabled, the default decides which one the storefront uses. Store pickup and vendor shipping are separate toggles.")
-          (:p :class "small text-muted mb-0" "On day one only Free Shipping is on, and there are no zones. Add a zone and a rate before relying on paid delivery."))))
+          (:p :class "small" "This is where you enable Shipping and/or Store Pickup. If both are off, the store treats you as not using shipping - fine for digital products or POS. When more than one paid method is enabled, the default decides which one the storefront uses.")
+          (:p :class "small text-muted mb-0" "On day one the Free Shipping rate is seeded, but Shipping and Store Pickup are both off. Enable one if you deliver; leave both off for digital products or POS."))))
     (:script :type "text/javascript"
       (cl-who:str "if (window.matchMedia('(max-width: 991.98px)').matches) { var h=document.getElementById('shippingHelp'); if(h){h.classList.remove('show');} var b=document.querySelector('[data-bs-target=\"#shippingHelp\"]'); if(b){b.setAttribute('aria-expanded','false');} }"))))
 
@@ -3149,7 +3149,7 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
                                              order-table-header 'vendor-order-row)))))
 
 (defun vendor-setup-status ()
-  "The five scored setup items for the vendor dashboard guide."
+  "The four scored setup items and the shipping note for the vendor dashboard guide."
   (let* ((vendor (get-login-vendor))
 	 (company (get-login-vendor-company))
 	 (present-p (lambda (value)
@@ -3159,7 +3159,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (legal (and vendor (slot-value vendor 'legal-name)))
 	 (gst (and vendor (slot-value vendor 'gstnumber)))
 	 (fy (and vendor (slot-value vendor 'fy-start-month)))
-	 (zones (and vendor company (get-ship-zones-for-vendor vendor company)))
+	 (shippingmethod (and vendor company (get-shipping-method-for-vendor vendor company)))
+	 (shipping-on (and vendor (equal (slot-value vendor 'shipping-enabled) "Y")))
+	 (pickup-on (and shippingmethod (equal (slot-value shippingmethod 'storepickupenabled) "Y")))
+	 (shipping-note (cond (shipping-on "Shipping is enabled.")
+			      (pickup-on "Store pickup is enabled.")
+			      (t "Not using shipping - fine for digital products or POS.")))
 	 (items
 	   (list
 	    (list :key :upi :label "UPI ID"
@@ -3177,15 +3182,12 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	    (list :key :fy :label "Financial year start month"
 		  :done (and (integerp fy) (<= 1 fy 12))
 		  :where "Vendor Settings -> Vendor Profile -> Company Details"
-		  :why "The financial year the invoice series follows; April is 4.")
-	    (list :key :zones :label "Shipping zones and rates"
-		  :done (and zones (plusp (length zones)))
-		  :where "Vendor Settings -> E-Commerce Shipping Methods"
-		  :why "Only FREE shipping is enabled by default; without zones, paid delivery cannot be priced.")))
+		  :why "The financial year the invoice series follows; April is 4.")))
 	 (done (count-if (lambda (item) (getf item :done)) items))
 	 (total (length items)))
     (list :items items :done done :total total
-	  :percent (round (* 100 done) total))))
+	  :percent (round (* 100 done) total)
+	  :shipping-note shipping-note)))
 
 (defun render-vendor-setup-guide ()
   "The collapsible setup guide and completion percentage for the vendor dashboard."
@@ -3193,7 +3195,8 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 	 (items (getf status :items))
 	 (done (getf status :done))
 	 (total (getf status :total))
-	 (pct (getf status :percent)))
+	 (pct (getf status :percent))
+	 (shipping-note (getf status :shipping-note)))
     (cl-who:with-html-output-to-string (*standard-output* nil)
       (:div :class "card border-0 shadow-sm rounded-4 mb-4"
 	(:div :class "card-body text-start"
@@ -3204,13 +3207,13 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		  (cl-who:str (format nil "~D of ~D complete - ~D%" done total pct))))
 	    (:button :class "btn btn-sm btn-outline-secondary" :type "button"
 		     :data-bs-toggle "collapse" :data-bs-target "#vendorSetupGuide"
-		     :aria-expanded "true" :aria-controls "vendorSetupGuide"
+		     :aria-expanded (if (>= pct 100) "false" "true") :aria-controls "vendorSetupGuide"
 		     "Show / hide guide"))
 	  (:div :class "progress mt-3" :role "progressbar" :aria-valuenow pct
 		:aria-valuemin "0" :aria-valuemax "100" :style "height: 8px;"
 	    (:div :class "progress-bar bg-success" :style (format nil "width: ~D%" pct)))
 	  (:p :class "small text-muted mt-2" "A guide only - use the vendor menu to make changes. Nothing here submits a form.")
-	  (:div :class "collapse show" :id "vendorSetupGuide"
+	  (:div :class (if (>= pct 100) "collapse" "collapse show") :id "vendorSetupGuide"
 	    (:ul :class "list-unstyled small mt-3 mb-3"
 	      (dolist (item items)
 		(cl-who:htm
@@ -3222,13 +3225,17 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		   (cl-who:str (if (getf item :done) " - done" " - missing"))
 		   (:div :class "text-muted" (cl-who:str (getf item :where)))
 		   (:div :class "text-muted" (cl-who:str (getf item :why)))))))
+	    (:div :class "small mb-3"
+	      (:i :class "fa-solid fa-truck me-2")
+	      (:strong "Shipping: ")
+	      (cl-who:str shipping-note))
 	    (:h6 :class "mt-4" "Payments & UPI")
 	    (:p :class "small" "Invoices will not show a QR code image unless a UPI ID is entered into the system. Add it at Vendor Settings -> Vendor Profile -> Payment Gateway tab.")
 	    (:p :class "small" "Cash, UPI, Wallet, Payment Gateway and Pay Later are enabled at registration. Review them at Vendor Settings -> E-Commerce Payment Methods and turn off what you do not accept.")
 	    (:h6 :class "mt-4" "Company profile")
 	    (:p :class "small" "Legal company name, GST number and financial-year start month are the invoice identity. PAN and trade name are recommended but not scored. Use Vendor Settings -> Vendor Profile -> Company Details and GST & Tax.")
 	    (:h6 :class "mt-4" "Shipping")
-	    (:p :class "small" "Only FREE shipping is enabled by default, with no zones. Add zones and rates at Vendor Settings -> E-Commerce Shipping Methods; that page has its own help section.")
+	    (:p :class "small" "If you deliver, enable Store Pickup or Shipping at Vendor Settings -> E-Commerce Shipping Methods. If neither is enabled, the store treats you as not using shipping - fine for digital products or POS. Free Shipping is seeded as a rate, but the master shipping switch is off at registration.")
 	    (:h6 :class "mt-4" "Products")
 	    (:p :class "small" "List a product; the store administrator approves it before customers can order it. This is advisory and not part of the percentage.")
 	    (:h6 :class "mt-4" "What happens next")
