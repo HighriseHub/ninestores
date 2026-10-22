@@ -2496,6 +2496,71 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	 (widgets (funcall #'create-widgets-for-searchInvoiceHeader modelfunc)))
     (display-search-results-with-widgets widgets)))
 
+(defun nst-money-close-p (a b)
+  "Are A and B the same money to the paise?"
+  (<= (abs (- (float (or a 0.0)) (float (or b 0.0)))) 0.005))
+
+(defun nst-invoice-item-tax-rates (item)
+  "The (CGST SGST IGST) rates to re-derive ITEM's tax with: the stored row's when any is positive,
+   otherwise its HSN's — the item-edit path used to leave all three at 0.00."
+  (let ((stored (list (or (slot-value item 'cgstrate) 0.0)
+		      (or (slot-value item 'sgstrate) 0.0)
+		      (or (slot-value item 'igstrate) 0.0))))
+    (if (some #'plusp stored)
+	stored
+	(let ((hsn (select-hsn-code-by-code (or (slot-value item 'hsncode) ""))))
+	  (if hsn
+	      (list (or (slot-value hsn 'cgst) 0.0)
+		    (or (slot-value hsn 'sgst) 0.0)
+		    (or (slot-value hsn 'igst) 0.0))
+	      stored)))))
+
+(defun nst-rederive-invoice-item-taxes (invheader company)
+  "Re-derive every line of INVHEADER from its state code / place of supply pair, persisting the lines
+   that disagree. Moving the place of supply used to leave the tax head as it stood (invoice 151)."
+  (let* ((ireq (make-instance 'InvoiceItemRequestModel :company company :InvoiceHeader invheader))
+	 (items (processreadallrequest (make-instance 'InvoiceItemAdapter) ireq)))
+    (dolist (item items items)
+      (let* ((rates (nst-invoice-item-tax-rates item))
+	     (m (multiple-value-list
+		 (nst-line-money (slot-value item 'qty) (slot-value item 'price)
+				 (slot-value item 'discount) rates
+				 (slot-value invheader 'statecode)
+				 (slot-value invheader 'placeofsupply))))
+	     (taxable (nth 0 m)) (cgstr (nth 1 m)) (sgstr (nth 2 m)) (igstr (nth 3 m))
+	     (cgsta (nth 4 m)) (sgsta (nth 5 m)) (igsta (nth 6 m)) (total (nth 7 m)))
+	(unless (and (nst-money-close-p taxable (slot-value item 'taxablevalue))
+		     (nst-money-close-p cgstr (slot-value item 'cgstrate))
+		     (nst-money-close-p sgstr (slot-value item 'sgstrate))
+		     (nst-money-close-p igstr (slot-value item 'igstrate))
+		     (nst-money-close-p cgsta (slot-value item 'cgstamt))
+		     (nst-money-close-p sgsta (slot-value item 'sgstamt))
+		     (nst-money-close-p igsta (slot-value item 'igstamt))
+		     (nst-money-close-p total (slot-value item 'totalitemval)))
+	  (setf (slot-value item 'taxablevalue) taxable
+		(slot-value item 'cgstrate) cgstr
+		(slot-value item 'sgstrate) sgstr
+		(slot-value item 'igstrate) igstr
+		(slot-value item 'cgstamt) cgsta
+		(slot-value item 'sgstamt) sgsta
+		(slot-value item 'igstamt) igsta
+		(slot-value item 'totalitemval) total)
+	  (processupdaterequest
+	   (make-instance 'InvoiceItemAdapter)
+	   (make-instance 'InvoiceItemRequestModel
+			  :InvoiceHeader invheader
+			  :prd-id (slot-value item 'prd-id)
+			  :qty (slot-value item 'qty)
+			  :price (slot-value item 'price)
+			  :discount (slot-value item 'discount)
+			  :taxablevalue taxable
+			  :cgstrate cgstr :cgstamt cgsta
+			  :sgstrate sgstr :sgstamt sgsta
+			  :igstrate igstr :igstamt igsta
+			  :totalitemval total
+			  :status (slot-value item 'status)
+			  :company company)))))))
+
 (defun create-model-for-updateInvoiceHeader ()
   :description "This is a model function for update InvoiceHeader entity"
   (let* ((invnum (hunchentoot:parameter "invnum"))
@@ -2561,10 +2626,15 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
     (with-hhub-transaction "com-hhub-transaction-update-invoice-action" params 
       (handler-case 
 	  (let* ((domainobj (ProcessUpdateRequest adapterobj requestmodel)))
-	    (when sessioninvoice
-	      (setf (slot-value sessioninvoice 'invoiceheader) domainobj)
-	      (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
-	      (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht))	   
+	    ;; THE PLACE OF SUPPLY IS EDITABLE ON THIS FORM: re-derive the lines, or the invoice keeps
+	    ;; the tax head it was priced with (invoice 151: POS 29→33, still CGST + SGST).
+	    (let ((items (nst-rederive-invoice-item-taxes domainobj company)))
+	      (when sessioninvoice
+		(setf (slot-value sessioninvoice 'invoiceheader) domainobj)
+		(setf (slot-value sessioninvoice 'invoicetaxbreakdown)
+		      (generate-gst-tax-breakdown domainobj items))
+		(setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
+		(setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht)))	   	   	   
 	    (function (lambda ()
 	      (values redirectlocation domainobj))))
 
@@ -2665,6 +2735,9 @@ background: linear-gradient(171deg, rgba(222,228,255,1) 0%, rgba(224,236,255,1) 
 	    ;; set the InvoiceHeader context for the invoice being created and add to the session invoice. 
 	    (when (and createdobj sessioninvoice)
 	      (setf (slot-value sessioninvoice 'invoiceheader) domainobj)
+	      ;; the breakdown is built against the DEFAULT place of supply at page open; rebuild it
+	      ;; against the state pair this form actually saved, or every later line lands in the wrong table
+	      (setf (slot-value sessioninvoice 'invoicetaxbreakdown) (generate-gst-tax-breakdown domainobj '()))
 	      (setf (gethash sessioninvkey sessioninvoices-ht) sessioninvoice)
 	      (setf (hunchentoot:session-value :session-invoices-ht) sessioninvoices-ht))
 	    

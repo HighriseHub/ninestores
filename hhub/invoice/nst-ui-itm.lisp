@@ -132,10 +132,10 @@
 	 ;; invoice line typed here could disagree with the same sale's cart line by a paise (and by a tax
 	 ;; head, when a state NAME met its CODE).
 	 (money (multiple-value-list (nst-line-money prdqty price discount gstvalues statecode placeofsupply)))
-	 ;; ⚠ ONLY THE FIGURES THIS PAGE USES: the rates are not passed to the request model here (HEAD did not
-	 ;; pass them either — its rate bindings existed only to compute the amounts), so binding them would
-	 ;; only manufacture unused-variable warnings.
+	 ;; THE RATES ARE PERSISTED NOW: DOUPDATE ignored them, so an edited row kept 0.00% beside a
+	 ;; non-zero CGST/SGST amount (measured invoice 151 line 518).
 	 (taxablevalue (nth 0 money))
+	 (cgstrate (nth 1 money)) (sgstrate (nth 2 money)) (igstrate (nth 3 money))
 	 (cgstamt (nth 4 money)) (sgstamt (nth 5 money)) (igstamt (nth 6 money)) (totalitemval (nth 7 money))
 	 (requestmodel (make-instance 'InvoiceItemRequestModel
 					 :InvoiceHeader sessioninvheader
@@ -145,8 +145,11 @@
 					 :hsncode hsncode
 					 :discount discount
 					 :taxablevalue taxablevalue
+					 :cgstrate cgstrate
 					 :cgstamt cgstamt
+					 :sgstrate sgstrate
 					 :sgstamt sgstamt
+					 :igstrate igstrate
 					 :igstamt igstamt
 					 :totalitemval totalitemval
 					 :status "CONFIRMED"
