@@ -1480,6 +1480,63 @@ Only shows sections based on availability flags and customer type."
     (function (lambda ()
       (values cmpname cmpaddress cmpcountry signup-error)))))
 
+(defun render-signup-help (company-name)
+  "The collapsible right-hand help panel for the customer/vendor sign-up page."
+  (cl-who:with-html-output-to-string (*standard-output* nil)
+    (:div :class "card h-100 border-0 shadow-sm rounded-4"
+      (:div :class "card-body text-start"
+        (:div :class "d-flex justify-content-between align-items-center mb-2"
+          (:h3 :class "card-title h5 mb-0" "How to fill this form")
+          (:button :class "btn btn-sm btn-outline-secondary" :type "button"
+                   :data-bs-toggle "collapse" :data-bs-target "#signupHelp"
+                   :aria-expanded "true" :aria-controls "signupHelp"
+                   "Show / hide help"))
+        (:div :class "collapse show" :id "signupHelp"
+          (:p :class "small text-muted" "A guide only - it does not submit the form.")
+          (:p :class "small" "You are registering with "
+              (:strong (cl-who:str (cl-who:escape-string company-name))) ".")
+          (:h6 :class "mt-3" "Before you start")
+          (:ul :class "small ps-3"
+            (:li "Use the mobile number and email you will use to sign in - the mobile receives the one-time code.")
+            (:li "One vendor account per mobile number per store. If you already have one, sign in instead of registering again.")
+            (:li "A company administrator reviews every registration; you cannot sign in until it is approved."))
+          (:h6 :class "mt-4" "The fields")
+          (:dl :class "small mb-0"
+            (:dt "Contact person")
+            (:dd "The person the store will call or email about this account.")
+            (:dt "Email")
+            (:dd "A business email; the approval and rejection emails go here.")
+            (:dt "Mobile")
+            (:dd "10-digit number; used for the one-time code.")
+            (:dt "Register as")
+            (:dd "Vendor to sell to this store; Customer to buy from it.")
+            (:dt "Company legal name")
+            (:dd "Exactly as on your GST/PAN, at least 3 letters or digits. It becomes the invoice/document prefix.")
+            (:dt "Trade / brand name")
+            (:dd "Optional; the name your customers know. Preferred over the legal name for the prefix.")
+            (:dt "Registered address")
+            (:dd "Street, building and area of the registered premises.")
+            (:dt "PIN code")
+            (:dd "6 digits; city and state fill automatically.")
+            (:dt "City / State")
+            (:dd "Confirm the auto-filled values; edit them if needed."))
+          (:p :class "small text-muted mt-2" "Company Details apply to vendor registration. If you register as a customer, skip that block.")
+          (:h6 :class "mt-4" "What happens after you submit")
+          (:ol :class "small ps-3"
+            (:li "Solve the captcha and submit. We send an OTP to your mobile.")
+            (:li "The store administrator receives an email and reviews your registration.")
+            (:li "We email you when it is approved. Only then can you sign in with your phone and a one-time code.")
+            (:li "The confirmation page names the administrator and their contact details for follow-up."))
+          (:h6 :class "mt-4" "Tips")
+          (:ul :class "small ps-3"
+            (:li "Use a business email, not a personal one, so approval mail reaches the right person.")
+            (:li "Keep the legal name consistent with your tax records.")
+            (:li "If the PIN does not fill the city and state, type them manually."))
+          (:p :class "small mb-0" "Need help? Write to "
+              (:a :href (format nil "mailto:~A" *HHUBSUPPORTEMAIL*) (cl-who:str *HHUBSUPPORTEMAIL*)) "."))))
+    (:script :type "text/javascript"
+      (cl-who:str "if (window.matchMedia('(max-width: 991.98px)').matches) { var h=document.getElementById('signupHelp'); if(h){h.classList.remove('show');} var b=document.querySelector('[data-bs-target=\"#signupHelp\"]'); if(b){b.setAttribute('aria-expanded','false');} }"))))
+
 (defun create-widgets-for-custven-signup-page (modelfunc)
   (multiple-value-bind (cmpname cmpaddress cmpcountry signup-error) (funcall modelfunc)
     ;; --- WIDGET 1: Company Header & Read-only Info ---
@@ -1565,6 +1622,9 @@ document.getElementById('bizcity').value=a.city||'';
 document.getElementById('bizstate').value=a.state||'';}}).catch(function(){});}
 window.addEventListener('DOMContentLoaded',function(){var z=document.getElementById('bizzipcode');if(z){z.addEventListener('change',hhubFillCityState)}});"))
                              )))))
+          (widget4 (function (lambda ()
+                     (cl-who:with-html-output (*standard-output* nil)
+                       (cl-who:str (render-signup-help cmpname))))))
             ;; --- WIDGET 5: Submit Button and Captcha (Optional, but included for completeness) ---
             ;; We'll use 4 widgets and put the last elements here for simplicity,
             ;; or treat them as a part of widget2 for a strict 4-widget division.
@@ -1574,29 +1634,23 @@ window.addEventListener('DOMContentLoaded',function(){var z=document.getElementB
           (main-wrapper (function (lambda ()
                           (cl-who:with-html-output (*standard-output* nil)
                             (:div :class "container my-5"
-                                  (:div :class "row justify-content-center"
-                                        (:div :class "col-md-7 col-lg-5"
+                                  (:div :class "row g-4 justify-content-center align-items-start"
+                                        (:div :class "col-lg-7"
 					      (with-html-card
 						  (:title (format nil "Registration to ~A Store" cmpname)
 						   :image-src "/img/logo.png" 
 						   :image-alt "Customer Logo"
 						   :image-style "width: 200px; height: 200px;")
-	    					;; Wrap all widgets in the form container
 						(with-html-form-having-submit-event "form-custvensignup" "custsignup1step2"
-                                                  ;; Render the content of the widgets sequentially
 						  (funcall widget1)
 						  (funcall widget2)
 						  (funcall widget3)
-						  ;; Final Elements (reCAPTCHA and Submit Button)
 						  (:div :class "mb-4 text-center"
 							(:div :class "g-recaptcha d-inline-block" :data-sitekey *HHUBRECAPTCHAV2KEY*))
 						  (:div :class "d-grid gap-2"
-							(:button :class "btn btn-lg btn-primary" :type "submit" "Submit Registration"))
-						  ) ; end with-html-form-having-submit-event
-						) ; end with-html-card
-                                              ) ; end col-md-7 col-lg-5
-                                       ) ; end row justify-content-center
-                                  ) ; end container
+							(:button :class "btn btn-lg btn-primary" :type "submit" "Submit Registration")))))
+					(:div :class "col-lg-5"
+					  (funcall widget4))))
                             (hhub-html-page-footer))))))
 
       ;; Return only the primary, final wrapper widget to be rendered by the caller
