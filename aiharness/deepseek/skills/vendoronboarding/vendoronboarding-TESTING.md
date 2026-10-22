@@ -146,6 +146,8 @@ where table_schema='hhubdb' and column_name='VENDOR_ID';
 
 Then, children before parent, one transaction (this is the exact sweep used on 2026-10-18):
 
+The same sweep is scripted as `installation/delete-vendor [--dry-run] [VENDOR_ID TENANT_ID]`; it prompts for the ids, shows the counts, and requires typing `DELETE`.
+
 ```sql
 set @v := 22, @t := 5;
 start transaction;

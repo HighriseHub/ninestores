@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Hard-delete one test vendor and its child rows, freeing (PHONE, TENANT_ID).
+# Usage: installation/delete-vendor [--dry-run] [VENDOR_ID TENANT_ID]
+
+set -euo pipefail
+
+DRY_RUN=0
+if [ "${1:-}" = "--dry-run" ]; then
+  DRY_RUN=1
+  shift
+fi
+
+DB_HOST="${DB_HOST:-localhost}"
+DB_NAME="${DB_NAME:-hhubdb}"
+DB_USER="${DB_USER:-hhubuser}"
+VENDOR_ID="${1:-}"
+TENANT_ID="${2:-}"
+
+[ -n "$VENDOR_ID" ] || read -r -p "Vendor ID: " VENDOR_ID
+[ -n "$TENANT_ID" ] || read -r -p "Tenant ID: " TENANT_ID
+
+if ! [[ "$VENDOR_ID" =~ ^[0-9]+$ && "$TENANT_ID" =~ ^[0-9]+$ ]]; then
+  echo "Vendor ID and tenant ID must be positive integers." >&2
+  exit 1
+fi
+
+if [ -z "${MYSQL_PWD:-}" ]; then
+  read -r -s -p "MySQL password for $DB_USER: " MYSQL_PWD
+  echo
+  export MYSQL_PWD
+fi
+trap 'unset MYSQL_PWD' EXIT
+
+mysql_run() {
+  mysql --batch --skip-column-names -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" "$@"
+}
+
+VENDOR=$(mysql_run -e "SELECT CONCAT_WS(CHAR(9), ROW_ID, TENANT_ID, NAME, PHONE, APPROVED_FLAG, APPROVAL_STATUS) FROM DOD_VEND_PROFILE WHERE ROW_ID=$VENDOR_ID AND TENANT_ID=$TENANT_ID;")
+if [ -z "$VENDOR" ]; then
+  echo "No vendor $VENDOR_ID in tenant $TENANT_ID." >&2
+  exit 1
+fi
+
+printf 'Vendor: %s\n' "$VENDOR"
+printf 'Products: %s, vendor orders: %s, invoices: %s\n' \
+  "$(mysql_run -e "SELECT COUNT(*) FROM DOD_PRD_MASTER WHERE VENDOR_ID=$VENDOR_ID;")" \
+  "$(mysql_run -e "SELECT COUNT(*) FROM DOD_VENDOR_ORDERS WHERE VENDOR_ID=$VENDOR_ID;")" \
+  "$(mysql_run -e "SELECT COUNT(*) FROM DOD_INVOICE_HEADER WHERE VENDOR_ID=$VENDOR_ID;")"
+
+echo "This permanently deletes the vendor and its products, orders and invoices."
+read -r -p "Type DELETE to continue: " CONFIRM
+[ "$CONFIRM" = "DELETE" ] || { echo "Aborted."; exit 1; }
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  echo "Dry run - nothing deleted."
+  exit 0
+fi
+
+mysql_run <<SQL
+SET @v := $VENDOR_ID, @t := $TENANT_ID;
+START TRANSACTION;
+DELETE FROM DOD_INVOICE_ITEMS
+ WHERE INVHEADID IN (SELECT ROW_ID FROM DOD_INVOICE_HEADER WHERE VENDOR_ID=@v);
+DELETE FROM DOD_PRODUCT_PRICING
+ WHERE PRODUCT_ID IN (SELECT ROW_ID FROM DOD_PRD_MASTER WHERE VENDOR_ID=@v);
+DELETE FROM DOD_BUYER_VENDOR_ACCOUNT       WHERE VENDOR_ID=@v;
+DELETE FROM DOD_CUST_WALLET                WHERE VENDOR_ID=@v;
+DELETE FROM DOD_GSTR1_EXPORTS              WHERE VENDOR_ID=@v;
+DELETE FROM DOD_INVOICE_GSTR1_TRACKING     WHERE VENDOR_ID=@v;
+DELETE FROM DOD_PAYMENT_TRANSACTION        WHERE VENDOR_ID=@v;
+DELETE FROM DOD_TDS_CERTIFICATES           WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VENDOR_APPOINTMENT         WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VENDOR_AVAILABILITY_DAY    WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VENDOR_GSTR1_STATUS        WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VENDOR_SHIP_ZONES          WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VPAYMENT_METHODS           WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VPAYMENT_PROVIDERS         WHERE VENDOR_ID=@v;
+DELETE FROM DOD_WEBPUSH_NOTIFY             WHERE VENDOR_ID=@v;
+DELETE FROM DOD_INVOICE_HEADER             WHERE VENDOR_ID=@v;
+DELETE FROM DOD_PRD_MASTER                 WHERE VENDOR_ID=@v;
+DELETE FROM DOD_SHIPPING_METHODS           WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VENDOR_SETTINGS            WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VENDOR_TENANTS             WHERE VENDOR_ID=@v;
+DELETE FROM DOD_ORDER_ITEMS                WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VENDOR_ORDERS              WHERE VENDOR_ID=@v;
+DELETE FROM DOD_UPI_PAYMENTS               WHERE VENDOR_ID=@v;
+DELETE FROM DOD_PROFORMA_INVOICES          WHERE VENDOR_ID=@v;
+DELETE FROM DOD_ADVANCE_RECEIPT_VOUCHERS   WHERE VENDOR_ID=@v;
+DELETE FROM DOD_VEND_PROFILE               WHERE ROW_ID=@v AND TENANT_ID=@t;
+COMMIT;
+SQL
+
+LEFT=$(mysql_run -e "SELECT COUNT(*) FROM DOD_VEND_PROFILE WHERE ROW_ID=$VENDOR_ID;")
+if [ "$LEFT" != "0" ]; then
+  echo "Vendor row still present; the transaction may have rolled back." >&2
+  exit 1
+fi
+
+ORPHANS=$(mysql_run -e "SELECT COUNT(*) FROM DOD_VENDOR_TENANTS WHERE VENDOR_ID=$VENDOR_ID;")
+if [ "$ORPHANS" != "0" ]; then
+  echo "Warning: $ORPHANS vendor-tenant row(s) remain." >&2
+fi
+
+echo "Vendor $VENDOR_ID deleted from tenant $TENANT_ID; the phone is free for re-registration."
