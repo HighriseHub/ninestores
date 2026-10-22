@@ -50,6 +50,7 @@
 (defvar *HHUB-VENDOR-ADMIN-PENDING-TEMPLATE-FILE* "vend-admin-pending.html")
 (defvar *HHUB-VENDOR-APPROVED-TEMPLATE-FILE* "vend-approved.html")
 (defvar *HHUB-VENDOR-REJECTED-TEMPLATE-FILE* "vend-rejected.html")
+(defvar *HHUB-VENDOR-STATUS-TEMPLATE-FILE* "vend-status.html")
 (defvar *HHUB-TERMSANDCONDITIONS-FILE* "tnc.html")
 (defvar *HHUB-PRIVACY-FILE* "privacy.html")
 (defvar *HHUB-STATIC-FILES* "/home/ubuntu/ninestores/site/public")

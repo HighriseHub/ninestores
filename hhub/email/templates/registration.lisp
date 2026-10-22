@@ -169,6 +169,7 @@
 						   (cons "%VendorName%" (slot-value vendor 'name))
 						   (cons "%VendorPhone%" (slot-value vendor 'phone))
 						   (cons "%VendorEmail%" to)
+						   (cons "%StatusUrl%" (format nil "~A/hhub/hhubvendloginv2?status=1" *siteurl*))
 						   (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
 	(hhub-log-message (format nil "~&[vendor-onboarding] E1 -> ~A (vendor ~A, tenant ~A)~%"
 				  to (slot-value vendor 'name) (slot-value company 'row-id)))
@@ -199,7 +200,8 @@
 						      (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
 	    (send-email-async admin-email
 			      (format nil "Approval needed - ~A registered as a vendor" vname)
-			      body nil :persona :admin)))))))
+			      body nil :persona :admin))))
+      (and recipients t))))
 
 (defun send-vendor-approved-email (vendor company)
   :documentation "Vendor onboarding E3: the approval is committed; tell the vendor they are live and give them the three jobs. A mail failure must never roll back the approval."
@@ -255,6 +257,62 @@
 	    (send-email-async to (format nil "Not approved - your vendor registration with ~A" cmpname) body nil :persona :vendor))))
     (error (c)
       (hhub-log-message (format nil "~&[vendor-onboarding] E4 FAILED for vendor ~A: ~A~%"
+				(ignore-errors (slot-value vendor 'name)) c))
+      nil)))
+
+(defun send-vendor-status-email (vendor company state &key renotified-p)
+  :documentation "Vendor onboarding E5: email the vendor their registration state; the login page always shows the same sentence."
+  (handler-case
+      (let* ((to (slot-value vendor 'email))
+	     (cmpname (and company (slot-value company 'name)))
+	     (vname (slot-value vendor 'name))
+	     (admin-line
+	       (when (eq state :rejected)
+		 (let* ((admins (and company (select-compadmin-contacts-for-tenant (slot-value company 'row-id))))
+			(admin (or (find-if (lambda (a) (getf a :email)) admins) (first admins))))
+		   (if admin
+		       (let ((name (getf admin :name))
+			     (email (getf admin :email))
+			     (phone (getf admin :phone)))
+			 (cond ((and name email phone) (format nil "Contact ~A at ~A or ~A." name email phone))
+			       ((and name email) (format nil "Contact ~A at ~A." name email))
+			       (email (format nil "Contact the company administrator at ~A." email))
+			       (phone (format nil "Contact the company administrator on ~A." phone))
+			       (t "Contact the company administrator through the store.")))
+		       "Contact the company administrator through the store."))))
+	     (state-line (case state
+			   (:pending (format nil "Waiting for approval by ~A." (or cmpname "the store")))
+			   (:approved "Approved. You can sign in now.")
+			   (:rejected (format nil "Not approved by ~A." (or cmpname "the store")))
+			   (:stranded "Approved, but the account is not fully activated.")
+			   (otherwise "No registration found for this number.")))
+	     (next-step (case state
+			  (:pending (if renotified-p
+					"The company administrator has been re-notified; nothing else is needed from you right now."
+					"The company administrator has your registration; nothing else is needed from you right now."))
+			  (:approved "Sign in with your registered phone and the one-time code we SMS you.")
+			  (:rejected (or admin-line "Contact the company administrator through the store."))
+			  (:stranded (format nil "We have flagged this to ~A; reply with your registered phone number." *HHUBSUPPORTEMAIL*))
+			  (otherwise "You can register from the store's sign-up page.")))
+	     (action-block (if (eq state :approved)
+			       (format nil "<p style=\"margin:24px 0;\"><a href=\"~A\" style=\"display:inline-block; padding:12px 20px; background:#2563eb; color:#ffffff; text-decoration:none; border-radius:6px;\">Sign in</a></p>"
+				       (format nil "~A/hhub/hhubvendloginv2" *siteurl*))
+			       "")))
+	(when (and to cmpname)
+	  (let* ((templ-str (hhub-read-file (format nil "~A/~A" *HHUB-EMAIL-TEMPLATES-FOLDER* *HHUB-VENDOR-STATUS-TEMPLATE-FILE*)))
+		 (body (hhub-fill-email-template templ-str
+						 (list (cons "%CompanyName%" cmpname)
+						       (cons "%VendorName%" vname)
+						       (cons "%StateLine%" state-line)
+						       (cons "%NextStepLine%" next-step)
+						       (cons "%ActionBlock%" action-block)
+						       (cons "%SupportEmail%" *HHUBSUPPORTEMAIL*)))))
+	    (hhub-log-message (format nil "~&[vendor-onboarding] E5 -> ~A (vendor ~A, tenant ~A, state ~A)~%"
+				      to vname (slot-value company 'row-id) state))
+	    (send-email-async to (format nil "Your ~A registration status" cmpname) body nil :persona :vendor)
+	    t)))
+    (error (c)
+      (hhub-log-message (format nil "~&[vendor-onboarding] E5 FAILED for vendor ~A: ~A~%"
 				(ignore-errors (slot-value vendor 'name)) c))
       nil)))
 

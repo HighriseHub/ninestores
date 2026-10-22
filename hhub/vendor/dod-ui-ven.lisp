@@ -1721,6 +1721,10 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		    ;;<!-- Title -->
 		    (:h1 :class "text-2xl font-bold mb-2" "Welcome to Nine Stores")
 		    (:p :class "text-gray-300 mb-6" "Vendor OTP Login Portal")
+		     (when (equal (hunchentoot:parameter "statusmail") "1")
+		       (cl-who:htm
+			(:div :class "mb-4 rounded-lg border border-sky-400/40 bg-sky-400/10 p-3 text-sm text-sky-100"
+			  "If that number is registered, we have emailed the status.")))
 		     (when (hunchentoot:session-value :vendor-login-state)
 		       (let ((state (hunchentoot:session-value :vendor-login-state)))
 			 (setf (hunchentoot:session-value :vendor-login-state) nil)
@@ -1739,6 +1743,14 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 				      "Get OTP")))
 		     ;;<!-- Divider -->
 		     (:div :class "my-6 border-t border-white/20")
+		     (:details :class "mt-6 text-left" :open (when (equal (hunchentoot:parameter "status") "1") "open")
+		       (:summary :class "cursor-pointer text-sm text-gray-300 hover:text-white" "Email me my status")
+		       (:form :method "POST" :action "hhubvendstatusmail" :class "mt-3 space-y-3"
+			      (:input :type "number" :name "phone" :required "true" :placeholder "Registered phone"
+				      :class "w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder-gray-300 text-white")
+			      (:button :type "submit"
+				       :class "w-full py-2 bg-white/10 hover:bg-white/20 border border-white/30 rounded-lg text-white font-semibold text-sm"
+				       "Email me my status")))
 		     ;;<!-- Alternative login -->
 		     
 		     ;;<!-- Footer -->
@@ -2477,6 +2489,51 @@ Phase2: User should copy those URLs in Products.csv and then upload that file."
 		  :company (and company (slot-value company 'name))
 		  :reason (slot-value vendor 'rejection-reason)
 		  :admin admin))))))
+
+(defvar *vendor-status-mail-last-sent* (make-hash-table :test 'equal))
+(defvar *vendor-status-mail-lock* (sb-thread:make-mutex :name "vendor-status-mail"))
+(defparameter *vendor-status-mail-interval* 600)
+
+(defun vendor-status-mail-allowed-p (phone)
+  (sb-thread:with-mutex (*vendor-status-mail-lock*)
+    (let ((last (gethash phone *vendor-status-mail-last-sent*)))
+      (or (null last)
+	  (>= (- (get-universal-time) last) *vendor-status-mail-interval*)))))
+
+(defun vendor-status-mail-mark-sent (phone)
+  (sb-thread:with-mutex (*vendor-status-mail-lock*)
+    (setf (gethash phone *vendor-status-mail-last-sent*) (get-universal-time))))
+
+(defun dod-vendor-status-for-phone (phone)
+  "Resolve PHONE to its vendor row, company and one of the five E5 states."
+  (let* ((vendor (car (clsql:select 'dod-vend-profile :where [and
+				  [= [:phone] phone]
+				  [= [:deleted-state] "N"]]
+			   :caching nil :flatp t)))
+	 (company (and vendor (vendor-login-company vendor))))
+    (if (null vendor)
+	(list :state :no-row)
+	(list :state (cond ((and (equal (slot-value vendor 'approved-flag) "Y")
+				 (equal (slot-value vendor 'approval-status) "APPROVED")) :approved)
+			   ((equal (slot-value vendor 'approval-status) "REJECTED") :rejected)
+			   ((equal (slot-value vendor 'approved-flag) "Y") :stranded)
+			   (t :pending))
+	      :vendor vendor
+	      :company company))))
+
+(defun dod-controller-vendor-status-mail ()
+  (let ((phone (hunchentoot:post-parameter "phone")))
+    (when (and phone (plusp (length phone)) (vendor-status-mail-allowed-p phone))
+      (let* ((status (dod-vendor-status-for-phone phone))
+	     (vendor (getf status :vendor))
+	     (company (getf status :company))
+	     (state (getf status :state))
+	     (renotified (and vendor company (slot-value vendor 'email) (eq state :pending)
+			      (not (null (ignore-errors (send-vendor-admin-pending-email vendor company)))))))
+	(when (and vendor company
+		   (send-vendor-status-email vendor company state :renotified-p renotified))
+	  (vendor-status-mail-mark-sent phone))))
+    (hunchentoot:redirect "/hhub/hhubvendloginv2?statusmail=1")))
 
 (defun render-vendor-login-state (state)
   "Render the login-page panel for one non-approved vendor state."
